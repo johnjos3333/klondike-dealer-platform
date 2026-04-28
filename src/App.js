@@ -2435,8 +2435,14 @@ export default function App() {
                           const lower = value.toLowerCase();
 
                           const ranked = PRODUCT_MAP.map((p) => {
-                            const score = p.keywords.filter((k) =>
-                              lower.includes(k.toLowerCase())
+                            const combinedText = `${p.keywords.join(" ")} ${
+                              p.match
+                            }`.toLowerCase();
+
+                            const score = p.keywords.filter(
+                              (k) =>
+                                lower.includes(k.toLowerCase()) ||
+                                k.toLowerCase().includes(lower)
                             ).length;
 
                             let confidence = "Low";
@@ -2445,22 +2451,35 @@ export default function App() {
 
                             let reason = "Matches application category";
 
-                            if (lower.includes("15w-40")) {
+                            if (combinedText.includes("15w-40")) {
                               reason =
                                 "Matches 15W-40 viscosity and heavy-duty engine oil application";
                             } else if (
-                              lower.includes("hydraulic") ||
-                              lower.includes("aw")
+                              combinedText.includes("hydraulic") ||
+                              combinedText.includes("aw")
                             ) {
                               reason = "Matches hydraulic oil application";
                             } else if (
-                              lower.includes("atf") ||
-                              lower.includes("transmission")
+                              combinedText.includes("atf") ||
+                              combinedText.includes("transmission")
                             ) {
                               reason = "Matches transmission fluid application";
                             }
 
-                            return { ...p, score, confidence, reason };
+                            const competitorLabel =
+                              p.competitor ||
+                              p.name ||
+                              (p.keywords?.length
+                                ? p.keywords.join(" ")
+                                : "Competitor Match");
+
+                            return {
+                              ...p,
+                              score,
+                              confidence,
+                              reason,
+                              competitor: competitorLabel,
+                            };
                           })
                             .filter((p) => p.score > 0)
                             .sort((a, b) => b.score - a.score)
