@@ -2034,10 +2034,64 @@ export default function App() {
       const key = `${item.klondike}__${item.packageSize}`;
       return pricingMap[key];
     };
+    function normalizeText(str) {
+      return (str || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, "")
+        .trim();
+    }
 
+    function extractViscosity(str) {
+      const match = str.match(/\b\d{1,2}w-\d{1,2}\b/i);
+      return match ? match[0].toLowerCase() : null;
+    }
+
+    function extractTier(str) {
+      const lower = (str || "").toLowerCase();
+
+      if (lower.includes("full synthetic")) return "Best";
+      if (lower.includes("advanced")) return "Better";
+      if (lower.includes("professional")) return "Good";
+
+      return null;
+    }
+
+    function resolvePricingMatch(klondikeName, pricingMap) {
+      if (!klondikeName || !pricingMap) return null;
+
+      const normalizedTarget = normalizeText(klondikeName);
+      const targetViscosity = extractViscosity(klondikeName);
+      const targetTier = extractTier(klondikeName);
+
+      const entries = Object.entries(pricingMap);
+
+      // 1. Try exact match
+      for (let [key, item] of entries) {
+        if (normalizeText(key).includes(normalizedTarget)) {
+          return item;
+        }
+      }
+
+      // 2. Try viscosity + tier match
+      for (let [key, item] of entries) {
+        const keyLower = key.toLowerCase();
+
+        if (
+          targetViscosity &&
+          keyLower.includes(targetViscosity) &&
+          (!targetTier || keyLower.includes(targetTier.toLowerCase()))
+        ) {
+          return item;
+        }
+      }
+
+      return null;
+    }
     const getQuoteTotal = () =>
       quoteItems.reduce((sum, item) => {
-        const priceData = getPriceForItem(item);
+        const priceData =
+          getPriceForItem(item) ||
+          resolvePricingMatch(item.klondike, pricingMap);
         return sum + Number(priceData?.dealer_sell_price || 0);
       }, 0);
 
@@ -2728,7 +2782,9 @@ export default function App() {
                       )}
 
                       {quoteItems.map((item, index) => {
-                        const priceData = getPriceForItem(item);
+                        const priceData =
+                          getPriceForItem(item) ||
+                          resolvePricingMatch(item.klondike, pricingMap);
                         const price = Number(priceData?.dealer_sell_price || 0);
 
                         return (
@@ -2770,7 +2826,9 @@ export default function App() {
                       Total: $
                       {quoteItems
                         .reduce((sum, item) => {
-                          const priceData = getPriceForItem(item);
+                          const priceData =
+                            getPriceForItem(item) ||
+                            resolvePricingMatch(item.klondike, pricingMap);
                           return (
                             sum + Number(priceData?.dealer_sell_price || 0)
                           );
