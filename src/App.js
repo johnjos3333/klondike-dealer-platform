@@ -2439,7 +2439,28 @@ export default function App() {
                               lower.includes(k.toLowerCase())
                             ).length;
 
-                            return { ...p, score };
+                            let confidence = "Low";
+                            if (score >= 2) confidence = "High";
+                            else if (score === 1) confidence = "Medium";
+
+                            let reason = "Matches application category";
+
+                            if (lower.includes("15w-40")) {
+                              reason =
+                                "Matches 15W-40 viscosity and heavy-duty engine oil application";
+                            } else if (
+                              lower.includes("hydraulic") ||
+                              lower.includes("aw")
+                            ) {
+                              reason = "Matches hydraulic oil application";
+                            } else if (
+                              lower.includes("atf") ||
+                              lower.includes("transmission")
+                            ) {
+                              reason = "Matches transmission fluid application";
+                            }
+
+                            return { ...p, score, confidence, reason };
                           })
                             .filter((p) => p.score > 0)
                             .sort((a, b) => b.score - a.score)
@@ -2493,11 +2514,40 @@ export default function App() {
                                 setSearchResults([]);
                               }}
                             >
-                              <div style={{ fontWeight: 700 }}>
-                                {result.competitor || "Competitor Match"}
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                }}
+                              >
+                                <div style={{ fontWeight: 700 }}>
+                                  {result.competitor || "Competitor Match"}
+                                </div>
+
+                                <span
+                                  style={{
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    padding: "4px 8px",
+                                    borderRadius: 999,
+                                    background:
+                                      result.confidence === "High"
+                                        ? "#d1fae5"
+                                        : result.confidence === "Medium"
+                                        ? "#fef3c7"
+                                        : "#fee2e2",
+                                  }}
+                                >
+                                  {result.confidence}
+                                </span>
                               </div>
+
+                              <div style={{ fontSize: 13, opacity: 0.8 }}>
+                                {result.reason}
+                              </div>
+
                               <div style={{ fontSize: 13, opacity: 0.75 }}>
-                                {result.category || "Product"} → {result.match}
+                                → {result.match}
                               </div>
                             </button>
                           ))}
