@@ -1,5 +1,6 @@
 import "./styles.css";
 import React, { useEffect, useMemo, useState } from "react";
+import { PDS_MAP } from "./data/pdsMap";
 import { supabase } from "./supabase";
 const PRODUCT_DB = [
   {
@@ -2085,8 +2086,14 @@ export default function App() {
           return item;
         }
       }
-
       return null;
+    }
+
+    function getPdsLink(klondikeName) {
+      if (!klondikeName) return null;
+
+      const entry = PDS_MAP[klondikeName];
+      return entry ? entry.url : null;
     }
     const getDisplayPrice = (priceData) => {
       const basePrice = Number(
@@ -2835,6 +2842,22 @@ export default function App() {
                                 Tier: {item.tier} • Package:{" "}
                                 {item.packageSize || "No package selected"}
                               </div>
+                              {getPdsLink(item.klondike) && (
+                                <div style={{ marginTop: 6 }}>
+                                  <a
+                                    href={getPdsLink(item.klondike)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      color: "#f6a531",
+                                      fontWeight: 800,
+                                      textDecoration: "none",
+                                    }}
+                                  >
+                                    View Product Data Sheet →
+                                  </a>
+                                </div>
+                              )}
                             </div>
 
                             <div style={{ textAlign: "right" }}>
