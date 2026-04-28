@@ -1936,6 +1936,7 @@ export default function App() {
     const [quoteSaving, setQuoteSaving] = React.useState(false);
     const [quoteMessage, setQuoteMessage] = React.useState("");
     const [pricingMap, setPricingMap] = React.useState({});
+    const [useFloorPrice, setUseFloorPrice] = React.useState(false);
     const [searchResults, setSearchResults] = useState([]);
     React.useEffect(() => {
       const loadPricing = async () => {
@@ -2087,6 +2088,18 @@ export default function App() {
 
       return null;
     }
+    const getDisplayPrice = (priceData) => {
+      const basePrice = Number(
+        priceData?.suggested_account_unit_price ||
+          priceData?.dealer_sell_price ||
+          priceData?.suggestedAccountUnitPrice ||
+          0
+      );
+
+      return useFloorPrice ? basePrice * 0.9 : basePrice;
+    };
+
+    const formatMoney = (value) => `$${Number(value || 0).toFixed(2)}`;
     const getQuoteTotal = () =>
       quoteItems.reduce((sum, item) => {
         const priceData =
@@ -2772,7 +2785,24 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                  <div style={{ marginTop: 18, marginBottom: 18 }}>
+                    <label
+                      style={{ display: "flex", alignItems: "center", gap: 10 }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={useFloorPrice}
+                        onChange={(e) => setUseFloorPrice(e.target.checked)}
+                      />
+                      Apply Floor Price (-10%)
+                    </label>
 
+                    {useFloorPrice && (
+                      <div style={styles.listMeta}>
+                        Floor pricing applied for competitive situations.
+                      </div>
+                    )}
+                  </div>
                   <div style={{ marginTop: 20 }}>
                     <div style={styles.eyebrow}>SELECTED PRODUCTS</div>
 
@@ -2785,7 +2815,7 @@ export default function App() {
                         const priceData =
                           getPriceForItem(item) ||
                           resolvePricingMatch(item.klondike, pricingMap);
-                        const price = Number(priceData?.dealer_sell_price || 0);
+                        const price = getDisplayPrice(priceData);
 
                         return (
                           <div
@@ -2813,7 +2843,11 @@ export default function App() {
                                   ? `$${price.toFixed(2)}`
                                   : "No price"}
                               </div>
-                              <div style={styles.listMeta}>Dealer price</div>
+                              <div style={styles.listMeta}>
+                                {useFloorPrice
+                                  ? "Floor price applied"
+                                  : "Price"}
+                              </div>
                             </div>
                           </div>
                         );
@@ -2829,9 +2863,7 @@ export default function App() {
                           const priceData =
                             getPriceForItem(item) ||
                             resolvePricingMatch(item.klondike, pricingMap);
-                          return (
-                            sum + Number(priceData?.dealer_sell_price || 0)
-                          );
+                          return sum + getDisplayPrice(priceData);
                         }, 0)
                         .toFixed(2)}
                     </div>
