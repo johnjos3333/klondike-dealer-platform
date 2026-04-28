@@ -1912,6 +1912,7 @@ export default function App() {
 
     const [quoteStep, setQuoteStep] = React.useState(1);
     const [quoteItems, setQuoteItems] = React.useState([]);
+    const [proposalPreviewItems, setProposalPreviewItems] = React.useState([]);
     const [myQuotes, setMyQuotes] = React.useState([]);
 
     const [companyName, setCompanyName] = React.useState("");
@@ -2192,7 +2193,7 @@ export default function App() {
         setQuoteStep(2);
         return;
       }
-
+      setProposalPreviewItems(quoteItems);
       setQuoteSaving(true);
 
       const { data, error } = await supabase
@@ -2221,7 +2222,7 @@ export default function App() {
 
       setMyQuotes((prev) => [data, ...prev]);
       setQuoteMessage("Quote saved to library.");
-      setActiveTab("library");
+      setActiveTab("proposal_view");
 
       setCompanyName("");
       setContactName("");
@@ -2236,10 +2237,10 @@ export default function App() {
       setSegment("");
       setCompetitor("");
       setKlondike("");
-      setQuoteItems([]);
+      setQuoteItems((prev) => prev);
       setSelectedProduct(null);
       setQuoteSearchResults([]);
-      setQuoteStep(1);
+      setQuoteStep(3);
     };
 
     const PortalButton = ({ tab }) => {
@@ -2248,7 +2249,13 @@ export default function App() {
       return (
         <button
           type="button"
-          onClick={() => setActiveTab(tab.id)}
+          onClick={() => {
+            if (tab.id === "proposal_view") {
+              setProposalPreviewItems(quoteItems);
+            }
+
+            setActiveTab(tab.id);
+          }}
           style={{
             padding: "13px 18px",
             borderRadius: 12,
@@ -2711,7 +2718,7 @@ export default function App() {
 
                   {/* CURRENT ITEMS */}
                   <div style={{ marginTop: 18 }}>
-                    {quoteItems.length === 0 && (
+                    {proposalPreviewItems.length === 0 && (
                       <p style={styles.muted}>No products added yet.</p>
                     )}
 
@@ -2949,13 +2956,16 @@ export default function App() {
             </p>
 
             <div style={styles.stack}>
-              {quoteItems.length === 0 && (
+              {proposalPreviewItems.length === 0 && (
                 <p style={styles.muted}>
                   No quote items yet. Add products in Start New Quote first.
                 </p>
               )}
+              <p style={styles.muted}>
+                DEBUG proposal count: {proposalPreviewItems.length}
+              </p>
 
-              {quoteItems.map((item, index) => {
+              {proposalPreviewItems.map((item, index) => {
                 const priceData = getPriceForItem(item);
 
                 return (
@@ -2995,19 +3005,22 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div style={{ marginTop: 6 }}>
-                        <a
-                          href="#"
-                          onClick={(e) => e.preventDefault()}
-                          style={{
-                            color: "#f6a531",
-                            fontWeight: 800,
-                            textDecoration: "none",
-                          }}
-                        >
-                          View Product Data Sheet →
-                        </a>
-                      </div>
+                      {getPdsLink(item.klondike) && (
+                        <div style={{ marginTop: 6 }}>
+                          <a
+                            href={getPdsLink(item.klondike)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              color: "#f6a531",
+                              fontWeight: 800,
+                              textDecoration: "none",
+                            }}
+                          >
+                            View Product Data Sheet →
+                          </a>
+                        </div>
+                      )}
                     </div>
 
                     <div
