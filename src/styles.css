@@ -133,6 +133,72 @@
   --kd-secondary-button-background: #ffffff;
   --kd-secondary-button-color: #0a2540;
 
+  /* ----- Forms (enterprise controls) ----- */
+  --kd-form-gap: 16px;
+  --kd-label-margin-bottom: 8px;
+  --kd-label-font-size: 14px;
+  --kd-label-font-weight: 800;
+  --kd-label-color: #0a2540;
+
+  --kd-input-height: 48px;
+  --kd-input-padding-y: 11px;
+  --kd-input-padding-x: 14px;
+  --kd-input-font-size: 15px;
+  --kd-input-line-height: 1.35;
+  --kd-input-border-radius: 12px;
+  --kd-input-border: 1px solid #c9d4e3;
+  --kd-input-background: #ffffff;
+  --kd-input-color: #0f172a;
+  --kd-input-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --kd-input-transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  --kd-input-focus-border: #2563eb;
+  --kd-input-focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.22);
+
+  --kd-textarea-min-height: 104px;
+  --kd-textarea-padding-y: 12px;
+
+  --kd-select-chevron-padding-right: 40px;
+
+  /* ----- Buttons (elevation + hierarchy) ----- */
+  --kd-button-transition: filter 0.15s ease, box-shadow 0.15s ease,
+    border-color 0.15s ease, background 0.15s ease;
+  --kd-button-disabled-opacity: 0.52;
+  --kd-button-focus-outline-color: rgba(37, 99, 235, 0.95);
+  --kd-button-focus-outline-offset: 2px;
+
+  --kd-primary-button-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 1px 2px rgba(140, 70, 0, 0.12), 0 8px 22px rgba(216, 116, 0, 0.22);
+  --kd-secondary-button-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --kd-secondary-button-hover-background: #f4f7fb;
+
+  --kd-success-button-background: linear-gradient(
+    180deg,
+    #4ade80 0%,
+    #16a34a 100%
+  );
+  --kd-success-button-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 2px 6px rgba(22, 101, 52, 0.2);
+
+  --kd-destructive-button-background: linear-gradient(
+    180deg,
+    #f87171 0%,
+    #dc2626 100%
+  );
+  --kd-destructive-button-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset,
+    0 2px 6px rgba(185, 28, 28, 0.25);
+
+  /* Auth (dark glass inputs) */
+  --kd-auth-input-padding-y: 13px;
+  --kd-auth-input-padding-x: 15px;
+  --kd-auth-input-font-size: 17px;
+  --kd-auth-input-border-radius: 14px;
+  --kd-auth-input-border: 1px solid rgba(255, 255, 255, 0.22);
+  --kd-auth-input-background: rgba(255, 255, 255, 0.06);
+  --kd-auth-input-color: #ffffff;
+  --kd-auth-input-focus-border: rgba(246, 165, 49, 0.85);
+  --kd-auth-input-focus-ring: 0 0 0 3px rgba(246, 165, 49, 0.28);
+
   /* ----- Role badge ----- */
   --kd-role-badge-padding-y: 8px;
   --kd-role-badge-padding-x: 14px;
@@ -166,6 +232,72 @@
   font-family: sans-serif;
   text-align: center;
 }
+
+/* ----- Enterprise form controls (#root) — focus/hover/disabled; no logic ----- */
+#root input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+#root textarea,
+#root select {
+  transition: var(--kd-input-transition);
+}
+
+#root input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus-visible,
+#root textarea:focus-visible,
+#root select:focus-visible {
+  outline: none;
+  border-color: var(--kd-input-focus-border);
+  box-shadow: var(--kd-input-shadow), var(--kd-input-focus-ring);
+}
+
+#root select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  padding-right: var(--kd-select-chevron-padding-right);
+  cursor: pointer;
+}
+
+#root select:disabled {
+  opacity: var(--kd-button-disabled-opacity);
+  cursor: not-allowed;
+}
+
+#root input:not([type="checkbox"]):not([type="radio"]):disabled,
+#root textarea:disabled {
+  opacity: var(--kd-button-disabled-opacity);
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+#root button {
+  transition: var(--kd-button-transition);
+}
+
+#root button:focus-visible {
+  outline: 2px solid var(--kd-button-focus-outline-color);
+  outline-offset: var(--kd-button-focus-outline-offset);
+}
+
+#root button:disabled {
+  opacity: var(--kd-button-disabled-opacity);
+  cursor: not-allowed;
+  filter: grayscale(0.08);
+}
+
+#root button:not(:disabled):hover {
+  filter: brightness(1.04);
+}
+
+#root button:not(:disabled):active {
+  filter: brightness(0.96);
+}
+
+/* Sign-in / loading shell: warm focus ring on glass inputs (class on card only) */
+#root .auth-card-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus-visible {
+  border-color: var(--kd-auth-input-focus-border);
+  box-shadow: var(--kd-auth-input-focus-ring);
+}
+
 @media print {
   body * {
     visibility: hidden !important;

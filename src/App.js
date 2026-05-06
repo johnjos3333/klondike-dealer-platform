@@ -2699,7 +2699,10 @@ const renderDealerAdminView = () => (
       </label>
 
       <textarea
-        style={{ ...styles.textarea, background: useDefaultIntro ? "#f1f5f9" : "#fff" }}
+        style={{
+          ...styles.textarea,
+          backgroundColor: useDefaultIntro ? "#f1f5f9" : "#fff",
+        }}
         value={useDefaultIntro ? DEFAULT_INTRO : dealerIntroStatement}
         onChange={(e) => setDealerIntroStatement(e.target.value)}
         disabled={useDefaultIntro}
@@ -2719,7 +2722,10 @@ const renderDealerAdminView = () => (
       </label>
 
       <textarea
-        style={{ ...styles.textarea, background: useDefaultClosing ? "#f1f5f9" : "#fff" }}
+        style={{
+          ...styles.textarea,
+          backgroundColor: useDefaultClosing ? "#f1f5f9" : "#fff",
+        }}
         value={useDefaultClosing ? DEFAULT_CLOSING : dealerClosingStatement}
         onChange={(e) => setDealerClosingStatement(e.target.value)}
         disabled={useDefaultClosing}
@@ -7390,7 +7396,7 @@ case "rep":
   if (appLoading) {
     return (
       <div style={styles.page}>
-        <div style={styles.authCard}>
+        <div style={styles.authCard} className="auth-card-shell">
           <div style={styles.eyebrow}>KLONDIKE DEALER PLATFORM</div>
           <h1 style={styles.authTitle}>Loading...</h1>
           <p style={styles.authText}>
@@ -7406,7 +7412,7 @@ case "rep":
   if (!session) {
     return (
       <div style={styles.page}>
-        <div style={styles.authCard}>
+        <div style={styles.authCard} className="auth-card-shell">
           <img
             src="/klondike-full-logo.png"
             alt="Klondike"
@@ -8605,7 +8611,7 @@ const styles = {
 
   form: {
     display: "grid",
-    gap: 14,
+    gap: "var(--kd-form-gap)",
     width: "100%",
     minWidth: 0,
   },
@@ -8615,14 +8621,18 @@ const styles = {
     width: "100%",
     maxWidth: "100%",
     minWidth: 0,
-    height: 48,
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid #d8e0e8",
-    background: "#fff",
-    color: "#0a2540",
+    height: "var(--kd-input-height)",
+    padding:
+      "var(--kd-input-padding-y) var(--kd-input-padding-x)",
+    borderRadius: "var(--kd-input-border-radius)",
+    border: "var(--kd-input-border)",
+    backgroundColor: "var(--kd-input-background)",
+    color: "var(--kd-input-color)",
     boxSizing: "border-box",
-    fontSize: 15,
+    fontSize: "var(--kd-input-font-size)",
+    lineHeight: "var(--kd-input-line-height)",
+    boxShadow: "var(--kd-input-shadow)",
+    outline: "none",
   },
 
   textarea: {
@@ -8630,15 +8640,19 @@ const styles = {
     width: "100%",
     maxWidth: "100%",
     minWidth: 0,
-    minHeight: 96,
-    padding: "10px 12px",
-    borderRadius: 12,
-    border: "1px solid #d8e0e8",
-    background: "#fff",
-    color: "#0a2540",
+    minHeight: "var(--kd-textarea-min-height)",
+    padding:
+      "var(--kd-textarea-padding-y) var(--kd-input-padding-x)",
+    borderRadius: "var(--kd-input-border-radius)",
+    border: "var(--kd-input-border)",
+    backgroundColor: "var(--kd-input-background)",
+    color: "var(--kd-input-color)",
     boxSizing: "border-box",
     resize: "vertical",
-    fontSize: 15,
+    fontSize: "var(--kd-input-font-size)",
+    lineHeight: "var(--kd-input-line-height)",
+    boxShadow: "var(--kd-input-shadow)",
+    outline: "none",
   },
 
   topHero: {
@@ -8886,10 +8900,10 @@ const styles = {
 
   label: {
     display: "block",
-    marginBottom: 6,
-    fontWeight: 800,
-    fontSize: 14,
-    color: "#0a2540",
+    marginBottom: "var(--kd-label-margin-bottom)",
+    fontWeight: "var(--kd-label-font-weight)",
+    fontSize: "var(--kd-label-font-size)",
+    color: "var(--kd-label-color)",
   },
 
   primaryButton: {
@@ -8902,6 +8916,7 @@ const styles = {
     fontWeight: "var(--kd-font-weight-heavy)",
     cursor: "pointer",
     fontSize: "var(--kd-button-font-size)",
+    boxShadow: "var(--kd-primary-button-shadow)",
   },
 
   secondaryButton: {
@@ -8914,36 +8929,43 @@ const styles = {
     fontWeight: "var(--kd-font-weight-heavy)",
     cursor: "pointer",
     fontSize: "var(--kd-button-font-size)",
+    boxShadow: "var(--kd-secondary-button-shadow)",
   },
 
   smallButton: {
     padding: "10px 14px",
     borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.22)",
+    background: "rgba(255,255,255,0.1)",
     color: "#fff",
     fontWeight: 800,
     cursor: "pointer",
+    fontSize: 15,
+    boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
   },
 
   approveButton: {
-    padding: "10px 14px",
-    borderRadius: 10,
+    padding: "11px 16px",
+    borderRadius: "var(--kd-button-border-radius)",
     border: "none",
-    background: "#22c55e",
+    background: "var(--kd-success-button-background)",
     color: "#fff",
-    fontWeight: 800,
+    fontWeight: "var(--kd-font-weight-heavy)",
     cursor: "pointer",
+    fontSize: "var(--kd-button-font-size)",
+    boxShadow: "var(--kd-success-button-shadow)",
   },
 
   rejectButton: {
-    padding: "10px 14px",
-    borderRadius: 10,
+    padding: "11px 16px",
+    borderRadius: "var(--kd-button-border-radius)",
     border: "none",
-    background: "#ef4444",
+    background: "var(--kd-destructive-button-background)",
     color: "#fff",
-    fontWeight: 800,
+    fontWeight: "var(--kd-font-weight-heavy)",
     cursor: "pointer",
+    fontSize: "var(--kd-button-font-size)",
+    boxShadow: "var(--kd-destructive-button-shadow)",
   },
 
   rowButtons: {
@@ -9050,14 +9072,17 @@ const styles = {
 
   authInput: {
     width: "100%",
-    padding: "13px 15px",
-    borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.18)",
-    background: "rgba(255,255,255,0.05)",
-    color: "#fff",
-    fontSize: 17,
+    padding:
+      "var(--kd-auth-input-padding-y) var(--kd-auth-input-padding-x)",
+    borderRadius: "var(--kd-auth-input-border-radius)",
+    border: "var(--kd-auth-input-border)",
+    backgroundColor: "var(--kd-auth-input-background)",
+    color: "var(--kd-auth-input-color)",
+    fontSize: "var(--kd-auth-input-font-size)",
+    lineHeight: "var(--kd-input-line-height)",
     outline: "none",
     boxSizing: "border-box",
+    boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
   },
 
   error: {
