@@ -2,3 +2,36 @@
   font-family: sans-serif;
   text-align: center;
 }
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .proposal-print-area,
+  .proposal-print-area * {
+    visibility: visible !important;
+  }
+
+  .proposal-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    background: #fff !important;
+  }
+
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  .avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .page-break {
+    page-break-before: always;
+    break-before: page;
+  }
+}

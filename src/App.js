@@ -25,6 +25,15 @@ const PRODUCT_DB = [
     tier: "Advanced",
   },
 ];
+const DEFAULT_INTRO = `Based on a review of your current lubrication program, equipment demands, and operating environment, we have identified opportunities to improve equipment reliability, streamline product selection, and reduce contamination risk.
+
+This recommendation is designed to simplify your lubrication program while enhancing performance and supporting long-term operational efficiency.`;
+
+const DEFAULT_CLOSING = `We appreciate the opportunity to support your operation and present this recommendation.
+
+Our team is committed to delivering not only high-quality products, but also the technical expertise and support required to help you improve performance, reduce risk, and drive long-term results.
+
+Your representative will follow up to review next steps and ensure a smooth implementation.`;
 export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,17 +67,23 @@ export default function App() {
   const [newDealerAdminEmail, setNewDealerAdminEmail] = useState("");
   const [newDealerLoading, setNewDealerLoading] = useState(false);
   const [newDealerMessage, setNewDealerMessage] = useState("");
-
+const [dealerLogoFile, setDealerLogoFile] = useState(null);
+const [dealerLogoPreview, setDealerLogoPreview] = useState("");
+const [dealerLogoUrl, setDealerLogoUrl] = useState("");
+const currentDealerLogoUrl =
+  dealerLogoPreview || dealerLogoUrl || dealerProfile?.logo_url || "";
   const [requestName, setRequestName] = useState("");
   const [requestEmail, setRequestEmail] = useState("");
   const [requestRole, setRequestRole] = useState("rep");
+  const [requestManagerId, setRequestManagerId] = React.useState("");
+  const [approvedManagers, setApprovedManagers] = React.useState([]);
   const [requestReason, setRequestReason] = useState("");
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestMessage, setRequestMessage] = useState("");
 
   const [reviewLoadingId, setReviewLoadingId] = useState("");
   const [reviewMessage, setReviewMessage] = useState("");
-
+const [dealerEnrollmentStarted, setDealerEnrollmentStarted] = React.useState(false);
   const [dealerCompanyName, setDealerCompanyName] = useState("");
   const [dealerPhone, setDealerPhone] = useState("");
   const [dealerWebsite, setDealerWebsite] = useState("");
@@ -78,6 +93,21 @@ export default function App() {
   const [dealerPostalCode, setDealerPostalCode] = useState("");
   const [dealerIntroStatement, setDealerIntroStatement] = useState("");
   const [dealerClosingStatement, setDealerClosingStatement] = useState("");
+  const [useDefaultIntro, setUseDefaultIntro] = useState(true);
+const [useDefaultClosing, setUseDefaultClosing] = useState(true);
+const [dealerAdminTab, setDealerAdminTab] = useState("dashboard");
+const [dealerPerformance, setDealerPerformance] = useState({
+  quotesCreated: 0,
+  proposalsSent: 0,
+  customerResponses: 0,
+  revenueWon: 0,
+  approvalRate: 0,
+  leaderboard: [],
+  productMix: [],
+  followUps: [],
+});
+const [dealerNetworkPerformance, setDealerNetworkPerformance] = useState([]);
+const [selectedDealerPerformance, setSelectedDealerPerformance] = useState(null);
   const [dealerSaving, setDealerSaving] = useState(false);
   const [dealerSaveMessage, setDealerSaveMessage] = useState("");
   const [activeTab, setActiveTab] = React.useState("quote");
@@ -96,6 +126,16 @@ export default function App() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [passwordResetMessage, setPasswordResetMessage] = useState("");
   const [passwordResetLoading, setPasswordResetLoading] = useState(false);
+  const [publicReviewToken, setPublicReviewToken] = useState(null);
+
+useEffect(() => {
+  const path = window.location.pathname;
+
+  if (path.startsWith("/review/")) {
+    const token = path.split("/review/")[1];
+    setPublicReviewToken(token);
+  }
+}, []);
   const isPlatformAdmin = useMemo(
     () => memberships.some((m) => m.role === "platform_admin"),
     [memberships]
@@ -118,6 +158,7 @@ export default function App() {
 
   // mock data (you can wire to DB later)
   const [accessRequests, setAccessRequests] = React.useState([]);
+  const [managerAssignments, setManagerAssignments] = React.useState({});
   const [organizations, setOrganizations] = React.useState([]);
   const [allUsers, setAllUsers] = React.useState([]);
 
@@ -356,7 +397,208 @@ export default function App() {
 
     setDealerOrganizations(data || []);
   };
+  const loadDealerNetworkPerformance = async () => {
+    const { data: dealerOrgs, error: orgError } = await supabase
+      .from("organizations")
+      .select("id, name, slug")
+      .eq("organization_type", "dealer")
+      .order("name", { ascending: true });
 
+    if (orgError) {
+      console.error("Dealer network org load error:", orgError);
+      setDealerNetworkPerformance([]);
+      return;
+    }
+
+    const orgIds = (dealerOrgs || []).map((org) => org.id).filter(Boolean);
+
+    if (orgIds.length === 0) {
+      setDealerNetworkPerformance([]);
+      return;
+    }
+
+    const { data: quoteRows } = await supabase
+      .from("quotes")
+      .select("*")
+      .in("organization_id", orgIds);
+
+    const quotes = quoteRows || [];
+    const quoteIds = quotes.map((q) => q.id).filter(Boolean);
+
+       let responseRows = [];
+    let itemRows = [];
+
+    if (quoteIds.length > 0) {
+      const { data: responses } = await supabase
+        .from("proposal_responses")
+        .select("*")
+        .in("quote_id", quoteIds);
+
+      responseRows = responses || [];
+
+      const { data: items } = await supabase
+        .from("quote_items")
+        .select("*")
+        .in("quote_id", quoteIds);
+
+      itemRows = items || [];
+    }
+
+    const { data: memberRows } = await supabase
+      .from("organization_members")
+      .select("id, organization_id, role, is_active")
+      .in("organization_id", orgIds)
+      .eq("is_active", true);
+
+    const orgPerformance = (dealerOrgs || []).map((org) => {
+      const orgQuotes = quotes.filter((q) => q.organization_id === org.id);
+      const orgQuoteIds = orgQuotes.map((q) => q.id);
+
+      const orgResponses = responseRows.filter((r) =>
+        orgQuoteIds.includes(r.quote_id)
+      );
+
+      const allResponseItems = orgResponses.flatMap((row) => {
+        const decisionData = row.decision_data || {};
+        const productResponses = Array.isArray(decisionData.responses)
+          ? decisionData.responses
+          : Array.isArray(row.responses)
+          ? row.responses
+          : [];
+
+        const equipmentResponses = Array.isArray(decisionData.equipment)
+          ? decisionData.equipment
+          : Array.isArray(row.equipment)
+          ? row.equipment
+          : [];
+
+        return [...productResponses, ...equipmentResponses];
+      });
+
+      const approvedItems = allResponseItems.filter(
+        (item) => item.decision === "approved"
+      );
+
+      const revenueWon = approvedItems.reduce(
+        (sum, item) => sum + Number(item.price || 0),
+        0
+      );
+
+      const teamMembers = (memberRows || []).filter(
+        (member) => member.organization_id === org.id
+      );
+
+            const repMap = {};
+
+      orgQuotes.forEach((quote) => {
+        const repKey = quote.rep_email || quote.user_id || "Unassigned Rep";
+
+        if (!repMap[repKey]) {
+          repMap[repKey] = {
+            name: quote.rep_name || quote.rep_email || "Unassigned Rep",
+            quotes: 0,
+            proposals: 0,
+            responses: 0,
+            revenue: 0,
+          };
+        }
+
+        repMap[repKey].quotes += 1;
+
+        if (quote.status === "sent" || quote.review_status || quote.rep_email) {
+          repMap[repKey].proposals += 1;
+        }
+      });
+
+      orgResponses.forEach((row) => {
+        const quote = orgQuotes.find((q) => q.id === row.quote_id);
+        const repKey = quote?.rep_email || quote?.user_id || "Unassigned Rep";
+
+        if (!repMap[repKey]) return;
+
+        repMap[repKey].responses += 1;
+
+        const decisionData = row.decision_data || {};
+        const productResponses = Array.isArray(decisionData.responses)
+          ? decisionData.responses
+          : Array.isArray(row.responses)
+          ? row.responses
+          : [];
+
+        const equipmentResponses = Array.isArray(decisionData.equipment)
+          ? decisionData.equipment
+          : Array.isArray(row.equipment)
+          ? row.equipment
+          : [];
+
+        repMap[repKey].revenue += [...productResponses, ...equipmentResponses]
+          .filter((item) => item.decision === "approved")
+          .reduce((sum, item) => sum + Number(item.price || 0), 0);
+      });
+
+      const productBuckets = {
+        "Heavy Duty": 0,
+        Automotive: 0,
+        "Hydraulic Fluids": 0,
+        Grease: 0,
+        Coolants: 0,
+        "Transmission Fluids": 0,
+        Equipment: 0,
+      };
+
+      itemRows
+        .filter((item) => orgQuoteIds.includes(item.quote_id))
+        .forEach((item) => {
+          const name = `${item.product_name || item.klondike_product || ""}`.toLowerCase();
+
+          if (name.includes("grease")) productBuckets.Grease += 1;
+          else if (name.includes("coolant")) productBuckets.Coolants += 1;
+          else if (name.includes("hydraulic")) productBuckets["Hydraulic Fluids"] += 1;
+          else if (name.includes("transmission") || name.includes("atf")) productBuckets["Transmission Fluids"] += 1;
+          else if (
+            name.includes("diesel") ||
+            name.includes("engine") ||
+            name.includes("15w") ||
+            name.includes("10w")
+          )
+            productBuckets["Heavy Duty"] += 1;
+          else productBuckets.Automotive += 1;
+        });
+
+      const totalProductCount =
+        Object.values(productBuckets).reduce((sum, count) => sum + count, 0) || 1;
+
+      return {
+        organization_id: org.id,
+        name: org.name,
+        slug: org.slug,
+        quotesCreated: orgQuotes.length,
+        proposalsSent: orgQuotes.filter(
+          (q) => q.status === "sent" || q.rep_signature || q.rep_email
+        ).length,
+        customerResponses: orgResponses.length,
+        revenueWon,
+        approvalRate:
+          allResponseItems.length > 0
+            ? Math.round((approvedItems.length / allResponseItems.length) * 100)
+            : 0,
+        teamMembers: teamMembers.length,
+        leaderboard: Object.values(repMap).sort((a, b) => b.revenue - a.revenue),
+        productMix: Object.entries(productBuckets).map(([name, count]) => ({
+          name,
+          percent: Math.round((count / totalProductCount) * 100),
+          count,
+        })),
+        followUps: orgQuotes
+          .filter((q) => q.status === "sent" || q.review_status === "open")
+          .slice(0, 5),
+        rawQuotes: orgQuotes,
+        rawResponses: orgResponses,
+      };
+    });
+
+    setDealerNetworkPerformance(orgPerformance);
+  };
   const refreshRecentInvites = async () => {
     const { data, error } = await supabase
       .from("user_invitations")
@@ -369,18 +611,53 @@ export default function App() {
     if (!error) setRecentInvites(data || []);
   };
 
-  const refreshRecentAccessRequests = async () => {
-    const { data, error } = await supabase
-      .from("access_requests")
-      .select(
-        "id, organization_id, requester_name, requester_email, requested_role, reason, status, created_at"
-      )
-      .order("created_at", { ascending: false })
-      .limit(50);
+ const refreshRecentAccessRequests = async () => {
+  const { data, error } = await supabase
+    .from("access_requests")
+    .select(
+      "id, organization_id, requester_name, requester_email, requested_role, reason, status, created_at, assigned_manager_profile_id"
+    )
+    .order("created_at", { ascending: false })
+    .limit(50);
 
-    if (!error) setRecentAccessRequests(data || []);
-  };
+  if (error) {
+    console.error("Access request load error:", error);
+    setRecentAccessRequests([]);
+    return;
+  }
 
+  const requests = data || [];
+  setRecentAccessRequests(requests);
+
+  const orgIds = [
+    ...new Set(
+      requests
+        .filter((req) => req.status === "pending")
+        .map((req) => req.organization_id)
+        .filter(Boolean)
+    ),
+  ];
+
+  if (orgIds.length === 0) {
+    setAllUsers([]);
+    return;
+  }
+
+  const { data: managers, error: managerError } = await supabase
+    .from("organization_members_with_emails")
+    .select("*")
+    .in("organization_id", orgIds)
+    .eq("role", "manager")
+    .eq("is_active", true);
+
+  if (managerError) {
+    console.error("Pending request manager load error:", managerError);
+    setAllUsers([]);
+    return;
+  }
+
+  setAllUsers(managers || []);
+};
   const refreshRepProfiles = async () => {
     if (!activeMembership?.organization_id) {
       setRepProfiles([]);
@@ -477,6 +754,8 @@ export default function App() {
       refreshDealerOrganizations();
       refreshRecentInvites();
       refreshRecentAccessRequests();
+      loadApprovedManagers();
+      loadDealerNetworkPerformance();
     }
   }, [session]);
 
@@ -518,6 +797,7 @@ export default function App() {
     setDealerCompanyName(dealerProfile?.company_name || "");
     setDealerPhone(dealerProfile?.phone || "");
     setDealerWebsite(dealerProfile?.website || "");
+   setDealerLogoUrl(profile?.logo_url || "");
     setDealerAddress(dealerProfile?.address || "");
     setDealerCity(dealerProfile?.city || "");
     setDealerProvinceState(dealerProfile?.province_state || "");
@@ -641,10 +921,14 @@ export default function App() {
         "create-dealer-account",
         {
           body: {
-            dealer_name: newDealerName.trim(),
-            dealer_slug: slug,
-            dealer_admin_email: newDealerAdminEmail.trim().toLowerCase(),
-          },
+  dealerName: newDealerName.trim(),
+  dealerSlug: slug,
+  dealerAdminEmail: newDealerAdminEmail.trim().toLowerCase(),
+
+  dealer_name: newDealerName.trim(),
+  dealer_slug: slug,
+  dealer_admin_email: newDealerAdminEmail.trim().toLowerCase(),
+}
         }
       );
 
@@ -801,6 +1085,7 @@ export default function App() {
       setRequestEmail("");
       setRequestRole("rep");
       setRequestReason("");
+      setRequestManagerId("");
 
       await refreshRecentAccessRequests();
     } catch (err) {
@@ -844,7 +1129,27 @@ export default function App() {
           });
 
         inviteData = inviteResult;
+// create rep -> manager assignment
+if (
+  request.requested_role === "rep" &&
+  managerAssignments[request.id] || request.assigned_manager_profile_id
+) {
+  const managerProfileId = managerAssignments[request.id] || request.assigned_manager_profile_id
 
+  const repProfileId =
+    inviteResult?.profile_id ||
+    inviteResult?.rep_profile_id ||
+    inviteResult?.user_profile_id;
+
+  if (managerProfileId && repProfileId) {
+    await supabase.from("rep_team_assignments").insert({
+      organization_id: request.organization_id,
+      manager_profile_id: managerProfileId,
+      rep_profile_id: repProfileId,
+      is_active: true,
+    });
+  }
+}
         if (inviteError) {
           inviteWarning = inviteError.message || "Failed to send user invite.";
         }
@@ -945,20 +1250,51 @@ export default function App() {
     setDealerSaving(true);
 
     try {
+      let uploadedLogoUrl = dealerLogoUrl || dealerProfile?.logo_url || "";
+
+if (dealerLogoFile) {
+  const fileExt = dealerLogoFile.name.split(".").pop();
+  const filePath = `${activeMembership.organization_id}/dealer-logo.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("dealer-logos")
+    .upload(filePath, dealerLogoFile, {
+      upsert: true,
+    });
+
+  if (uploadError) {
+    setDealerSaveMessage(uploadError.message);
+    setDealerSaving(false);
+    return;
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from("dealer-logos")
+    .getPublicUrl(filePath);
+
+  uploadedLogoUrl = publicUrlData.publicUrl;
+}
       const payload = {
         organization_id: activeMembership.organization_id,
         company_name:
           dealerCompanyName ||
           activeMembership?.organization?.name ||
           "Dealer Company",
+          logo_url: uploadedLogoUrl || null,
         phone: dealerPhone || null,
         website: dealerWebsite || null,
         address: dealerAddress || null,
         city: dealerCity || null,
         province_state: dealerProvinceState || null,
         postal_code: dealerPostalCode || null,
-        intro_statement: dealerIntroStatement || null,
-        closing_statement: dealerClosingStatement || null,
+       intro_statement: useDefaultIntro ? DEFAULT_INTRO : dealerIntroStatement,
+closing_statement: useDefaultClosing ? DEFAULT_CLOSING : dealerClosingStatement,
+
+use_default_intro: useDefaultIntro,
+use_default_closing: useDefaultClosing,
+
+setup_completed: true,
+        setup_completed: true,
       };
 
       const { data, error } = await supabase
@@ -973,6 +1309,9 @@ export default function App() {
       }
 
       setDealerProfile(data || payload);
+      setDealerLogoUrl(uploadedLogoUrl);
+setDealerLogoFile(null);
+setDealerLogoPreview("");
       setDealerSaveMessage("Dealer profile saved.");
     } catch (err) {
       setDealerSaveMessage(err?.message || "Unexpected save error.");
@@ -980,7 +1319,31 @@ export default function App() {
       setDealerSaving(false);
     }
   };
+const handleFinishDealerEnrollment = async () => {
+  const { error } = await supabase
+    .from("dealer_profiles")
+    .upsert(
+      {
+        organization_id: activeMembership.organization_id,
+        setup_completed: true,
+      },
+      { onConflict: "organization_id" }
+    );
 
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  // ✅ Leave enrollment mode
+  setDealerEnrollmentStarted(false);
+
+  // ✅ Clear any stale UI state
+  setDealerSaveMessage("");
+
+  // 🔥 Force full UI refresh → shows real dashboard
+  window.location.reload();
+};
   const handleSaveRepEnrollment = async (e) => {
     e.preventDefault();
     setRepSaveMessage("");
@@ -1089,57 +1452,6 @@ export default function App() {
     <span style={styles.roleBadge}>{roleLabel(role)}</span>
   );
 
-  const renderDemoFlowBar = () => (
-    <div style={styles.demoBar}>
-      <div>
-        <div style={styles.eyebrow}>DEMO FLOW</div>
-        <div style={styles.demoTitle}>Recommended Walkthrough</div>
-        <div style={styles.demoText}>
-          Platform Admin → Create Dealer → Dealer Admin → Manager → Rep
-        </div>
-      </div>
-
-      <div style={styles.demoButtons}>
-        <button
-          style={styles.smallButton}
-          onClick={() => {
-            const m = memberships.find((x) => x.role === "platform_admin");
-            if (m) setActiveOrgId(m.organization_id);
-          }}
-        >
-          Admin
-        </button>
-        <button
-          style={styles.smallButton}
-          onClick={() => {
-            const m = memberships.find((x) => x.role === "dealer_admin");
-            if (m) setActiveOrgId(m.organization_id);
-          }}
-        >
-          Dealer Admin
-        </button>
-        <button
-          style={styles.smallButton}
-          onClick={() => {
-            const m = memberships.find((x) => x.role === "manager");
-            if (m) setActiveOrgId(m.organization_id);
-          }}
-        >
-          Manager
-        </button>
-        <button
-          style={styles.smallButton}
-          onClick={() => {
-            const m = memberships.find((x) => x.role === "rep");
-            if (m) setActiveOrgId(m.organization_id);
-          }}
-        >
-          Rep
-        </button>
-      </div>
-    </div>
-  );
-
   const renderRoleSummaryStrip = () => (
     <div style={styles.summaryGrid}>
       <div style={styles.summaryCard}>
@@ -1187,7 +1499,284 @@ export default function App() {
           <div style={styles.summaryValue}>{recentInvites.length}</div>
         </div>
       </div>
+          <div style={styles.card}>
+        <div style={styles.eyebrow}>DEALER PERFORMANCE COMMAND CENTER</div>
+        <h3 style={styles.cardTitle}>Dealer Account Snapshots</h3>
+        <p style={styles.cardBody}>
+          Monitor dealer activity across quotes, proposals, customer responses,
+          approved revenue, approval rate, and platform adoption.
+        </p>
 
+        <div style={styles.stack}>
+          {dealerNetworkPerformance.length === 0 && (
+            <p style={styles.muted}>No dealer performance data loaded yet.</p>
+          )}
+
+          {dealerNetworkPerformance.map((dealer) => (
+            <button
+              key={dealer.organization_id}
+              type="button"
+              onClick={() => setSelectedDealerPerformance(dealer)}
+              style={{
+                ...styles.listRow,
+                width: "100%",
+                textAlign: "left",
+                cursor: "pointer",
+                background:
+                  selectedDealerPerformance?.organization_id === dealer.organization_id
+                    ? "#fffbea"
+                    : "#ffffff",
+                border:
+                  selectedDealerPerformance?.organization_id === dealer.organization_id
+                    ? "2px solid #f6a531"
+                    : "1px solid #e7edf3",
+                padding: 18,
+              }}
+            >
+              <div style={{ minWidth: 240, flex: "1 1 260px" }}>
+                <div style={styles.listTitle}>{dealer.name}</div>
+                <div style={styles.listMeta}>
+                  {dealer.slug || "dealer-account"} • Click for dealer dashboard
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(6, minmax(90px, 1fr))",
+                  gap: 12,
+                  flex: "3 1 680px",
+                  width: "100%",
+                }}
+              >
+                <div>
+                  <div style={styles.summaryLabel}>Quotes</div>
+                  <div style={styles.summaryValue}>{dealer.quotesCreated}</div>
+                </div>
+
+                <div>
+                  <div style={styles.summaryLabel}>Proposals</div>
+                  <div style={styles.summaryValue}>{dealer.proposalsSent}</div>
+                </div>
+
+                <div>
+                  <div style={styles.summaryLabel}>Responses</div>
+                  <div style={styles.summaryValue}>{dealer.customerResponses}</div>
+                </div>
+
+                <div>
+                  <div style={styles.summaryLabel}>Revenue</div>
+                  <div style={styles.summaryValue}>
+                    ${Number(dealer.revenueWon || 0).toLocaleString()}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={styles.summaryLabel}>Approval</div>
+                  <div style={styles.summaryValue}>{dealer.approvalRate}%</div>
+                </div>
+
+                <div>
+                  <div style={styles.summaryLabel}>Team</div>
+                  <div style={styles.summaryValue}>{dealer.teamMembers}</div>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selectedDealerPerformance && (
+        <>
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>DEALER ADMIN DASHBOARD VIEW</div>
+            <h3 style={styles.cardTitle}>{selectedDealerPerformance.name}</h3>
+            <p style={styles.cardBody}>
+              Klondike Admin is viewing the same dealer-level performance dashboard
+              the Dealer Admin sees.
+            </p>
+
+            <div style={styles.grid3}>
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryLabel}>Quotes Created</div>
+                <div style={styles.summaryValue}>
+                  {selectedDealerPerformance.quotesCreated}
+                </div>
+              </div>
+
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryLabel}>Proposals Sent</div>
+                <div style={styles.summaryValue}>
+                  {selectedDealerPerformance.proposalsSent}
+                </div>
+              </div>
+
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryLabel}>Customer Responses</div>
+                <div style={styles.summaryValue}>
+                  {selectedDealerPerformance.customerResponses}
+                </div>
+              </div>
+
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryLabel}>Approved Revenue</div>
+                <div style={styles.summaryValue}>
+                  ${Number(selectedDealerPerformance.revenueWon || 0).toLocaleString()}
+                </div>
+              </div>
+
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryLabel}>Approval Rate</div>
+                <div style={styles.summaryValue}>
+                  {selectedDealerPerformance.approvalRate}%
+                </div>
+              </div>
+
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryLabel}>Team Members</div>
+                <div style={styles.summaryValue}>
+                  {selectedDealerPerformance.teamMembers}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>DEALER LEADERBOARD</div>
+            <h3 style={styles.cardTitle}>Rep Performance Rankings</h3>
+
+            <div style={styles.stack}>
+              {selectedDealerPerformance.leaderboard?.length === 0 ? (
+                <p style={styles.muted}>No representative performance data yet.</p>
+              ) : (
+                selectedDealerPerformance.leaderboard?.map((rep, index) => (
+                  <div
+                    key={rep.name || index}
+                    style={{
+                      ...styles.listRow,
+                      background: index === 0 ? "#fffbea" : "#f8fafc",
+                      border:
+                        index === 0
+                          ? "2px solid #f6a531"
+                          : "1px solid #e7edf3",
+                    }}
+                  >
+                    <div>
+                      <div style={styles.listTitle}>
+                        #{index + 1} {rep.name}
+                      </div>
+                      <div style={styles.listMeta}>
+                        {rep.quotes} quote(s) • {rep.proposals} proposal(s) •{" "}
+                        {rep.responses} response(s)
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      <div style={styles.listTitle}>
+                        ${Number(rep.revenue || 0).toLocaleString()}
+                      </div>
+                      <div style={styles.listMeta}>Approved Revenue</div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>PIPELINE</div>
+            <h3 style={styles.cardTitle}>Dealer Opportunity Pipeline</h3>
+
+            <div style={styles.grid2}>
+              <div style={{ ...styles.summaryCard, ...styles.pipelineAwaiting }}>
+                <div style={styles.summaryLabel}>Awaiting Review</div>
+                <div style={styles.summaryValue}>
+                  {
+                    selectedDealerPerformance.followUps?.filter(
+                      (q) => q.review_status !== "submitted"
+                    ).length
+                  }
+                </div>
+                <div style={styles.listMeta}>Proposals waiting on customer</div>
+              </div>
+
+              <div style={{ ...styles.summaryCard, ...styles.pipelineReviewed }}>
+                <div style={styles.summaryLabel}>Reviewed</div>
+                <div style={styles.summaryValue}>
+                  {selectedDealerPerformance.customerResponses}
+                </div>
+                <div style={styles.listMeta}>Customer has responded</div>
+              </div>
+
+              <div style={{ ...styles.summaryCard, ...styles.pipelineApproved }}>
+                <div style={styles.summaryLabel}>Approval Rate</div>
+                <div style={styles.summaryValue}>
+                  {selectedDealerPerformance.approvalRate}%
+                </div>
+                <div style={styles.listMeta}>Proposal approval rate</div>
+              </div>
+
+              <div style={{ ...styles.summaryCard, ...styles.pipelineFollowUp }}>
+                <div style={styles.summaryLabel}>Needs Follow-Up</div>
+                <div style={styles.summaryValue}>
+                  {
+                    selectedDealerPerformance.followUps?.filter(
+                      (q) => q.review_status !== "submitted"
+                    ).length
+                  }
+                </div>
+                <div style={styles.listMeta}>
+                  Open opportunities requiring attention
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>PRODUCT LINE PERFORMANCE</div>
+            <h3 style={styles.cardTitle}>Dealer Product Mix</h3>
+
+            <div style={styles.grid3}>
+              {selectedDealerPerformance.productMix?.map((line) => (
+                <div key={line.name} style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>{line.name}</div>
+                  <div style={styles.summaryValue}>{line.percent}%</div>
+                  <div style={styles.listMeta}>{line.count} quoted item(s)</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>CUSTOMER RESPONSES</div>
+            <h3 style={styles.cardTitle}>Follow-Up Items</h3>
+
+            <div style={styles.stack}>
+              {selectedDealerPerformance.followUps?.length === 0 ? (
+                <p style={styles.muted}>No current follow-up items.</p>
+              ) : (
+                selectedDealerPerformance.followUps?.map((quote, index) => (
+                  <div key={quote.id || index} style={styles.listRow}>
+                    <div>
+                      <div style={styles.listTitle}>
+                        {quote.customer_name || "Customer"}
+                      </div>
+
+                      <div style={styles.listMeta}>
+                        {quote.status || "draft"} • {quote.review_status || "open"}
+                      </div>
+                    </div>
+
+                    <span style={styles.statusPill}>
+                      {quote.customer_email || "No customer email"}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </>
+      )}
       <div>
         <div style={styles.sectionHeader}>Primary Actions</div>
 
@@ -1310,71 +1899,126 @@ export default function App() {
       </div>
 
       <div>
-        <div style={styles.sectionHeader}>Access Approvals</div>
+<div>
+  <div style={styles.sectionHeader}>Access Approvals</div>
 
-        <div style={styles.card}>
-          <div style={styles.eyebrow}>PENDING REQUESTS</div>
-          <h3 style={styles.cardTitle}>Approve Dealer Access</h3>
-          <p style={styles.cardBody}>
-            Dealer admins and managers submit access requests here. Approval
-            creates the user, provisions the role, and removes the pending
-            request.
-          </p>
+  <div style={styles.card}>
+    <div style={styles.eyebrow}>PENDING REQUESTS</div>
+    <h3 style={styles.cardTitle}>Approve Dealer Access</h3>
+    <p style={styles.cardBody}>
+      Dealer admins and managers submit access requests here. Approval creates
+      the user, provisions the role, and removes the pending request.
+    </p>
 
-          <div style={styles.stack}>
-            {pendingAccessRequests.length === 0 && (
-              <p style={styles.muted}>No pending access requests.</p>
-            )}
+    <div style={styles.stack}>
+      {pendingAccessRequests.length === 0 && (
+        <p style={styles.muted}>No pending access requests.</p>
+      )}
 
-            {pendingAccessRequests.map((req) => (
-              <div key={req.id} style={styles.listRow}>
-                <div style={{ flex: 1 }}>
-                  <div style={styles.listTitle}>
-                    {req.requester_name || req.requester_email}
-                  </div>
+      {pendingAccessRequests.map((req) => {
+        const managerOptions = [
+          ...(approvedManagers || []),
+          ...(allUsers || []),
+        ]
+          .filter((manager) => manager.role === "manager")
+          .filter(
+            (manager) =>
+              !manager.organization_id ||
+              manager.organization_id === req.organization_id
+          )
+          .filter((manager, index, arr) => {
+            const managerId = manager.user_id || manager.id;
+            return (
+              arr.findIndex((item) => (item.user_id || item.id) === managerId) ===
+              index
+            );
+          });
+
+        return (
+          <div key={req.id} style={styles.listRow}>
+            <div style={{ flex: 1 }}>
+              <div style={styles.listTitle}>
+                {req.requester_name || req.requester_email}
+              </div>
+
+              <div style={styles.listMeta}>
+                {(orgNameById[req.organization_id] || "Unknown organization") +
+                  " • " +
+                  roleLabel(req.requested_role)}
+              </div>
+
+              <div style={styles.listMeta}>{req.requester_email}</div>
+
+              {req.reason && (
+                <div style={styles.listReason}>{req.reason}</div>
+              )}
+
+              {req.requested_role === "rep" && (
+                <div style={{ marginTop: 12 }}>
+                  <label style={styles.label}>Assign Manager Optional</label>
+
+                  <select
+                    style={styles.input}
+                    value={
+                      managerAssignments[req.id] ||
+                      req.assigned_manager_profile_id ||
+                      ""
+                    }
+                    onChange={(e) =>
+                      setManagerAssignments((prev) => ({
+                        ...prev,
+                        [req.id]: e.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">
+                      No manager / Dealer Admin manages directly
+                    </option>
+
+                    {managerOptions.map((manager) => (
+                      <option
+                        key={manager.user_id || manager.id}
+                        value={manager.user_id || manager.id}
+                      >
+                        {manager.full_name || manager.email || "Manager"}
+                      </option>
+                    ))}
+                  </select>
 
                   <div style={styles.listMeta}>
-                    {(orgNameById[req.organization_id] ||
-                      "Unknown organization") +
-                      " • " +
-                      roleLabel(req.requested_role)}
+                    Available managers: {managerOptions.length}
                   </div>
-
-                  <div style={styles.listMeta}>{req.requester_email}</div>
-
-                  {req.reason && (
-                    <div style={styles.listReason}>{req.reason}</div>
-                  )}
                 </div>
+              )}
+            </div>
 
-                <div style={styles.rowButtons}>
-                  <button
-                    type="button"
-                    style={styles.approveButton}
-                    disabled={reviewLoadingId === req.id}
-                    onClick={() => handleReviewAccessRequest(req, "approved")}
-                  >
-                    {reviewLoadingId === req.id ? "Working..." : "Approve"}
-                  </button>
+            <div style={styles.rowButtons}>
+              <button
+                type="button"
+                style={styles.approveButton}
+                disabled={reviewLoadingId === req.id}
+                onClick={() => handleReviewAccessRequest(req, "approved")}
+              >
+                {reviewLoadingId === req.id ? "Working..." : "Approve"}
+              </button>
 
-                  <button
-                    type="button"
-                    style={styles.rejectButton}
-                    disabled={reviewLoadingId === req.id}
-                    onClick={() => handleReviewAccessRequest(req, "denied")}
-                  >
-                    {reviewLoadingId === req.id ? "Working..." : "Reject"}
-                  </button>
-                </div>
-              </div>
-            ))}
+              <button
+                type="button"
+                style={styles.rejectButton}
+                disabled={reviewLoadingId === req.id}
+                onClick={() => handleReviewAccessRequest(req, "denied")}
+              >
+                {reviewLoadingId === req.id ? "Working..." : "Reject"}
+              </button>
+            </div>
           </div>
+        );
+      })}
+    </div>
 
-          {reviewMessage && <p style={styles.message}>{reviewMessage}</p>}
-        </div>
-      </div>
-
-      <div>
+    {reviewMessage && <p style={styles.message}>{reviewMessage}</p>}
+  </div>
+</div>
         <div style={styles.sectionHeader}>Recent Activity</div>
 
         <div style={styles.grid2}>
@@ -1433,80 +2077,889 @@ export default function App() {
       </div>
     </div>
   );
-  const renderDealerAdminView = () => (
-    <div style={styles.grid24}>
-      <div style={styles.heroCard}>
-        <div style={styles.eyebrow}>DEALER COMMAND CENTER</div>
-        <h2 style={styles.heroTitle}>
-          {activeMembership?.organization?.name || "Dealer"} Workspace
-        </h2>
-        <p style={styles.heroText}>
-          Manage your dealer profile, request team access, enroll reps, and
-          assign sales coverage from one clean workspace.
-        </p>
+  const loadDealerPerformance = async () => {
+  if (!activeMembership?.organization_id) return;
+
+  const { data: quoteRows, error: quoteError } = await supabase
+    .from("quotes")
+    .select("*")
+    .eq("organization_id", activeMembership.organization_id);
+
+  if (quoteError) {
+    console.error("Dealer performance quote load error:", quoteError);
+    return;
+  }
+
+  const dealerQuotes = quoteRows || [];
+  const quoteIds = dealerQuotes.map((q) => q.id).filter(Boolean);
+
+  let responseRows = [];
+  let itemRows = [];
+
+  if (quoteIds.length > 0) {
+    const { data: responses } = await supabase
+      .from("proposal_responses")
+      .select("*")
+      .in("quote_id", quoteIds);
+
+    responseRows = responses || [];
+
+    const { data: items } = await supabase
+      .from("quote_items")
+      .select("*")
+      .in("quote_id", quoteIds);
+
+    itemRows = items || [];
+  }
+
+  const approvedResponses = responseRows.flatMap((row) => {
+    const productResponses = Array.isArray(row.responses) ? row.responses : [];
+    const equipmentResponses = Array.isArray(row.equipment) ? row.equipment : [];
+    return [...productResponses, ...equipmentResponses].filter(
+      (item) => item.decision === "approved"
+    );
+  });
+
+  const totalResponses = responseRows.flatMap((row) => {
+    const productResponses = Array.isArray(row.responses) ? row.responses : [];
+    const equipmentResponses = Array.isArray(row.equipment) ? row.equipment : [];
+    return [...productResponses, ...equipmentResponses];
+  });
+
+  const revenueWon = approvedResponses.reduce(
+    (sum, item) => sum + Number(item.price || 0),
+    0
+  );
+
+  const repMap = {};
+
+  dealerQuotes.forEach((quote) => {
+    const repKey = quote.rep_email || quote.user_id || "Unassigned Rep";
+
+    if (!repMap[repKey]) {
+      repMap[repKey] = {
+        name: quote.rep_name || quote.rep_email || "Unassigned Rep",
+        quotes: 0,
+        proposals: 0,
+        responses: 0,
+        revenue: 0,
+      };
+    }
+
+    repMap[repKey].quotes += 1;
+
+    if (quote.status === "sent" || quote.review_status) {
+      repMap[repKey].proposals += 1;
+    }
+  });
+
+  responseRows.forEach((row) => {
+    const quote = dealerQuotes.find((q) => q.id === row.quote_id);
+    const repKey = quote?.rep_email || quote?.user_id || "Unassigned Rep";
+
+    if (repMap[repKey]) {
+      repMap[repKey].responses += 1;
+
+      const productResponses = Array.isArray(row.responses) ? row.responses : [];
+      const equipmentResponses = Array.isArray(row.equipment) ? row.equipment : [];
+
+      repMap[repKey].revenue += [...productResponses, ...equipmentResponses]
+        .filter((item) => item.decision === "approved")
+        .reduce((sum, item) => sum + Number(item.price || 0), 0);
+    }
+  });
+
+  const productBuckets = {
+    "Heavy Duty": 0,
+    Automotive: 0,
+    "Hydraulic Fluids": 0,
+    Grease: 0,
+    Coolants: 0,
+    "Transmission Fluids": 0,
+    Equipment: 0,
+  };
+
+  itemRows.forEach((item) => {
+    const name = `${item.product_name || item.klondike_product || ""}`.toLowerCase();
+
+    if (name.includes("grease")) productBuckets.Grease += 1;
+    else if (name.includes("coolant")) productBuckets.Coolants += 1;
+    else if (name.includes("hydraulic")) productBuckets["Hydraulic Fluids"] += 1;
+    else if (name.includes("transmission") || name.includes("atf")) productBuckets["Transmission Fluids"] += 1;
+    else if (name.includes("diesel") || name.includes("engine") || name.includes("15w") || name.includes("10w")) productBuckets["Heavy Duty"] += 1;
+    else productBuckets.Automotive += 1;
+  });
+
+  const totalProductCount =
+    Object.values(productBuckets).reduce((sum, count) => sum + count, 0) || 1;
+
+  setDealerPerformance({
+    quotesCreated: dealerQuotes.length,
+    proposalsSent: dealerQuotes.filter((q) => q.status === "sent").length,
+    customerResponses: responseRows.length,
+    revenueWon,
+    approvalRate:
+      totalResponses.length > 0
+        ? Math.round((approvedResponses.length / totalResponses.length) * 100)
+        : 0,
+    leaderboard: Object.values(repMap).sort((a, b) => b.revenue - a.revenue),
+    productMix: Object.entries(productBuckets).map(([name, count]) => ({
+      name,
+      percent: Math.round((count / totalProductCount) * 100),
+      count,
+    })),
+    followUps: dealerQuotes
+      .filter((q) => q.status === "sent" || q.review_status === "open")
+      .slice(0, 5),
+  });
+};
+useEffect(() => {
+  loadDealerPerformance();
+  loadApprovedManagers();
+}, [activeMembership?.organization_id, dealerAdminTab]);
+ const loadApprovedManagers = async () => {
+  if (!activeMembership?.organization_id) {
+    setApprovedManagers([]);
+    return;
+  }
+
+  const { data: memberRows, error: memberError } = await supabase
+    .from("organization_members")
+    .select("id, user_id, role, is_active, organization_id")
+    .eq("organization_id", activeMembership.organization_id)
+    .eq("role", "manager")
+    .eq("is_active", true);
+
+  if (memberError) {
+    console.error("Approved manager member load error:", memberError);
+    setApprovedManagers([]);
+    return;
+  }
+
+  const userIds = (memberRows || []).map((row) => row.user_id).filter(Boolean);
+
+  if (userIds.length === 0) {
+    setApprovedManagers([]);
+    return;
+  }
+
+  const { data: profileRows, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, email, full_name")
+    .in("id", userIds);
+
+  if (profileError) {
+    console.error("Approved manager profile load error:", profileError);
+  }
+
+  const profileMap = {};
+  (profileRows || []).forEach((profile) => {
+    profileMap[profile.id] = profile;
+  });
+
+  setApprovedManagers(
+    (memberRows || []).map((member) => ({
+      ...member,
+      user_id: member.user_id,
+      full_name: profileMap[member.user_id]?.full_name || "",
+      email: profileMap[member.user_id]?.email || "",
+    }))
+  );
+};
+const renderDealerAdminView = () => (
+  <div style={styles.grid24}>
+    {!dealerProfile?.setup_completed && !dealerEnrollmentStarted ? (
+      <div
+        style={{
+          minHeight: "82vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          textAlign: "center",
+          padding: 32,
+          borderRadius: 28,
+          background:
+            "radial-gradient(circle at 50% 18%, #143b66 0%, #082846 32%, #04192d 65%, #010b14 100%)",
+          color: "#fff",
+          overflow: "hidden",
+        }}
+      >
+        <div style={{ maxWidth: 620 }}>
+          <img
+            src="/klondike-full-logo.png"
+            alt="Klondike"
+            style={{ width: 190, marginBottom: 18 }}
+          />
+
+          <div
+            style={{
+              fontSize: 11,
+              letterSpacing: "0.18em",
+              fontWeight: 900,
+              opacity: 0.72,
+              textTransform: "uppercase",
+              marginBottom: 12,
+            }}
+          >
+            Klondike Dealer Platform
+          </div>
+
+          <h1
+            style={{
+              fontSize: 48,
+              lineHeight: 1.02,
+              fontWeight: 1000,
+              margin: "0 0 18px",
+              textTransform: "uppercase",
+            }}
+          >
+            We Grow
+            <br />
+            Independent
+            <br />
+            Business
+          </h1>
+
+          <p
+            style={{
+              fontSize: 15,
+              lineHeight: 1.7,
+              color: "rgba(255,255,255,0.84)",
+              margin: "0 auto 18px",
+              maxWidth: 500,
+            }}
+          >
+            Congratulations on becoming an official Klondike Lubricants
+            distributor. You now have access to the Klondike Dealer Growth
+            Platform — built to help you win more business, streamline product
+            selection, and deliver premium lubrication solutions to your
+            customers.
+          </p>
+
+          <div
+            style={{
+              color: "#f6a531",
+              fontWeight: 1000,
+              fontStyle: "italic",
+              letterSpacing: "0.04em",
+              marginBottom: 28,
+            }}
+          >
+            BRAVING THE FORCE OF MOVEMENT
+          </div>
+
+          <img
+            src="/products.png"
+            alt="Klondike Products"
+            style={{
+              width: "100%",
+              maxWidth: 430,
+              marginBottom: 30,
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => setDealerEnrollmentStarted(true)}
+            style={{
+              padding: "15px 26px",
+              borderRadius: 999,
+              border: "none",
+              background: "linear-gradient(180deg, #f6a531 0%, #d87400 100%)",
+              color: "#fff",
+              fontWeight: 1000,
+              cursor: "pointer",
+              boxShadow: "0 14px 30px rgba(246,165,49,0.35)",
+            }}
+          >
+            Begin Dealer Enrollment
+          </button>
+        </div>
       </div>
+    ) : dealerProfile?.setup_completed ? (
+      <>
+        <div style={styles.heroCard}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18 }}>
+ {currentDealerLogoUrl && (
+  <img
+  src={currentDealerLogoUrl}
+  alt="Dealer Logo"
+  style={{
+    width: 72,
+    height: 72,
+    objectFit: "contain",
+    borderRadius: 12,
+    background: "#fff",
+    padding: 8,
+  }}
+/>
+)}
+
+  <div>
+    <div style={styles.eyebrow}>DEALER ADMIN</div>
+
+    <h2 style={styles.heroTitle}>
+      {activeMembership?.organization?.name || "Dealer"} Dashboard
+   </h2>
+</div>
+
+{activeMembership?.role && (
+  <div style={{ marginLeft: "auto" }}>
+    {renderRoleBadge(activeMembership.role)}
+  </div>
+)}
+</div>
+
+<p style={styles.heroText}>
+            Manage your dealer profile, team access, reps, performance, and
+            customer-facing proposal settings.
+          </p>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+          {["dashboard", "team", "add_users", "profile"].map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setDealerAdminTab(tab)}
+              style={{
+                padding: "10px 14px",
+                borderRadius: 999,
+                border: "1px solid #cbd5e1",
+                background: dealerAdminTab === tab ? "#f6a531" : "#fff",
+                color: dealerAdminTab === tab ? "#fff" : "#0a2540",
+                fontWeight: 900,
+                cursor: "pointer",
+                textTransform: "capitalize",
+              }}
+            >
+              {tab === "add_users"
+  ? "Add Users"
+  : tab === "team"
+  ? "Team"
+  : tab}
+            </button>
+          ))}
+        </div>
+
+        {dealerAdminTab === "dashboard" && (
+  <>
+    <div style={styles.card}>
+      <div style={styles.eyebrow}>PERFORMANCE SNAPSHOT</div>
+      <h3 style={styles.cardTitle}>Dealer Performance Overview</h3>
 
       <div style={styles.grid3}>
         <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Dealer Profile</div>
+          <div style={styles.summaryLabel}>Quotes Created</div>
+          <div style={styles.summaryValue}>{dealerPerformance.quotesCreated}</div>
+        </div>
+
+        <div style={styles.summaryCard}>
+          <div style={styles.summaryLabel}>Proposals Sent</div>
+          <div style={styles.summaryValue}>{dealerPerformance.proposalsSent}</div>
+        </div>
+
+        <div style={styles.summaryCard}>
+          <div style={styles.summaryLabel}>Customer Responses</div>
+          <div style={styles.summaryValue}>{dealerPerformance.customerResponses}</div>
+        </div>
+
+        <div style={styles.summaryCard}>
+          <div style={styles.summaryLabel}>Approved Revenue</div>
           <div style={styles.summaryValue}>
-            {dealerProfile ? "Started" : "Needs Setup"}
+            ${Number(dealerPerformance.revenueWon || 0).toLocaleString()}
           </div>
         </div>
 
         <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Saved Reps</div>
-          <div style={styles.summaryValue}>{repProfiles.length}</div>
+          <div style={styles.summaryLabel}>Approval Rate</div>
+          <div style={styles.summaryValue}>{dealerPerformance.approvalRate}%</div>
         </div>
 
         <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Assignments</div>
-          <div style={styles.summaryValue}>{teamAssignments.length}</div>
+          <div style={styles.summaryLabel}>Team Members</div>
+          <div style={styles.summaryValue}>{repProfiles.length}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style={styles.card}>
+      <div style={styles.eyebrow}>DEALER LEADERBOARD</div>
+      <h3 style={styles.cardTitle}>Rep Performance Rankings</h3>
+
+      <div style={styles.stack}>
+        {dealerPerformance.leaderboard.length === 0 ? (
+          <p style={styles.cardBody}>No representative performance data yet.</p>
+        ) : (
+          dealerPerformance.leaderboard.map((rep, index) => (
+            <div
+              key={rep.name || index}
+              style={{
+                ...styles.listRow,
+                background: index === 0 ? "#fffbea" : "#f8fafc",
+                border:
+                  index === 0
+                    ? "2px solid #f6a531"
+                    : "1px solid #e7edf3",
+              }}
+            >
+              <div>
+                <div style={styles.listTitle}>
+                  #{index + 1} {rep.name}
+                </div>
+                <div style={styles.listMeta}>
+                  {rep.quotes} quote(s) • {rep.proposals} proposal(s) •{" "}
+                  {rep.responses} response(s)
+                </div>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                <div style={styles.listTitle}>
+                  ${Number(rep.revenue || 0).toLocaleString()}
+                </div>
+                <div style={styles.listMeta}>Approved Revenue</div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+
+    <div style={styles.card}>
+      <div style={styles.eyebrow}>PIPELINE</div>
+      <h3 style={styles.cardTitle}>Dealer Opportunity Pipeline</h3>
+
+      <div style={styles.grid2}>
+        <div style={{ ...styles.summaryCard, borderLeft: "5px solid #94a3b8" }}>
+          <div style={styles.summaryLabel}>Awaiting Review</div>
+          <div style={styles.summaryValue}>
+            {dealerPerformance.followUps.filter((q) => q.review_status !== "submitted").length}
+          </div>
+          <div style={styles.listMeta}>Proposals waiting on customer</div>
+        </div>
+
+        <div style={{ ...styles.summaryCard, borderLeft: "5px solid #3b82f6" }}>
+          <div style={styles.summaryLabel}>Reviewed</div>
+          <div style={styles.summaryValue}>{dealerPerformance.customerResponses}</div>
+          <div style={styles.listMeta}>Customer has responded</div>
+        </div>
+
+        <div style={{ ...styles.summaryCard, borderLeft: "5px solid #22c55e" }}>
+          <div style={styles.summaryLabel}>Approval Rate</div>
+          <div style={styles.summaryValue}>{dealerPerformance.approvalRate}%</div>
+          <div style={styles.listMeta}>Proposal approval rate</div>
+        </div>
+
+        <div style={{ ...styles.summaryCard, borderLeft: "5px solid #ef4444" }}>
+          <div style={styles.summaryLabel}>Needs Follow-Up</div>
+          <div style={styles.summaryValue}>
+            {dealerPerformance.followUps.filter((q) => q.review_status !== "submitted").length}
+          </div>
+          <div style={styles.listMeta}>Open opportunities requiring attention</div>
+        </div>
+      </div>
+    </div>
+
+    <div style={styles.card}>
+      <div style={styles.eyebrow}>PRODUCT LINE PERFORMANCE</div>
+      <h3 style={styles.cardTitle}>Dealer Product Mix</h3>
+
+      <div style={styles.grid3}>
+        {dealerPerformance.productMix.map((line) => (
+          <div key={line.name} style={styles.summaryCard}>
+            <div style={styles.summaryLabel}>{line.name}</div>
+            <div style={styles.summaryValue}>{line.percent}%</div>
+            <div style={styles.listMeta}>{line.count} quoted item(s)</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </>
+)}
+
+      {dealerAdminTab === "profile" && (
+  <>
+    <div style={styles.card}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 18, alignItems: "center" }}>
+        <div>
+          <div style={styles.eyebrow}>DEALER PROFILE</div>
+          <h3 style={styles.cardTitle}>Branding & Proposal Settings</h3>
+          <p style={styles.cardBody}>
+            Control how this dealer appears across dashboards and customer-facing proposals.
+          </p>
+        </div>
+
+        {dealerLogoPreview || dealerLogoUrl || dealerProfile?.logo_url ? (
+          <img
+            src={dealerLogoPreview || dealerLogoUrl || dealerProfile?.logo_url}
+            alt="Dealer Logo"
+            style={{
+              width: 88,
+              height: 88,
+              objectFit: "contain",
+              background: "#f8fafc",
+              border: "1px solid #e5e7eb",
+              borderRadius: 18,
+              padding: 10,
+            }}
+          />
+        ) : null}
+      </div>
+    </div>
+
+    <div style={styles.card}>
+      <div style={styles.eyebrow}>DEALER BRANDING</div>
+
+      <div style={styles.grid2}>
+        <div>
+          <label style={styles.label}>Dealer Company Name</label>
+          <input
+            style={styles.input}
+            value={dealerCompanyName}
+            onChange={(e) => setDealerCompanyName(e.target.value)}
+            placeholder="Dealer Company"
+          />
+        </div>
+
+        <div>
+          <label style={styles.label}>Dealer Logo</label>
+          <input
+            type="file"
+            accept="image/*"
+            style={styles.input}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setDealerLogoFile(file);
+              setDealerLogoPreview(URL.createObjectURL(file));
+            }}
+          />
+          <div style={styles.listMeta}>
+            Upload a PNG or JPG logo for portal and proposal branding.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style={styles.card}>
+      <div style={styles.eyebrow}>BUSINESS CONTACT</div>
+
+      <div style={styles.grid2}>
+        <div>
+          <label style={styles.label}>Dealer Phone</label>
+          <input style={styles.input} value={dealerPhone} onChange={(e) => setDealerPhone(e.target.value)} />
+        </div>
+
+        <div>
+          <label style={styles.label}>Dealer Website</label>
+          <input style={styles.input} value={dealerWebsite} onChange={(e) => setDealerWebsite(e.target.value)} />
         </div>
       </div>
 
+      <div style={{ marginTop: 14 }}>
+        <label style={styles.label}>Dealer Address</label>
+        <input style={styles.input} value={dealerAddress} onChange={(e) => setDealerAddress(e.target.value)} />
+      </div>
+
+      <div style={{ ...styles.grid3, marginTop: 14 }}>
+        <div>
+          <label style={styles.label}>City</label>
+          <input style={styles.input} value={dealerCity} onChange={(e) => setDealerCity(e.target.value)} />
+        </div>
+
+        <div>
+          <label style={styles.label}>Province/State</label>
+          <input style={styles.input} value={dealerProvinceState} onChange={(e) => setDealerProvinceState(e.target.value)} />
+        </div>
+
+        <div>
+          <label style={styles.label}>Postal Code</label>
+          <input style={styles.input} value={dealerPostalCode} onChange={(e) => setDealerPostalCode(e.target.value)} />
+        </div>
+      </div>
+    </div>
+
+    <div style={styles.card}>
+      <div style={styles.eyebrow}>PROPOSAL DEFAULTS</div>
+      <p style={styles.cardBody}>
+        Use Klondike recommended language or create dealer-specific proposal messaging.
+      </p>
+
+      <label style={{ ...styles.label, display: "flex", gap: 10 }}>
+        <input
+          type="checkbox"
+          checked={useDefaultIntro}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            setUseDefaultIntro(checked);
+            if (checked) setDealerIntroStatement(DEFAULT_INTRO);
+          }}
+        />
+        Use Klondike recommended intro
+      </label>
+
+      <textarea
+        style={{ ...styles.textarea, background: useDefaultIntro ? "#f1f5f9" : "#fff" }}
+        value={useDefaultIntro ? DEFAULT_INTRO : dealerIntroStatement}
+        onChange={(e) => setDealerIntroStatement(e.target.value)}
+        disabled={useDefaultIntro}
+      />
+
+      <label style={{ ...styles.label, display: "flex", gap: 10, marginTop: 16 }}>
+        <input
+          type="checkbox"
+          checked={useDefaultClosing}
+          onChange={(e) => {
+            const checked = e.target.checked;
+            setUseDefaultClosing(checked);
+            if (checked) setDealerClosingStatement(DEFAULT_CLOSING);
+          }}
+        />
+        Use Klondike recommended closing
+      </label>
+
+      <textarea
+        style={{ ...styles.textarea, background: useDefaultClosing ? "#f1f5f9" : "#fff" }}
+        value={useDefaultClosing ? DEFAULT_CLOSING : dealerClosingStatement}
+        onChange={(e) => setDealerClosingStatement(e.target.value)}
+        disabled={useDefaultClosing}
+      />
+
+      <button
+        type="button"
+        onClick={handleSaveDealerProfile}
+        disabled={dealerSaving}
+        style={{ ...styles.primaryButton, marginTop: 18 }}
+      >
+        {dealerSaving ? "Saving..." : "Save Dealer Profile"}
+      </button>
+
+      {dealerSaveMessage && <p style={styles.message}>{dealerSaveMessage}</p>}
+    </div>
+  </>
+)}
+            {dealerAdminTab === "add_users" && (
+  <>
+    <div style={styles.card}>
+      <div style={styles.eyebrow}>TEAM ACCESS</div>
+      <h3 style={styles.cardTitle}>Request Manager / Rep Access</h3>
+      <p style={styles.cardBody}>
+        Add the people who should receive access to this dealer workspace.
+        Klondike Admin approval is required before access is granted.
+      </p>
+
+      <form onSubmit={handleAccessRequest} style={styles.form}>
+        <div style={styles.grid3}>
+          <input
+            style={styles.input}
+            value={requestName}
+            onChange={(e) => setRequestName(e.target.value)}
+            placeholder="Full name"
+          />
+
+          <input
+            style={styles.input}
+            type="email"
+            value={requestEmail}
+            onChange={(e) => setRequestEmail(e.target.value)}
+            placeholder="user@dealer.com"
+          />
+
+          <select
+            style={styles.input}
+            value={requestRole}
+            onChange={(e) => {
+              setRequestRole(e.target.value);
+            }}
+          >
+            <option value="manager">Manager</option>
+            <option value="rep">Rep</option>
+          </select>
+        </div>
+
+        <textarea
+          style={styles.textarea}
+          value={requestReason}
+          onChange={(e) => setRequestReason(e.target.value)}
+          placeholder="Why does this person need access?"
+        />
+
+        <button
+          type="submit"
+          disabled={requestLoading}
+          style={styles.secondaryButton}
+        >
+          {requestLoading ? "Submitting..." : "Add Additional User Request"}
+        </button>
+      </form>
+
+      {requestMessage && <p style={styles.message}>{requestMessage}</p>}
+    </div>
+
+    {recentAccessRequests.filter((req) => req.status === "pending").length >
+      0 && (
       <div style={styles.card}>
-        <div style={styles.eyebrow}>BUSINESS PROFILE</div>
-        <h3 style={styles.cardTitle}>Dealer Profile</h3>
-        <p style={styles.cardBody}>
-          This information powers your dealer-facing documents, customer-facing
-          presentation material, and internal deal workflows.
-        </p>
+        <div style={styles.eyebrow}>PENDING REQUESTS</div>
+        <h3 style={styles.cardTitle}>Pending Team Access</h3>
+
+        {recentAccessRequests
+          .filter((req) => req.status === "pending")
+          .map((req) => (
+            <div key={req.id} style={styles.listItem}>
+              <div>
+                <strong>{req.full_name || req.requester_name}</strong>{" "}
+                ({req.requested_role})
+              </div>
+              <div style={styles.listMeta}>
+                {req.email || req.requester_email}
+              </div>
+              {req.reason && <div style={styles.listMeta}>{req.reason}</div>}
+            </div>
+          ))}
+      </div>
+    )}
+  </>
+)}
+{dealerAdminTab === "team" && (
+  <div style={styles.card}>
+    <div style={styles.eyebrow}>TEAM</div>
+    <h3 style={styles.cardTitle}>Current Platform Users</h3>
+    <p style={styles.cardBody}>
+      View active managers and reps currently approved for this dealer platform.
+    </p>
+
+    <div style={styles.stack}>
+      {managerMembers.length === 0 && repProfiles.length === 0 && (
+        <p style={styles.muted}>No approved team members yet.</p>
+      )}
+
+      {managerMembers.map((manager) => (
+        <div key={manager.id || manager.user_id} style={styles.listRow}>
+          <div>
+            <div style={styles.listTitle}>
+              {manager.profile?.full_name || manager.profile?.email || "Manager"}
+            </div>
+            <div style={styles.listMeta}>
+              {manager.profile?.email || "No email listed"}
+            </div>
+          </div>
+
+          <span style={styles.statusPill}>Manager</span>
+        </div>
+      ))}
+
+      {repProfiles.map((rep) => (
+        <div key={rep.id || rep.email} style={styles.listRow}>
+          <div>
+            <div style={styles.listTitle}>
+              {`${rep.first_name || ""} ${rep.last_name || ""}`.trim() ||
+                rep.email ||
+                "Representative"}
+            </div>
+            <div style={styles.listMeta}>
+              {rep.email || "No email listed"}
+            </div>
+          </div>
+
+          <span style={styles.statusPill}>Rep</span>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+</>
+) : (
+      <>
+        <div style={styles.heroCard}>
+          <div style={styles.eyebrow}>KLONDIKE DEALER GROWTH PLATFORM</div>
+          <h2 style={styles.heroTitle}>Dealer Enrollment</h2>
+          <p style={styles.heroText}>
+            Add your dealer profile, branding, default proposal settings, and
+            team access requests.
+          </p>
+        </div>
 
         <form onSubmit={handleSaveDealerProfile} style={styles.form}>
-          <div style={styles.grid3}>
-            <div>
-              <label style={styles.label}>Company Name</label>
-              <input
-                style={styles.input}
-                value={dealerCompanyName}
-                onChange={(e) => setDealerCompanyName(e.target.value)}
-                placeholder="Dealer Company"
-              />
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>DEALER BRANDING</div>
+
+            <div style={styles.grid2}>
+              <div>
+                <label style={styles.label}>Dealer Company Name</label>
+                <input
+                  style={styles.input}
+                  value={dealerCompanyName}
+                  onChange={(e) => setDealerCompanyName(e.target.value)}
+                  placeholder="Dealer Company"
+                />
+              </div>
+
+              <div>
+                <label style={styles.label}>Dealer Logo</label>
+                <input
+  type="file"
+  accept="image/png,image/jpeg"
+  style={styles.input}
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    setDealerLogoFile(file);
+    setDealerLogoPreview(URL.createObjectURL(file));
+  }}
+/>
+                <div style={styles.listMeta}>
+                  Upload a PNG or JPG logo for use in portal and proposal
+                  documents.
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label style={styles.label}>Phone</label>
-              <input
-                style={styles.input}
-                value={dealerPhone}
-                onChange={(e) => setDealerPhone(e.target.value)}
-                placeholder="555-555-5555"
-              />
+            <div
+              style={{
+                marginTop: 16,
+                border: "1px dashed #cbd5e1",
+                borderRadius: 14,
+                minHeight: 120,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#64748b",
+                background: "#f8fafc",
+              }}
+            >
+              Logo Preview
+            </div>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>DEALER CONTACT & BUSINESS INFO</div>
+
+            <div style={styles.grid2}>
+              <div>
+                <label style={styles.label}>Dealer Phone</label>
+                <input
+                  style={styles.input}
+                  value={dealerPhone}
+                  onChange={(e) => setDealerPhone(e.target.value)}
+                  placeholder="555-555-5555"
+                />
+              </div>
+
+              <div>
+                <label style={styles.label}>Dealer Website</label>
+                <input
+                  style={styles.input}
+                  value={dealerWebsite}
+                  onChange={(e) => setDealerWebsite(e.target.value)}
+                  placeholder="https://dealer.com"
+                />
+              </div>
             </div>
 
-            <div>
-              <label style={styles.label}>Website</label>
-              <input
-                style={styles.input}
-                value={dealerWebsite}
-                onChange={(e) => setDealerWebsite(e.target.value)}
-                placeholder="https://dealer.com"
-              />
-            </div>
-
-            <div>
-              <label style={styles.label}>Address</label>
+            <div style={{ marginTop: 14 }}>
+              <label style={styles.label}>Dealer Address</label>
               <input
                 style={styles.input}
                 value={dealerAddress}
@@ -1515,345 +2968,207 @@ export default function App() {
               />
             </div>
 
-            <div>
-              <label style={styles.label}>City</label>
-              <input
-                style={styles.input}
-                value={dealerCity}
-                onChange={(e) => setDealerCity(e.target.value)}
-                placeholder="City"
-              />
-            </div>
+            <div style={{ ...styles.grid3, marginTop: 14 }}>
+              <div>
+                <label style={styles.label}>Dealer City</label>
+                <input
+                  style={styles.input}
+                  value={dealerCity}
+                  onChange={(e) => setDealerCity(e.target.value)}
+                  placeholder="City"
+                />
+              </div>
 
-            <div>
-              <label style={styles.label}>Province / State</label>
-              <input
-                style={styles.input}
-                value={dealerProvinceState}
-                onChange={(e) => setDealerProvinceState(e.target.value)}
-                placeholder="Province or State"
-              />
-            </div>
+              <div>
+                <label style={styles.label}>Dealer Province/State</label>
+                <input
+                  style={styles.input}
+                  value={dealerProvinceState}
+                  onChange={(e) => setDealerProvinceState(e.target.value)}
+                  placeholder="Province or State"
+                />
+              </div>
 
-            <div>
-              <label style={styles.label}>Postal Code</label>
-              <input
-                style={styles.input}
-                value={dealerPostalCode}
-                onChange={(e) => setDealerPostalCode(e.target.value)}
-                placeholder="Postal code"
-              />
-            </div>
-          </div>
-
-          <div style={styles.grid2}>
-            <div>
-              <label style={styles.label}>Intro Statement</label>
-              <textarea
-                style={styles.textarea}
-                value={dealerIntroStatement}
-                onChange={(e) => setDealerIntroStatement(e.target.value)}
-                placeholder="Brief intro used in customer-facing material."
-              />
-            </div>
-
-            <div>
-              <label style={styles.label}>Closing Statement</label>
-              <textarea
-                style={styles.textarea}
-                value={dealerClosingStatement}
-                onChange={(e) => setDealerClosingStatement(e.target.value)}
-                placeholder="Closing note used in proposals or summaries."
-              />
+              <div>
+                <label style={styles.label}>Dealer Postal Code</label>
+                <input
+                  style={styles.input}
+                  value={dealerPostalCode}
+                  onChange={(e) => setDealerPostalCode(e.target.value)}
+                  placeholder="Postal code"
+                />
+              </div>
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={dealerSaving}
-            style={styles.primaryButton}
-          >
-            {dealerSaving ? "Saving Profile..." : "Save Dealer Profile"}
-          </button>
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>PROPOSAL DEFAULTS</div>
+
+            <p style={styles.cardBody}>
+              Choose whether to use Klondike recommended proposal language or
+              create your own dealer-specific messaging.
+            </p>
+
+            <label style={{ ...styles.label, display: "flex", gap: 10 }}>
+              <input
+                type="checkbox"
+                checked={useDefaultIntro}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setUseDefaultIntro(checked);
+                  if (checked) setDealerIntroStatement(DEFAULT_INTRO);
+                }}
+              />
+              Use Klondike recommended intro
+            </label>
+
+            <label style={styles.label}>Dealer Intro Statement</label>
+            <textarea
+              style={{
+                ...styles.textarea,
+                background: useDefaultIntro ? "#f1f5f9" : "#fff",
+              }}
+              value={useDefaultIntro ? DEFAULT_INTRO : dealerIntroStatement}
+              onChange={(e) => setDealerIntroStatement(e.target.value)}
+              disabled={useDefaultIntro}
+            />
+
+            <label
+              style={{
+                ...styles.label,
+                display: "flex",
+                gap: 10,
+                marginTop: 16,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={useDefaultClosing}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setUseDefaultClosing(checked);
+                  if (checked) setDealerClosingStatement(DEFAULT_CLOSING);
+                }}
+              />
+              Use Klondike recommended closing
+            </label>
+
+            <label style={styles.label}>Dealer Closing Statement</label>
+            <textarea
+              style={{
+                ...styles.textarea,
+                background: useDefaultClosing ? "#f1f5f9" : "#fff",
+              }}
+              value={useDefaultClosing ? DEFAULT_CLOSING : dealerClosingStatement}
+              onChange={(e) => setDealerClosingStatement(e.target.value)}
+              disabled={useDefaultClosing}
+            />
+
+            <button
+              type="submit"
+              disabled={dealerSaving}
+              style={{ ...styles.primaryButton, marginTop: 16 }}
+            >
+              {dealerSaving ? "Saving..." : "Save Dealer Profile / Continue"}
+            </button>
+
+            {dealerSaveMessage && <p style={styles.message}>{dealerSaveMessage}</p>}
+          </div>
         </form>
 
-        {dealerSaveMessage && <p style={styles.message}>{dealerSaveMessage}</p>}
-      </div>
-
-      <div style={styles.grid2}>
         <div style={styles.card}>
           <div style={styles.eyebrow}>TEAM ACCESS</div>
-          <h3 style={styles.cardTitle}>Request Additional Access</h3>
+          <h3 style={styles.cardTitle}>Request Manager / Rep Access</h3>
           <p style={styles.cardBody}>
-            Request manager or rep access for users who should join this dealer
-            workspace.
+            Add the people who should receive access to this dealer workspace.
+            Klondike Admin approval is required before access is granted.
           </p>
 
           <form onSubmit={handleAccessRequest} style={styles.form}>
             <div style={styles.grid3}>
-              <div>
-                <label style={styles.label}>Name</label>
-                <input
-                  style={styles.input}
-                  value={requestName}
-                  onChange={(e) => setRequestName(e.target.value)}
-                  placeholder="Full name"
-                />
-              </div>
-
-              <div>
-                <label style={styles.label}>Email</label>
-                <input
-                  style={styles.input}
-                  type="email"
-                  value={requestEmail}
-                  onChange={(e) => setRequestEmail(e.target.value)}
-                  placeholder="user@dealer.com"
-                />
-              </div>
-
-              <div>
-                <label style={styles.label}>Requested Role</label>
-                <select
-                  style={styles.input}
-                  value={requestRole}
-                  onChange={(e) => setRequestRole(e.target.value)}
-                >
-                  <option value="manager">Manager</option>
-                  <option value="rep">Rep</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label style={styles.label}>Reason</label>
-              <textarea
-                style={styles.textarea}
-                value={requestReason}
-                onChange={(e) => setRequestReason(e.target.value)}
-                placeholder="Briefly explain why this user needs access."
+              <input
+                style={styles.input}
+                value={requestName}
+                onChange={(e) => setRequestName(e.target.value)}
+                placeholder="Full name"
               />
+
+              <input
+                style={styles.input}
+                type="email"
+                value={requestEmail}
+                onChange={(e) => setRequestEmail(e.target.value)}
+                placeholder="user@dealer.com"
+              />
+
+              <select
+                style={styles.input}
+                value={requestRole}
+                onChange={(e) => setRequestRole(e.target.value)}
+              >
+                <option value="manager">Manager</option>
+                <option value="rep">Rep</option>
+              </select>
+           {true && (
+  <div style={{ gridColumn: "1 / -1" }}>
+    <label style={styles.label}>Assign Manager Optional</label>
+
+    <select
+      style={styles.input}
+      value={requestManagerId}
+      onChange={(e) => setRequestManagerId(e.target.value)}
+    >
+      <option value="">No manager / Dealer Admin manages directly</option>
+
+      {allUsers
+  .filter((user) => user.role === "manager")
+  .map((manager) => (
+          <option key={manager.id} value={manager.id}>
+            {manager.full_name || manager.email || "Manager"}
+          </option>
+        ))}
+    </select>
+
+    <div style={styles.listMeta}>
+      Optional. Small dealers can invite reps without assigning a manager.
+    </div>
+  </div>
+)}
             </div>
+
+            <textarea
+              style={styles.textarea}
+              value={requestReason}
+              onChange={(e) => setRequestReason(e.target.value)}
+              placeholder="Why does this person need access?"
+            />
 
             <button
               type="submit"
               disabled={requestLoading}
               style={styles.secondaryButton}
             >
-              {requestLoading
-                ? "Submitting Request..."
-                : "Submit Access Request"}
+              {requestLoading ? "Submitting..." : "Add Additional User Request"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleFinishDealerEnrollment}
+              style={{
+                ...styles.primaryButton,
+                marginTop: 12,
+              }}
+            >
+              Finish Enrollment / Go to Dealer Dashboard
             </button>
           </form>
 
           {requestMessage && <p style={styles.message}>{requestMessage}</p>}
         </div>
-
-        <div style={styles.card}>
-          <div style={styles.eyebrow}>REP SETUP</div>
-          <h3 style={styles.cardTitle}>Rep Enrollment</h3>
-          <p style={styles.cardBody}>
-            Add sales reps to this dealer profile so they can be assigned to
-            managers and customer activity.
-          </p>
-
-          <form onSubmit={handleSaveRepEnrollment} style={styles.form}>
-            <div style={styles.grid2}>
-              <div>
-                <label style={styles.label}>First Name</label>
-                <input
-                  style={styles.input}
-                  value={repFirstName}
-                  onChange={(e) => setRepFirstName(e.target.value)}
-                  placeholder="First name"
-                />
-              </div>
-
-              <div>
-                <label style={styles.label}>Last Name</label>
-                <input
-                  style={styles.input}
-                  value={repLastName}
-                  onChange={(e) => setRepLastName(e.target.value)}
-                  placeholder="Last name"
-                />
-              </div>
-
-              <div>
-                <label style={styles.label}>Title</label>
-                <input
-                  style={styles.input}
-                  value={repTitle}
-                  onChange={(e) => setRepTitle(e.target.value)}
-                  placeholder="Sales Rep"
-                />
-              </div>
-
-              <div>
-                <label style={styles.label}>Phone</label>
-                <input
-                  style={styles.input}
-                  value={repPhone}
-                  onChange={(e) => setRepPhone(e.target.value)}
-                  placeholder="555-555-5555"
-                />
-              </div>
-
-              <div>
-                <label style={styles.label}>Email</label>
-                <input
-                  style={styles.input}
-                  type="email"
-                  value={repEmailAddress}
-                  onChange={(e) => setRepEmailAddress(e.target.value)}
-                  placeholder="rep@dealer.com"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={repSaving}
-              style={styles.secondaryButton}
-            >
-              {repSaving ? "Saving Rep..." : "Save Rep"}
-            </button>
-          </form>
-
-          {repSaveMessage && <p style={styles.message}>{repSaveMessage}</p>}
-        </div>
-      </div>
-
-      <div style={styles.grid2}>
-        <div style={styles.card}>
-          <div style={styles.eyebrow}>DEALER TEAM</div>
-          <h3 style={styles.cardTitle}>Saved Reps</h3>
-
-          <div style={styles.stack}>
-            {repProfiles.length === 0 && (
-              <p style={styles.muted}>No reps saved yet.</p>
-            )}
-
-            {repProfiles.map((rep) => (
-              <div key={rep.id} style={styles.listRow}>
-                <div>
-                  <div style={styles.listTitle}>
-                    {`${rep.first_name || ""} ${rep.last_name || ""}`.trim() ||
-                      "Unnamed Rep"}
-                  </div>
-                  <div style={styles.listMeta}>
-                    {(rep.title || "Rep") + " • " + (rep.email || "No email")}
-                  </div>
-                </div>
-
-                <span style={styles.statusPill}>{rep.phone || "No phone"}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={styles.card}>
-          <div style={styles.eyebrow}>COVERAGE</div>
-          <h3 style={styles.cardTitle}>Manager → Rep Assignment</h3>
-
-          <form onSubmit={handleAssignRepToManager} style={styles.form}>
-            <div style={styles.grid2}>
-              <div>
-                <label style={styles.label}>Manager</label>
-                <select
-                  style={styles.input}
-                  value={assignManagerId}
-                  onChange={(e) => setAssignManagerId(e.target.value)}
-                >
-                  <option value="">Select manager</option>
-                  {managerMembers.map((m) => {
-                    const id = m.profile?.id || m.user_id;
-                    const name =
-                      m.profile?.full_name || m.profile?.email || m.user_id;
-
-                    return (
-                      <option key={id} value={id}>
-                        {name}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div>
-                <label style={styles.label}>Rep</label>
-                <select
-                  style={styles.input}
-                  value={assignRepId}
-                  onChange={(e) => setAssignRepId(e.target.value)}
-                >
-                  <option value="">Select rep</option>
-                  {repProfiles.map((rep) => (
-                    <option key={rep.id} value={rep.id}>
-                      {(rep.first_name || "") +
-                        " " +
-                        (rep.last_name || "") +
-                        (rep.email ? ` (${rep.email})` : "")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={assignmentSaving}
-              style={styles.secondaryButton}
-            >
-              {assignmentSaving ? "Assigning..." : "Assign Rep"}
-            </button>
-          </form>
-
-          {assignmentMessage && (
-            <p style={styles.message}>{assignmentMessage}</p>
-          )}
-
-          <div style={styles.stack}>
-            {teamAssignments.length === 0 && (
-              <p style={styles.muted}>No assignments yet.</p>
-            )}
-
-            {teamAssignments.map((assignment) => {
-              const manager = managerMembers.find(
-                (m) =>
-                  (m.profile?.id || m.user_id) === assignment.manager_profile_id
-              );
-              const rep = repProfiles.find(
-                (r) => r.id === assignment.rep_profile_id
-              );
-
-              return (
-                <div key={assignment.id} style={styles.listRow}>
-                  <div>
-                    <div style={styles.listTitle}>
-                      {manager?.profile?.full_name ||
-                        manager?.profile?.email ||
-                        assignment.manager_profile_id}
-                    </div>
-                    <div style={styles.listMeta}>
-                      manages{" "}
-                      {rep
-                        ? `${rep.first_name || ""} ${
-                            rep.last_name || ""
-                          }`.trim()
-                        : assignment.rep_profile_id}
-                    </div>
-                  </div>
-
-                  <span style={styles.statusPill}>active</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+      </>
+    )}
+  </div>
+);
   const renderManagerView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
@@ -1884,24 +3199,6 @@ export default function App() {
       </div>
     </div>
   );
-  const PRODUCT_MAP = [
-    {
-      keywords: ["shell", "rotella", "15w-40", "t4"],
-      match: "KLONDIKE 15W-40 Heavy Duty Engine Oil",
-    },
-    {
-      keywords: ["chevron", "delo", "400"],
-      match: "KLONDIKE 15W-40 Premium Diesel Engine Oil",
-    },
-    {
-      keywords: ["hydraulic", "aw"],
-      match: "KLONDIKE AW Hydraulic Oil",
-    },
-    {
-      keywords: ["atf", "transmission"],
-      match: "KLONDIKE ATF",
-    },
-  ];
   function DealerPortalShell({ activeMembership, activeTab, setActiveTab }) {
     const role = activeMembership?.role || "";
     const orgName = activeMembership?.organization?.name || "Dealer";
@@ -1909,12 +3206,306 @@ export default function App() {
     const isRep = role === "rep";
     const isManager = role === "manager";
     const isDealerAdmin = role === "dealer_admin";
-
+        const [dealerActiveTab, setDealerActiveTab] = React.useState(
+      isRep ? activeTab || "quote" : "dashboard"
+    );
+    const [managerTab, setManagerTab] = useState("dashboard");
     const [quoteStep, setQuoteStep] = React.useState(1);
     const [quoteItems, setQuoteItems] = React.useState([]);
+  
+    const [pricingMap, setPricingMap] = React.useState({});
     const [proposalPreviewItems, setProposalPreviewItems] = React.useState([]);
-    const [myQuotes, setMyQuotes] = React.useState([]);
+    const [proposalResponses, setProposalResponses] = React.useState([]);
+    const [selectedResponse, setSelectedResponse] = React.useState(null);
+    const [activePipelineStage, setActivePipelineStage] = React.useState(null);
+    const [pipeline, setPipeline] = React.useState({
+  awaiting: [],
+  reviewed: [],
+  approved: [],
+  followUp: [],
+});
+    const [repSnapshot, setRepSnapshot] = React.useState({
+  quotes: 0,
+  proposalsSent: 0,
+  responses: 0,
+  approvedRevenue: 0,
+  approvalRate: 0,
+});
 
+const [leaderboard, setLeaderboard] = React.useState([]);
+  React.useEffect(() => {
+  const loadResponses = async () => {
+    const { data: responses, error } = await supabase
+      .from("proposal_responses")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) return;
+
+    const quoteIds = [...new Set((responses || []).map((r) => r.quote_id))];
+
+    const { data: quotes } = await supabase
+      .from("quotes")
+      .select("id, customer_name, customer_email")
+      .in("id", quoteIds);
+
+    const quoteMap = {};
+    (quotes || []).forEach((q) => {
+      quoteMap[q.id] = q;
+    });
+
+    setProposalResponses(
+      (responses || []).map((res) => ({
+        ...res,
+        quote: quoteMap[res.quote_id] || null,
+      }))
+    );
+  };
+
+  loadResponses();
+}, []);
+React.useEffect(() => {
+const loadDashboardMetrics = async () => {
+  if (!activeMembership?.organization_id) return;
+
+  const { data: quotes } = await supabase
+    .from("quotes")
+    .select("*")
+    .eq("organization_id", activeMembership.organization_id);
+
+  const { data: responses } = await supabase
+    .from("proposal_responses")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  const orgQuotes = quotes || [];
+  const orgQuoteIds = orgQuotes.map((q) => q.id);
+
+  const orgResponses = (responses || []).filter((r) =>
+    orgQuoteIds.includes(r.quote_id)
+  );
+
+    const myEmail = session?.user?.email;
+
+  const assignedRepProfileIds = (teamAssignments || [])
+    .filter(
+      (assignment) =>
+        assignment.manager_profile_id === session?.user?.id ||
+        assignment.manager_user_id === session?.user?.id
+    )
+    .map((assignment) => assignment.rep_profile_id)
+    .filter(Boolean);
+
+  const assignedRepEmails = (repProfiles || [])
+    .filter(
+      (rep) =>
+        assignedRepProfileIds.includes(rep.id) ||
+        assignedRepProfileIds.includes(rep.user_id)
+    )
+    .map((rep) => String(rep.email || "").toLowerCase())
+    .filter(Boolean);
+
+  const myQuotesForMetrics = isManager
+    ? orgQuotes.filter((q) => {
+        const quoteRepEmail = String(q.rep_email || "").toLowerCase();
+
+        return (
+          assignedRepProfileIds.includes(q.user_id) ||
+          assignedRepEmails.includes(quoteRepEmail)
+        );
+      })
+    : orgQuotes.filter(
+        (q) => q.user_id === session?.user?.id || q.rep_email === myEmail
+      );
+
+  const myQuoteIds = myQuotesForMetrics.map((q) => q.id);
+
+  const myResponses = orgResponses.filter((r) =>
+    myQuoteIds.includes(r.quote_id)
+  );
+
+  const myResponseRows = myResponses.flatMap(
+    (r) => r.decision_data?.responses || []
+  );
+
+  const myApproved = myResponseRows.filter(
+    (row) => row.decision === "approved"
+  );
+
+  const myDeclined = myResponseRows.filter(
+    (row) => row.decision === "declined"
+  );
+
+  const approvedRevenue = myApproved.reduce(
+    (sum, row) => sum + Number(row.price || 0),
+    0
+  );
+
+  setRepSnapshot({
+    quotes: myQuotesForMetrics.length,
+    proposalsSent: myQuotesForMetrics.filter((q) => q.rep_signature || q.rep_email)
+      .length,
+    responses: myResponses.length,
+    approvedRevenue,
+    approvalRate:
+      myApproved.length + myDeclined.length > 0
+        ? Math.round(
+            (myApproved.length / (myApproved.length + myDeclined.length)) *
+              100
+          )
+        : 0,
+  });
+
+  const repProfileByEmail = {};
+
+  (repProfiles || []).forEach((rep) => {
+    if (rep.email) {
+      repProfileByEmail[String(rep.email).toLowerCase()] = `${
+        rep.first_name || ""
+      } ${rep.last_name || ""}`.trim();
+    }
+  });
+
+  const getRepDisplayName = (quoteRecord) => {
+    const email = String(quoteRecord?.rep_email || "").toLowerCase();
+    const profileName = repProfileByEmail[email];
+
+    const fallback =
+      quoteRecord?.rep_name ||
+      profileName ||
+      quoteRecord?.rep_email ||
+      "Unknown Rep";
+
+    const looksLikeUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        String(fallback)
+      );
+
+    return looksLikeUuid ? "Unknown Rep" : fallback;
+  };
+
+  const repMap = {};
+
+  orgQuotes.forEach((q) => {
+    const repName = getRepDisplayName(q);
+
+    if (!repMap[repName]) {
+      repMap[repName] = {
+        name: repName,
+        proposals: 0,
+        approved: 0,
+        declined: 0,
+        revenue: 0,
+      };
+    }
+
+    repMap[repName].proposals += 1;
+  });
+
+  orgResponses.forEach((res) => {
+    const quoteRecord = orgQuotes.find((q) => q.id === res.quote_id);
+    if (!quoteRecord) return;
+
+    const repName = getRepDisplayName(quoteRecord);
+
+    if (!repMap[repName]) {
+      repMap[repName] = {
+        name: repName,
+        proposals: 0,
+        approved: 0,
+        declined: 0,
+        revenue: 0,
+      };
+    }
+
+    const rows = res.decision_data?.responses || [];
+
+    rows.forEach((row) => {
+      if (row.decision === "approved") {
+        repMap[repName].approved += 1;
+        repMap[repName].revenue += Number(row.price || 0);
+      }
+
+      if (row.decision === "declined") {
+        repMap[repName].declined += 1;
+      }
+    });
+  });
+
+  const sorted = Object.values(repMap)
+    .map((rep) => ({
+      ...rep,
+      approvalRate:
+        rep.approved + rep.declined > 0
+          ? Math.round((rep.approved / (rep.approved + rep.declined)) * 100)
+          : 0,
+    }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  setLeaderboard(sorted);
+
+  const awaiting = myQuotesForMetrics.filter(
+    (q) => !q.review_status || q.review_status === "open"
+  );
+
+  const reviewed = myResponses;
+
+  const approvedDeals = myResponses.filter((res) =>
+    (res.decision_data?.responses || []).some(
+      (r) => r.decision === "approved"
+    )
+  );
+
+  const needsFollowUp = myResponses.filter((res) =>
+    (res.decision_data?.responses || []).some(
+      (r) => r.decision === "declined"
+    )
+  );
+
+  setPipeline({
+    awaiting,
+    reviewed,
+    approved: approvedDeals,
+    followUp: needsFollowUp,
+  });
+};
+
+loadDashboardMetrics();
+},[
+  activeMembership?.organization_id,
+  session?.user?.id,
+  session?.user?.email,
+  repProfiles,
+  teamAssignments,
+  isManager,
+]);
+    const [myQuotes, setMyQuotes] = React.useState([]);
+    const [currentQuote, setCurrentQuote] = React.useState(null);
+    React.useEffect(() => {
+  const loadMyQuotes = async () => {
+    if (!session?.user?.id || !activeMembership?.organization_id) return;
+
+    const { data, error } = await supabase
+      .from("quotes")
+      .select("*")
+      .eq("user_id", session.user.id)
+      .eq("organization_id", activeMembership.organization_id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Load quotes error:", error.message);
+      return;
+    }
+
+    setMyQuotes(data || []);
+  };
+
+  loadMyQuotes();
+}, [session?.user?.id, activeMembership?.organization_id]);
+const [crossSearch, setCrossSearch] = useState("");
+const [crossReferenceResult, setCrossReferenceResult] = useState(null);
+const [crossCatalogMap, setCrossCatalogMap] = React.useState({});
+const [selectedPackage, setSelectedPackage] = React.useState("");
     const [companyName, setCompanyName] = React.useState("");
     const [contactName, setContactName] = React.useState("");
     const [quoteContactEmail, setQuoteContactEmail] = React.useState("");
@@ -1926,42 +3517,57 @@ export default function App() {
     const [industry, setIndustry] = React.useState("");
     const [subIndustry, setSubIndustry] = React.useState("");
     const [segment, setSegment] = React.useState("");
-
+const [signature, setSignature] = React.useState(null);
+const canvasRef = React.useRef(null);
+const [isSigning, setIsSigning] = React.useState(false);
     const [competitor, setCompetitor] = React.useState("");
+    const [quickMatches, setQuickMatches] = React.useState([]);
+const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
     const [klondike, setKlondike] = React.useState("");
-    const [tier, setTier] = React.useState("Professional");
+    const [tier, setTier] = React.useState("Good");
+    const [equipmentType, setEquipmentType] = React.useState("");
     const [packageSize, setPackageSize] = React.useState("");
     const [quoteSearchResults, setQuoteSearchResults] = React.useState([]);
     const [selectedProduct, setSelectedProduct] = React.useState(null);
 
     const [proposalDecisions, setProposalDecisions] = React.useState({});
+const [proposalFeedback, setProposalFeedback] = React.useState({});
     const [quoteSaving, setQuoteSaving] = React.useState(false);
     const [quoteMessage, setQuoteMessage] = React.useState("");
-    const [pricingMap, setPricingMap] = React.useState({});
     const [useFloorPrice, setUseFloorPrice] = React.useState(false);
-    const [searchResults, setSearchResults] = useState([]);
+    const [equipmentItems, setEquipmentItems] = React.useState([]);
+
+const EQUIPMENT_OPTIONS = [
+  "Drum Pump",
+  "Tote Pump",
+  "Drum Caddy",
+  "EZEKEG Rack",
+  "EZEBOX Rack",
+];
+   
     React.useEffect(() => {
       const loadPricing = async () => {
         if (!activeMembership?.organization_id) return;
 
-        const { data, error } = await supabase
-          .from("dealer_price_sheet_items")
-          .select("*")
-          .eq("organization_id", activeMembership.organization_id)
-          .eq("is_active", true);
+const { data, error } = await supabase
+  .from("product_catalog")
+  .select("*")
+  .eq("is_active", true);
 
         if (error) {
           console.error("Pricing load error:", error.message);
           return;
         }
-
+console.log("Loaded product catalog records:", data?.length || 0);
+console.log("Sample product catalog item:", data?.[0]);
         const map = {};
-        (data || []).forEach((item) => {
-          const key = `${item.klondike_product}__${item.package_size}`;
-          map[key] = item;
-        });
 
-        setPricingMap(map);
+(data || []).forEach((item) => {
+  const key = `${item.product_name.toLowerCase()}__${item.package_size.toLowerCase()}`;
+  map[key] = item;
+});
+
+setPricingMap(map);
       };
 
       loadPricing();
@@ -2020,11 +3626,11 @@ export default function App() {
           { id: "pds", label: "PDS Library" },
           { id: "proposal_view", label: "Proposal Viewer (Demo)" },
         ]
-      : isManager
+            : isManager
       ? [
           { id: "dashboard", label: "Dashboard" },
-          { id: "team", label: "Team Performance" },
-          { id: "request", label: "Request Access" },
+          { id: "team", label: "Team" },
+          { id: "request", label: "Add Users" },
         ]
       : [
           { id: "dashboard", label: "Dashboard" },
@@ -2032,11 +3638,32 @@ export default function App() {
           { id: "team", label: "Team Overview" },
           { id: "request", label: "Request Access" },
         ];
+const getTieredKlondikeProduct = (baseProduct, selectedTier) => {
+  const product = String(baseProduct || "").toLowerCase();
+  const tierName = String(selectedTier || "").toLowerCase();
 
-    const getPriceForItem = (item) => {
-      const key = `${item.klondike}__${item.packageSize}`;
-      return pricingMap[key];
-    };
+  if (product.includes("15w-40")) {
+    if (tierName === "good") {
+      return "SAE 15W-40 CK-4 Professional Formula Heavy Duty Engine Oil";
+    }
+
+    if (tierName === "better") {
+      return "SAE 15W-40 CK-4 Advanced Formula Heavy Duty Engine Oil";
+    }
+
+    if (tierName === "best") {
+      return "SAE 15W-40 CK-4 Full Synthetic Heavy Duty Engine Oil";
+    }
+  }
+  return baseProduct;
+};
+  const getPriceForItem = (item) => {
+  const key = `${String(
+    item.catalogProductName || item.klondike || ""
+  ).toLowerCase()}__${String(item.packageSize || "").toLowerCase()}`;
+
+  return pricingMap[key];
+};
     function normalizeText(str) {
       return (str || "")
         .toLowerCase()
@@ -2096,48 +3723,249 @@ export default function App() {
       const entry = PDS_MAP[klondikeName];
       return entry ? entry.url : null;
     }
-    const getDisplayPrice = (priceData) => {
-      const basePrice = Number(
-        priceData?.suggested_account_unit_price ||
-          priceData?.dealer_sell_price ||
-          priceData?.suggestedAccountUnitPrice ||
-          0
-      );
+  const getPackageStrategy = (pkg) => {
+  if (!pkg) return null;
 
-      return useFloorPrice ? basePrice * 0.9 : basePrice;
-    };
+  const p = pkg.toLowerCase();
 
-    const formatMoney = (value) => `$${Number(value || 0).toFixed(2)}`;
-    const getQuoteTotal = () =>
-      quoteItems.reduce((sum, item) => {
-        const priceData =
-          getPriceForItem(item) ||
-          resolvePricingMatch(item.klondike, pricingMap);
-        return sum + Number(priceData?.dealer_sell_price || 0);
-      }, 0);
+  if (p.includes("tote")) {
+    return "Tote packaging is recommended for higher-volume lubricant use, helping reduce handling frequency, improve inventory efficiency, and support cleaner dispensing practices.";
+  }
 
-    const handleCompetitorSearch = (value) => {
-      setCompetitor(value);
-      setKlondike("");
-      setSelectedProduct(null);
-      setQuoteMessage("");
+  if (p.includes("drum")) {
+    return "Drum packaging provides a strong balance of volume efficiency and practical shop handling, making it a reliable choice for controlled lubricant dispensing.";
+  }
 
-      if (!value.trim()) {
-        setQuoteSearchResults([]);
-        return;
-      }
+  if (p.includes("pail")) {
+    return "Pail packaging is ideal for lower-volume or multi-location use where portability, flexibility, and controlled handling are important.";
+  }
 
-      const search = value.toLowerCase();
+  if (p.includes("ezebox") || p.includes("eze-box")) {
+    return "EZEBOX packaging supports cleaner, more controlled dispensing while reducing open-container exposure and improving storage organization.";
+  }
 
-      const results = PRODUCT_DB.filter((product) =>
-        `${product.brand} ${product.name} ${product.category}`
-          .toLowerCase()
-          .includes(search)
-      );
+  if (p.includes("ezekeg") || p.includes("eze-keg")) {
+    return "EZEKEG packaging provides a compact, clean dispensing format that improves handling efficiency and supports better lubricant control.";
+  }
 
-      setQuoteSearchResults(results);
-    };
+  if (p.includes("bulk")) {
+    return "Bulk supply can support high-volume operations, but should be paired with proper filtration, clean transfer practices, and dedicated dispensing controls.";
+  }
 
+  return null;
+};
+const startDrawing = (e) => {
+  const canvas = canvasRef.current;
+  const ctx = canvas.getContext("2d");
+
+  setIsSigning(true);
+  ctx.beginPath();
+  ctx.moveTo(
+    e.nativeEvent.offsetX,
+    e.nativeEvent.offsetY
+  );
+};
+
+const draw = (e) => {
+  if (!isSigning) return;
+
+  const canvas = canvasRef.current;
+  const ctx = canvas.getContext("2d");
+
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "#0a2540";
+
+  ctx.lineTo(
+    e.nativeEvent.offsetX,
+    e.nativeEvent.offsetY
+  );
+  ctx.stroke();
+};
+
+const stopDrawing = () => {
+  setIsSigning(false);
+
+  const canvas = canvasRef.current;
+  const dataUrl = canvas.toDataURL();
+  setSignature(dataUrl);
+};
+
+const clearSignature = () => {
+  const canvas = canvasRef.current;
+
+  if (canvas) {
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
+  setSignature(null);
+};
+
+const getContaminationNote = (pkg) => {
+  if (!pkg) return null;
+
+  const p = pkg.toLowerCase();
+
+  if (p.includes("bulk")) {
+    return "Traditional bulk systems can introduce contamination through transfer points, shared hoses, open vents, and poor tank housekeeping. Proper filtration, sealed storage, and dedicated dispensing equipment are recommended.";
+  }
+
+  if (p.includes("tote") || p.includes("drum")) {
+    return "Reducing exposure to dust, moisture, and human handling is critical. Controlled dispensing from drums or totes helps preserve lubricant cleanliness and protect equipment life.";
+  }
+
+  if (p.includes("ezebox") || p.includes("eze-box") || p.includes("ezekeg") || p.includes("eze-keg")) {
+    return "Closed or semi-closed packaging helps reduce contamination risk, improves workplace cleanliness, and supports better lubricant integrity from storage through dispensing.";
+  }
+
+  return null;
+};
+ const normalizeName = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[®™]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const normalize = (str) =>
+  String(str || "")
+    .toLowerCase()
+    .replace(/[®™]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const findPds = (productName) => {
+  if (!productName) return {};
+
+  const normalized = normalize(productName);
+
+  // 🔥 1. Exact key match
+  if (PDS_MAP[productName]) {
+    return PDS_MAP[productName];
+  }
+
+  // 🔥 2. Alias match (THIS IS THE KEY PART)
+  for (const entry of Object.values(PDS_MAP)) {
+    if (
+      entry.aliases &&
+      entry.aliases.some((alias) => normalize(alias) === normalized)
+    ) {
+      return entry;
+    }
+  }
+
+  // 🔥 3. Optional debug
+  console.warn("No PDS match for:", productName);
+
+  return {};
+};
+ 
+  const getDisplayPrice = (priceData) => {
+  const basePrice = Number(
+    priceData?.account_price ??
+    priceData?.accountPrice ??
+    priceData?.resale_price ??
+    priceData?.resalePrice ??
+    priceData?.retail_price ??
+    priceData?.retailPrice ??
+    0
+  );
+
+  return useFloorPrice ? basePrice * 0.9 : basePrice;
+};
+
+   const formatMoney = (value) =>
+  `$${Number(value || 0).toFixed(2)}`;
+
+const getProposalItems = () => quoteItems;
+
+const getQuoteTotal = () =>
+  getProposalItems().reduce((sum, item) => {
+    const basePrice = Number(item.price || item.resalePrice || 0);
+    const finalPrice = useFloorPrice ? basePrice * 0.9 : basePrice;
+    return sum + finalPrice;
+  }, 0);
+
+const getUpgradeReason = (tier) => {
+  if (tier === "Good") {
+    return "A reliable professional-grade recommendation for customers seeking proven protection and strong value.";
+  }
+
+  if (tier === "Better") {
+    return "Recommended for improved wear protection, stronger oxidation stability, and better performance under demanding operating conditions.";
+  }
+
+  if (tier === "Best") {
+    return "Recommended where maximum equipment protection, full synthetic performance, temperature stability, and extended service intervals are priorities.";
+  }
+
+  return "Recommended based on the customer's application, operating environment, and product requirements.";
+};
+const getRecommendationMessage = (item) => {
+  const product = String(item.klondike || "").toLowerCase();
+
+  if (product.includes("full synthetic")) {
+    return "Selected to deliver maximum equipment protection, extended drain intervals, and consistent performance under high-load and high-temperature conditions. This option supports reduced downtime risk and improved long-term reliability.";
+  }
+
+  if (product.includes("synthetic blend")) {
+    return "Recommended to improve wear protection, oxidation stability, and overall system performance compared to conventional products, while maintaining strong value and cost efficiency.";
+  }
+
+  if (product.includes("professional")) {
+    return "A proven, reliable solution designed to meet standard equipment protection requirements while maintaining consistent performance across a wide range of operating conditions.";
+  }
+
+  return "Recommended based on your operating environment, equipment demands, and lubrication requirements to support reliable and efficient performance.";
+};
+
+const getEquipmentReason = (equipmentType) => {
+  if (equipmentType === "Diesel Engines") return "Selected for diesel engine applications where soot control, wear protection, and reliable operation under load are priorities.";
+  if (equipmentType === "Hydraulic Systems") return "Selected for hydraulic systems where clean operation, anti-wear protection, and consistent fluid performance are critical.";
+  if (equipmentType === "Gearboxes") return "Selected for gear applications requiring film strength, load protection, and reliable lubrication under pressure.";
+  if (equipmentType === "Grease Points") return "Selected for grease-lubricated components requiring adhesion, water resistance, and protection under load.";
+  if (equipmentType === "Transmissions") return "Selected for transmission applications requiring smooth operation, friction control, and thermal stability.";
+  if (equipmentType === "Mixed Fleet / Shop Use") return "Selected to simplify product selection across mixed equipment while supporting reliable lubrication performance.";
+  return null;
+};
+
+const getPackageBenefit = (packageSize) => {
+  const pkg = String(packageSize || "").toLowerCase();
+
+  if (pkg.includes("tote")) {
+    return "Tote packaging supports higher-volume use, improved inventory control, reduced handling, and cleaner dispensing versus smaller containers.";
+  }
+
+  if (pkg.includes("drum")) {
+    return "Drum packaging is suited for steady product consumption while reducing per-unit handling compared to pails or cases.";
+  }
+
+  if (pkg.includes("pail")) {
+    return "Pail packaging offers flexibility for lower-volume use, mobile service work, or locations without bulk dispensing equipment.";
+  }
+
+  if (pkg.includes("case") || pkg.includes("tube")) {
+    return "Case packaging supports controlled grease usage, easy distribution to technicians, and convenient storage.";
+  }
+
+  if (pkg.includes("bulk")) {
+    return "Traditional bulk supply may improve cost efficiency and reduce packaging waste, but requires clean storage, contamination control, and disciplined handling practices.";
+  }
+
+  return null;
+};
+
+const getContaminationMessage = (packageSize) => {
+  const pkg = String(packageSize || "").toLowerCase();
+
+  if (pkg.includes("bulk") || pkg.includes("tote") || pkg.includes("drum")) {
+    return "For bulk-style handling, clean transfer practices are important. Dedicated pumps, sealed storage, clean breathers, and clearly labeled dispensing equipment help reduce contamination risk.";
+  }
+
+  return null;
+};
+  
     const handleSelectProduct = (product) => {
       setSelectedProduct(product);
       setCompetitor(product.name);
@@ -2146,155 +3974,700 @@ export default function App() {
       setQuoteStep(2);
       setQuoteMessage("");
     };
+const normalizePackage = (pkg) =>
+  String(pkg || "").toLowerCase().trim();
+const getPackageOptionsForProduct = (productName) => {
+  const target = String(productName || "").toLowerCase().trim();
 
-    const handleAddProduct = () => {
-      if (!selectedProduct) {
-        setQuoteMessage("Select a competitor product first.");
-        return;
-      }
+  if (!target) return [];
 
-      setQuoteItems((prev) => [
-        ...prev,
-        {
-          competitor: selectedProduct.name,
-          brand: selectedProduct.brand,
-          category: selectedProduct.category,
-          klondike: selectedProduct.klondike,
-          tier,
-          packageSize,
-        },
-      ]);
+  return Object.keys(pricingMap)
+    .filter((key) => key.startsWith(target + "__"))
+    .map((key) => key.split("__")[1])
+    .filter(Boolean);
+};
 
-      setCompetitor("");
+const handleAddProduct = () => {
+  if (!selectedProduct) {
+    setQuoteMessage("Select a competitor product first.");
+    return;
+  }
+
+  if (!klondike || !packageSize) {
+    setQuoteMessage("Please select a Klondike product and package size.");
+    return;
+  }
+
+ const key = `${String(klondike || "").toLowerCase().trim()}__${String(
+  packageSize || ""
+).toLowerCase().trim()}`;
+
+const catalogItem = pricingMap[key];
+console.log("CATALOG ITEM USED FOR QUOTE:", catalogItem);
+
+  if (!catalogItem) {
+    setQuoteMessage("Please select a valid product and package size.");
+    return;
+  }
+
+  const itemPrice =
+    catalogItem.account_price ??
+    catalogItem.accountPrice ??
+    catalogItem.resale_price ??
+    catalogItem.resalePrice ??
+    catalogItem.retail_price ??
+    catalogItem.retailPrice ??
+    0;
+
+  setQuoteItems((prev) => [
+    ...prev,
+    {
+      competitor: selectedProduct.name,
+      brand: selectedProduct.brand || "",
+      category: selectedProduct.category || "",
+      klondike,
+      catalogProductName: klondike,
+      tier,
+      packageSize: catalogItem.package_size || packageSize || "",
+partNumber: catalogItem.part_number || "",
+      dealerCost:
+        catalogItem.dealer_cost ||
+        catalogItem.dealerCost ||
+        0,
+      resalePrice: itemPrice,
+      price: itemPrice,
+    },
+  ]);
+
+  setCompetitor("");
+  setKlondike("");
+  setSelectedProduct(null);
+  setQuoteSearchResults([]);
+  setPackageSize("");
+  setQuoteMessage("");
+  setQuoteStep(2);
+};
+const cleanTier = (value, productName = "") => {
+  const text = `${value || ""} ${productName || ""}`.toLowerCase();
+
+  if (text.includes("full synthetic")) return "Best";
+  if (text.includes("synthetic blend")) return "Better";
+  if (text.includes("advanced")) return "Better";
+  if (text.includes("professional")) return "Good";
+
+  return "Good";
+};
+const quickCrossToQuote = async () => {
+  const searchValue = String(competitor || "").trim();
+
+  if (!searchValue) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("cross_references")
+      .select("*")
+      .or(
+        `search_text.ilike.%${searchValue}%,competitor_product.ilike.%${searchValue}%,competitor_brand.ilike.%${searchValue}%`
+      )
+      .limit(1);
+
+    if (error) {
+      console.error("Quick cross-reference error:", error.message);
+      setQuoteMessage("Cross reference search failed.");
+      return;
+    }
+
+    const row = data?.[0];
+
+    if (!row?.klondike_product) {
       setKlondike("");
-      setSelectedProduct(null);
-      setQuoteSearchResults([]);
       setPackageSize("");
-      setQuoteMessage("");
-      setQuoteStep(2);
-    };
-
-    const handleSaveQuote = async () => {
-      setQuoteMessage("");
-
-      if (!session?.user?.id || !activeMembership?.organization_id) {
-        setQuoteMessage("Missing user or organization context.");
-        return;
-      }
-
-      if (!companyName.trim()) {
-        setQuoteMessage("Company name is required.");
-        setQuoteStep(1);
-        return;
-      }
-
-      if (quoteItems.length === 0) {
-        setQuoteMessage("Add at least one product before saving.");
-        setQuoteStep(2);
-        return;
-      }
-      setProposalPreviewItems(quoteItems);
-      setQuoteSaving(true);
-
-      const { data, error } = await supabase
-        .from("quotes")
-        .insert({
-          user_id: session.user.id,
-          organization_id: activeMembership.organization_id,
-          customer_name: companyName.trim(),
-          customer_email: quoteContactEmail.trim() || null,
-          industry: industry || null,
-          competitor_product: quoteItems
-            .map((item) => `${item.brand} ${item.competitor}`)
-            .join(", "),
-          klondike_product: quoteItems.map((item) => item.klondike).join(", "),
-          status: "draft",
-        })
-        .select("*")
-        .single();
-
-      setQuoteSaving(false);
-
-      if (error) {
-        setQuoteMessage(error.message);
-        return;
-      }
-
-      setMyQuotes((prev) => [data, ...prev]);
-      setQuoteMessage("Quote saved to library.");
-      setActiveTab("proposal_view");
-
-      setCompanyName("");
-      setContactName("");
-      setQuoteContactEmail("");
-      setPhone("");
-      setAddress("");
-      setCity("");
-      setProvince("");
-      setPostalCode("");
-      setIndustry("");
-      setSubIndustry("");
-      setSegment("");
-      setCompetitor("");
-      setKlondike("");
-      setQuoteItems((prev) => prev);
       setSelectedProduct(null);
-      setQuoteSearchResults([]);
-      setQuoteStep(3);
+      setQuoteMessage("No Klondike match found.");
+      return;
+    }
+
+    const competitorName = `${row.competitor_brand || ""} ${
+      row.competitor_product || ""
+    }`.trim();
+
+    setCompetitor(competitorName);
+    setCrossSearch(competitorName);
+    setKlondike(row.klondike_product);
+   setTier(cleanTier(row.confidence, row.klondike_product));
+    setPackageSize("");
+    setQuoteMessage("");
+
+    setSelectedProduct({
+      brand: row.competitor_brand || "",
+      name: competitorName,
+      category: row.category || "",
+      klondike: row.klondike_product,
+     tier: cleanTier(row.confidence, row.klondike_product),
+    });
+
+    const { data: catalogRows, error: catalogError } = await supabase
+      .from("product_catalog")
+      .select("*")
+      .eq("product_name", row.klondike_product)
+      .eq("is_active", true)
+      .order("package_size", { ascending: true });
+
+    if (catalogError) {
+      console.error("Quick catalog lookup error:", catalogError.message);
+      return;
+    }
+
+    if (catalogRows?.length) {
+      setPackageSize(catalogRows[0].package_size || "");
+    }
+  } catch (err) {
+    console.error("quickCrossToQuote failed:", err);
+    setQuoteMessage("Quick cross-reference failed.");
+  }
+};
+React.useEffect(() => {
+  const searchValue = String(competitor || "").trim();
+
+  if (searchValue.length < 3) {
+    setQuickMatches([]);
+    return;
+  }
+
+  const timer = setTimeout(async () => {
+    setQuickCrossLoading(true);
+
+    const { data, error } = await supabase
+      .from("cross_references")
+      .select("*")
+      .or(
+        `search_text.ilike.%${searchValue}%,competitor_product.ilike.%${searchValue}%,competitor_brand.ilike.%${searchValue}%`
+      )
+      .limit(8);
+
+    setQuickCrossLoading(false);
+
+    if (error) {
+      console.error("Quick match search error:", error.message);
+      setQuickMatches([]);
+      return;
+    }
+
+    setQuickMatches(data || []);
+    if (data && data.length > 0) {
+  const first = data[0];
+
+  const competitorName = `${first.competitor_brand || ""} ${first.competitor_product || ""}`.trim();
+
+  setKlondike(first.klondike_product || "");
+  setTier(first.confidence || "Good");
+
+  setSelectedProduct({
+    brand: first.competitor_brand || "",
+    name: competitorName,
+    category: first.category || "",
+    klondike: first.klondike_product || "",
+    tier: first.confidence || "Good",
+  });
+}
+  }, 250);
+
+  return () => clearTimeout(timer);
+}, [competitor]);
+const selectQuickCrossMatch = async (row) => {
+  const competitorName = `${row.competitor_brand || ""} ${
+    row.competitor_product || ""
+  }`.trim();
+
+  setCompetitor(competitorName);
+  setCrossSearch(competitorName);
+  setKlondike(row.klondike_product || "");
+  setTier(cleanTier(row.confidence, row.klondike_product));
+  setPackageSize("");
+  setQuickMatches([]);
+  setQuoteMessage("");
+
+  setSelectedProduct({
+    brand: row.competitor_brand || "",
+    name: competitorName,
+    category: row.category || "",
+    klondike: row.klondike_product || "",
+   tier: cleanTier(row.confidence, row.klondike_product),
+  });
+
+  const { data: catalogRows, error } = await supabase
+    .from("product_catalog")
+    .select("*")
+    .eq("product_name", row.klondike_product)
+    .eq("is_active", true)
+    .order("package_size", { ascending: true });
+
+  if (error) {
+    console.error("Catalog lookup error:", error.message);
+    return;
+  }
+
+  if (catalogRows?.length) {
+    setPackageSize(catalogRows[0].package_size || "");
+  }
+};
+const handleCrossReferenceSearch = async () => {
+  const search = crossSearch.trim();
+  setSelectedPackage("");
+setCrossCatalogMap({});
+
+  if (!search) {
+    setCrossReferenceResult(null);
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("cross_references")
+    .select("*")
+    .or(
+      `search_text.ilike.%${search}%,competitor_product.ilike.%${search}%,competitor_brand.ilike.%${search}%`
+    )
+    .limit(10);
+
+  if (error) {
+    console.error("Cross reference search error:", error.message);
+    setCrossReferenceResult({
+      competitor: crossSearch,
+      recommendations: [],
+      error: error.message,
+    });
+    return;
+  }
+const recommendations = (data || []).map((row) => ({
+  tier: cleanTier(row.confidence, row.klondike_product),
+  product: row.klondike_product,
+  competitorProduct: row.competitor_product,
+  competitorBrand: row.competitor_brand,
+  category: row.category,
+  matchStatus: row.match_status,
+}));
+
+const productNames = [...new Set(recommendations.map((r) => r.product))];
+
+const { data: catalogRows, error: catalogError } = await supabase
+  .from("product_catalog")
+  .select("*")
+  .in("product_name", productNames);
+
+if (catalogError) {
+  console.error("Product catalog lookup error:", catalogError.message);
+}
+
+const catalogMap = {};
+(catalogRows || []).forEach((row) => {
+  if (!catalogMap[row.product_name]) catalogMap[row.product_name] = [];
+  catalogMap[row.product_name].push(row);
+});
+
+setCrossCatalogMap(catalogMap);
+
+setCrossReferenceResult({
+  competitor: crossSearch,
+  recommendations,
+});
+};
+const handleDeleteQuote = async (quoteId) => {
+  const confirmDelete = window.confirm("Delete this quote?");
+  if (!confirmDelete) return;
+
+  // delete child rows first
+  await supabase.from("quote_items").delete().eq("quote_id", quoteId);
+
+  // delete parent
+  const { error } = await supabase.from("quotes").delete().eq("id", quoteId);
+
+  if (error) {
+    alert("Failed to delete quote.");
+    console.error(error);
+    return;
+  }
+
+  // update UI
+  setMyQuotes((prev) => prev.filter((q) => q.id !== quoteId));
+};
+const handleOpenSavedQuote = async (quote) => {
+  setQuoteMessage("");
+  const { data, error } = await supabase
+    .from("quote_items")
+    .select("*")
+    .eq("quote_id", quote.id)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    setQuoteMessage(error.message);
+    return;
+  }
+
+  setCompanyName(quote.customer_name || "");
+  setQuoteContactEmail(quote.customer_email || "");
+  setIndustry(quote.industry || "");
+
+  setQuoteItems(
+    (data || []).map((item) => ({
+      competitor: item.competitor_name || "",
+      brand: "",
+      category: item.category || "",
+      klondike: item.klondike_product || item.product_name || "",
+      catalogProductName: item.product_name || item.klondike_product || "",
+      tier: "Good",
+      packageSize: item.package || "",
+      partNumber: item.part_number || "",
+      resalePrice: item.unit_price || 0,
+      price: item.unit_price || 0,
+    }))
+  );
+
+  setDealerActiveTab("quote");
+  setQuoteStep(3);
+};
+  const handleSaveQuote = async () => {
+  setQuoteMessage("");
+
+  if (!session?.user?.id || !activeMembership?.organization_id) {
+    setQuoteMessage("Missing user or organization context.");
+    return;
+  }
+
+  if (!companyName.trim()) {
+    setQuoteMessage("Company name is required.");
+    setQuoteStep(1);
+    return;
+  }
+
+  if (quoteItems.length === 0) {
+    setQuoteMessage("Add at least one product before saving.");
+    setQuoteStep(2);
+    return;
+  }
+
+  const quoteItemsSnapshot = [...quoteItems];
+
+  setQuoteSaving(true);
+
+  const { data: quote, error: quoteError } = await supabase
+    .from("quotes")
+    .insert({
+  user_id: session.user.id,
+  organization_id: activeMembership.organization_id,
+  customer_name: companyName.trim(),
+  customer_email: quoteContactEmail.trim() || null,
+  industry: industry || null,
+  status: "draft",
+  review_token: crypto.randomUUID(),
+
+  // 🔥 DEALER SNAPSHOT
+  dealer_name:
+    dealerProfile?.company_name ||
+    activeMembership?.organization?.name ||
+    "Your Dealer",
+
+  dealer_phone: dealerProfile?.phone || null,
+  dealer_website: dealerProfile?.website || null,
+  dealer_logo_url: currentDealerLogoUrl || null,
+
+  dealer_address: dealerProfile?.address || null,
+  dealer_city: dealerProfile?.city || null,
+  dealer_province_state: dealerProfile?.province_state || null,
+  dealer_postal_code: dealerProfile?.postal_code || null,
+
+  // 🔥 PROPOSAL TEXT SNAPSHOT
+  intro_statement: dealerProfile?.intro_statement || null,
+  closing_statement: dealerProfile?.closing_statement || null,
+})
+    .select("*")
+    .single();
+
+  if (quoteError) {
+    setQuoteSaving(false);
+    setQuoteMessage(quoteError.message);
+    return;
+  }
+
+  const itemsToInsert = quoteItemsSnapshot.map((item) => {
+    const basePrice = Number(item.price || item.resalePrice || 0);
+    const finalPrice = useFloorPrice ? basePrice * 0.9 : basePrice;
+
+    return {
+      quote_id: quote.id,
+      competitor_name: item.competitor,
+      klondike_product: item.klondike,
+      package: item.packageSize || null,
+      quantity: 1,
+      unit_price: finalPrice,
+      total_price: finalPrice,
+      product_name: item.klondike,
+      category: item.category || null,
     };
+  });
 
-    const PortalButton = ({ tab }) => {
-      const active = activeTab === tab.id;
+  const { error: itemsError } = await supabase
+    .from("quote_items")
+    .insert(itemsToInsert);
 
-      return (
-        <button
-          type="button"
-          onClick={() => {
-            if (tab.id === "proposal_view") {
-              setProposalPreviewItems(quoteItems);
-            }
+  setQuoteSaving(false);
 
-            setActiveTab(tab.id);
-          }}
-          style={{
-            padding: "13px 18px",
-            borderRadius: 12,
-            border: active
-              ? "1px solid rgba(246,165,49,0.9)"
-              : "1px solid rgba(255,255,255,0.14)",
-            background: active
-              ? "linear-gradient(180deg, #f6a531 0%, #d87400 100%)"
-              : "rgba(255,255,255,0.08)",
-            color: "#fff",
-            fontSize: 15,
-            fontWeight: 900,
-            cursor: "pointer",
-          }}
-        >
-          {tab.label}
-        </button>
-      );
-    };
+  if (itemsError) {
+    setQuoteMessage(itemsError.message);
+    return;
+  }
+if (itemsError) {
+  setQuoteMessage(itemsError.message);
+  return;
+}
 
-    return (
+if (equipmentItems.length > 0) {
+  const equipmentToInsert = equipmentItems.map((item) => ({
+    quote_id: quote.id,
+    equipment_name: item.name,
+    quantity: Number(item.qty || 1),
+    unit_price: Number(item.price || 0),
+    total_price: Number(item.price || 0) * Number(item.qty || 1),
+  }));
+
+  const { error: equipmentError } = await supabase
+    .from("quote_equipment")
+    .insert(equipmentToInsert);
+
+  if (equipmentError) {
+    setQuoteMessage(equipmentError.message);
+    return;
+  }
+}
+  setProposalPreviewItems(quoteItemsSnapshot);
+  setCurrentQuote(quote);
+  setMyQuotes((prev) => [quote, ...prev]);
+  setQuoteMessage("Quote saved successfully.");
+setDealerActiveTab("proposal_view");
+};
+const handleSendProposalToCustomer = async () => {
+  if (!quoteContactEmail) {
+    alert("Customer email is required before sending proposal.");
+    return;
+  }
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(quoteContactEmail);
+
+if (!emailOk) {
+  alert("Please enter a valid customer email address before sending.");
+  return;
+}
+
+  let quoteForSend = currentQuote;
+
+if (!quoteForSend) {
+  const { data: latestQuote, error: latestQuoteError } = await supabase
+    .from("quotes")
+    .select("*")
+    .eq("customer_name", companyName)
+    .eq("customer_email", quoteContactEmail)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestQuoteError || !latestQuote) {
+    alert("Could not find the saved quote. Please click Save & Continue to Proposal again.");
+    return;
+  }
+
+  quoteForSend = latestQuote;
+  setCurrentQuote(latestQuote);
+}
+
+const reviewLink = `${window.location.origin}/review/${quoteForSend.review_token}`;
+await supabase
+  .from("quotes")
+  .update({
+    rep_name:
+      `${repFirstName || ""} ${repLastName || ""}`.trim() ||
+      "Sales Representative",
+    rep_email: repEmailAddress || session?.user?.email,
+    rep_signature: signature || null,
+  })
+  .eq("review_token", quoteForSend.review_token);
+  const { data, error } = await supabase.functions.invoke(
+    "send-proposal-to-customer",
+    {
+      body: {
+        customerEmail: quoteContactEmail,
+        customerName: contactName || companyName,
+        companyName,
+        repName:
+          `${repFirstName || ""} ${repLastName || ""}`.trim() ||
+          "Sales Representative",
+        repEmail: repEmailAddress || session?.user?.email,
+        reviewLink,
+      },
+    }
+  );
+
+  if (error) {
+    console.error("Send proposal error:", error);
+    alert("Proposal email failed to send.");
+    return;
+  }
+
+  console.log("Proposal sent:", data);
+  alert("Proposal sent to customer.");
+};
+const handleSubmitProposalDecisions = async () => {
+  const items = getProposalItems();
+
+  const missingDecisions = items.filter((_, index) => !proposalDecisions[index]);
+
+  if (items.length === 0) {
+    alert("No proposal items found.");
+    return;
+  }
+
+  if (missingDecisions.length > 0) {
+    alert("Please approve or decline every product recommendation before submitting.");
+    return;
+  }
+
+  const approved = items
+    .map((item, index) => ({
+      item,
+      decision: proposalDecisions[index],
+      feedback: proposalFeedback[index] || "",
+    }))
+    .filter((row) => row.decision === "approved");
+
+  const declined = items
+    .map((item, index) => ({
+      item,
+      decision: proposalDecisions[index],
+      feedback: proposalFeedback[index] || "",
+    }))
+    .filter((row) => row.decision === "declined");
+
+  console.log("PROPOSAL DECISIONS SUBMITTED:", {
+    customer: companyName,
+    customerEmail: quoteContactEmail,
+    approved,
+    declined,
+  });
+
+  const { data, error } = await supabase.functions.invoke(
+  "send-proposal-reviewed-email",
+  {
+    body: {
+      repEmail: repEmailAddress || session?.user?.email,
+      repName:
+        `${repFirstName || ""} ${repLastName || ""}`.trim() ||
+        "Sales Representative",
+      customerName: companyName,
+      customerEmail: quoteContactEmail,
+      approved: approved.map((row) => ({
+        product: row.item.klondike,
+        packageSize: row.item.packageSize,
+        partNumber: row.item.partNumber,
+        price: row.item.price || row.item.resalePrice || 0,
+      })),
+      declined: declined.map((row) => ({
+        product: row.item.klondike,
+        packageSize: row.item.packageSize,
+        partNumber: row.item.partNumber,
+        price: row.item.price || row.item.resalePrice || 0,
+        feedback: row.feedback || "",
+      })),
+    },
+  }
+);
+
+if (error) {
+  console.error("Proposal reviewed email error:", error);
+  alert("Proposal submitted, but email notification failed.");
+  return;
+}
+
+console.log("Proposal reviewed email sent:", data);
+
+alert(
+  `Proposal submitted.\n\nApproved: ${approved.length}\nDeclined: ${declined.length}\n\nRep notification sent.`
+);
+};
+const PortalButton = ({ tab }) => {
+  const active = dealerActiveTab === tab.id;
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+  if (tab.id === "proposal_view" && quoteItems.length > 0) {
+    setProposalPreviewItems([...quoteItems]);
+  }
+
+  setDealerActiveTab(tab.id)
+}}
+      style={{
+        padding: "13px 18px",
+        borderRadius: 12,
+        border: active
+          ? "1px solid rgba(246,165,49,0.9)"
+          : "1px solid rgba(255,255,255,0.14)",
+        background: active
+          ? "linear-gradient(180deg, #f6a531 0%, #d87400 100%)"
+          : "rgba(255,255,255,0.08)",
+        color: "#fff",
+        fontSize: 15,
+        fontWeight: 900,
+        cursor: "pointer",
+      }}
+    >
+      {tab.label}
+    </button>
+  );
+};
+
+return (
       <div style={styles.grid24}>
         <div style={styles.heroCard}>
-          <div style={styles.eyebrow}>
-            {isRep
-              ? "REP SELLING WORKSPACE"
-              : isManager
-              ? "MANAGER PERFORMANCE CENTER"
-              : "DEALER EXECUTIVE DASHBOARD"}
-          </div>
-          <h2 style={styles.heroTitle}>{orgName}</h2>
-          <p style={styles.heroText}>
-            {isRep
-              ? "Build quotes, run cross references, manage proposals, and track selling activity."
-              : isManager
-              ? "Monitor direct report performance and team activity."
-              : "Review company performance, team activity, and access requests."}
-          </p>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+      {(dealerLogoUrl || dealerProfile?.logo_url) && (
+        <img
+          src={dealerLogoUrl || dealerProfile?.logo_url}
+          alt="Dealer Logo"
+          style={{
+            width: 70,
+            height: 70,
+            objectFit: "contain",
+            borderRadius: 12,
+            background: "#fff",
+            padding: 8,
+          }}
+        />
+      )}
+
+      <div>
+        <div style={styles.eyebrow}>
+          {isRep
+            ? "REP SELLING WORKSPACE"
+            : isManager
+            ? "MANAGER PERFORMANCE CENTER"
+            : "DEALER EXECUTIVE DASHBOARD"}
         </div>
+
+        <h2 style={styles.heroTitle}>{orgName}</h2>
+
+        <p style={styles.heroText}>
+          {isRep
+            ? "Build quotes, run cross references, manage proposals, and track selling activity."
+            : isManager
+            ? "Monitor direct report performance and team activity."
+            : "Review company performance, team activity, and access requests."}
+        </p>
+      </div>
+    </div>
+
+    {isManager && <div>{renderRoleBadge("manager")}</div>}
+    {isRep && <div>{renderRoleBadge("rep")}</div>}
+  </div>
+</div>
 
         <div
           style={{
@@ -2312,19 +4685,398 @@ export default function App() {
           ))}
         </div>
 
-        {activeTab === "dashboard" && (
-          <div style={styles.card}>
-            <div style={styles.eyebrow}>DASHBOARD</div>
-            <h3 style={styles.cardTitle}>Performance Snapshot</h3>
-            <p style={styles.cardBody}>
-              {isRep
-                ? `You currently have ${myQuotes.length} quote(s) in your library.`
-                : "Performance metrics will appear here as quote activity builds."}
-            </p>
-          </div>
-        )}
+{dealerActiveTab === "dashboard" && isRep && (
+  <>
+    <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 24 }}>
+      <div style={styles.eyebrow}>REP DASHBOARD</div>
+      <h3 style={{ ...styles.cardTitle, marginBottom: 14 }}>Performance Snapshot</h3>
 
-        {activeTab === "quote" && isRep && (
+      <div style={{ ...styles.grid3, gap: 20 }}>
+        <div style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}>
+          <div style={styles.summaryLabel}>Quotes Created</div>
+          <div style={styles.summaryValue}>{repSnapshot.quotes}</div>
+        </div>
+
+        <div style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}>
+          <div style={styles.summaryLabel}>Proposals Sent</div>
+          <div style={styles.summaryValue}>{repSnapshot.proposalsSent}</div>
+        </div>
+
+        <div style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}>
+          <div style={styles.summaryLabel}>Customer Responses</div>
+          <div style={styles.summaryValue}>{repSnapshot.responses}</div>
+        </div>
+
+        <div style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}>
+          <div style={styles.summaryLabel}>Approval Rate</div>
+          <div style={styles.summaryValue}>{repSnapshot.approvalRate}%</div>
+        </div>
+
+        <div style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}>
+          <div style={styles.summaryLabel}>Approved Revenue</div>
+          <div style={styles.summaryValue}>
+            ${repSnapshot.approvedRevenue.toFixed(0)}
+          </div>
+        </div>
+
+        <div style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}>
+          <div style={styles.summaryLabel}>Library</div>
+          <div style={styles.summaryValue}>{myQuotes.length}</div>
+        </div>
+      </div>
+{leaderboard.length > 0 && (
+  <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 24 }}>
+    <div style={styles.eyebrow}>Dealer Leaderboard</div>
+    <h3 style={{ ...styles.cardTitle, marginBottom: 14 }}>
+      Rep Performance Rankings
+    </h3>
+
+    <div style={{ ...styles.stack, gap: 18 }}>
+      {leaderboard.map((rep, index) => (
+        <div
+          key={rep.name}
+          style={{
+            ...styles.listRow,
+            ...styles.dashboardLeaderboardRow,
+            background: index === 0 ? "#fffbeb" : "#fcfdff",
+            border: index === 0 ? "1px solid #f5d478" : styles.listRow.border,
+            boxShadow:
+              index === 0
+                ? "0 18px 40px rgba(212, 175, 55, 0.14)"
+                : "0 10px 28px rgba(15, 23, 42, 0.05)",
+          }}
+        >
+          <div>
+            <div style={styles.listTitle}>
+              {index + 1}. {rep.name}
+            </div>
+
+            <div style={styles.listMeta}>
+              {rep.proposals} proposals • {rep.approvalRate}% approval •{" "}
+              {rep.approved} approved / {rep.declined} declined
+            </div>
+          </div>
+
+          <div style={{ textAlign: "right" }}>
+            <div style={styles.listTitle}>
+              ${rep.revenue.toFixed(0)}
+            </div>
+            <div style={styles.listMeta}>Approved Revenue</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+<div style={{ ...styles.card, ...styles.dashboardCard }}>
+  <div style={styles.eyebrow}>Pipeline</div>
+  <h3 style={{ ...styles.cardTitle, marginBottom: 14 }}>Your Active Deals</h3>
+
+  <div style={{ ...styles.grid2, gap: 18 }}>
+
+    {/* Awaiting */}
+    <div
+      style={{
+        ...styles.summaryCard,
+        ...styles.dashboardPipelineCard,
+        ...styles.pipelineAwaiting,
+        cursor: "pointer",
+        border: activePipelineStage === "awaiting" ? "2px solid #f6a531" : styles.summaryCard.border,
+      }}
+      onClick={() => setActivePipelineStage("awaiting")}
+    >
+      <div style={styles.summaryLabel}>Awaiting Review</div>
+      <div style={{ ...styles.summaryValue, fontSize: 28, marginTop: 8 }}>{pipeline.awaiting.length}</div>
+      <div style={styles.listMeta}>
+        Proposals sent, waiting on customer
+      </div>
+    </div>
+
+    {/* Reviewed */}
+    <div
+      style={{
+        ...styles.summaryCard,
+        ...styles.dashboardPipelineCard,
+        ...styles.pipelineReviewed,
+        cursor: "pointer",
+        border: activePipelineStage === "reviewed" ? "2px solid #f6a531" : styles.summaryCard.border,
+      }}
+      onClick={() => setActivePipelineStage("reviewed")}
+    >
+      <div style={styles.summaryLabel}>Reviewed</div>
+      <div style={{ ...styles.summaryValue, fontSize: 28, marginTop: 8 }}>{pipeline.reviewed.length}</div>
+      <div style={styles.listMeta}>
+        Customer has responded
+      </div>
+    </div>
+
+    {/* Approved */}
+    <div
+      style={{
+        ...styles.summaryCard,
+        ...styles.dashboardPipelineCard,
+        ...styles.pipelineApproved,
+        cursor: "pointer",
+        border: activePipelineStage === "approved" ? "2px solid #f6a531" : styles.summaryCard.border,
+      }}
+      onClick={() => setActivePipelineStage("approved")}
+    >
+      <div style={styles.summaryLabel}>Approved</div>
+      <div style={{ ...styles.summaryValue, fontSize: 28, marginTop: 8 }}>{pipeline.approved.length}</div>
+      <div style={styles.listMeta}>
+        Deals moving forward
+      </div>
+    </div>
+
+    {/* Follow-up */}
+    <div
+      style={{
+        ...styles.summaryCard,
+        ...styles.dashboardPipelineCard,
+        ...styles.pipelineFollowUp,
+        cursor: "pointer",
+        border: activePipelineStage === "followUp" ? "2px solid #f6a531" : styles.summaryCard.border,
+      }}
+      onClick={() => setActivePipelineStage("followUp")}
+    >
+      <div style={styles.summaryLabel}>Needs Follow-Up</div>
+      <div style={{ ...styles.summaryValue, fontSize: 28, marginTop: 8 }}>{pipeline.followUp.length}</div>
+      <div style={styles.listMeta}>
+        Declined items require attention
+      </div>
+    </div>
+
+  </div>
+</div>
+      {isRep && myQuotes.length > 0 && (
+        <button
+          type="button"
+          style={{ ...styles.primaryButton, marginTop: 18 }}
+          onClick={() => setDealerActiveTab("library")}
+        >
+          Resume Saved Quote
+        </button>
+      )}
+    </div>
+
+{ (activePipelineStage === "awaiting" || activePipelineStage === "followUp") && (
+  <div style={styles.card}>
+    <div style={styles.eyebrow}>Top Priority Follow-Ups</div>
+
+    <div style={styles.stack}>
+      {pipeline[activePipelineStage]
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        .slice(0, 3)
+        .map((item, index) => {
+          const ageDays = Math.floor((new Date() - new Date(item.created_at)) / (1000 * 60 * 60 * 24));
+          const badgeText = activePipelineStage === "awaiting" ? "Call First" : "Follow Up First";
+
+          return (
+            <div key={item.id || index} style={styles.listRow}>
+              <div>
+                <div style={styles.listTitle}>
+                  {item.customer_name || item.quote?.customer_name || "Customer"}
+                </div>
+
+                <div style={styles.listMeta}>
+                  {item.customer_email || item.quote?.customer_email || "No email"}
+                </div>
+
+                <div style={styles.listMeta}>
+                  {ageDays} days old
+                </div>
+              </div>
+
+              <span style={styles.statusPill}>
+                {badgeText}
+              </span>
+            </div>
+          );
+        })}
+    </div>
+  </div>
+)}
+
+{activePipelineStage && (
+  <div style={styles.card}>
+    <div style={styles.eyebrow}>
+      {activePipelineStage === "awaiting"
+        ? "Awaiting Customer Review"
+        : activePipelineStage === "reviewed"
+        ? "Reviewed Proposals"
+        : activePipelineStage === "approved"
+        ? "Approved Deals"
+        : "Needs Follow-Up"}
+    </div>
+
+    <div style={styles.stack}>
+      {(pipeline[activePipelineStage] || []).length === 0 && (
+        <p style={styles.muted}>No deals in this stage.</p>
+      )}
+
+      {(pipeline[activePipelineStage] || []).map((item) => (
+        <div key={item.id} style={styles.listRow}>
+          <div>
+            <div style={styles.listTitle}>
+              {item.customer_name ||
+                item.decision_data?.customer_name ||
+                "Customer"}
+            </div>
+
+            <div style={styles.listMeta}>
+              {item.customer_email ||
+                item.decision_data?.customer_email ||
+                "No customer email"}
+            </div>
+          </div>
+{(() => {
+  const createdAt = item.created_at || item.decision_data?.created_at;
+  const ageDays = createdAt
+    ? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000)
+    : 0;
+
+  if (activePipelineStage === "awaiting" && ageDays >= 3) {
+    return <div style={styles.listMeta}>🔥 Hot follow-up: {ageDays} days old</div>;
+  }
+
+  if (activePipelineStage === "followUp") {
+    return <div style={styles.listMeta}>⚠ Needs attention</div>;
+  }
+
+  return null;
+})()}
+          <div style={{ display: "flex", gap: 8 }}>
+  <button
+    style={styles.secondaryButton}
+    onClick={() => {
+      if (item.id) {
+        handleOpenSavedQuote(item);
+        setDealerActiveTab("quote");
+      }
+    }}
+  >
+    View
+  </button>
+
+  {activePipelineStage === "followUp" && (
+    <button
+      style={styles.primaryButton}
+      onClick={() => {
+        if (item.id) {
+          handleOpenSavedQuote(item);
+          setDealerActiveTab("quote");
+        }
+      }}
+    >
+      Follow Up
+    </button>
+  )}
+</div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+    {proposalResponses.length > 0 && (
+      <div style={styles.card}>
+        <div style={styles.eyebrow}>Customer Responses</div>
+
+        <div style={styles.stack}>
+          {proposalResponses
+            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+            .map((res) => {
+              const ageDays = Math.floor((new Date() - new Date(res.created_at)) / (1000 * 60 * 60 * 24));
+              const urgencyLabel = ageDays >= 5 ? "🚨 Critical" : ageDays >= 3 ? "🔥 Hot" : null;
+
+              return (
+                <div
+                  key={res.id}
+                  style={{ ...styles.listRow, cursor: "pointer" }}
+                  onClick={() => setSelectedResponse(res)}
+                >
+                  <div>
+                    <div style={styles.listTitle}>
+                      {res.quote?.customer_name || "Customer Response"}
+                    </div>
+
+                    <div style={styles.listMeta}>
+                      {res.quote?.customer_email || "No customer email"}
+                    </div>
+
+                    <div style={styles.listMeta}>
+                      Submitted: {new Date(res.created_at).toLocaleString()}
+                    </div>
+
+                    {urgencyLabel && (
+                      <div style={styles.listMeta}>
+                        {urgencyLabel}
+                      </div>
+                    )}
+                  </div>
+
+                  <span style={styles.statusPill}>
+                    {(() => {
+                      const responses = res.decision_data?.responses || [];
+                      const approved = responses.filter(
+                        (r) => r.decision === "approved"
+                      ).length;
+                      const declined = responses.filter(
+                        (r) => r.decision === "declined"
+                      ).length;
+
+                      return `${approved} Approved • ${declined} Declined`;
+                    })()}
+                  </span>
+                </div>
+              );
+            })}
+        </div>
+      </div>
+    )}
+
+    {selectedResponse && (
+      <div style={styles.card}>
+        <div style={styles.eyebrow}>Response Detail</div>
+
+        <h3 style={styles.cardTitle}>
+          {selectedResponse.quote?.customer_name || "Customer"}
+        </h3>
+
+        <div style={styles.stack}>
+          {(selectedResponse.decision_data?.responses || []).map((item, i) => (
+            <div key={i} style={styles.listRow}>
+              <div>
+                <div style={styles.listTitle}>{item.product}</div>
+
+                <div style={styles.listMeta}>
+                  {item.package} • ${Number(item.price || 0).toFixed(2)}
+                </div>
+
+                {item.feedback && (
+                  <div style={styles.listMeta}>Feedback: {item.feedback}</div>
+                )}
+              </div>
+
+              <span
+                style={{
+                  ...styles.statusPill,
+                  background:
+                    item.decision === "approved" ? "#dcfce7" : "#fee2e2",
+                  color:
+                    item.decision === "approved" ? "#166534" : "#991b1b",
+                }}
+              >
+                {item.decision}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </>
+)}
+        {isRep && dealerActiveTab === "quote" && (
+  <div>
           <div
             style={{
               display: "grid",
@@ -2372,6 +5124,7 @@ export default function App() {
             </div>
 
             <div style={styles.card}>
+          
               {quoteStep === 1 && (
                 <div>
                   <div style={styles.eyebrow}>STEP 1</div>
@@ -2483,290 +5236,312 @@ export default function App() {
                   </button>
                 </div>
               )}
-              {quoteStep === 2 && (
-                <div style={styles.card}>
-                  <div style={styles.eyebrow}>STEP 2</div>
-                  <h3 style={styles.cardTitle}>Product Selection</h3>
-                  <p style={styles.cardBody}>
-                    Search competitor products and build your Klondike
-                    recommendation.
-                  </p>
+             {quoteStep === 2 && (
+  <div style={styles.card}>
+    <div style={styles.eyebrow}>STEP 2</div>
+    <h3 style={styles.cardTitle}>Product Selection</h3>
+    <p style={styles.cardBody}>
+      Type a competitor product, press Enter to cross-reference it, then select
+      package and add it to the quote.
+    </p>
 
-                  {/* INPUT ROW */}
-                  <div style={styles.grid2}>
-                    <div style={{ position: "relative" }}>
-                      <input
-                        style={styles.input}
-                        placeholder="Competitor Product (e.g. Rotella T4 15W-40)"
-                        value={competitor || ""}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setCompetitor(value);
+    {/* INPUT ROW */}
+    <div style={styles.grid2}>
+     <div style={{ position: "relative" }}>
+  <input
+    style={styles.input}
+    placeholder="Competitor Product (e.g. Chevron Delo 400)"
+    value={competitor || ""}
+    onChange={(e) => {
+      const value = e.target.value;
+      setCompetitor(value);
+      setCrossSearch(value);
+      setKlondike("");
+      setPackageSize("");
+      setSelectedProduct(null);
+      setQuoteMessage("");
+    }}
+  />
 
-                          if (
-                            !PRODUCT_MAP ||
-                            PRODUCT_MAP.length === 0 ||
-                            !value.trim()
-                          ) {
-                            setKlondike("");
-                            setSearchResults([]);
-                            return;
-                          }
+  {quickCrossLoading && (
+    <div style={{ ...styles.listMeta, marginTop: 6 }}>
+      Searching matches...
+    </div>
+  )}
 
-                          const lower = value.toLowerCase();
+  {quickMatches.length > 0 && (
+    <div
+      style={{
+        position: "absolute",
+        zIndex: 20,
+        top: 54,
+        left: 0,
+        right: 0,
+        background: "#fff",
+        border: "1px solid #e2e8f0",
+        borderRadius: 12,
+        boxShadow: "0 12px 28px rgba(15, 23, 42, 0.16)",
+        overflow: "hidden",
+      }}
+    >
+      {quickMatches.map((row) => (
+        <button
+          key={row.id}
+          type="button"
+          onClick={() => selectQuickCrossMatch(row)}
+          style={{
+            width: "100%",
+            textAlign: "left",
+            padding: "12px 14px",
+            border: "none",
+            borderBottom: "1px solid #eef2f7",
+            background: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          <div style={{ fontWeight: 900, color: "#0a2540" }}>
+           <strong>{row.competitor_brand}</strong> {row.competitor_product}
+          </div>
 
-                          const ranked = PRODUCT_MAP.map((p) => {
-                            const combinedText = `${p.keywords.join(" ")} ${
-                              p.match
-                            }`.toLowerCase();
+          <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+            → {row.klondike_product || "No Klondike match listed"}
+          </div>
+        </button>
+      ))}
+    </div>
+  )}
+</div>
 
-                            const score = p.keywords.filter(
-                              (k) =>
-                                lower.includes(k.toLowerCase()) ||
-                                k.toLowerCase().includes(lower)
-                            ).length;
+      <input
+        style={styles.input}
+        placeholder="Klondike Match"
+        value={klondike || ""}
+        readOnly
+      />
+    </div>
 
-                            let confidence = "Low";
-                            if (score >= 2) confidence = "High";
-                            else if (score === 1) confidence = "Medium";
+    {/* TIER + PACKAGE */}
+    <div style={{ ...styles.grid3, marginTop: 14 }}>
+      <select
+        style={styles.input}
+        value={tier}
+        onChange={(e) => {
+          const nextTier = e.target.value;
+          setTier(nextTier);
 
-                            let reason = "Matches application category";
+          const nextKlondike = getTieredKlondikeProduct(klondike, nextTier);
 
-                            if (combinedText.includes("15w-40")) {
-                              reason =
-                                "Matches 15W-40 viscosity and heavy-duty engine oil application";
-                            } else if (
-                              combinedText.includes("hydraulic") ||
-                              combinedText.includes("aw")
-                            ) {
-                              reason = "Matches hydraulic oil application";
-                            } else if (
-                              combinedText.includes("atf") ||
-                              combinedText.includes("transmission")
-                            ) {
-                              reason = "Matches transmission fluid application";
-                            }
+          setKlondike(nextKlondike);
+          setSelectedProduct((prev) =>
+            prev ? { ...prev, klondike: nextKlondike, tier: nextTier } : prev
+          );
+          setPackageSize("");
+        }}
+      >
+        <option>Good</option>
+        <option>Better</option>
+        <option>Best</option>
+      </select>
 
-                            const competitorLabel =
-                              p.competitor ||
-                              p.name ||
-                              (p.keywords?.length
-                                ? p.keywords.join(" ")
-                                : "Competitor Match");
+      <select
+        style={styles.input}
+        value={packageSize}
+        onChange={(e) => setPackageSize(e.target.value)}
+        disabled={!klondike}
+      >
+        <option value="">Select Package</option>
+        {[...new Set(getPackageOptionsForProduct(klondike))].map(
+          (pkg, index) => (
+            <option key={index} value={pkg}>
+              {pkg}
+            </option>
+          )
+        )}
+      </select>
+    </div>
 
-                            return {
-                              ...p,
-                              score,
-                              confidence,
-                              reason,
-                              competitor: competitorLabel,
-                            };
-                          })
-                            .filter((p) => p.score > 0)
-                            .sort((a, b) => b.score - a.score)
-                            .slice(0, 5);
+    {/* ADD BUTTON */}
+    <div style={{ marginTop: 12 }}>
+      <button style={styles.primaryButton} onClick={handleAddProduct}>
+        Add Product
+      </button>
+    </div>
 
-                          setSearchResults(ranked);
+    {quoteMessage && <p style={styles.message}>{quoteMessage}</p>}
 
-                          const topMatch = ranked[0];
-                          setKlondike(topMatch ? topMatch.match : "");
-                        }}
-                      />
+    {/* CURRENT ITEMS */}
+    <div style={{ marginTop: 18 }}>
+      {quoteItems.length === 0 && (
+        <p style={styles.muted}>No products added yet.</p>
+      )}
 
-                      {searchResults.length > 0 && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "100%",
-                            left: 0,
-                            right: 0,
-                            background: "#fff",
-                            border: "1px solid #ddd",
-                            borderRadius: 8,
-                            marginTop: 4,
-                            zIndex: 20,
-                            boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
-                            overflow: "hidden",
-                          }}
-                        >
-                          {searchResults.map((result, index) => (
-                            <button
-                              key={`${
-                                result.competitor || result.match
-                              }-${index}`}
-                              type="button"
-                              style={{
-                                display: "block",
-                                width: "100%",
-                                textAlign: "left",
-                                padding: "10px 12px",
-                                border: "none",
-                                borderBottom:
-                                  index === searchResults.length - 1
-                                    ? "none"
-                                    : "1px solid #eee",
-                                background: "#fff",
-                                cursor: "pointer",
-                              }}
-                              onClick={() => {
-                                setCompetitor(result.competitor || competitor);
-                                setKlondike(result.match || "");
-                                setSearchResults([]);
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: "flex",
-                                  justifyContent: "space-between",
-                                }}
-                              >
-                                <div style={{ fontWeight: 700 }}>
-                                  {result.competitor || "Competitor Match"}
-                                </div>
+      {quoteItems.map((item, index) => (
+        <div key={item.id || index} style={styles.listRow}>
+          <div>
+            <div style={styles.listTitle}>{item.klondike}</div>
 
-                                <span
-                                  style={{
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    padding: "4px 8px",
-                                    borderRadius: 999,
-                                    background:
-                                      result.confidence === "High"
-                                        ? "#d1fae5"
-                                        : result.confidence === "Medium"
-                                        ? "#fef3c7"
-                                        : "#fee2e2",
-                                  }}
-                                >
-                                  {result.confidence}
-                                </span>
-                              </div>
+            <div style={styles.listMeta}>Replaces: {item.competitor}</div>
 
-                              <div style={{ fontSize: 13, opacity: 0.8 }}>
-                                {result.reason}
-                              </div>
+            <div style={styles.listMeta}>
+              {item.tier} • {item.packageSize || "No package"}
+            </div>
+          </div>
 
-                              <div style={{ fontSize: 13, opacity: 0.75 }}>
-                                → {result.match}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+          <button
+            style={styles.secondaryButton}
+            onClick={() => {
+              setQuoteItems((prev) => prev.filter((_, i) => i !== index));
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+    </div>
 
-                    <input
-                      style={styles.input}
-                      placeholder="Klondike Match"
-                      value={klondike || ""}
-                      readOnly
-                    />
-                  </div>
+    {/* EQUIPMENT NEEDS */}
+    <div style={{ marginTop: 24 }}>
+      <div style={styles.eyebrow}>EQUIPMENT NEEDS</div>
 
-                  {/* TIER + PACKAGE */}
-                  <div style={styles.grid2}>
-                    <select
-                      style={styles.input}
-                      value={tier}
-                      onChange={(e) => setTier(e.target.value)}
-                    >
-                      <option>Good</option>
-                      <option>Better</option>
-                      <option>Best</option>
-                    </select>
+      <p style={{ ...styles.cardBody, marginBottom: 12 }}>
+        Select supporting equipment required for proper lubricant handling and
+        storage.
+      </p>
 
-                    <select
-                      style={styles.input}
-                      value={packageSize}
-                      onChange={(e) => setPackageSize(e.target.value)}
-                    >
-                      <option value="">Select Package</option>
-                      <option>Drum</option>
-                      <option>Tote</option>
-                      <option>Pail</option>
-                    </select>
-                  </div>
+      <div
+        style={{
+          border: "1px solid #e2e8f0",
+          borderRadius: 10,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 100px 140px",
+            background: "#f8fafc",
+            padding: "10px 12px",
+            fontSize: 12,
+            fontWeight: 600,
+            color: "#64748b",
+          }}
+        >
+          <div>EQUIPMENT ITEM</div>
+          <div style={{ textAlign: "center" }}>QTY</div>
+          <div style={{ textAlign: "center" }}>DEALER PRICE</div>
+        </div>
 
-                  {/* ADD BUTTON */}
-                  <div style={{ marginTop: 12 }}>
-                    <button
-                      style={styles.primaryButton}
-                      onClick={() => {
-                        if (!competitor || !klondike) return;
+        {EQUIPMENT_OPTIONS.map((item) => {
+          const existing = equipmentItems.find((e) => e.name === item);
 
-                        setQuoteItems((prev) => [
+          return (
+            <div
+              key={item}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 100px 140px",
+                padding: "10px 12px",
+                borderTop: "1px solid #e2e8f0",
+                alignItems: "center",
+              }}
+            >
+              <div>
+                <label
+                  style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!existing}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setEquipmentItems((prev) => [
                           ...prev,
-                          {
-                            id: Date.now(),
-                            competitor,
-                            klondike,
-                            tier,
-                            packageSize,
-                          },
+                          { name: item, qty: 1, price: "" },
                         ]);
+                      } else {
+                        setEquipmentItems((prev) =>
+                          prev.filter((p) => p.name !== item)
+                        );
+                      }
+                    }}
+                  />
+                  {item}
+                </label>
+              </div>
 
-                        setCompetitor("");
-                        setKlondike("");
-                        setTier("Good");
-                        setPackageSize("");
-                        setSearchResults([]);
-                      }}
-                    >
-                      Add Product
-                    </button>
-                  </div>
+              <div style={{ textAlign: "center" }}>
+                {existing && (
+                  <input
+                    type="number"
+                    min={1}
+                    value={existing.qty}
+                    onChange={(e) => {
+                      const val = Number(e.target.value || 1);
+                      setEquipmentItems((prev) =>
+                        prev.map((p) =>
+                          p.name === item ? { ...p, qty: val } : p
+                        )
+                      );
+                    }}
+                    style={{
+                      width: 70,
+                      padding: 6,
+                      borderRadius: 6,
+                      border: "1px solid #cbd5e1",
+                      textAlign: "center",
+                    }}
+                  />
+                )}
+              </div>
 
-                  {/* CURRENT ITEMS */}
-                  <div style={{ marginTop: 18 }}>
-                    {proposalPreviewItems.length === 0 && (
-                      <p style={styles.muted}>No products added yet.</p>
-                    )}
+              <div style={{ textAlign: "center" }}>
+                {existing && (
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="$"
+                    value={existing.price || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEquipmentItems((prev) =>
+                        prev.map((p) =>
+                          p.name === item ? { ...p, price: val } : p
+                        )
+                      );
+                    }}
+                    style={{
+                      width: 100,
+                      padding: 6,
+                      borderRadius: 6,
+                      border: "1px solid #cbd5e1",
+                      textAlign: "center",
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
 
-                    {quoteItems.map((item, index) => (
-                      <div key={item.id} style={styles.listRow}>
-                        <div>
-                          <div style={styles.listTitle}>{item.klondike}</div>
-                          <div style={styles.listMeta}>
-                            Replaces: {item.competitor}
-                          </div>
-                          <div style={styles.listMeta}>
-                            {item.tier} • {item.packageSize || "No package"}
-                          </div>
-                        </div>
+    {/* NAV BUTTONS */}
+    <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+      <button style={styles.secondaryButton} onClick={() => setQuoteStep(1)}>
+        Back
+      </button>
 
-                        <button
-                          style={styles.secondaryButton}
-                          onClick={() => {
-                            setQuoteItems((prev) =>
-                              prev.filter((_, i) => i !== index)
-                            );
-                          }}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* NAV BUTTONS */}
-                  <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                    <button
-                      style={styles.secondaryButton}
-                      onClick={() => setQuoteStep(1)}
-                    >
-                      Back
-                    </button>
-
-                    <button
-                      style={styles.primaryButton}
-                      onClick={() => setQuoteStep(3)}
-                      disabled={quoteItems.length === 0}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
+      <button
+        style={styles.primaryButton}
+        onClick={() => setQuoteStep(3)}
+        disabled={quoteItems.length === 0}
+      >
+        Next
+      </button>
+    </div>
+  </div>
+)}
               {quoteStep === 3 && (
                 <div>
                   <div style={styles.eyebrow}>STEP 3</div>
@@ -2826,10 +5601,8 @@ export default function App() {
                       )}
 
                       {quoteItems.map((item, index) => {
-                        const priceData =
-                          getPriceForItem(item) ||
-                          resolvePricingMatch(item.klondike, pricingMap);
-                        const price = getDisplayPrice(priceData);
+                       const basePrice = Number(item.price || item.resalePrice || 0);
+const price = useFloorPrice ? basePrice * 0.9 : basePrice;
 
                         return (
                           <div
@@ -2849,6 +5622,57 @@ export default function App() {
                                 Tier: {item.tier} • Package:{" "}
                                 {item.packageSize || "No package selected"}
                               </div>
+                              {item.tier !== "Best" && (
+  <button
+    style={{ ...styles.secondaryButton, marginTop: 8 }}
+    onClick={() => {
+      const nextTier =
+        item.tier === "Good"
+          ? "Better"
+          : item.tier === "Better"
+          ? "Best"
+          : null;
+
+      if (!nextTier) return;
+
+      const upgradedProduct = getTieredKlondikeProduct(
+        item.catalogProductName || item.klondike,
+        nextTier
+      );
+
+      const key = `${String(upgradedProduct).toLowerCase().trim()}__${String(
+        item.packageSize || ""
+      )
+        .toLowerCase()
+        .trim()}`;
+
+      const upgradedCatalog = pricingMap[key];
+
+      const newPrice =
+        upgradedCatalog?.account_price ??
+        upgradedCatalog?.resale_price ??
+        upgradedCatalog?.retail_price ??
+        0;
+
+      setQuoteItems((prev) =>
+        prev.map((q, i) =>
+          i === index
+            ? {
+                ...q,
+                tier: nextTier,
+                klondike: upgradedProduct,
+                catalogProductName: upgradedProduct,
+                price: newPrice,
+                resalePrice: newPrice,
+              }
+            : q
+        )
+      );
+    }}
+  >
+    Upgrade to {item.tier === "Good" ? "Better" : "Best"}
+  </button>
+)}
                               {getPdsLink(item.klondike) && (
                                 <div style={{ marginTop: 6 }}>
                                   <a
@@ -2869,9 +5693,7 @@ export default function App() {
 
                             <div style={{ textAlign: "right" }}>
                               <div style={styles.listTitle}>
-                                {priceData
-                                  ? `$${price.toFixed(2)}`
-                                  : "No price"}
+                               ${Number(price || 0).toFixed(2)}
                               </div>
                               <div style={styles.listMeta}>
                                 {useFloorPrice
@@ -2888,17 +5710,34 @@ export default function App() {
                       style={{ marginTop: 16, fontWeight: 900, fontSize: 18 }}
                     >
                       Total: $
-                      {quoteItems
-                        .reduce((sum, item) => {
-                          const priceData =
-                            getPriceForItem(item) ||
-                            resolvePricingMatch(item.klondike, pricingMap);
-                          return sum + getDisplayPrice(priceData);
-                        }, 0)
-                        .toFixed(2)}
+                      {Number(getQuoteTotal() || 0).toFixed(2)}
                     </div>
                   </div>
+{equipmentItems.length > 0 && (
+  <div style={{ marginTop: 20 }}>
+    <div style={styles.eyebrow}>SELECTED EQUIPMENT</div>
 
+    <div style={styles.stack}>
+      {equipmentItems.map((item, index) => (
+        <div key={index} style={styles.listRow}>
+          <div>
+            <div style={styles.listTitle}>{item.name}</div>
+            <div style={styles.listMeta}>Qty: {item.qty || 1}</div>
+          </div>
+
+          <div style={{ textAlign: "right" }}>
+            <div style={styles.listTitle}>
+              {formatMoney(Number(item.price || 0) * Number(item.qty || 1))}
+            </div>
+            <div style={styles.listMeta}>
+              {formatMoney(Number(item.price || 0))} each
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
                   <div style={{ marginTop: 20 }}>
                     <div style={styles.eyebrow}>PROPOSAL DEFAULTS</div>
 
@@ -2936,7 +5775,7 @@ export default function App() {
                       style={styles.primaryButton}
                       onClick={handleSaveQuote}
                     >
-                      {quoteSaving ? "Saving..." : "Save Quote to Library"}
+                      {quoteSaving ? "Saving..." : "Save & Continue to Proposal"}
                     </button>
                   </div>
 
@@ -2944,184 +5783,1169 @@ export default function App() {
                 </div>
               )}
             </div>
+                    </div>
+        </div>
+      )}
+
+        {dealerActiveTab === "proposal_view" && isRep && (
+  <div className="proposal-print-area" style={{ background: "#f8fafc", minHeight: "100vh", paddingBottom: 40 }}>
+    {/* DEALER BRANDED HEADER */}
+<div
+  style={{
+    background: "linear-gradient(135deg, #0a2540 0%, #1a3f5e 100%)",
+    color: "#fff",
+    borderBottom: "6px solid #f6a531",
+  }}
+>
+  <div style={{ maxWidth: 1000, margin: "0 auto", padding: "36px 32px" }}>
+    
+    {/* TOP ROW */}
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 24,
+      }}
+    >
+      <div>
+        <div style={{ fontSize: 28, fontWeight: 900 }}>
+          {dealerProfile?.company_name || "Your Dealer"}
+        </div>
+
+        <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
+          Lubrication Program Recommendation
+        </div>
+      </div>
+
+      {/* DEALER LOGO */}
+      {(dealerProfile?.logo_url || dealerProfile?.dealer_logo_url) && (
+        <img
+          src={
+            dealerProfile?.logo_url ||
+            dealerProfile?.dealer_logo_url
+          }
+          alt="Dealer Logo"
+          style={{
+            height: 60,
+            objectFit: "contain",
+            background: "#fff",
+            padding: 6,
+            borderRadius: 8,
+          }}
+        />
+      )}
+    </div>
+
+    {/* HEADLINE */}
+    <div style={{ marginBottom: 24 }}>
+      <div
+        style={{
+          fontSize: 36,
+          fontWeight: 900,
+          lineHeight: 1.2,
+          marginBottom: 10,
+        }}
+      >
+        Improving Equipment Reliability &
+        <br />
+        Reducing Operating Cost
+      </div>
+
+      <div style={{ fontSize: 15, opacity: 0.85 }}>
+        Prepared for{" "}
+        <strong>{companyName || "Your Company"}</strong>
+      </div>
+    </div>
+
+    {/* CONTACT STRIP */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(4, 1fr)",
+        gap: 20,
+        fontSize: 13,
+        opacity: 0.9,
+      }}
+    >
+      {dealerProfile?.phone && (
+        <div>
+          <div style={{ opacity: 0.7 }}>PHONE</div>
+          <div style={{ fontWeight: 700 }}>
+            {dealerProfile.phone}
           </div>
-        )}
+        </div>
+      )}
 
-        {activeTab === "proposal_view" && isRep && (
-          <div style={styles.card}>
-            <div style={styles.eyebrow}>CUSTOMER PROPOSAL</div>
-            <h3 style={styles.cardTitle}>Lubrication Recommendation</h3>
-            <p style={styles.cardBody}>
-              Review each recommended product and select approve or decline.
-            </p>
+      {dealerProfile?.website && (
+        <div>
+          <div style={{ opacity: 0.7 }}>WEBSITE</div>
+          <div style={{ fontWeight: 700 }}>
+            {dealerProfile.website}
+          </div>
+        </div>
+      )}
 
-            <div style={styles.stack}>
-              {proposalPreviewItems.length === 0 && (
-                <p style={styles.muted}>
-                  No quote items yet. Add products in Start New Quote first.
-                </p>
-              )}
-              <p style={styles.muted}>
-                DEBUG proposal count: {proposalPreviewItems.length}
-              </p>
+      {(dealerProfile?.city || dealerProfile?.province_state) && (
+        <div>
+          <div style={{ opacity: 0.7 }}>LOCATION</div>
+          <div style={{ fontWeight: 700 }}>
+            {dealerProfile?.city}
+            {dealerProfile?.city && dealerProfile?.province_state
+              ? ", "
+              : ""}
+            {dealerProfile?.province_state}
+          </div>
+        </div>
+      )}
 
-              {proposalPreviewItems.map((item, index) => {
-                const priceData = getPriceForItem(item);
+      {dealerProfile?.address && (
+        <div>
+          <div style={{ opacity: 0.7 }}>ADDRESS</div>
+          <div style={{ fontWeight: 700 }}>
+            {dealerProfile.address}
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
 
-                return (
-                  <div
-                    key={`${item.competitor}-${index}`}
-                    style={styles.listRow}
-                  >
-                    <div style={{ maxWidth: 520 }}>
-                      <div style={styles.listTitle}>{item.klondike}</div>
+{/* EXECUTIVE SUMMARY */}
+<div
+  style={{
+    maxWidth: 1000,
+    margin: "0 auto",
+    padding: "28px 32px",
+    background: "#fff",
+    borderBottom: "1px solid #e5e7eb",
+  }}
+>
+  <div
+    style={{
+      fontSize: 12,
+      fontWeight: 900,
+      textTransform: "uppercase",
+      color: "#64748b",
+      marginBottom: 12,
+    }}
+  >
+    Executive Summary
+  </div>
 
-                      <div style={styles.listMeta}>
-                        Replaces: {item.brand ? `${item.brand} ` : ""}
-                        {item.competitor}
-                      </div>
+  <p
+    style={{
+      fontSize: 16,
+      lineHeight: 1.9,
+      color: "#1f2937",
+      margin: 0,
+    }}
+  >
+    {dealerProfile?.intro_statement
+      ? dealerProfile.intro_statement.replace(
+          /\[Customer Name\]/g,
+          companyName || "your company"
+        )
+      : `Based on our review of your operation, we have identified opportunities to improve equipment reliability, streamline product selection, and enhance overall performance. This recommendation outlines a lubrication program designed to reduce downtime, extend equipment life, and deliver consistent results across your operation.`}
+  </p>
+</div>
 
-                      <div style={styles.listMeta}>
-                        Tier: {item.tier || "Not selected"} • Package:{" "}
-                        {item.packageSize || "No package selected"}
-                      </div>
+    {/* MAIN CONTENT */}
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 32px" }}>
+      {/* TITLE SECTION */}
+      <div style={{ background: "#fff", borderRadius: 0, padding: "40px 0", borderBottom: "2px solid #e5e7eb", marginTop: 0 }}>
+        <div style={{ fontSize: 13, letterSpacing: 2.5, textTransform: "uppercase", color: "#f6a531", fontWeight: 900, marginBottom: 12 }}>
+          Lubrication Recommendation
+        </div>
+        <h1 style={{ fontSize: 36, fontWeight: 900, color: "#0a2540", margin: "0 0 12px 0" }}>
+          Prepared for {companyName ? `${companyName}` : "Your Company"}
+        </h1>
+        <p style={{ fontSize: 15, color: "#64748b", margin: 0, marginTop: 8 }}>
+          A tailored lubrication strategy to optimize equipment performance and reduce operating costs
+        </p>
+      </div>
 
-                      <div style={styles.listMeta}>
-                        Price:{" "}
-                        {priceData
-                          ? `$${priceData.dealer_sell_price}`
-                          : "No price"}
-                      </div>
-
-                      <div style={{ marginTop: 8 }}>
-                        <span style={{ fontWeight: 700 }}>
-                          Why we recommend this:
-                        </span>
-                        <div style={styles.listMeta}>
-                          High-performance formulation designed for equipment
-                          protection, durability, and reliable operation.
-                          Product-specific reasoning will later be pulled from
-                          the PDS library.
-                        </div>
-                      </div>
-
-                      {getPdsLink(item.klondike) && (
-                        <div style={{ marginTop: 6 }}>
-                          <a
-                            href={getPdsLink(item.klondike)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              color: "#f6a531",
-                              fontWeight: 800,
-                              textDecoration: "none",
-                            }}
-                          >
-                            View Product Data Sheet →
-                          </a>
-                        </div>
-                      )}
-                    </div>
-
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                      }}
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setProposalDecisions((prev) => ({
-                            ...prev,
-                            [index]: "approved",
-                          }))
-                        }
-                        style={{
-                          padding: "10px 14px",
-                          borderRadius: 10,
-                          border: "none",
-                          background:
-                            proposalDecisions[index] === "approved"
-                              ? "#2ecc71"
-                              : "#e5e7eb",
-                          fontWeight: 800,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Approve
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setProposalDecisions((prev) => ({
-                            ...prev,
-                            [index]: "denied",
-                          }))
-                        }
-                        style={{
-                          padding: "10px 14px",
-                          borderRadius: 10,
-                          border: "none",
-                          background:
-                            proposalDecisions[index] === "denied"
-                              ? "#e74c3c"
-                              : "#e5e7eb",
-                          fontWeight: 800,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Decline
-                      </button>
-
-                      <div style={{ fontSize: 12, textAlign: "center" }}>
-                        {proposalDecisions[index] === "approved" &&
-                          "✅ Approved"}
-                        {proposalDecisions[index] === "denied" && "❌ Declined"}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+      {/* CUSTOMER INFO CARD */}
+      <div style={{ background: "#fff", borderRadius: 12, padding: 28, marginTop: 24, marginBottom: 32, border: "1px solid #e5e7eb", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+        <div style={{ fontSize: 12, fontWeight: 900, textTransform: "uppercase", color: "#64748b", letterSpacing: 1, marginBottom: 16 }}>
+          Customer Profile
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24, fontSize: 14 }}>
+          {companyName && (
+            <div>
+              <div style={{ color: "#64748b", fontWeight: 700, marginBottom: 6 }}>Company Name</div>
+              <div style={{ fontWeight: 900, color: "#0a2540", fontSize: 16 }}>{companyName}</div>
             </div>
+          )}
+          {contactName && (
+            <div>
+              <div style={{ color: "#64748b", fontWeight: 700, marginBottom: 6 }}>Contact</div>
+              <div style={{ fontWeight: 900, color: "#0a2540", fontSize: 16 }}>{contactName}</div>
+            </div>
+          )}
+          {quoteContactEmail && (
+            <div>
+              <div style={{ color: "#64748b", fontWeight: 700, marginBottom: 6 }}>Email</div>
+              <div style={{ fontWeight: 700, color: "#0a2540", fontSize: 15 }}>{quoteContactEmail}</div>
+            </div>
+          )}
+          {industry && (
+            <div>
+              <div style={{ color: "#64748b", fontWeight: 700, marginBottom: 6 }}>Industry</div>
+              <div style={{ fontWeight: 900, color: "#0a2540", fontSize: 16 }}>{industry}</div>
+            </div>
+          )}
+          {subIndustry && (
+            <div>
+              <div style={{ color: "#64748b", fontWeight: 700, marginBottom: 6 }}>Sub-Industry</div>
+              <div style={{ fontWeight: 700, color: "#0a2540", fontSize: 15 }}>{subIndustry}</div>
+            </div>
+          )}
+          {segment && (
+            <div>
+              <div style={{ color: "#64748b", fontWeight: 700, marginBottom: 6 }}>Segment</div>
+              <div style={{ fontWeight: 900, color: "#0a2540", fontSize: 16 }}>{segment}</div>
+            </div>
+          )}
+        </div>
+      </div>
 
-            <div style={{ marginTop: 24 }}>
-              <button
-                type="button"
-                style={styles.primaryButton}
-                onClick={() => {
-                  const approved = Object.values(proposalDecisions).filter(
-                    (decision) => decision === "approved"
-                  ).length;
+      {/* EXECUTIVE SUMMARY */}
+      <div style={{ background: "#fff", borderRadius: 12, padding: 28, marginBottom: 32, border: "1px solid #e5e7eb", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", borderLeft: "6px solid #f6a531" }}>
+        <div style={{ fontSize: 12, fontWeight: 900, textTransform: "uppercase", color: "#64748b", letterSpacing: 1, marginBottom: 14 }}>
+          Our Recommendation
+        </div>
+        <p
+  style={{
+    fontSize: 16,
+    lineHeight: 1.9,
+    color: "#1f2937",
+    margin: 0,
+  }}
+>
+  After reviewing your current lubrication program, operating conditions, and equipment demands, we have identified opportunities to improve overall reliability, reduce contamination risk, and simplify product selection across your operation.
 
-                  const denied = Object.values(proposalDecisions).filter(
-                    (decision) => decision === "denied"
-                  ).length;
+  The following recommendations are designed to align lubricant performance with application requirements, optimize handling and storage practices, and support long-term equipment protection. By implementing a more structured lubrication approach, your operation can benefit from improved uptime, more consistent performance, and reduced maintenance-related costs.
+</p>
+      </div>
+<div className="page-break" />
+     {/* PRODUCT RECOMMENDATIONS SECTION */}
+{getProposalItems().length > 0 && (
+  <div style={{ marginBottom: 32 }}>
+    <div
+      style={{
+        fontSize: 13,
+        fontWeight: 900,
+        textTransform: "uppercase",
+        color: "#0a2540",
+        letterSpacing: 1,
+        marginBottom: 20,
+      }}
+    >
+      Product Recommendations
+    </div>
 
-                  alert(
-                    `Submitted!\nApproved: ${approved}\nDeclined: ${denied}`
-                  );
+    <div style={{ display: "grid", gap: 16 }}>
+      {getProposalItems().map((item, index) => {
+        const pds = findPds(item.catalogProductName || item.klondike);
+
+        const basePrice = Number(item.price || item.resalePrice || 0);
+        const unitPrice = useFloorPrice ? basePrice * 0.9 : basePrice;
+
+        return (
+          <div
+  className="avoid-break"
+  key={`${item.klondike}-${index}`}
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 12,
+              padding: 18,
+              background: "#fff",
+            }}
+          >
+            {/* HEADER ROW */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 10,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "#0a2540" }}>
+                  {item.klondike}
+                </div>
+
+                <div style={{ fontSize: 13, color: "#64748b" }}>
+                  Replaces: {item.brand} {item.competitor}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background:
+                    item.tier === "Best"
+                      ? "#f6a531"
+                      : item.tier === "Better"
+                      ? "#f97316"
+                      : "#e8b24e",
+                  color: "#fff",
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 900,
                 }}
               >
-                Submit Decisions
-              </button>
+                {item.tier}
+              </div>
+            </div>
+{/* DETAILS ROW */}
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(4, 1fr)",
+    gap: 12,
+    fontSize: 13,
+    marginBottom: 10,
+  }}
+>
+  <div>
+    <div style={{ color: "#64748b" }}>Package</div>
+    <div style={{ fontWeight: 900, color: "#0a2540", marginTop: 4 }}>
+      {item.packageSize || item.package || item.pack_size || "—"}
+    </div>
+  </div>
+
+  <div>
+    <div style={{ color: "#64748b" }}>Unit Price</div>
+    <div style={{ fontWeight: 900, color: "#0a2540", marginTop: 4 }}>
+      {formatMoney(unitPrice)}
+    </div>
+  </div>
+
+  <div>
+    <div style={{ color: "#64748b" }}>Part #</div>
+    <div style={{ fontWeight: 900, color: "#0a2540", marginTop: 4 }}>
+      {item.partNumber ||
+        item.part_number ||
+        item.sku ||
+        item.productCode ||
+        item.product_code ||
+        item.item_number ||
+        item.catalogProductName ||
+        "—"}
+    </div>
+  </div>
+
+  <div style={{ textAlign: "right" }}>
+    <div style={{ color: "#64748b" }}>Line Total</div>
+    <div
+      style={{
+        fontWeight: 900,
+        color: "#f6a531",
+        fontSize: 16,
+        marginTop: 4,
+      }}
+    >
+      {formatMoney(unitPrice)}
+    </div>
+  </div>
+</div>
+            {/* WHY + TECH */}
+            <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.6 }}>
+              <strong>Why:</strong>{" "}
+{getRecommendationMessage(item)}
+            </div>
+
+            <div style={{ fontSize: 13, color: "#334155", marginTop: 6 }}>
+              <strong>Product Details:</strong>
+              {pds?.why ||
+                "Recommended based on product application and operating conditions."}
+            </div>
+
+            {/* SPECS */}
+            {pds?.specs && (
+              <div style={{ marginTop: 6 }}>
+                <strong style={{ fontSize: 13 }}>Specs:</strong>
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  {pds.specs.slice(0, 4).join(" • ")}
+                </div>
+              </div>
+            )}
+
+            {/* PACKAGE + CONTAMINATION */}
+            {getPackageStrategy(item.packageSize) && (
+              <div style={{ fontSize: 12, marginTop: 6, color: "#475569" }}>
+                <strong>Packaging:</strong>{" "}
+                {getPackageStrategy(item.packageSize)}
+              </div>
+            )}
+
+            {getContaminationNote(item.packageSize) && (
+              <div style={{ fontSize: 12, marginTop: 4, color: "#b45309" }}>
+                <strong>Contamination:</strong>{" "}
+                {getContaminationNote(item.packageSize)}
+              </div>
+            )}
+{/* CUSTOMER DECISION */}
+<div
+  style={{
+    display: "flex",
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTop: "1px solid #e5e7eb",
+  }}
+>
+  <button
+    type="button"
+    onClick={() =>
+      setProposalDecisions((prev) => ({
+        ...prev,
+        [index]: "approved",
+      }))
+    }
+    style={{
+      padding: "8px 12px",
+      borderRadius: 8,
+      border:
+        proposalDecisions[index] === "approved"
+          ? "2px solid #16a34a"
+          : "1px solid #d1d5db",
+      background:
+        proposalDecisions[index] === "approved" ? "#dcfce7" : "#fff",
+      color: "#166534",
+      fontWeight: 900,
+      cursor: "pointer",
+    }}
+  >
+    Approve
+  </button>
+
+  <button
+    type="button"
+    onClick={() =>
+      setProposalDecisions((prev) => ({
+        ...prev,
+        [index]: "declined",
+      }))
+      
+    }
+    style={{
+      padding: "8px 12px",
+      borderRadius: 8,
+      border:
+        proposalDecisions[index] === "declined"
+          ? "2px solid #dc2626"
+          : "1px solid #d1d5db",
+      background:
+        proposalDecisions[index] === "declined" ? "#fee2e2" : "#fff",
+      color: "#991b1b",
+      fontWeight: 900,
+      cursor: "pointer",
+    }}
+  >
+    Decline
+  </button>
+  {proposalDecisions[index] === "declined" && (
+  <div style={{ marginTop: 10 }}>
+    <textarea
+      placeholder="Optional: Tell us why this recommendation doesn't fit (price, preference, application, etc.)"
+      value={proposalFeedback[index] || ""}
+      onChange={(e) =>
+        setProposalFeedback((prev) => ({
+          ...prev,
+          [index]: e.target.value,
+        }))
+      }
+      style={{
+        width: "100%",
+        padding: 10,
+        borderRadius: 8,
+        border: "1px solid #e2e8f0",
+        fontSize: 13,
+        resize: "vertical",
+        minHeight: 60,
+      }}
+    />
+  </div>
+)}
+</div>
+            {/* PDS */}
+            {pds?.url && (
+              <div style={{ marginTop: 8 }}>
+                <a
+                  href={pds.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: "#f6a531",
+                    textDecoration: "none",
+                  }}
+                >
+                  View Product Data Sheet →
+                </a>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
+{equipmentItems.length > 0 && (
+  <div style={{ marginBottom: 32 }}>
+    <div
+      style={{
+        fontSize: 13,
+        fontWeight: 900,
+        textTransform: "uppercase",
+        color: "#0a2540",
+        letterSpacing: 1,
+        marginBottom: 20,
+      }}
+    >
+      Recommended Equipment & Support
+    </div>
+
+    <div style={{ display: "grid", gap: 14 }}>
+      {equipmentItems.map((item, index) => {
+        const total = Number(item.price || 0) * Number(item.qty || 1);
+
+        return (
+          <div
+            key={index}
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 12,
+              padding: 18,
+              background: "#fff",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 16,
+                marginBottom: 8,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "#0a2540" }}>
+                  {item.name}
+                </div>
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                  Qty: {item.qty || 1}
+                </div>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 12, color: "#64748b" }}>Line Total</div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: "#f6a531" }}>
+                  {formatMoney(total)}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.6 }}>
+              <strong>Purpose:</strong> Supports proper lubricant handling,
+              clean dispensing, and organized storage.
+            </div>
+
+            <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.6 }}>
+              <strong>Program Benefit:</strong> Helps reduce contamination risk,
+              improve handling efficiency, and protect lubricant integrity.
             </div>
           </div>
+        );
+      })}
+    </div>
+  </div>
+)}
+{/* PROGRAM VALUE */}
+<div
+  style={{
+    background: "#f8fafc",
+    borderRadius: 14,
+    padding: 28,
+    marginBottom: 32,
+    border: "1px solid #e5e7eb",
+  }}
+>
+  <div
+    style={{
+      fontSize: 13,
+      fontWeight: 900,
+      textTransform: "uppercase",
+      color: "#0a2540",
+      marginBottom: 12,
+    }}
+  >
+    Program Value
+  </div>
+
+  <p style={{ margin: 0, color: "#334155", lineHeight: 1.8 }}>
+    This lubrication program is designed to improve equipment reliability, reduce downtime risk, and simplify product selection across your operation. By aligning product performance, packaging strategy, and contamination control practices, this solution supports long-term operating efficiency and reduced maintenance costs.
+  </p>
+</div>
+    {/* INVESTMENT SUMMARY */}
+<div
+  style={{
+    background: "#0a2540",
+    color: "#fff",
+    borderRadius: 14,
+    padding: 28,
+    marginBottom: 32,
+  }}
+>
+  <div
+    style={{
+      fontSize: 13,
+      fontWeight: 900,
+      textTransform: "uppercase",
+      letterSpacing: 1,
+      marginBottom: 16,
+      opacity: 0.8,
+    }}
+  >
+    Investment Summary
+  </div>
+
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      fontSize: 16,
+      marginBottom: 10,
+    }}
+  >
+    <span>Lubricant Total</span>
+    <strong>{formatMoney(getQuoteTotal())}</strong>
+  </div>
+
+  {equipmentItems.length > 0 && (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        fontSize: 16,
+        marginBottom: 10,
+      }}
+    >
+      <span>Equipment Total</span>
+      <strong>
+        {formatMoney(
+          equipmentItems.reduce(
+            (sum, item) =>
+              sum + Number(item.price || 0) * Number(item.qty || 1),
+            0
+          )
+        )}
+      </strong>
+    </div>
+  )}
+
+  <div
+    style={{
+      borderTop: "1px solid rgba(255,255,255,0.2)",
+      marginTop: 16,
+      paddingTop: 16,
+      display: "flex",
+      justifyContent: "space-between",
+      fontSize: 20,
+      fontWeight: 900,
+    }}
+  >
+    <span>Total Investment</span>
+    <span>
+      {formatMoney(
+        getQuoteTotal() +
+          equipmentItems.reduce(
+            (sum, item) =>
+              sum + Number(item.price || 0) * Number(item.qty || 1),
+            0
+          )
+      )}
+    </span>
+  </div>
+</div>
+{/* IMPLEMENTATION PLAN */}
+<div
+  style={{
+    background: "#ffffff",
+    borderRadius: 14,
+    padding: 28,
+    marginBottom: 32,
+    border: "1px solid #e5e7eb",
+  }}
+>
+  <div
+    style={{
+      fontSize: 13,
+      fontWeight: 900,
+      textTransform: "uppercase",
+      color: "#0a2540",
+      marginBottom: 16,
+    }}
+  >
+    Implementation Plan
+  </div>
+
+  <p
+    style={{
+      color: "#334155",
+      lineHeight: 1.8,
+      marginBottom: 20,
+      fontSize: 14,
+    }}
+  >
+    To ensure a smooth transition and maximize performance improvements, we
+    recommend a phased rollout approach that aligns product implementation,
+    equipment setup, and best practices across your operation.
+  </p>
+
+  <div style={{ display: "grid", gap: 12 }}>
+    {/* PHASE 1 */}
+    <div
+      style={{
+        padding: 14,
+        borderRadius: 10,
+        background: "#f8fafc",
+        borderLeft: "4px solid #f6a531",
+        color: "#0a2540",
+      }}
+    >
+      <strong>Phase 1: Alignment & Planning</strong>
+      <div style={{ fontSize: 13, marginTop: 6, color: "#334155" }}>
+        Review product recommendations, confirm equipment requirements, and
+        align internal teams on transition priorities.
+      </div>
+    </div>
+
+    {/* PHASE 2 */}
+    <div
+      style={{
+        padding: 14,
+        borderRadius: 10,
+        background: "#f8fafc",
+        borderLeft: "4px solid #f6a531",
+        color: "#0a2540",
+      }}
+    >
+      <strong>Phase 2: Product Transition</strong>
+      <div style={{ fontSize: 13, marginTop: 6, color: "#334155" }}>
+        Begin transitioning key equipment and applications to Klondike products,
+        focusing on high-impact systems first.
+      </div>
+    </div>
+
+    {/* PHASE 3 */}
+    <div
+      style={{
+        padding: 14,
+        borderRadius: 10,
+        background: "#f8fafc",
+        borderLeft: "4px solid #f6a531",
+        color: "#0a2540",
+      }}
+    >
+      <strong>Phase 3: Equipment & Handling Optimization</strong>
+      <div style={{ fontSize: 13, marginTop: 6, color: "#334155" }}>
+        Implement recommended storage and dispensing equipment to reduce
+        contamination risk and improve handling efficiency.
+      </div>
+    </div>
+
+    {/* PHASE 4 */}
+    <div
+      style={{
+        padding: 14,
+        borderRadius: 10,
+        background: "#f8fafc",
+        borderLeft: "4px solid #f6a531",
+        color: "#0a2540",
+      }}
+    >
+      <strong>Phase 4: Monitoring & Optimization</strong>
+      <div style={{ fontSize: 13, marginTop: 6, color: "#334155" }}>
+        Monitor product performance, adjust as needed, and continue optimizing
+        your lubrication program for long-term reliability.
+      </div>
+    </div>
+  </div>
+</div>
+<div className="page-break" />
+{/* REP SIGN-OFF */}
+<div
+  style={{
+    background: "#fff",
+    borderRadius: 14,
+    padding: 28,
+    marginBottom: 32,
+    border: "1px solid #e5e7eb",
+  }}
+>
+  <div
+    style={{
+      fontSize: 13,
+      fontWeight: 900,
+      textTransform: "uppercase",
+      color: "#0a2540",
+      marginBottom: 16,
+    }}
+  >
+    <div
+  style={{
+    background: "#fff",
+    border: "1px solid #e5e7eb",
+    borderRadius: 14,
+    padding: 24,
+    marginBottom: 28,
+  }}
+>
+  <div
+    style={{
+      fontSize: 13,
+      fontWeight: 900,
+      textTransform: "uppercase",
+      color: "#0a2540",
+      marginBottom: 12,
+    }}
+  >
+    What This Means For Your Operation
+  </div>
+
+  <p style={{ margin: 0, color: "#334155", lineHeight: 1.8 }}>
+    By implementing this lubrication strategy, you can expect improved equipment
+    reliability, reduced downtime risk, and more consistent operating performance.
+    This approach is designed to simplify product selection while supporting long-term
+    cost efficiency and operational confidence.
+  </p>
+</div>
+    Prepared By
+  </div>
+
+  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+    <div>
+      <div style={{ fontWeight: 900, fontSize: 16, color: "#0a2540" }}>
+        {`${repFirstName || ""} ${repLastName || ""}`.trim() ||
+          "Sales Representative"}
+      </div>
+
+      <div style={{ color: "#64748b", marginTop: 4 }}>
+        {repTitle || "Sales Representative"}
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 14, color: "#334155" }}>
+        {repPhone && <div>Phone: {repPhone}</div>}
+        {repEmailAddress && <div>Email: {repEmailAddress}</div>}
+      </div>
+    </div>
+
+    <div>
+      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 8 }}>
+       Rep Signature
+      </div>
+<div style={{ fontSize: 12, color: "#64748b", marginBottom: 8 }}>
+  Sign here before sending this proposal to the customer.
+</div>
+      {!signature ? (
+        <div>
+          <canvas
+            ref={canvasRef}
+            width={400}
+            height={120}
+            style={{
+              width: "100%",
+              border: "1px dashed #94a3b8",
+              borderRadius: 10,
+              background: "#f8fafc",
+              cursor: "crosshair",
+            }}
+            onMouseDown={startDrawing}
+            onMouseMove={draw}
+            onMouseUp={stopDrawing}
+            onMouseLeave={stopDrawing}
+          />
+
+          <button
+            type="button"
+            style={{ ...styles.secondaryButton, marginTop: 8 }}
+            onClick={clearSignature}
+          >
+           Clear Signature
+          </button>
+        </div>
+      ) : (
+        <div>
+          <img
+            src={signature}
+            alt="Signature"
+            style={{
+              width: "100%",
+              border: "1px solid #e5e7eb",
+              borderRadius: 10,
+              background: "#fff",
+            }}
+          />
+
+          <button
+            type="button"
+            style={{ ...styles.secondaryButton, marginTop: 8 }}
+            onClick={clearSignature}
+          >
+            Update Signature
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+</div>
+      {/* CLOSING STATEMENT */}
+      {getProposalItems().length > 0 && (
+        <div style={{ background: "#fff", borderRadius: 12, padding: 28, marginBottom: 32, border: "1px solid #e5e7eb", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", borderLeft: "6px solid #f6a531" }}>
+      <p style={{ fontSize: 16, lineHeight: 1.9, color: "#1f2937", margin: 0 }}>
+  {dealerProfile?.closing_statement
+    ? dealerProfile.closing_statement.replace(
+        /\[Customer Name\]/g,
+        companyName || "your company"
+      )
+    : `We appreciate the opportunity to work with ${
+        companyName || "your team"
+      } and support your operation with a more reliable, efficient lubrication program.
+
+This recommendation is designed to improve equipment performance, reduce downtime risk, and simplify your product strategy across the board.
+
+We look forward to partnering with you on implementation and delivering measurable results for your operation.`}
+</p>
+        </div>
+      )}
+{/* SEND PROPOSAL TO CUSTOMER */}
+<div className="no-print" style={{ marginBottom: 20 }}>
+  <button
+    type="button"
+    style={{
+      width: "100%",
+      padding: 16,
+      borderRadius: 10,
+      border: "1px solid #0a2540",
+      background: "#0a2540",
+      color: "#fff",
+      fontSize: 15,
+      fontWeight: 900,
+      cursor: "pointer",
+      textTransform: "uppercase",
+      letterSpacing: 1,
+    }}
+    onClick={handleSendProposalToCustomer}
+  >
+    Send Proposal to Customer
+  </button>
+</div>
+      {/* SUBMIT DECISIONS BUTTON - CALL TO ACTION */}
+      {getProposalItems().length > 0 && (
+        <div style={{ marginBottom: 40, paddingTop: 20 }}>
+          <button
+            type="button"
+            style={{
+              width: "100%",
+              padding: 18,
+              borderRadius: 10,
+              border: "none",
+              background: "linear-gradient(180deg, #f6a531 0%, #d87400 100%)",
+              color: "#fff",
+              fontSize: 16,
+              fontWeight: 900,
+              cursor: "pointer",
+              textTransform: "uppercase",
+              letterSpacing: 1,
+              boxShadow: "0 8px 20px rgba(246, 165, 49, 0.25)",
+            }}
+            onClick={handleSubmitProposalDecisions}
+          >
+            Submit Proposal Decisions
+          </button>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
+        {dealerActiveTab === "cross" && isRep && (
+        <div style={styles.card}>
+  <div style={styles.eyebrow}>CROSS REFERENCE</div>
+  <h3 style={styles.cardTitle}>Find the Klondike Match</h3>
+
+  <p style={styles.cardBody}>
+    Search a competitor product and compare Good / Better / Best Klondike recommendations.
+  </p>
+
+  <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
+    <input
+      style={styles.input}
+      placeholder="Example: Shell Rotella T4 15W-40"
+      value={crossSearch}
+      onChange={(e) => {
+  setCrossSearch(e.target.value);
+  setSelectedPackage("");
+  setCrossReferenceResult(null);
+  setCrossCatalogMap({});
+}}
+    />
+
+    <button
+      type="button"
+      style={styles.primaryButton}
+      onClick={handleCrossReferenceSearch}
+    >
+      Search Cross Reference
+    </button>
+  </div>
+
+  {crossReferenceResult && (
+    <div style={{ marginTop: 24 }}>
+      <div style={styles.eyebrow}>Recommended Matches</div>
+
+      <div style={{ display: "grid", gap: 16, marginTop: 14 }}>
+        {crossReferenceResult.recommendations.map((rec) => {
+          const pds = findPds(rec.product);
+const packages = crossCatalogMap[rec.product] || [];
+          return (
+            <div
+              key={rec.tier}
+              style={{
+                background: "#fff",
+                border: "1px solid #e5e7eb",
+                borderRadius: 14,
+                padding: 22,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div>
+                  <div style={styles.eyebrow}>Matched Product</div>
+                <h3 style={{ margin: "6px 0" }}>
+  {rec.product || "No Klondike match listed"}
+</h3>
+                  <p style={{ margin: 0 }}>
+                    Replaces: {rec.competitorBrand} {rec.competitorProduct}
+                  </p>
+  {rec.product && (
+  <button
+    style={styles.primaryButton}
+    onClick={() => {
+      setQuoteItems((prev) => [
+        ...prev,
+        {
+          competitor: `${rec.competitorBrand} ${rec.competitorProduct}`,
+          klondike: rec.product,
+          tier: rec.tier,
+          packageSize: selectedPackage || "",
+          price: 0,
+        },
+      ]);
+
+      setDealerActiveTab("quote");
+    }}
+  >
+    Add to Quote
+  </button>
+)}
+                  {packages.length > 0 && (
+  <div style={{ marginTop: 12 }}>
+    <select
+      style={styles.input}
+      value={selectedPackage}
+      onChange={(e) => setSelectedPackage(e.target.value)}
+    >
+      <option value="">Select Package</option>
+      {packages.map((pkg) => (
+        <option key={pkg.id || pkg.part_number || pkg.package_size} value={pkg.package_size}>
+  {pkg.package_size} - ${Number(pkg.resale_price || 0).toFixed(2)}
+</option>
+      ))}
+    </select>
+  </div>
+)}
+                </div>
+<button
+  style={styles.primaryButton}
+ onClick={() => {
+  if (!selectedPackage) {
+    alert("Select a package first");
+    return;
+  }
+
+  const selectedPkg =
+    packages.find((p) => p.package_size === selectedPackage) || {};
+
+  setQuoteItems((prev) => [
+    ...prev,
+    {
+      competitor: `${rec.competitorBrand} ${rec.competitorProduct}`,
+      klondike: rec.product,
+      tier: rec.tier || "Matched",
+      packageSize: selectedPkg.package_size || selectedPackage || "",
+      price: Number(selectedPkg.resale_price || 0),
+      partNumber: selectedPkg.part_number || "",
+      quantity: 1,
+    },
+  ]);
+
+  setCompetitor(`${rec.competitorBrand} ${rec.competitorProduct}`);
+  setKlondike(rec.product);
+setTier(rec.tier || "Good");
+  setKlondike(rec.product);
+setTier(rec.tier || "Good");
+
+  setDealerActiveTab("quote");
+  setQuoteStep(2);
+}}
+>
+  Add to Quote
+</button>
+              </div>
+
+              {pds.why && (
+                <div style={{ marginTop: 14 }}>
+                  <strong>Technical Rationale</strong>
+                  <p>{pds.why}</p>
+                </div>
+              )}
+
+              {pds.specs && (
+                <ul>
+                  {pds.specs.map((spec, i) => (
+                    <li key={i}>{spec}</li>
+                  ))}
+                </ul>
+              )}
+
+      {pds?.url && (
+  <>
+    <a
+      href={pds.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: "#6b46c1" }}
+    >
+      View Product Data Sheet
+    </a>
+
+  </>
+)}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  )}
+</div>
         )}
 
-        {activeTab === "cross" && isRep && (
-          <div style={styles.card}>
-            <div style={styles.eyebrow}>CROSS REFERENCE</div>
-            <h3 style={styles.cardTitle}>Quick Product Match</h3>
-            <p style={styles.cardBody}>
-              This quick search will later use the full crossover list.
-            </p>
-          </div>
-        )}
-
-        {activeTab === "library" && isRep && (
+        {dealerActiveTab === "library" && isRep && (
           <div style={styles.card}>
             <div style={styles.eyebrow}>QUOTE / PROPOSAL LIBRARY</div>
             <h3 style={styles.cardTitle}>Saved Quotes & Proposals</h3>
@@ -3147,14 +6971,41 @@ export default function App() {
                       {quote.customer_email || "No customer email"}
                     </div>
                   </div>
-                  <span style={styles.statusPill}>{quote.status}</span>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+  <span style={styles.statusPill}>{quote.status}</span>
+
+  <button
+    type="button"
+    style={styles.secondaryButton}
+    onClick={() => handleOpenSavedQuote(quote)}
+  >
+    Resume
+  </button>
+  <button
+  type="button"
+  style={{ ...styles.rejectButton }}
+  onClick={() => handleDeleteQuote(quote.id)}
+>
+  Delete
+</button>
+  <button
+  type="button"
+  style={styles.primaryButton}
+  onClick={async () => {
+    await handleOpenSavedQuote(quote);
+    setDealerActiveTab("proposal_view");
+  }}
+>
+  View Proposal
+</button>
+</div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {activeTab === "pds" && isRep && (
+        {dealerActiveTab === "pds" && isRep && (
           <div style={styles.card}>
             <div style={styles.eyebrow}>PDS LIBRARY</div>
             <h3 style={styles.cardTitle}>Product Documents</h3>
@@ -3165,7 +7016,7 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === "company" && isDealerAdmin && (
+        {dealerActiveTab === "company" && isDealerAdmin && (
           <div style={styles.card}>
             <div style={styles.eyebrow}>COMPANY PERFORMANCE</div>
             <h3 style={styles.cardTitle}>Dealer-Wide Business Performance</h3>
@@ -3175,23 +7026,249 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === "team" && (isDealerAdmin || isManager) && (
+                {isManager && dealerActiveTab === "dashboard" && (
+          <>
+            <div style={styles.card}>
+              <div style={styles.eyebrow}>MANAGER DASHBOARD</div>
+              <h3 style={styles.cardTitle}>Assigned Rep Performance</h3>
+              <p style={styles.cardBody}>
+                Monitor quote activity, proposals, customer responses, approval rate,
+                and approved revenue for reps assigned to you.
+              </p>
+
+              <div style={styles.grid3}>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Assigned Reps</div>
+                                   <div style={styles.summaryValue}>
+                    {
+                      teamAssignments.filter(
+                        (assignment) =>
+                          assignment.manager_profile_id === session?.user?.id ||
+                          assignment.manager_user_id === session?.user?.id
+                      ).length
+                    }
+                  </div>
+                </div>
+
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Quotes Created</div>
+                  <div style={styles.summaryValue}>{repSnapshot.quotes}</div>
+                </div>
+
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Proposals Sent</div>
+                  <div style={styles.summaryValue}>{repSnapshot.proposalsSent}</div>
+                </div>
+
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Customer Responses</div>
+                  <div style={styles.summaryValue}>{repSnapshot.responses}</div>
+                </div>
+
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Approved Revenue</div>
+                  <div style={styles.summaryValue}>
+                    ${Number(repSnapshot.approvedRevenue || 0).toLocaleString()}
+                  </div>
+                </div>
+
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Approval Rate</div>
+                  <div style={styles.summaryValue}>{repSnapshot.approvalRate}%</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.card}>
+              <div style={styles.eyebrow}>PIPELINE</div>
+              <h3 style={styles.cardTitle}>Assigned Rep Pipeline</h3>
+
+              <div style={styles.grid2}>
+                <div style={{ ...styles.summaryCard, ...styles.pipelineAwaiting }}>
+                  <div style={styles.summaryLabel}>Awaiting Review</div>
+                  <div style={styles.summaryValue}>{pipeline.awaiting.length}</div>
+                  <div style={styles.listMeta}>Proposals waiting on customer</div>
+                </div>
+
+                <div style={{ ...styles.summaryCard, ...styles.pipelineReviewed }}>
+                  <div style={styles.summaryLabel}>Reviewed</div>
+                  <div style={styles.summaryValue}>{pipeline.reviewed.length}</div>
+                  <div style={styles.listMeta}>Customer has responded</div>
+                </div>
+
+                <div style={{ ...styles.summaryCard, ...styles.pipelineApproved }}>
+                  <div style={styles.summaryLabel}>Approved</div>
+                  <div style={styles.summaryValue}>{pipeline.approved.length}</div>
+                  <div style={styles.listMeta}>Deals moving forward</div>
+                </div>
+
+                <div style={{ ...styles.summaryCard, ...styles.pipelineFollowUp }}>
+                  <div style={styles.summaryLabel}>Needs Follow-Up</div>
+                  <div style={styles.summaryValue}>{pipeline.followUp.length}</div>
+                  <div style={styles.listMeta}>Declined items requiring attention</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.card}>
+              <div style={styles.eyebrow}>DEALER LEADERBOARD</div>
+              <h3 style={styles.cardTitle}>Rep Performance Rankings</h3>
+              <p style={styles.cardBody}>
+                Dealer-wide leaderboard remains visible so managers can compare team
+                performance across the organization.
+              </p>
+
+              <div style={styles.stack}>
+                {leaderboard.length === 0 ? (
+                  <p style={styles.muted}>No representative performance data yet.</p>
+                ) : (
+                  leaderboard.map((rep, index) => (
+                    <div
+                      key={rep.name || index}
+                      style={{
+                        ...styles.listRow,
+                        background: index === 0 ? "#fffbea" : "#f8fafc",
+                        border:
+                          index === 0
+                            ? "2px solid #f6a531"
+                            : "1px solid #e7edf3",
+                      }}
+                    >
+                      <div>
+                        <div style={styles.listTitle}>
+                          #{index + 1} {rep.name}
+                        </div>
+
+                        <div style={styles.listMeta}>
+                          {rep.proposals} proposal(s) • {rep.approvalRate}% approval •{" "}
+                          {rep.approved} approved / {rep.declined} declined
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: "right" }}>
+                        <div style={styles.listTitle}>
+                          ${Number(rep.revenue || 0).toLocaleString()}
+                        </div>
+                        <div style={styles.listMeta}>Approved Revenue</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {isManager && dealerActiveTab === "team" && (
           <div style={styles.card}>
             <div style={styles.eyebrow}>TEAM</div>
-            <h3 style={styles.cardTitle}>Team Performance</h3>
+            <h3 style={styles.cardTitle}>Assigned Representatives</h3>
             <p style={styles.cardBody}>
-              Rep activity and manager performance will appear here.
+              View reps currently assigned to this manager.
             </p>
+
+            <div style={styles.stack}>
+                            {teamAssignments.filter(
+                (assignment) =>
+                  assignment.manager_profile_id === session?.user?.id ||
+                  assignment.manager_user_id === session?.user?.id
+              ).length === 0 && (
+                <p style={styles.muted}>No reps assigned to this manager yet.</p>
+              )}
+
+                           {teamAssignments
+                .filter(
+                  (assignment) =>
+                    assignment.manager_profile_id === session?.user?.id ||
+                    assignment.manager_user_id === session?.user?.id
+                )
+                .map((assignment) => {
+                  const assignedRep = repProfiles.find(
+                    (rep) =>
+                      rep.id === assignment.rep_profile_id ||
+                      rep.user_id === assignment.rep_profile_id
+                  );
+
+                  return (
+                  <div
+                    key={assignment.id || assignment.rep_profile_id}
+                    style={styles.listRow}
+                  >
+                    <div>
+                      <div style={styles.listTitle}>
+                        {assignedRep
+                          ? `${assignedRep.first_name || ""} ${
+                              assignedRep.last_name || ""
+                            }`.trim()
+                          : "Assigned Rep"}
+                      </div>
+
+                      <div style={styles.listMeta}>
+                        {assignedRep?.email || assignment.rep_profile_id}
+                      </div>
+                    </div>
+
+                    <span style={styles.statusPill}>Rep</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
-        {activeTab === "request" && (isDealerAdmin || isManager) && (
+               {dealerActiveTab === "request" && isManager && (
           <div style={styles.card}>
-            <div style={styles.eyebrow}>REQUEST ACCESS</div>
-            <h3 style={styles.cardTitle}>Request User Access</h3>
+            <div style={styles.eyebrow}>ADD USERS</div>
+            <h3 style={styles.cardTitle}>Request Manager / Rep Access</h3>
             <p style={styles.cardBody}>
-              Dealer admins and managers can request new manager or rep access.
+              Submit a request for a new manager or rep. Klondike Admin approval
+              is required before access is granted.
             </p>
+
+            <form onSubmit={handleAccessRequest} style={styles.form}>
+              <div style={styles.grid3}>
+                <input
+                  style={styles.input}
+                  value={requestName}
+                  onChange={(e) => setRequestName(e.target.value)}
+                  placeholder="Full name"
+                />
+
+                <input
+                  style={styles.input}
+                  type="email"
+                  value={requestEmail}
+                  onChange={(e) => setRequestEmail(e.target.value)}
+                  placeholder="user@dealer.com"
+                />
+
+                <select
+                  style={styles.input}
+                  value={requestRole}
+                  onChange={(e) => setRequestRole(e.target.value)}
+                >
+                  <option value="manager">Manager</option>
+                  <option value="rep">Rep</option>
+                </select>
+              </div>
+
+              <textarea
+                style={styles.textarea}
+                value={requestReason}
+                onChange={(e) => setRequestReason(e.target.value)}
+                placeholder="Why does this person need access?"
+              />
+
+              <button
+                type="submit"
+                disabled={requestLoading}
+                style={styles.secondaryButton}
+              >
+                {requestLoading ? "Submitting..." : "Submit Access Request"}
+              </button>
+            </form>
+
+            {requestMessage && <p style={styles.message}>{requestMessage}</p>}
           </div>
         )}
       </div>
@@ -3246,10 +7323,12 @@ export default function App() {
         return renderPlatformAdminView();
 
       case "dealer_admin":
-      case "manager":
-      case "rep":
-        return (
-          <DealerPortalShell
+  return renderDealerAdminView();
+
+case "manager":
+case "rep":
+  return (
+    <DealerPortalShell
             activeMembership={activeMembership}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -3274,6 +7353,9 @@ export default function App() {
       </div>
     );
   }
+  if (publicReviewToken) {
+  return <PublicProposalPage token={publicReviewToken} />;
+}
   if (!session) {
     return (
       <div style={styles.page}>
@@ -3325,7 +7407,6 @@ export default function App() {
       </div>
     );
   }
-
   return (
     <div style={styles.page}>
       <div style={styles.shell}>
@@ -3336,13 +7417,13 @@ export default function App() {
               alt="Klondike"
               style={styles.logo}
             />
-            <div style={styles.eyebrow}>KLONDIKE DEALER PLATFORM</div>
-            <h1 style={styles.pageTitle}>Deal Tool Platform</h1>
+            <h1 style={styles.pageTitle}>KLONDIKE DEALER GROWTH PLATFORM</h1>
             <p style={styles.heroText}>
               Signed in as{" "}
               <strong>{profile?.email || session.user.email}</strong>
             </p>
           </div>
+
 
           <button onClick={handleLogout} style={styles.smallButton}>
             Log Out
@@ -3396,89 +7477,911 @@ export default function App() {
           </div>
         ) : (
           <>
-            {renderDemoFlowBar()}
-
-            <div style={styles.topCard}>
-              <div style={styles.topCardHeader}>
-                <div>
-                  <div style={styles.eyebrow}>ACTIVE ACCESS</div>
-                  <h2 style={styles.topCardTitle}>Current Access Context</h2>
-                </div>
-
-                {activeMembership && (
-                  <div>{renderRoleBadge(activeMembership.role)}</div>
-                )}
-              </div>
-
-              <div style={styles.grid2}>
-                <div>
-                  <label style={styles.label}>Choose Organization View</label>
-                  <select
-                    style={styles.input}
-                    value={activeOrgId}
-                    onChange={(e) => setActiveOrgId(e.target.value)}
-                  >
-                    <option value="">Select organization</option>
-                    {memberships.map((membership) => (
-                      <option
-                        key={membership.id}
-                        value={membership.organization_id}
-                      >
-                        {(membership.organization?.name ||
-                          "Unknown organization") +
-                          " — " +
-                          membership.role}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={styles.grid2}>
-                  <div style={styles.summaryCard}>
-                    <div style={styles.summaryLabel}>Organization</div>
-                    <div style={styles.summaryValue}>
-                      {activeMembership?.organization?.name ||
-                        "No organization selected"}
-                    </div>
-                  </div>
-
-                  <div style={styles.summaryCard}>
-                    <div style={styles.summaryLabel}>Role</div>
-                    <div style={styles.summaryValue}>
-                      {roleLabel(activeMembership?.role)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {authMessage && <p style={styles.error}>{authMessage}</p>}
-            </div>
-
-            {renderRoleSummaryStrip()}
-            {renderRoleView()}
+          {authMessage && <p style={styles.error}>{authMessage}</p>}
+{renderRoleView()}
           </>
         )}
       </div>
     </div>
   );
 }
+function PublicProposalPage({ token }) {
+  const [quote, setQuote] = React.useState(null);
+  const [items, setItems] = React.useState([]);
+  const [decisions, setDecisions] = React.useState({});
+  const [feedback, setFeedback] = React.useState({});
+  const [submitted, setSubmitted] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+const [equipment, setEquipment] = React.useState([]);
+const [equipmentDecisions, setEquipmentDecisions] = React.useState({});
+const [equipmentFeedback, setEquipmentFeedback] = React.useState({});
+  React.useEffect(() => {
+    const load = async () => {
+      const { data: quoteData, error: quoteError } = await supabase
+        .from("quotes")
+        .select("*")
+        .eq("review_token", token)
+        .maybeSingle();
 
+      if (quoteError) {
+        console.error("Public quote load error:", quoteError.message);
+        return;
+      }
+
+      if (!quoteData) return;
+
+      const { data: itemData, error: itemError } = await supabase
+        .from("quote_items")
+        .select("*")
+        .eq("quote_id", quoteData.id)
+        .order("created_at", { ascending: true });
+
+      if (itemError) {
+        console.error("Public quote items load error:", itemError.message);
+      }
+const { data: equipmentData, error: equipmentError } = await supabase
+  .from("quote_equipment")
+  .select("*")
+  .eq("quote_id", quoteData.id)
+  .order("created_at", { ascending: true });
+
+if (equipmentError) {
+  console.error("Public equipment load error:", equipmentError.message);
+}
+
+setQuote(quoteData);
+setItems(itemData || []);
+setEquipment(equipmentData || []);
+    };
+
+    load();
+  }, [token]);
+
+  const formatMoney = (value) => `$${Number(value || 0).toFixed(2)}`;
+
+  const normalize = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[®™]/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
+  const findPublicPds = (productName) => {
+    if (!productName) return null;
+
+    const normalized = normalize(productName);
+
+    if (PDS_MAP?.[productName]) return PDS_MAP[productName];
+
+    for (const entry of Object.values(PDS_MAP || {})) {
+      if (normalize(entry?.name) === normalized) return entry;
+
+      if (
+        Array.isArray(entry?.aliases) &&
+        entry.aliases.some((alias) => normalize(alias) === normalized)
+      ) {
+        return entry;
+      }
+    }
+
+    return null;
+  };
+
+  const total = items.reduce(
+    (sum, item) => sum + Number(item.total_price || item.unit_price || 0),
+    0
+  );
+
+  const handleSubmit = async () => {
+    const missing = items.filter((_, index) => !decisions[index]);
+
+const missingEquipment = equipment.filter(
+  (_, index) => !equipmentDecisions[index]
+);
+
+    if (missing.length > 0 || missingEquipment.length > 0) {
+  alert("Please approve or decline each product and equipment recommendation before submitting.");
+  return;
+}
+
+    setSubmitting(true);
+
+    const responsePayload = items.map((item, index) => ({
+      quote_item_id: item.id,
+      product: item.klondike_product || item.product_name,
+      package: item.package || "",
+      price: item.total_price || item.unit_price || 0,
+      decision: decisions[index],
+      feedback: feedback[index] || "",
+    }));
+const equipmentPayload = equipment.map((item, index) => ({
+  quote_equipment_id: item.id,
+  product: item.equipment_name,
+  package: "Equipment",
+  price: item.total_price || item.unit_price || 0,
+  decision: equipmentDecisions[index],
+  feedback: equipmentFeedback[index] || "",
+  type: "equipment",
+}));
+    const { error } = await supabase.from("proposal_responses").insert({
+      quote_id: quote.id,
+      decision_data: {
+        customer_name: quote.customer_name,
+        customer_email: quote.customer_email,
+        rep_name: quote.rep_name,
+        rep_email: quote.rep_email,
+        responses: responsePayload,
+equipment: equipmentPayload,
+      },
+    });
+
+    if (error) {
+      setSubmitting(false);
+      alert("Failed to submit response.");
+      console.error(error);
+      return;
+    }
+
+    await supabase
+      .from("quotes")
+      .update({ review_status: "submitted" })
+      .eq("id", quote.id);
+
+   const allResponses = [...responsePayload, ...equipmentPayload];
+
+const approved = allResponses.filter((row) => row.decision === "approved");
+const declined = allResponses.filter((row) => row.decision === "declined");
+
+    const { error: emailError } = await supabase.functions.invoke(
+      "send-proposal-reviewed-email",
+      {
+        body: {
+          repEmail: quote.rep_email,
+          repName: quote.rep_name || "Sales Representative",
+          customerName: quote.customer_name,
+          customerEmail: quote.customer_email,
+          approved,
+          declined,
+        },
+      }
+    );
+
+    if (emailError) {
+      console.error("Rep notification email failed:", emailError);
+    }
+
+    setSubmitting(false);
+    setSubmitted(true);
+  };
+const dealerDisplayName = quote?.dealer_name || "Your Dealer";
+
+const executiveSummary =
+  quote?.intro_statement ||
+  `Based on our review of your current lubrication program and operating requirements, this recommendation outlines a lubrication strategy designed to improve equipment reliability, simplify product selection, reduce contamination risk, and support long-term operating performance.`;
+
+const closingStatement =
+  quote?.closing_statement ||
+  `We appreciate the opportunity to support your operation. Your representative will follow up to review next steps and ensure a smooth implementation.`;  if (!quote) {
+    return <div style={{ padding: 40 }}>Loading proposal...</div>;
+  }
+
+  if (submitted || quote.review_status === "submitted") {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Arial, sans-serif",
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 520,
+          width: "100%",
+          background: "#ffffff",
+          borderRadius: 16,
+          padding: 36,
+          textAlign: "center",
+          border: "1px solid #e5e7eb",
+          boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
+        }}
+      >
+        <div style={{ fontSize: 42, marginBottom: 12 }}>✅</div>
+
+        <h1 style={{ margin: "0 0 12px", color: "#0a2540" }}>
+          Response Submitted
+        </h1>
+
+        <p style={{ color: "#475569", lineHeight: 1.6, marginBottom: 20 }}>
+          Thank you for reviewing your Klondike lubrication recommendation.
+          Your responses have been successfully submitted.
+        </p>
+
+        <div
+          style={{
+            background: "#f8fafc",
+            borderRadius: 10,
+            padding: 16,
+            fontSize: 14,
+            color: "#334155",
+            marginBottom: 18,
+          }}
+        >
+          Your {dealerDisplayName} representative has been notified and will follow up with
+          you shortly to review next steps.
+        </div>
+
+        <div style={{ fontSize: 13, color: "#94a3b8" }}>
+          If you have any immediate questions, please contact your representative
+          directly.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+  return (
+    <div style={{ background: "#f8fafc", minHeight: "100vh", fontFamily: "Arial, sans-serif" }}>
+      <div
+        style={{
+          background: "linear-gradient(135deg, #0a2540 0%, #1a3f5e 100%)",
+          color: "#fff",
+          borderBottom: "6px solid #f6a531",
+        }}
+      >
+        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "36px 32px" }}>
+          {quote.dealer_logo_url && (
+  <img
+    src={quote.dealer_logo_url}
+    alt="Dealer Logo"
+    style={{
+      maxHeight: 90,
+      maxWidth: 240,
+      objectFit: "contain",
+      marginBottom: 18,
+      background: "#fff",
+      padding: 10,
+      borderRadius: 14,
+    }}
+  />
+)}
+          <div style={{ fontSize: 28, fontWeight: 900 }}>
+            {dealerDisplayName} Lubrication Recommendation
+          </div>
+
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>
+            Prepared for <strong>{quote.customer_name || "Customer"}</strong>
+          </div>
+
+          <div style={{ marginTop: 24 }}>
+            <div style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.2 }}>
+              Improving Equipment Reliability &
+              <br />
+              Reducing Operating Cost
+            </div>
+
+            <div style={{ fontSize: 15, opacity: 0.85, marginTop: 12 }}>
+              Review each product recommendation below and submit your response.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 32px" }}>
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 14,
+            padding: 28,
+            marginBottom: 28,
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 900, textTransform: "uppercase", color: "#64748b", marginBottom: 14 }}>
+            Customer Profile
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
+            <div>
+              <div style={{ color: "#64748b", fontSize: 13, fontWeight: 800 }}>Company</div>
+              <div style={{ color: "#0a2540", fontWeight: 900 }}>{quote.customer_name || "—"}</div>
+            </div>
+
+            <div>
+              <div style={{ color: "#64748b", fontSize: 13, fontWeight: 800 }}>Email</div>
+              <div style={{ color: "#0a2540", fontWeight: 900 }}>{quote.customer_email || "—"}</div>
+            </div>
+
+            <div>
+              <div style={{ color: "#64748b", fontSize: 13, fontWeight: 800 }}>Industry</div>
+              <div style={{ color: "#0a2540", fontWeight: 900 }}>{quote.industry || "—"}</div>
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 14,
+            padding: 28,
+            marginBottom: 32,
+            border: "1px solid #e5e7eb",
+            borderLeft: "6px solid #f6a531",
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 900, textTransform: "uppercase", color: "#64748b", marginBottom: 12 }}>
+            Executive Summary
+          </div>
+
+          <p style={{ fontSize: 16, lineHeight: 1.8, color: "#1f2937", margin: 0 }}>
+  {executiveSummary}
+</p>
+        </div>
+
+        <div style={{ marginBottom: 32 }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 900,
+              textTransform: "uppercase",
+              color: "#0a2540",
+              letterSpacing: 1,
+              marginBottom: 20,
+            }}
+          >
+            Product Recommendations
+          </div>
+
+          <div style={{ display: "grid", gap: 16 }}>
+            {items.map((item, index) => {
+              const productName = item.klondike_product || item.product_name || "Recommended Product";
+              const price = Number(item.total_price || item.unit_price || 0);
+              const pds = findPublicPds(productName);
+
+              return (
+                <div
+                  key={item.id || index}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 14,
+                    padding: 20,
+                    background: "#fff",
+                    boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
+                    <div>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: "#0a2540" }}>
+                        {productName}
+                      </div>
+
+                      <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                        Replaces: {item.competitor_name || "Current product"}
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ color: "#64748b", fontSize: 13 }}>Line Total</div>
+                      <div style={{ fontWeight: 900, color: "#f6a531", fontSize: 18 }}>
+                        {formatMoney(price)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(4, 1fr)",
+                      gap: 12,
+                      marginTop: 16,
+                      padding: 14,
+                      borderRadius: 10,
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <div>
+                      <div style={{ color: "#64748b", fontSize: 12 }}>Package</div>
+                      <div style={{ fontWeight: 900, color: "#0a2540" }}>{item.package || "—"}</div>
+                    </div>
+
+                    <div>
+                      <div style={{ color: "#64748b", fontSize: 12 }}>Qty</div>
+                      <div style={{ fontWeight: 900, color: "#0a2540" }}>{item.quantity || 1}</div>
+                    </div>
+
+                    <div>
+                      <div style={{ color: "#64748b", fontSize: 12 }}>Unit Price</div>
+                      <div style={{ fontWeight: 900, color: "#0a2540" }}>
+                        {formatMoney(item.unit_price || price)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ color: "#64748b", fontSize: 12 }}>Part #</div>
+                      <div style={{ fontWeight: 900, color: "#0a2540" }}>{item.part_number || "—"}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 14 }}>
+  <div style={{ fontWeight: 900, color: "#0a2540", marginBottom: 4 }}>
+    Why This Recommendation
+  </div>
+
+  <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.6 }}>
+    {pds?.why ||
+      "This product was selected based on your equipment requirements, operating conditions, and performance needs to improve reliability, reduce wear, and support longer service intervals."}
+  </div>
+</div>
+<div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
+  ✔ Proven performance in demanding applications  
+  ✔ Designed to support equipment longevity  
+  ✔ Backed by Klondike technical standards
+</div>
+
+                  {Array.isArray(pds?.specs) && pds.specs.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <strong style={{ fontSize: 13 }}>Specs:</strong>
+                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                        {pds.specs.slice(0, 4).join(" • ")}
+                      </div>
+                    </div>
+                  )}
+
+                  {pds?.url && (
+                    <div style={{ marginTop: 10 }}>
+                      <a
+                        href={pds.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 900,
+                          color: "#f6a531",
+                          textDecoration: "none",
+                        }}
+                      >
+                        View Product Data Sheet →
+                      </a>
+                    </div>
+                  )}
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      marginTop: 16,
+                      paddingTop: 16,
+                      borderTop: "1px solid #e5e7eb",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDecisions((prev) => ({ ...prev, [index]: "approved" }))
+                      }
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 8,
+                        border:
+                          decisions[index] === "approved"
+                            ? "2px solid #16a34a"
+                            : "1px solid #d1d5db",
+                        background:
+                          decisions[index] === "approved" ? "#dcfce7" : "#fff",
+                        color: "#166534",
+                        fontWeight: 900,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDecisions((prev) => ({ ...prev, [index]: "declined" }))
+                      }
+                      style={{
+                        padding: "10px 14px",
+                        borderRadius: 8,
+                        border:
+                          decisions[index] === "declined"
+                            ? "2px solid #dc2626"
+                            : "1px solid #d1d5db",
+                        background:
+                          decisions[index] === "declined" ? "#fee2e2" : "#fff",
+                        color: "#991b1b",
+                        fontWeight: 900,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Decline
+                    </button>
+                  </div>
+
+                  {decisions[index] === "declined" && (
+                    <textarea
+                      placeholder="Optional: Tell us why this recommendation does not fit."
+                      value={feedback[index] || ""}
+                      onChange={(e) =>
+                        setFeedback((prev) => ({
+                          ...prev,
+                          [index]: e.target.value,
+                        }))
+                      }
+                      style={{
+                        width: "100%",
+                        minHeight: 70,
+                        marginTop: 12,
+                        padding: 12,
+                        borderRadius: 8,
+                        border: "1px solid #d1d5db",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+{equipment.length > 0 && (
+  <div style={{ marginBottom: 32 }}>
+    <div
+      style={{
+        fontSize: 13,
+        fontWeight: 900,
+        textTransform: "uppercase",
+        color: "#0a2540",
+        letterSpacing: 1,
+        marginBottom: 20,
+      }}
+    >
+      Recommended Equipment & Support
+    </div>
+
+    <div style={{ display: "grid", gap: 16 }}>
+      {equipment.map((item, index) => {
+        const totalPrice = Number(item.total_price || 0);
+
+        return (
+          <div
+            key={item.id || index}
+            style={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 14,
+              padding: 20,
+              background: "#fff",
+              boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "#0a2540" }}>
+                  {item.equipment_name}
+                </div>
+
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                  Qty: {item.quantity || 1}
+                </div>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                <div style={{ color: "#64748b", fontSize: 13 }}>Line Total</div>
+                <div style={{ fontWeight: 900, color: "#f6a531", fontSize: 18 }}>
+                  ${totalPrice.toFixed(2)}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.6, marginTop: 14 }}>
+              <strong>Purpose:</strong> Supports clean lubricant handling,
+              dispensing control, storage organization, and reduced contamination risk.
+            </div>
+
+            {/* APPROVE / DECLINE */}
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                marginTop: 16,
+                paddingTop: 16,
+                borderTop: "1px solid #e5e7eb",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setEquipmentDecisions((prev) => ({
+                    ...prev,
+                    [index]: "approved",
+                  }))
+                }
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border:
+                    equipmentDecisions[index] === "approved"
+                      ? "2px solid #16a34a"
+                      : "1px solid #d1d5db",
+                  background:
+                    equipmentDecisions[index] === "approved" ? "#dcfce7" : "#fff",
+                  color: "#166534",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                Approve
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setEquipmentDecisions((prev) => ({
+                    ...prev,
+                    [index]: "declined",
+                  }))
+                }
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border:
+                    equipmentDecisions[index] === "declined"
+                      ? "2px solid #dc2626"
+                      : "1px solid #d1d5db",
+                  background:
+                    equipmentDecisions[index] === "declined" ? "#fee2e2" : "#fff",
+                  color: "#991b1b",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                }}
+              >
+                Decline
+              </button>
+            </div>
+
+            {/* FEEDBACK */}
+            {equipmentDecisions[index] === "declined" && (
+              <textarea
+                placeholder="Optional: Tell us why this equipment does not fit."
+                value={equipmentFeedback[index] || ""}
+                onChange={(e) =>
+                  setEquipmentFeedback((prev) => ({
+                    ...prev,
+                    [index]: e.target.value,
+                  }))
+                }
+                style={{
+                  width: "100%",
+                  minHeight: 70,
+                  marginTop: 12,
+                  padding: 12,
+                  borderRadius: 8,
+                  border: "1px solid #d1d5db",
+                  boxSizing: "border-box",
+                }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
+        <div
+          style={{
+            background: "#f8fafc",
+            borderRadius: 14,
+            padding: 28,
+            marginBottom: 32,
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          
+          <div style={{ fontSize: 13, fontWeight: 900, textTransform: "uppercase", color: "#0a2540", marginBottom: 12 }}>
+            Program Value
+          </div>
+
+          <p style={{ margin: 0, color: "#334155", lineHeight: 1.8 }}>
+            This lubrication program is designed to improve equipment reliability, reduce downtime risk,
+            and simplify product selection across your operation. By aligning product performance,
+            packaging strategy, and contamination control practices, this solution supports long-term
+            operating efficiency and reduced maintenance costs.
+          </p>
+        </div>
+
+        <div
+          style={{
+            background: "#0a2540",
+            color: "#fff",
+            borderRadius: 14,
+            padding: 28,
+            marginBottom: 32,
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 900, textTransform: "uppercase", opacity: 0.8, marginBottom: 16 }}>
+            Investment Summary
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 900 }}>
+            <span>Total Investment</span>
+            <span>{formatMoney(total)}</span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: "#ffffff",
+            borderRadius: 14,
+            padding: 28,
+            marginBottom: 32,
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 900, textTransform: "uppercase", color: "#0a2540", marginBottom: 16 }}>
+            Implementation Plan
+          </div>
+
+          {[
+            ["Phase 1: Alignment & Planning", "Review product recommendations, confirm requirements, and align teams on transition priorities."],
+            ["Phase 2: Product Transition", "Begin transitioning key equipment and applications to recommended Klondike products."],
+            ["Phase 3: Equipment & Handling Optimization", "Implement proper storage and dispensing practices to reduce contamination risk."],
+            ["Phase 4: Monitoring & Optimization", "Monitor performance, adjust as needed, and optimize for long-term reliability."],
+          ].map(([title, body]) => (
+            <div
+              key={title}
+              style={{
+                padding: 14,
+                borderRadius: 10,
+                background: "#f8fafc",
+                borderLeft: "4px solid #f6a531",
+                color: "#0a2540",
+                marginBottom: 12,
+              }}
+            >
+              <strong>{title}</strong>
+              <div style={{ fontSize: 13, marginTop: 6, color: "#334155" }}>
+                {body}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 14,
+            padding: 28,
+            marginBottom: 32,
+            border: "1px solid #e5e7eb",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 900,
+              textTransform: "uppercase",
+              color: "#0a2540",
+              marginBottom: 16,
+            }}
+          >
+            Prepared By
+          </div>
+
+          <div style={{ fontWeight: 900, fontSize: 16, color: "#0a2540" }}>
+            {quote.rep_name || "Sales Representative"}
+          </div>
+
+          <div style={{ color: "#64748b", marginTop: 4 }}>
+           {quote.rep_email || `${dealerDisplayName} Representative`}
+          </div>
+
+          {quote.rep_signature && (
+            <div style={{ marginTop: 18 }}>
+              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 8 }}>
+                Representative Signature
+              </div>
+              <img
+                src={quote.rep_signature}
+                alt="Representative Signature"
+                style={{
+                  maxWidth: 360,
+                  width: "100%",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 10,
+                  background: "#fff",
+                }}
+              />
+            </div>
+          )}
+        </div>
+<div
+  style={{
+    background: "#fff",
+    borderRadius: 14,
+    padding: 28,
+    marginBottom: 32,
+    border: "1px solid #e5e7eb",
+    borderLeft: "6px solid #f6a531",
+  }}
+>
+  <div
+    style={{
+      fontSize: 12,
+      fontWeight: 900,
+      textTransform: "uppercase",
+      color: "#64748b",
+      marginBottom: 12,
+    }}
+  >
+    Next Steps
+  </div>
+
+  <p style={{ fontSize: 16, lineHeight: 1.8, color: "#1f2937", margin: 0 }}>
+    {closingStatement}
+  </p>
+</div>
+<div
+  style={{
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 10,
+    background: "#f8fafc",
+    border: "1px solid #e5e7eb",
+    fontSize: 14,
+    color: "#334155",
+  }}
+>
+  Please review each recommendation carefully. Once submitted, your
+  representative will follow up with you to confirm next steps and support
+  implementation.
+</div>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={submitting}
+          style={{
+            width: "100%",
+            padding: 18,
+            borderRadius: 10,
+            border: "none",
+            background: "linear-gradient(180deg, #f6a531 0%, #d87400 100%)",
+            color: "#fff",
+            fontSize: 16,
+            fontWeight: 900,
+            cursor: submitting ? "not-allowed" : "pointer",
+            textTransform: "uppercase",
+            letterSpacing: 1,
+            marginBottom: 40,
+            opacity: submitting ? 0.7 : 1,
+          }}
+        >
+          {submitting ? "Submitting..." : "Submit Proposal Decisions"}
+        </button>
+      </div>
+    </div>
+  );
+}
 const styles = {
-  page: {
+    page: {
     minHeight: "100vh",
     background:
-      "radial-gradient(circle at 50% 20%, #143b66 0%, #082846 26%, #04192d 55%, #010b14 100%)",
+      "linear-gradient(135deg, #061827 0%, #082846 42%, #03111f 100%)",
     padding: 24,
     boxSizing: "border-box",
     color: "#fff",
     overflowX: "hidden",
   },
 
-  shell: {
-    maxWidth: 1180,
+    shell: {
+    maxWidth: 1240,
     margin: "0 auto",
     display: "grid",
-    gap: 22,
+    gap: 24,
     width: "100%",
     minWidth: 0,
   },
@@ -3491,12 +8394,13 @@ const styles = {
     minWidth: 0,
   },
 
-  card: {
-    background: "#fff",
+   card: {
+    background: "rgba(255,255,255,0.98)",
     color: "#0f172a",
-    borderRadius: 22,
-    padding: 24,
-    border: "1px solid #e7edf3",
+    borderRadius: 24,
+    padding: 26,
+    border: "1px solid rgba(226,232,240,0.9)",
+    boxShadow: "0 18px 48px rgba(15, 23, 42, 0.10)",
     overflow: "hidden",
     minWidth: 0,
     boxSizing: "border-box",
@@ -3541,25 +8445,20 @@ const styles = {
   },
 
   topHero: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 20,
-    flexWrap: "wrap",
-    padding: 22,
-    borderRadius: 24,
-    background:
-      "linear-gradient(135deg, #06284b 0%, #0a3764 45%, #02162b 100%)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    minWidth: 0,
-  },
+  background: "#082846",
+  border: "1px solid rgba(255,255,255,0.10)",
+  borderRadius: 20,
+  padding: "18px 22px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 18,
+},
 
   logo: {
-    width: 210,
-    maxWidth: "80%",
-    display: "block",
-    marginBottom: 10,
-  },
+  width: 150,
+  height: "auto",
+},
 
   eyebrow: {
     fontSize: 12,
@@ -3580,11 +8479,12 @@ const styles = {
   },
 
   pageTitle: {
-    margin: 0,
-    fontSize: 40,
-    lineHeight: 1.05,
-    fontWeight: 900,
-  },
+  fontSize: 18,
+  fontWeight: 1000,
+  letterSpacing: "0.08em",
+  color: "#fff",
+  margin: "6px 0 0",
+},
 
   demoBar: {
     display: "flex",
@@ -3658,13 +8558,64 @@ const styles = {
     minWidth: 0,
   },
 
-  summaryCard: {
-    background: "#fff",
+    summaryCard: {
+    background: "#ffffff",
     color: "#0f172a",
-    borderRadius: 18,
-    padding: 16,
+    borderRadius: 20,
+    padding: 18,
     border: "1px solid #e7edf3",
+    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
     minWidth: 0,
+  },
+
+  dashboardCard: {
+    borderRadius: 28,
+    padding: 26,
+    boxShadow: "0 24px 70px rgba(15, 23, 42, 0.08)",
+  },
+
+  dashboardSummaryCard: {
+    borderRadius: 22,
+    padding: 24,
+    background: "#f8fbff",
+    border: "1px solid #e7edf3",
+    boxShadow: "0 16px 42px rgba(15, 23, 42, 0.06)",
+  },
+
+  dashboardLeaderboardRow: {
+    padding: 18,
+    borderRadius: 20,
+    background: "#fcfdff",
+    border: "1px solid #e7edf3",
+    boxShadow: "0 10px 28px rgba(15, 23, 42, 0.05)",
+    transition: "transform 180ms ease, box-shadow 180ms ease",
+  },
+
+  dashboardPipelineCard: {
+    borderRadius: 22,
+    padding: 20,
+    background: "#fff",
+    boxShadow: "0 14px 32px rgba(15, 23, 42, 0.05)",
+  },
+
+  pipelineAwaiting: {
+    borderLeft: "4px solid #94a3b8",
+    background: "#f8fafc",
+  },
+
+  pipelineReviewed: {
+    borderLeft: "4px solid #60a5fa",
+    background: "#eff8ff",
+  },
+
+  pipelineApproved: {
+    borderLeft: "4px solid #22c55e",
+    background: "#ecfdf5",
+  },
+
+  pipelineFollowUp: {
+    borderLeft: "4px solid #f87171",
+    background: "#fef2f2",
   },
 
   summaryLabel: {
@@ -3695,14 +8646,13 @@ const styles = {
     minWidth: 0,
   },
 
-  heroCard: {
-    padding: 28,
-    borderRadius: 24,
-    background:
-      "linear-gradient(135deg, #0a3764 0%, #06284b 55%, #04192d 100%)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    minWidth: 0,
-  },
+ heroCard: {
+  background: "linear-gradient(135deg, #0b3157 0%, #082846 100%)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 24,
+  padding: 30,
+  boxShadow: "0 18px 45px rgba(0,0,0,0.18)",
+},
 
   heroTitle: {
     margin: "0 0 10px",
@@ -3711,11 +8661,11 @@ const styles = {
   },
 
   heroText: {
-    margin: 0,
-    fontSize: 17,
-    lineHeight: 1.55,
-    opacity: 0.92,
-  },
+  marginTop: 8,
+  fontSize: 13,
+  color: "rgba(255,255,255,0.72)",
+  fontWeight: 600,
+},
 
   cardTitle: {
     margin: "0 0 10px",
