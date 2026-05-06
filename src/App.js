@@ -4692,7 +4692,12 @@ return (
       <div style={styles.eyebrow}>REP DASHBOARD</div>
       <h3 style={{ ...styles.cardTitle, marginBottom: 14 }}>Performance Snapshot</h3>
 
-      <div style={{ ...styles.grid3, gap: 20 }}>
+      <div
+        style={{
+          ...styles.grid3,
+          gap: "var(--kd-dashboard-metric-grid-gap)",
+        }}
+      >
         <div style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}>
           <div style={styles.summaryLabel}>Quotes Created</div>
           <div style={styles.summaryValue}>{repSnapshot.quotes}</div>
@@ -4743,8 +4748,8 @@ return (
             border: index === 0 ? "1px solid #f5d478" : styles.listRow.border,
             boxShadow:
               index === 0
-                ? "0 18px 40px rgba(212, 175, 55, 0.14)"
-                : "0 10px 28px rgba(15, 23, 42, 0.05)",
+                ? "var(--kd-dashboard-leaderboard-first-shadow)"
+                : "var(--kd-dashboard-leaderboard-row-shadow)",
           }}
         >
           <div>
@@ -7029,7 +7034,7 @@ setTier(rec.tier || "Good");
 
                 {isManager && dealerActiveTab === "dashboard" && (
           <>
-            <div style={styles.card}>
+            <div style={{ ...styles.card, ...styles.dashboardCard }}>
               <div style={styles.eyebrow}>MANAGER DASHBOARD</div>
               <h3 style={styles.cardTitle}>Assigned Rep Performance</h3>
               <p style={styles.cardBody}>
@@ -7038,7 +7043,9 @@ setTier(rec.tier || "Good");
               </p>
 
               <div style={styles.grid3}>
-                <div style={styles.summaryCard}>
+                <div
+                  style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                >
                   <div style={styles.summaryLabel}>Assigned Reps</div>
                                    <div style={styles.summaryValue}>
                     {
@@ -7051,59 +7058,93 @@ setTier(rec.tier || "Good");
                   </div>
                 </div>
 
-                <div style={styles.summaryCard}>
+                <div
+                  style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                >
                   <div style={styles.summaryLabel}>Quotes Created</div>
                   <div style={styles.summaryValue}>{repSnapshot.quotes}</div>
                 </div>
 
-                <div style={styles.summaryCard}>
+                <div
+                  style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                >
                   <div style={styles.summaryLabel}>Proposals Sent</div>
                   <div style={styles.summaryValue}>{repSnapshot.proposalsSent}</div>
                 </div>
 
-                <div style={styles.summaryCard}>
+                <div
+                  style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                >
                   <div style={styles.summaryLabel}>Customer Responses</div>
                   <div style={styles.summaryValue}>{repSnapshot.responses}</div>
                 </div>
 
-                <div style={styles.summaryCard}>
+                <div
+                  style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                >
                   <div style={styles.summaryLabel}>Approved Revenue</div>
                   <div style={styles.summaryValue}>
                     ${Number(repSnapshot.approvedRevenue || 0).toLocaleString()}
                   </div>
                 </div>
 
-                <div style={styles.summaryCard}>
+                <div
+                  style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                >
                   <div style={styles.summaryLabel}>Approval Rate</div>
                   <div style={styles.summaryValue}>{repSnapshot.approvalRate}%</div>
                 </div>
               </div>
             </div>
 
-            <div style={styles.card}>
+            <div style={{ ...styles.card, ...styles.dashboardCard }}>
               <div style={styles.eyebrow}>PIPELINE</div>
               <h3 style={styles.cardTitle}>Assigned Rep Pipeline</h3>
 
               <div style={styles.grid2}>
-                <div style={{ ...styles.summaryCard, ...styles.pipelineAwaiting }}>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardPipelineCard,
+                    ...styles.pipelineAwaiting,
+                  }}
+                >
                   <div style={styles.summaryLabel}>Awaiting Review</div>
                   <div style={styles.summaryValue}>{pipeline.awaiting.length}</div>
                   <div style={styles.listMeta}>Proposals waiting on customer</div>
                 </div>
 
-                <div style={{ ...styles.summaryCard, ...styles.pipelineReviewed }}>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardPipelineCard,
+                    ...styles.pipelineReviewed,
+                  }}
+                >
                   <div style={styles.summaryLabel}>Reviewed</div>
                   <div style={styles.summaryValue}>{pipeline.reviewed.length}</div>
                   <div style={styles.listMeta}>Customer has responded</div>
                 </div>
 
-                <div style={{ ...styles.summaryCard, ...styles.pipelineApproved }}>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardPipelineCard,
+                    ...styles.pipelineApproved,
+                  }}
+                >
                   <div style={styles.summaryLabel}>Approved</div>
                   <div style={styles.summaryValue}>{pipeline.approved.length}</div>
                   <div style={styles.listMeta}>Deals moving forward</div>
                 </div>
 
-                <div style={{ ...styles.summaryCard, ...styles.pipelineFollowUp }}>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardPipelineCard,
+                    ...styles.pipelineFollowUp,
+                  }}
+                >
                   <div style={styles.summaryLabel}>Needs Follow-Up</div>
                   <div style={styles.summaryValue}>{pipeline.followUp.length}</div>
                   <div style={styles.listMeta}>Declined items requiring attention</div>
@@ -7111,7 +7152,7 @@ setTier(rec.tier || "Good");
               </div>
             </div>
 
-            <div style={styles.card}>
+            <div style={{ ...styles.card, ...styles.dashboardCard }}>
               <div style={styles.eyebrow}>DEALER LEADERBOARD</div>
               <h3 style={styles.cardTitle}>Rep Performance Rankings</h3>
               <p style={styles.cardBody}>
@@ -7128,11 +7169,16 @@ setTier(rec.tier || "Good");
                       key={rep.name || index}
                       style={{
                         ...styles.listRow,
-                        background: index === 0 ? "#fffbea" : "#f8fafc",
+                        ...styles.dashboardLeaderboardRow,
+                        background: index === 0 ? "#fffbeb" : "#fcfdff",
                         border:
                           index === 0
-                            ? "2px solid #f6a531"
+                            ? "1px solid #f5d478"
                             : "1px solid #e7edf3",
+                        boxShadow:
+                          index === 0
+                            ? "var(--kd-dashboard-leaderboard-first-shadow)"
+                            : "var(--kd-dashboard-leaderboard-row-shadow)",
                       }}
                     >
                       <div>
@@ -8721,53 +8767,58 @@ const styles = {
   },
 
   dashboardCard: {
-    borderRadius: 28,
-    padding: 26,
-    boxShadow: "0 24px 70px rgba(15, 23, 42, 0.08)",
+    borderRadius: 26,
+    padding: 28,
+    boxShadow: "var(--kd-dashboard-card-shadow)",
+    border: "var(--kd-dashboard-card-border)",
   },
 
   dashboardSummaryCard: {
-    borderRadius: 22,
-    padding: 24,
-    background: "#f8fbff",
-    border: "1px solid #e7edf3",
-    boxShadow: "0 16px 42px rgba(15, 23, 42, 0.06)",
+    borderRadius: 20,
+    padding: "22px 22px 24px",
+    background: "var(--kd-dashboard-metric-background)",
+    border: "var(--kd-dashboard-metric-border)",
+    boxShadow: "var(--kd-dashboard-metric-shadow)",
   },
 
   dashboardLeaderboardRow: {
-    padding: 18,
-    borderRadius: 20,
+    padding: "18px 20px",
+    borderRadius: 18,
     background: "#fcfdff",
-    border: "1px solid #e7edf3",
-    boxShadow: "0 10px 28px rgba(15, 23, 42, 0.05)",
-    transition: "transform 180ms ease, box-shadow 180ms ease",
+    border: "1px solid rgba(226, 232, 240, 0.9)",
+    boxShadow: "var(--kd-dashboard-leaderboard-row-shadow)",
+    transition:
+      "transform 180ms ease, box-shadow 200ms ease, border-color 200ms ease",
   },
 
   dashboardPipelineCard: {
-    borderRadius: 22,
-    padding: 20,
+    borderRadius: 20,
+    padding: "22px 22px 20px",
     background: "#fff",
-    boxShadow: "0 14px 32px rgba(15, 23, 42, 0.05)",
+    border: "var(--kd-dashboard-pipeline-border)",
+    boxShadow: "var(--kd-dashboard-pipeline-shadow)",
+    transition:
+      "transform 180ms ease, box-shadow 200ms ease, border-color 200ms ease",
   },
 
   pipelineAwaiting: {
     borderLeft: "4px solid #94a3b8",
-    background: "#f8fafc",
+    background: "linear-gradient(95deg, #f4f6f8 0%, #fafcfd 48%)",
   },
 
   pipelineReviewed: {
     borderLeft: "4px solid #60a5fa",
-    background: "#eff8ff",
+    background: "linear-gradient(95deg, #e8f3ff 0%, #f5faff 55%)",
   },
 
   pipelineApproved: {
     borderLeft: "4px solid #22c55e",
-    background: "#ecfdf5",
+    background: "linear-gradient(95deg, #e8faf0 0%, #f4fcf7 55%)",
   },
 
   pipelineFollowUp: {
     borderLeft: "4px solid #f87171",
-    background: "#fef2f2",
+    background: "linear-gradient(95deg, #fef2f2 0%, #fffbfb 55%)",
   },
 
   summaryLabel: {
