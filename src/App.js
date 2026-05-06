@@ -7407,80 +7407,144 @@ case "rep":
       </div>
     );
   }
+  const sidebarNavItems = [
+    { id: "dashboard", label: "Dashboard" },
+    { id: "team", label: "Team" },
+    { id: "add_users", label: "Add Users" },
+    { id: "quote", label: "Quotes" },
+    { id: "library", label: "Proposal Library" },
+    { id: "cross", label: "Cross Reference" },
+    { id: "pds", label: "PDS Library" },
+    { id: "profile", label: "Settings" },
+  ];
+
+  const isDealerAdminSidebar = activeMembership?.role === "dealer_admin";
+  const getSidebarActive = (id) =>
+    isDealerAdminSidebar && dealerAdminTab === id;
+
   return (
     <div style={styles.page}>
-      <div style={styles.shell}>
-        <div style={styles.topHero}>
-          <div>
+      <div style={styles.appShellLayout}>
+        <aside style={styles.sidebarRail}>
+          <div style={styles.sidebarTop}>
             <img
               src="/klondike-full-logo.png"
               alt="Klondike"
-              style={styles.logo}
+              style={styles.sidebarLogo}
             />
-            <h1 style={styles.pageTitle}>KLONDIKE DEALER GROWTH PLATFORM</h1>
-            <p style={styles.heroText}>
-              Signed in as{" "}
-              <strong>{profile?.email || session.user.email}</strong>
-            </p>
+            <div style={styles.sidebarTitle}>Dealer Growth Platform</div>
+            <div style={styles.sidebarSubtext}>
+              Enterprise Workspace
+            </div>
           </div>
+          <nav style={styles.sidebarNavList}>
+            {sidebarNavItems.map((item) => {
+              const isActive = getSidebarActive(item.id);
+              const isClickable = isDealerAdminSidebar;
 
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    if (isClickable) setDealerAdminTab(item.id);
+                  }}
+                  style={{
+                    ...styles.sidebarNavItem,
+                    ...(isActive ? styles.sidebarNavItemActive : {}),
+                    opacity: isClickable || isActive ? 1 : 0.75,
+                    cursor: isClickable ? "pointer" : "default",
+                  }}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+          <div style={styles.sidebarFooter}>
+            <div style={styles.sidebarUserEmail}>
+              {profile?.email || session.user.email}
+            </div>
+            <button onClick={handleLogout} style={styles.smallButton}>
+              Log Out
+            </button>
+          </div>
+        </aside>
 
-          <button onClick={handleLogout} style={styles.smallButton}>
-            Log Out
-          </button>
-        </div>
-        {profile?.must_reset_password ? (
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Set Your Password</h3>
-            <p style={styles.cardBody}>
-              You signed in with a temporary password. Please create a new one
-              to continue.
-            </p>
-
-            <form onSubmit={handleResetPassword} style={styles.form}>
-              <div style={styles.grid2}>
-                <div>
-                  <label style={styles.label}>New Password</label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    style={styles.input}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label style={styles.label}>Confirm New Password</label>
-                  <input
-                    type="password"
-                    value={confirmNewPassword}
-                    onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    style={styles.input}
-                    required
-                  />
-                </div>
+        <div style={styles.shellMain}>
+          <div style={styles.shell}>
+            <div style={styles.topHero}>
+              <div>
+                <img
+                  src="/klondike-full-logo.png"
+                  alt="Klondike"
+                  style={styles.logo}
+                />
+                <h1 style={styles.pageTitle}>KLONDIKE DEALER GROWTH PLATFORM</h1>
+                <p style={styles.heroText}>
+                  Signed in as{" "}
+                  <strong>{profile?.email || session.user.email}</strong>
+                </p>
               </div>
 
-              <button
-                type="submit"
-                disabled={passwordResetLoading}
-                style={styles.primaryButton}
-              >
-                {passwordResetLoading ? "Updating..." : "Save New Password"}
+              <button onClick={handleLogout} style={styles.smallButton}>
+                Log Out
               </button>
-            </form>
+            </div>
+            {profile?.must_reset_password ? (
+              <div style={styles.card}>
+                <h3 style={styles.cardTitle}>Set Your Password</h3>
+                <p style={styles.cardBody}>
+                  You signed in with a temporary password. Please create a new one
+                  to continue.
+                </p>
 
-            {passwordResetMessage && (
-              <p style={styles.cardBody}>{passwordResetMessage}</p>
+                <form onSubmit={handleResetPassword} style={styles.form}>
+                  <div style={styles.grid2}>
+                    <div>
+                      <label style={styles.label}>New Password</label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        style={styles.input}
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label style={styles.label}>Confirm New Password</label>
+                      <input
+                        type="password"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        style={styles.input}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={passwordResetLoading}
+                    style={styles.primaryButton}
+                  >
+                    {passwordResetLoading ? "Updating..." : "Save New Password"}
+                  </button>
+                </form>
+
+                {passwordResetMessage && (
+                  <p style={styles.cardBody}>{passwordResetMessage}</p>
+                )}
+              </div>
+            ) : (
+              <>
+                {authMessage && <p style={styles.error}>{authMessage}</p>}
+                {renderRoleView()}
+              </>
             )}
           </div>
-        ) : (
-          <>
-          {authMessage && <p style={styles.error}>{authMessage}</p>}
-{renderRoleView()}
-          </>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -8382,6 +8446,93 @@ const styles = {
     display: "grid",
     gap: "var(--kd-shell-gap)",
     width: "100%",
+    minWidth: 0,
+  },
+
+  appShellLayout: {
+    position: "relative",
+    minHeight: "calc(100vh - (var(--kd-page-padding) * 2))",
+  },
+
+  sidebarRail: {
+    position: "fixed",
+    top: "var(--kd-page-padding)",
+    left: "var(--kd-page-padding)",
+    width: "var(--kd-sidebar-width)",
+    height: "calc(100vh - (var(--kd-page-padding) * 2))",
+    background: "var(--kd-sidebar-background)",
+    border: "var(--kd-sidebar-border)",
+    borderRadius: "var(--kd-sidebar-radius)",
+    boxShadow: "var(--kd-sidebar-shadow)",
+    padding: "var(--kd-sidebar-padding)",
+    display: "grid",
+    gridTemplateRows: "auto 1fr auto",
+    gap: 16,
+    zIndex: 20,
+    backdropFilter: "blur(10px)",
+  },
+
+  sidebarTop: {
+    display: "grid",
+    gap: 8,
+  },
+
+  sidebarLogo: {
+    width: 150,
+    height: "auto",
+  },
+
+  sidebarTitle: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: 900,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+  },
+
+  sidebarSubtext: {
+    color: "var(--kd-sidebar-nav-muted)",
+    fontSize: 12,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    fontWeight: 700,
+  },
+
+  sidebarNavList: {
+    display: "grid",
+    gap: "var(--kd-sidebar-nav-gap)",
+    alignContent: "start",
+  },
+
+  sidebarNavItem: {
+    border: "none",
+    borderRadius: "var(--kd-sidebar-nav-radius)",
+    background: "transparent",
+    color: "var(--kd-sidebar-nav-color)",
+    textAlign: "left",
+    fontSize: 14,
+    fontWeight: 800,
+    padding: "10px 12px",
+  },
+
+  sidebarNavItemActive: {
+    background: "var(--kd-sidebar-nav-active)",
+    color: "#fff",
+  },
+
+  sidebarFooter: {
+    display: "grid",
+    gap: 10,
+  },
+
+  sidebarUserEmail: {
+    fontSize: 12,
+    color: "var(--kd-sidebar-nav-muted)",
+    wordBreak: "break-word",
+  },
+
+  shellMain: {
+    marginLeft: "var(--kd-main-left-offset)",
     minWidth: 0,
   },
 

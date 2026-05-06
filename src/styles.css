@@ -117,6 +117,22 @@
   );
   --kd-role-badge-color: #ffffff;
   --kd-role-badge-letter-spacing: 0.06em;
+
+  /* ----- Fixed sidebar shell ----- */
+  --kd-sidebar-width: 264px;
+  --kd-shell-layout-gap: 24px;
+  --kd-main-left-offset: calc(var(--kd-sidebar-width) + var(--kd-shell-layout-gap));
+  --kd-sidebar-background: rgba(7, 16, 32, 0.76);
+  --kd-sidebar-border: 1px solid rgba(255, 255, 255, 0.12);
+  --kd-sidebar-radius: 20px;
+  --kd-sidebar-padding: 18px;
+  --kd-sidebar-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  --kd-sidebar-nav-gap: 8px;
+  --kd-sidebar-nav-color: rgba(255, 255, 255, 0.88);
+  --kd-sidebar-nav-muted: rgba(255, 255, 255, 0.62);
+  --kd-sidebar-nav-hover: rgba(255, 255, 255, 0.08);
+  --kd-sidebar-nav-active: linear-gradient(180deg, #f6a531 0%, #d87400 100%);
+  --kd-sidebar-nav-radius: 10px;
 }
 
 .App {
