@@ -4397,6 +4397,7 @@ const handleOpenSavedQuote = async (quote) => {
       competitor_name: item.competitor,
       klondike_product: item.klondike,
       package: item.packageSize || null,
+      part_number: item.partNumber || item.part_number || item.sku || null,
       quantity: 1,
       unit_price: finalPrice,
       total_price: finalPrice,
