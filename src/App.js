@@ -8368,20 +8368,19 @@ const closingStatement =
 }
 const styles = {
     page: {
-    minHeight: "100vh",
-    background:
-      "linear-gradient(135deg, #061827 0%, #082846 42%, #03111f 100%)",
-    padding: 24,
+    minHeight: "var(--kd-page-min-height)",
+    background: "var(--kd-page-background)",
+    padding: "var(--kd-page-padding)",
     boxSizing: "border-box",
-    color: "#fff",
-    overflowX: "hidden",
+    color: "var(--kd-page-color)",
+    overflowX: "var(--kd-page-overflow-x)",
   },
 
     shell: {
-    maxWidth: 1240,
+    maxWidth: "var(--kd-shell-max-width)",
     margin: "0 auto",
     display: "grid",
-    gap: 24,
+    gap: "var(--kd-shell-gap)",
     width: "100%",
     minWidth: 0,
   },
@@ -8395,12 +8394,12 @@ const styles = {
   },
 
    card: {
-    background: "rgba(255,255,255,0.98)",
-    color: "#0f172a",
-    borderRadius: 24,
-    padding: 26,
-    border: "1px solid rgba(226,232,240,0.9)",
-    boxShadow: "0 18px 48px rgba(15, 23, 42, 0.10)",
+    background: "var(--kd-card-background)",
+    color: "var(--kd-card-color)",
+    borderRadius: "var(--kd-card-border-radius)",
+    padding: "var(--kd-card-padding)",
+    border: "var(--kd-card-border)",
+    boxShadow: "var(--kd-card-shadow)",
     overflow: "hidden",
     minWidth: 0,
     boxSizing: "border-box",
@@ -8445,14 +8444,14 @@ const styles = {
   },
 
   topHero: {
-  background: "#082846",
-  border: "1px solid rgba(255,255,255,0.10)",
-  borderRadius: 20,
-  padding: "18px 22px",
+  background: "var(--kd-top-hero-background)",
+  border: "var(--kd-top-hero-border)",
+  borderRadius: "var(--kd-top-hero-border-radius)",
+  padding: "var(--kd-top-hero-padding)",
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
-  gap: 18,
+  gap: "var(--kd-top-hero-gap)",
 },
 
   logo: {
@@ -8479,9 +8478,9 @@ const styles = {
   },
 
   pageTitle: {
-  fontSize: 18,
-  fontWeight: 1000,
-  letterSpacing: "0.08em",
+  fontSize: "var(--kd-page-title-font-size)",
+  fontWeight: "var(--kd-font-weight-black)",
+  letterSpacing: "var(--kd-page-title-letter-spacing)",
   color: "#fff",
   margin: "6px 0 0",
 },
@@ -8542,13 +8541,14 @@ const styles = {
 
   roleBadge: {
     display: "inline-block",
-    padding: "8px 14px",
-    borderRadius: 999,
-    background: "linear-gradient(180deg, #f6a531 0%, #d87400 100%)",
-    color: "#fff",
-    fontWeight: 800,
+    padding:
+      "var(--kd-role-badge-padding-y) var(--kd-role-badge-padding-x)",
+    borderRadius: "var(--kd-role-badge-border-radius)",
+    background: "var(--kd-role-badge-background)",
+    color: "var(--kd-role-badge-color)",
+    fontWeight: "var(--kd-font-weight-bold)",
     textTransform: "uppercase",
-    letterSpacing: "0.06em",
+    letterSpacing: "var(--kd-role-badge-letter-spacing)",
   },
 
   summaryGrid: {
@@ -8559,12 +8559,12 @@ const styles = {
   },
 
     summaryCard: {
-    background: "#ffffff",
-    color: "#0f172a",
-    borderRadius: 20,
-    padding: 18,
-    border: "1px solid #e7edf3",
-    boxShadow: "0 12px 30px rgba(15, 23, 42, 0.06)",
+    background: "var(--kd-summary-card-background)",
+    color: "var(--kd-summary-card-color)",
+    borderRadius: "var(--kd-summary-card-border-radius)",
+    padding: "var(--kd-summary-card-padding)",
+    border: "var(--kd-summary-card-border)",
+    boxShadow: "var(--kd-summary-card-shadow)",
     minWidth: 0,
   },
 
@@ -8619,18 +8619,18 @@ const styles = {
   },
 
   summaryLabel: {
-    fontSize: 12,
-    letterSpacing: "0.12em",
+    fontSize: "var(--kd-summary-label-font-size)",
+    letterSpacing: "var(--kd-summary-label-letter-spacing)",
     textTransform: "uppercase",
-    fontWeight: 800,
-    color: "#64748b",
-    marginBottom: 8,
+    fontWeight: "var(--kd-font-weight-bold)",
+    color: "var(--kd-summary-label-color)",
+    marginBottom: "var(--kd-summary-label-margin-bottom)",
   },
 
   summaryValue: {
-    fontSize: 19,
-    fontWeight: 900,
-    lineHeight: 1.25,
+    fontSize: "var(--kd-summary-value-font-size)",
+    fontWeight: "var(--kd-font-weight-heavy)",
+    lineHeight: "var(--kd-summary-value-line-height)",
   },
 
   grid24: {
@@ -8647,38 +8647,38 @@ const styles = {
   },
 
  heroCard: {
-  background: "linear-gradient(135deg, #0b3157 0%, #082846 100%)",
-  border: "1px solid rgba(255,255,255,0.12)",
-  borderRadius: 24,
-  padding: 30,
-  boxShadow: "0 18px 45px rgba(0,0,0,0.18)",
+  background: "var(--kd-hero-card-background)",
+  border: "var(--kd-hero-card-border)",
+  borderRadius: "var(--kd-hero-card-border-radius)",
+  padding: "var(--kd-hero-card-padding)",
+  boxShadow: "var(--kd-hero-card-shadow)",
 },
 
   heroTitle: {
-    margin: "0 0 10px",
-    fontSize: 34,
-    fontWeight: 900,
+    margin: "var(--kd-hero-title-margin)",
+    fontSize: "var(--kd-hero-title-font-size)",
+    fontWeight: "var(--kd-font-weight-heavy)",
   },
 
   heroText: {
-  marginTop: 8,
-  fontSize: 13,
-  color: "rgba(255,255,255,0.72)",
-  fontWeight: 600,
+  marginTop: "var(--kd-hero-text-margin-top)",
+  fontSize: "var(--kd-hero-text-font-size)",
+  color: "var(--kd-hero-text-color)",
+  fontWeight: "var(--kd-font-weight-semibold)",
 },
 
   cardTitle: {
-    margin: "0 0 10px",
-    fontSize: 28,
-    fontWeight: 900,
-    color: "#0a2540",
+    margin: "var(--kd-card-title-margin)",
+    fontSize: "var(--kd-card-title-font-size)",
+    fontWeight: "var(--kd-font-weight-heavy)",
+    color: "var(--kd-card-title-color)",
   },
 
   cardBody: {
-    margin: "0 0 16px",
-    color: "#64748b",
-    lineHeight: 1.5,
-    fontSize: 16,
+    margin: "var(--kd-card-body-margin)",
+    color: "var(--kd-card-body-color)",
+    lineHeight: "var(--kd-card-body-line-height)",
+    fontSize: "var(--kd-card-body-font-size)",
   },
 
   label: {
@@ -8690,25 +8690,27 @@ const styles = {
   },
 
   primaryButton: {
-    padding: "13px 16px",
-    borderRadius: 12,
+    padding:
+      "var(--kd-button-padding-y) var(--kd-button-padding-x)",
+    borderRadius: "var(--kd-button-border-radius)",
     border: "none",
-    background: "linear-gradient(180deg, #f6a531 0%, #d87400 100%)",
-    color: "#fff",
-    fontWeight: 900,
+    background: "var(--kd-primary-button-background)",
+    color: "var(--kd-primary-button-color)",
+    fontWeight: "var(--kd-font-weight-heavy)",
     cursor: "pointer",
-    fontSize: 16,
+    fontSize: "var(--kd-button-font-size)",
   },
 
   secondaryButton: {
-    padding: "13px 16px",
-    borderRadius: 12,
-    border: "1px solid #d8e0e8",
-    background: "#fff",
-    color: "#0a2540",
-    fontWeight: 900,
+    padding:
+      "var(--kd-button-padding-y) var(--kd-button-padding-x)",
+    borderRadius: "var(--kd-button-border-radius)",
+    border: "var(--kd-secondary-button-border)",
+    background: "var(--kd-secondary-button-background)",
+    color: "var(--kd-secondary-button-color)",
+    fontWeight: "var(--kd-font-weight-heavy)",
     cursor: "pointer",
-    fontSize: 16,
+    fontSize: "var(--kd-button-font-size)",
   },
 
   smallButton: {
@@ -8767,15 +8769,15 @@ const styles = {
   },
 
   listTitle: {
-    fontSize: 17,
-    fontWeight: 900,
-    color: "#0f172a",
+    fontSize: "var(--kd-list-title-font-size)",
+    fontWeight: "var(--kd-font-weight-heavy)",
+    color: "var(--kd-list-title-color)",
   },
 
   listMeta: {
-    marginTop: 5,
-    color: "#64748b",
-    fontSize: 14,
+    marginTop: "var(--kd-list-meta-margin-top)",
+    color: "var(--kd-list-meta-color)",
+    fontSize: "var(--kd-list-meta-font-size)",
   },
 
   listReason: {

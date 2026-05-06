@@ -1,3 +1,124 @@
+/* ============================================================
+   Klondike Dealer Platform — design tokens (Phase 1)
+   Wired via inline styles: var(--kd-*)
+   ============================================================ */
+:root {
+  /* ----- Page shell ----- */
+  --kd-page-min-height: 100vh;
+  --kd-page-background: linear-gradient(
+    135deg,
+    #061827 0%,
+    #082846 42%,
+    #03111f 100%
+  );
+  --kd-page-padding: 24px;
+  --kd-page-color: #ffffff;
+  --kd-page-overflow-x: hidden;
+
+  /* ----- Content shell ----- */
+  --kd-shell-max-width: 1240px;
+  --kd-shell-gap: 24px;
+
+  /* ----- Top chrome ----- */
+  --kd-top-hero-background: #082846;
+  --kd-top-hero-border: 1px solid rgba(255, 255, 255, 0.1);
+  --kd-top-hero-border-radius: 20px;
+  --kd-top-hero-padding: 18px 22px;
+  --kd-top-hero-gap: 18px;
+
+  /* ----- Hero card (portal strip) ----- */
+  --kd-hero-card-background: linear-gradient(135deg, #0b3157 0%, #082846 100%);
+  --kd-hero-card-border: 1px solid rgba(255, 255, 255, 0.12);
+  --kd-hero-card-border-radius: 24px;
+  --kd-hero-card-padding: 30px;
+  --kd-hero-card-shadow: 0 18px 45px rgba(0, 0, 0, 0.18);
+
+  /* ----- Primary elevated card ----- */
+  --kd-card-background: rgba(255, 255, 255, 0.98);
+  --kd-card-color: #0f172a;
+  --kd-card-border-radius: 24px;
+  --kd-card-padding: 26px;
+  --kd-card-border: 1px solid rgba(226, 232, 240, 0.9);
+  --kd-card-shadow: 0 18px 48px rgba(15, 23, 42, 0.1);
+
+  /* ----- Summary / metric tiles ----- */
+  --kd-summary-card-background: #ffffff;
+  --kd-summary-card-color: #0f172a;
+  --kd-summary-card-border-radius: 20px;
+  --kd-summary-card-padding: 18px;
+  --kd-summary-card-border: 1px solid #e7edf3;
+  --kd-summary-card-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+
+  /* ----- Typography (shared styles object) ----- */
+  --kd-font-weight-semibold: 600;
+  --kd-font-weight-bold: 800;
+  --kd-font-weight-heavy: 900;
+  --kd-font-weight-black: 1000;
+
+  --kd-page-title-font-size: 18px;
+  --kd-page-title-letter-spacing: 0.08em;
+
+  --kd-hero-title-margin: 0 0 10px;
+  --kd-hero-title-font-size: 34px;
+
+  --kd-hero-text-margin-top: 8px;
+  --kd-hero-text-font-size: 13px;
+  --kd-hero-text-color: rgba(255, 255, 255, 0.72);
+
+  --kd-card-title-margin: 0 0 10px;
+  --kd-card-title-font-size: 28px;
+  --kd-card-title-color: #0a2540;
+
+  --kd-card-body-margin: 0 0 16px;
+  --kd-card-body-font-size: 16px;
+  --kd-card-body-line-height: 1.5;
+  --kd-card-body-color: #64748b;
+
+  --kd-summary-label-font-size: 12px;
+  --kd-summary-label-letter-spacing: 0.12em;
+  --kd-summary-label-margin-bottom: 8px;
+  --kd-summary-label-color: #64748b;
+
+  --kd-summary-value-font-size: 19px;
+  --kd-summary-value-line-height: 1.25;
+
+  --kd-list-title-font-size: 17px;
+  --kd-list-title-color: #0f172a;
+
+  --kd-list-meta-margin-top: 5px;
+  --kd-list-meta-font-size: 14px;
+  --kd-list-meta-color: #64748b;
+
+  /* ----- Buttons ----- */
+  --kd-button-padding-y: 13px;
+  --kd-button-padding-x: 16px;
+  --kd-button-border-radius: 12px;
+  --kd-button-font-size: 16px;
+
+  --kd-primary-button-background: linear-gradient(
+    180deg,
+    #f6a531 0%,
+    #d87400 100%
+  );
+  --kd-primary-button-color: #ffffff;
+
+  --kd-secondary-button-border: 1px solid #d8e0e8;
+  --kd-secondary-button-background: #ffffff;
+  --kd-secondary-button-color: #0a2540;
+
+  /* ----- Role badge ----- */
+  --kd-role-badge-padding-y: 8px;
+  --kd-role-badge-padding-x: 14px;
+  --kd-role-badge-border-radius: 999px;
+  --kd-role-badge-background: linear-gradient(
+    180deg,
+    #f6a531 0%,
+    #d87400 100%
+  );
+  --kd-role-badge-color: #ffffff;
+  --kd-role-badge-letter-spacing: 0.06em;
+}
+
 .App {
   font-family: sans-serif;
   text-align: center;
