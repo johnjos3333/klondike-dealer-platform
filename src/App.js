@@ -8259,16 +8259,29 @@ const renderProposalExecutiveSummaryHighlights = () => {
   return (
     <ul
       style={{
-        marginTop: 14,
+        marginTop: 20,
         marginBottom: 0,
-        paddingLeft: 20,
-        fontSize: 14,
-        lineHeight: 1.7,
-        color: "#111827",
+        padding: 0,
+        listStyle: "none",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
       }}
     >
       {primaryCategories.length > 0 && (
-        <li>
+        <li
+          style={{
+            margin: 0,
+            padding: "14px 18px",
+            fontSize: 14,
+            lineHeight: 1.75,
+            color: "#1e293b",
+            background: "#f8fafc",
+            border: "1px solid #e8ecf0",
+            borderLeft: "3px solid #08213f",
+            borderRadius: 8,
+          }}
+        >
           This recommendation focuses on{" "}
           {primaryCategories
             .map((bucket) => `${bucket.key.toLowerCase()}`)
@@ -8278,7 +8291,19 @@ const renderProposalExecutiveSummaryHighlights = () => {
         </li>
       )}
       {hasEquipmentSelections && (
-        <li>
+        <li
+          style={{
+            margin: 0,
+            padding: "14px 18px",
+            fontSize: 14,
+            lineHeight: 1.75,
+            color: "#1e293b",
+            background: "#f8fafc",
+            border: "1px solid #e8ecf0",
+            borderLeft: "3px solid #08213f",
+            borderRadius: 8,
+          }}
+        >
           Supporting equipment selections have been included to reinforce handling, storage, and
           contamination control practices.
         </li>
@@ -8306,31 +8331,57 @@ const renderProposalCategorySummarySection = () => {
     <div
       style={{
         background: "#fff",
-        borderRadius: 12,
-        padding: 24,
-        marginBottom: 32,
-        border: "1px solid #e5e7eb",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        borderRadius: 14,
+        padding: "28px 30px",
+        marginBottom: 36,
+        border: "1px solid #e2e8f0",
+        boxShadow: "0 1px 3px rgba(10, 37, 64, 0.06)",
       }}
     >
       <div
         style={{
-          fontSize: 12,
-          fontWeight: 900,
-          textTransform: "uppercase",
-          color: "#64748b",
-          letterSpacing: 1,
-          marginBottom: 14,
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          marginBottom: 8,
         }}
       >
-        Product Category Summary
+        <span
+          style={{
+            width: 4,
+            height: 22,
+            borderRadius: 2,
+            background: "#08213f",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        />
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            textTransform: "uppercase",
+            color: "#475569",
+            letterSpacing: "0.12em",
+          }}
+        >
+          Product Category Summary
+        </div>
       </div>
+      <div
+        style={{
+          height: 1,
+          background: "#e8ecf2",
+          marginBottom: 22,
+          marginLeft: 14,
+        }}
+        aria-hidden
+      />
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-          gap: 16,
-          fontSize: 13,
+          gap: 18,
         }}
       >
         {ordered.map((bucket) => {
@@ -8345,21 +8396,106 @@ const renderProposalCategorySummarySection = () => {
             <div
               key={bucket.key}
               style={{
-                padding: 12,
-                borderRadius: 10,
-                background: "#f9fafb",
-                border: "1px solid #e5e7eb",
+                padding: "18px 20px",
+                borderRadius: 12,
+                background: "#fff",
+                border: "1px solid #e8ecf0",
+                boxShadow: "0 1px 2px rgba(10, 37, 64, 0.04)",
               }}
             >
-              <div style={{ fontWeight: 800, color: "#111827", marginBottom: 4 }}>
-                {bucket.key}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#0a2540",
+                    padding: "5px 10px",
+                    borderRadius: 999,
+                    background: "#f1f5f9",
+                    border: "1px solid #e2e8f0",
+                  }}
+                >
+                  {bucket.key}
+                </span>
+                {bucket.hasSynthetic && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      color: "#9a3412",
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                      background: "#fff7ed",
+                      border: "1px solid #fed7aa",
+                    }}
+                  >
+                    Synthetic options
+                  </span>
+                )}
               </div>
-              <div style={{ color: "#4b5563" }}>
-                {bucket.count} product{bucket.count === 1 ? "" : "s"} included
+              <div
+                style={{
+                  fontSize: 15,
+                  fontWeight: 800,
+                  color: "#0f172a",
+                  marginBottom: 6,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {bucket.count} product{bucket.count === 1 ? "" : "s"} in proposal
               </div>
               {packages.length > 0 && (
-                <div style={{ color: "#6b7280", marginTop: 4 }}>
-                  Package mix: {packages.join(" • ")}
+                <div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "#64748b",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Package mix
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 6,
+                    }}
+                  >
+                    {packages.map((pkg) => (
+                      <span
+                        key={pkg}
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: "#334155",
+                          padding: "5px 10px",
+                          borderRadius: 8,
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {pkg}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -8382,57 +8518,85 @@ const renderProposalRolloutGuidanceSection = () => {
     Object.values(buckets || {}).filter((bucket) => bucket && bucket.key !== "Other" && bucket.count > 0)
       .length > 1;
 
+  const rolloutItemStyle = {
+    margin: 0,
+    padding: "14px 18px 14px 20px",
+    fontSize: 14,
+    lineHeight: 1.78,
+    color: "#1e293b",
+    background: "#fafbfc",
+    border: "1px solid #e8ecf0",
+    borderLeft: "3px solid #0a2540",
+    borderRadius: 10,
+  };
+
   return (
     <div
       style={{
         background: "#fff",
-        borderRadius: 12,
-        padding: 24,
-        marginBottom: 32,
-        border: "1px solid #e5e7eb",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        borderRadius: 14,
+        padding: "28px 30px",
+        marginBottom: 36,
+        border: "1px solid #e2e8f0",
+        boxShadow: "0 1px 3px rgba(10, 37, 64, 0.06)",
       }}
     >
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 900,
-          textTransform: "uppercase",
-          color: "#64748b",
-          letterSpacing: 1,
-          marginBottom: 12,
-        }}
-      >
-        Operational Rollout Guidance
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span
+          style={{
+            width: 4,
+            height: 22,
+            borderRadius: 2,
+            background: "#08213f",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        />
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            textTransform: "uppercase",
+            color: "#475569",
+            letterSpacing: "0.12em",
+          }}
+        >
+          Operational Rollout Guidance
+        </div>
       </div>
+      <div
+        style={{ height: 1, background: "#e8ecf2", marginBottom: 22, marginLeft: 14 }}
+        aria-hidden
+      />
       <ul
         style={{
           margin: 0,
-          paddingLeft: 20,
-          fontSize: 14,
-          lineHeight: 1.8,
-          color: "#111827",
+          padding: 0,
+          listStyle: "none",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
         }}
       >
         {hasMultipleCategories && (
-          <li>
+          <li style={rolloutItemStyle}>
             Implementation can be staged by product category so that engine, hydraulic, drivetrain,
             and grease applications are transitioned in a controlled sequence.
           </li>
         )}
         {hasEquipmentSelections && (
-          <li>
+          <li style={rolloutItemStyle}>
             Supporting equipment items in this proposal can be used to align storage, dispensing, and
             contamination control practices with the new lubricant lineup.
           </li>
         )}
         {Array.isArray(consolidationSignals) && consolidationSignals.length > 0 && (
-          <li>
+          <li style={rolloutItemStyle}>
             Certain categories include multiple products, which may present consolidation
             opportunities to review against current equipment requirements and approvals.
           </li>
         )}
-        <li>
+        <li style={rolloutItemStyle}>
           Before rollout, the proposal can be compared against existing OEM approvals and internal
           standards to confirm alignment and document any required exceptions.
         </li>
@@ -8452,47 +8616,75 @@ const renderProposalUpgradeAndConsolidationSection = () => {
     return null;
   }
 
+  const visibilityItemStyle = {
+    margin: 0,
+    padding: "14px 18px 14px 20px",
+    fontSize: 14,
+    lineHeight: 1.78,
+    color: "#1e293b",
+    background: "#fffdfb",
+    border: "1px solid #fde8cd",
+    borderLeft: "3px solid #f6a531",
+    borderRadius: 10,
+  };
+
   return (
     <div
       style={{
         background: "#fff",
-        borderRadius: 12,
-        padding: 24,
-        marginBottom: 32,
-        border: "1px solid #e5e7eb",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        borderRadius: 14,
+        padding: "28px 30px",
+        marginBottom: 36,
+        border: "1px solid #e2e8f0",
+        boxShadow: "0 1px 3px rgba(10, 37, 64, 0.06)",
       }}
     >
-      <div
-        style={{
-          fontSize: 12,
-          fontWeight: 900,
-          textTransform: "uppercase",
-          color: "#64748b",
-          letterSpacing: 1,
-          marginBottom: 12,
-        }}
-      >
-        Upgrade & Consolidation Visibility
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span
+          style={{
+            width: 4,
+            height: 22,
+            borderRadius: 2,
+            background: "#f6a531",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        />
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            textTransform: "uppercase",
+            color: "#475569",
+            letterSpacing: "0.12em",
+          }}
+        >
+          Upgrade & Consolidation Visibility
+        </div>
       </div>
+      <div
+        style={{ height: 1, background: "#e8ecf2", marginBottom: 22, marginLeft: 14 }}
+        aria-hidden
+      />
       <ul
         style={{
           margin: 0,
-          paddingLeft: 20,
-          fontSize: 14,
-          lineHeight: 1.8,
-          color: "#111827",
+          padding: 0,
+          listStyle: "none",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
         }}
       >
         {upgradeSignals && (upgradeSignals.better > 0 || upgradeSignals.best > 0) && (
-          <li>
+          <li style={visibilityItemStyle}>
             This proposal includes higher-tier recommendations (Better/Best) intended to support
             stronger protection and service life where operating conditions justify the upgrade.
           </li>
         )}
         {Array.isArray(consolidationSignals) &&
           consolidationSignals.map((bucket) => (
-            <li key={bucket.key}>
+            <li key={bucket.key} style={visibilityItemStyle}>
               {bucket.key} includes {bucket.count} products in this recommendation, which may allow
               for product consolidation after reviewing specific equipment requirements.
             </li>
@@ -11585,29 +11777,46 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
   style={{
     maxWidth: 1000,
     margin: "0 auto",
-    padding: "28px 32px",
+    padding: "36px 32px 40px",
     background: "#fff",
-    borderBottom: "1px solid #e5e7eb",
+    borderBottom: "1px solid #e8ecf2",
   }}
 >
-  <div
-    style={{
-      fontSize: 12,
-      fontWeight: 900,
-      textTransform: "uppercase",
-      color: "#64748b",
-      marginBottom: 12,
-    }}
-  >
-    Executive Summary
+  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+    <span
+      style={{
+        width: 4,
+        height: 22,
+        borderRadius: 2,
+        background: "#08213f",
+        flexShrink: 0,
+      }}
+      aria-hidden
+    />
+    <div
+      style={{
+        fontSize: 11,
+        fontWeight: 800,
+        textTransform: "uppercase",
+        color: "#475569",
+        letterSpacing: "0.12em",
+      }}
+    >
+      Executive Summary
+    </div>
   </div>
+  <div
+    style={{ height: 1, background: "#e8ecf2", marginBottom: 22, marginLeft: 14 }}
+    aria-hidden
+  />
 
   <p
     style={{
       fontSize: 16,
-      lineHeight: 1.9,
-      color: "#1f2937",
+      lineHeight: 1.92,
+      color: "#1e293b",
       margin: 0,
+      maxWidth: "58rem",
     }}
   >
     {dealerProfile?.intro_statement
@@ -11620,16 +11829,50 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
 </div>
 
     {/* MAIN CONTENT */}
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 32px" }}>
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 32px 48px" }}>
       {/* TITLE SECTION */}
-      <div style={{ background: "#fff", borderRadius: 0, padding: "40px 0", borderBottom: "2px solid #e5e7eb", marginTop: 0 }}>
-        <div style={{ fontSize: 13, letterSpacing: 2.5, textTransform: "uppercase", color: "#f6a531", fontWeight: 900, marginBottom: 12 }}>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 0,
+          padding: "44px 0 40px",
+          borderBottom: "1px solid #e8ecf2",
+          marginTop: 0,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 12,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "#c2410c",
+            fontWeight: 800,
+            marginBottom: 14,
+          }}
+        >
           Lubrication Recommendation
         </div>
-        <h1 style={{ fontSize: 36, fontWeight: 900, color: "#0a2540", margin: "0 0 12px 0" }}>
+        <h1
+          style={{
+            fontSize: 34,
+            fontWeight: 900,
+            color: "#08213f",
+            margin: "0 0 14px 0",
+            lineHeight: 1.18,
+            letterSpacing: "-0.02em",
+          }}
+        >
           Prepared for {companyName ? `${companyName}` : "Your Company"}
         </h1>
-        <p style={{ fontSize: 15, color: "#64748b", margin: 0, marginTop: 8 }}>
+        <p
+          style={{
+            fontSize: 15,
+            color: "#64748b",
+            margin: 0,
+            lineHeight: 1.65,
+            maxWidth: "42rem",
+          }}
+        >
           A tailored lubrication strategy to optimize equipment performance and reduce operating costs
         </p>
         {repProposalReadOnlyCustomerDecisions && (
@@ -11651,11 +11894,45 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
       </div>
 
       {/* CUSTOMER INFO CARD */}
-      <div style={{ background: "#fff", borderRadius: 12, padding: 28, marginTop: 24, marginBottom: 32, border: "1px solid #e5e7eb", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
-        <div style={{ fontSize: 12, fontWeight: 900, textTransform: "uppercase", color: "#64748b", letterSpacing: 1, marginBottom: 16 }}>
-          Customer Profile
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 14,
+          padding: "30px 32px",
+          marginTop: 28,
+          marginBottom: 36,
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 1px 3px rgba(10, 37, 64, 0.06)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <span
+            style={{
+              width: 4,
+              height: 20,
+              borderRadius: 2,
+              background: "#08213f",
+              flexShrink: 0,
+            }}
+            aria-hidden
+          />
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              textTransform: "uppercase",
+              color: "#475569",
+              letterSpacing: "0.12em",
+            }}
+          >
+            Customer Profile
+          </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24, fontSize: 14 }}>
+        <div
+          style={{ height: 1, background: "#e8ecf2", marginBottom: 22, marginLeft: 14 }}
+          aria-hidden
+        />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 28, fontSize: 14, rowGap: 22 }}>
           {companyName && (
             <div>
               <div style={{ color: "#64748b", fontWeight: 700, marginBottom: 6 }}>Company Name</div>
@@ -11696,18 +11973,53 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
       </div>
 
       {/* EXECUTIVE SUMMARY */}
-      <div style={{ background: "#fff", borderRadius: 12, padding: 28, marginBottom: 32, border: "1px solid #e5e7eb", boxShadow: "0 2px 8px rgba(0,0,0,0.04)", borderLeft: "6px solid #f6a531" }}>
-        <div style={{ fontSize: 12, fontWeight: 900, textTransform: "uppercase", color: "#64748b", letterSpacing: 1, marginBottom: 14 }}>
-          Our Recommendation
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 14,
+          padding: "30px 32px 32px",
+          marginBottom: 36,
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 1px 3px rgba(10, 37, 64, 0.06)",
+          borderLeft: "5px solid #f6a531",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <span
+            style={{
+              width: 4,
+              height: 20,
+              borderRadius: 2,
+              background: "#f6a531",
+              flexShrink: 0,
+            }}
+            aria-hidden
+          />
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              textTransform: "uppercase",
+              color: "#475569",
+              letterSpacing: "0.12em",
+            }}
+          >
+            Our Recommendation
+          </div>
         </div>
+        <div
+          style={{ height: 1, background: "#e8ecf2", marginBottom: 22, marginLeft: 14 }}
+          aria-hidden
+        />
         <p
-  style={{
-    fontSize: 16,
-    lineHeight: 1.9,
-    color: "#1f2937",
-    margin: 0,
-  }}
->
+          style={{
+            fontSize: 16,
+            lineHeight: 1.92,
+            color: "#1e293b",
+            margin: 0,
+            maxWidth: "58rem",
+          }}
+        >
   After reviewing your current lubrication program, operating conditions, and equipment demands, we have identified opportunities to improve overall reliability, reduce contamination risk, and simplify product selection across your operation.
 
   The following recommendations are designed to align lubricant performance with application requirements, optimize handling and storage practices, and support long-term equipment protection. By implementing a more structured lubrication approach, your operation can benefit from improved uptime, more consistent performance, and reduced maintenance-related costs.
@@ -11720,21 +12032,35 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
       <div className="page-break" />
      {/* PRODUCT RECOMMENDATIONS SECTION */}
 {getProposalItems().length > 0 && (
-  <div style={{ marginBottom: 32 }}>
-    <div
-      style={{
-        fontSize: 13,
-        fontWeight: 900,
-        textTransform: "uppercase",
-        color: "#0a2540",
-        letterSpacing: 1,
-        marginBottom: 20,
-      }}
-    >
-      Product Recommendations
+  <div style={{ marginBottom: 40 }}>
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span
+          style={{
+            width: 4,
+            height: 22,
+            borderRadius: 2,
+            background: "#08213f",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        />
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            textTransform: "uppercase",
+            color: "#475569",
+            letterSpacing: "0.12em",
+          }}
+        >
+          Product Recommendations
+        </div>
+      </div>
+      <div style={{ height: 1, background: "#e8ecf2", marginLeft: 14 }} aria-hidden />
     </div>
 
-    <div style={{ display: "grid", gap: 16 }}>
+    <div style={{ display: "grid", gap: 20 }}>
       {getProposalItems().map((item, index) => {
         const pds = findPds(item.catalogProductName || item.klondike);
 
@@ -11746,10 +12072,12 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
   className="avoid-break"
   key={`${item.klondike}-${index}`}
             style={{
-              border: "1px solid #e5e7eb",
-              borderRadius: 12,
-              padding: 18,
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              padding: "22px 24px",
               background: "#fff",
+              boxShadow: "0 1px 3px rgba(10, 37, 64, 0.05)",
+              borderTop: "3px solid #08213f",
             }}
           >
             {/* HEADER ROW */}
@@ -11757,16 +12085,27 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
               style={{
                 display: "flex",
                 justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 10,
+                alignItems: "flex-start",
+                gap: 16,
+                marginBottom: 16,
+                paddingBottom: 16,
+                borderBottom: "1px solid #f1f5f9",
               }}
             >
-              <div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: "#0a2540" }}>
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 900,
+                    color: "#08213f",
+                    lineHeight: 1.3,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
                   {item.klondike}
                 </div>
 
-                <div style={{ fontSize: 13, color: "#64748b" }}>
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 6, lineHeight: 1.5 }}>
                   Replaces: {item.brand} {item.competitor}
                 </div>
               </div>
@@ -11794,9 +12133,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
   style={{
     display: "grid",
     gridTemplateColumns: "repeat(4, 1fr)",
-    gap: 12,
+    gap: 14,
     fontSize: 13,
-    marginBottom: 10,
+    marginBottom: 16,
   }}
 >
   <div>
@@ -11842,22 +12181,39 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
   </div>
 </div>
             {/* WHY + TECH */}
-            <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.6 }}>
-              <strong>Why:</strong>{" "}
-{getRecommendationMessage(item)}
+            <div
+              style={{
+                fontSize: 14,
+                color: "#334155",
+                lineHeight: 1.72,
+                padding: "14px 16px",
+                background: "#f8fafc",
+                borderRadius: 10,
+                border: "1px solid #eef2f7",
+              }}
+            >
+              <strong style={{ color: "#0f172a" }}>Why:</strong>{" "}
+              {getRecommendationMessage(item)}
             </div>
 
-            <div style={{ fontSize: 13, color: "#334155", marginTop: 6 }}>
-              <strong>Product Details:</strong>
+            <div
+              style={{
+                fontSize: 14,
+                color: "#334155",
+                marginTop: 12,
+                lineHeight: 1.72,
+              }}
+            >
+              <strong style={{ color: "#0f172a" }}>Product Details:</strong>{" "}
               {pds?.why ||
                 "Recommended based on product application and operating conditions."}
             </div>
 
             {/* SPECS */}
             {pds?.specs && (
-              <div style={{ marginTop: 6 }}>
-                <strong style={{ fontSize: 13 }}>Specs:</strong>
-                <div style={{ fontSize: 12, color: "#64748b" }}>
+              <div style={{ marginTop: 12 }}>
+                <strong style={{ fontSize: 13, color: "#0f172a" }}>Specs:</strong>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 6, lineHeight: 1.6 }}>
                   {pds.specs.slice(0, 4).join(" • ")}
                 </div>
               </div>
@@ -11865,14 +12221,25 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
 
             {/* PACKAGE + CONTAMINATION */}
             {getPackageStrategy(item.packageSize) && (
-              <div style={{ fontSize: 12, marginTop: 6, color: "#475569" }}>
-                <strong>Packaging:</strong>{" "}
+              <div style={{ fontSize: 13, marginTop: 12, color: "#475569", lineHeight: 1.65 }}>
+                <strong style={{ color: "#0f172a" }}>Packaging:</strong>{" "}
                 {getPackageStrategy(item.packageSize)}
               </div>
             )}
 
             {getContaminationNote(item.packageSize) && (
-              <div style={{ fontSize: 12, marginTop: 4, color: "#b45309" }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  marginTop: 10,
+                  color: "#9a3412",
+                  lineHeight: 1.65,
+                  padding: "10px 12px",
+                  background: "#fffbeb",
+                  borderRadius: 8,
+                  border: "1px solid #fde68a",
+                }}
+              >
                 <strong>Contamination:</strong>{" "}
                 {getContaminationNote(item.packageSize)}
               </div>
@@ -11883,9 +12250,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
     display: "flex",
     flexDirection: "column",
     gap: 10,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTop: "1px solid #e5e7eb",
+    marginTop: 16,
+    paddingTop: 16,
+    borderTop: "1px solid #e8ecf0",
   }}
 >
   {repProposalReadOnlyCustomerDecisions ? (
@@ -12028,21 +12395,35 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
   </div>
 )}
 {equipmentItems.length > 0 && (
-  <div style={{ marginBottom: 32 }}>
-    <div
-      style={{
-        fontSize: 13,
-        fontWeight: 900,
-        textTransform: "uppercase",
-        color: "#0a2540",
-        letterSpacing: 1,
-        marginBottom: 20,
-      }}
-    >
-      Recommended Equipment & Support
+  <div style={{ marginBottom: 40 }}>
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span
+          style={{
+            width: 4,
+            height: 22,
+            borderRadius: 2,
+            background: "#08213f",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        />
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            textTransform: "uppercase",
+            color: "#475569",
+            letterSpacing: "0.12em",
+          }}
+        >
+          Recommended Equipment & Support
+        </div>
+      </div>
+      <div style={{ height: 1, background: "#e8ecf2", marginLeft: 14 }} aria-hidden />
     </div>
 
-    <div style={{ display: "grid", gap: 14 }}>
+    <div style={{ display: "grid", gap: 18 }}>
       {equipmentItems.map((item, index) => {
         const total = Number(item.price || 0) * Number(item.qty || 1);
 
@@ -12050,10 +12431,12 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
           <div
             key={index}
             style={{
-              border: "1px solid #e5e7eb",
-              borderRadius: 12,
-              padding: 18,
+              border: "1px solid #e2e8f0",
+              borderRadius: 14,
+              padding: "22px 24px",
               background: "#fff",
+              boxShadow: "0 1px 3px rgba(10, 37, 64, 0.05)",
+              borderTop: "3px solid #64748b",
             }}
           >
             <div
@@ -12099,58 +12482,87 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
 {/* PROGRAM VALUE */}
 <div
   style={{
-    background: "#f8fafc",
+    background: "#fafbfc",
     borderRadius: 14,
-    padding: 28,
-    marginBottom: 32,
-    border: "1px solid #e5e7eb",
+    padding: "30px 32px",
+    marginBottom: 36,
+    border: "1px solid #e2e8f0",
+    boxShadow: "0 1px 3px rgba(10, 37, 64, 0.04)",
   }}
 >
-  <div
-    style={{
-      fontSize: 13,
-      fontWeight: 900,
-      textTransform: "uppercase",
-      color: "#0a2540",
-      marginBottom: 12,
-    }}
-  >
-    Program Value
+  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+    <span
+      style={{
+        width: 4,
+        height: 20,
+        borderRadius: 2,
+        background: "#08213f",
+        flexShrink: 0,
+      }}
+      aria-hidden
+    />
+    <div
+      style={{
+        fontSize: 11,
+        fontWeight: 800,
+        textTransform: "uppercase",
+        color: "#475569",
+        letterSpacing: "0.12em",
+      }}
+    >
+      Program Value
+    </div>
   </div>
+  <div
+    style={{ height: 1, background: "#e8ecf2", marginBottom: 20, marginLeft: 14 }}
+    aria-hidden
+  />
 
-  <p style={{ margin: 0, color: "#334155", lineHeight: 1.8 }}>
+  <p style={{ margin: 0, color: "#334155", lineHeight: 1.85, fontSize: 15, maxWidth: "58rem" }}>
     This lubrication program is designed to improve equipment reliability, reduce downtime risk, and simplify product selection across your operation. By aligning product performance, packaging strategy, and contamination control practices, this solution supports long-term operating efficiency and reduced maintenance costs.
   </p>
 </div>
     {/* INVESTMENT SUMMARY */}
 <div
   style={{
-    background: "#0a2540",
+    background: "#08213f",
     color: "#fff",
     borderRadius: 14,
-    padding: 28,
-    marginBottom: 32,
+    padding: "32px 34px",
+    marginBottom: 36,
+    border: "1px solid #0c2d52",
+    boxShadow: "0 2px 8px rgba(8, 33, 63, 0.2)",
   }}
 >
   <div
     style={{
-      fontSize: 13,
-      fontWeight: 900,
+      fontSize: 11,
+      fontWeight: 800,
       textTransform: "uppercase",
-      letterSpacing: 1,
-      marginBottom: 16,
-      opacity: 0.8,
+      letterSpacing: "0.14em",
+      marginBottom: 10,
+      color: "rgba(255,255,255,0.88)",
     }}
   >
     Investment Summary
   </div>
+  <div
+    style={{
+      height: 1,
+      background: "rgba(246, 165, 49, 0.55)",
+      marginBottom: 22,
+      maxWidth: 120,
+    }}
+    aria-hidden
+  />
 
   <div
     style={{
       display: "flex",
       justifyContent: "space-between",
       fontSize: 16,
-      marginBottom: 10,
+      marginBottom: 12,
+      lineHeight: 1.5,
     }}
   >
     <span>Lubricant Total</span>
@@ -12163,7 +12575,8 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
         display: "flex",
         justifyContent: "space-between",
         fontSize: 16,
-        marginBottom: 10,
+        marginBottom: 12,
+        lineHeight: 1.5,
       }}
     >
       <span>Equipment Total</span>
