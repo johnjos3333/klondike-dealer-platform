@@ -2436,11 +2436,73 @@ const handleFinishDealerEnrollment = async () => {
       dealersBuildingMomentum,
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.topDealers]);
+  const adminRepLeaderboardFoundation = React.useMemo(() => {
+    const dealers = Array.isArray(dealerNetworkPerformance)
+      ? dealerNetworkPerformance
+      : [];
+    const repMap = new Map();
+    dealers.forEach((dealer) => {
+      const dealerName = String(dealer?.name || "Dealer").trim();
+      const reps = Array.isArray(dealer?.leaderboard) ? dealer.leaderboard : [];
+      reps.forEach((rep) => {
+        const repName = String(rep?.name || "").trim();
+        if (!repName) return;
+        const existing = repMap.get(repName) || {
+          name: repName,
+          dealer: dealerName,
+          quotes: 0,
+          proposals: 0,
+          responses: 0,
+          ocrScans: 0,
+        };
+        existing.quotes += Number(rep?.quotes || 0);
+        existing.proposals += Number(rep?.proposals || 0);
+        existing.responses += Number(rep?.responses || 0);
+        if (!existing.dealer && dealerName) existing.dealer = dealerName;
+        repMap.set(repName, existing);
+      });
+    });
+    const ocrRepRows = Array.isArray(ocrSnapshot?.topReps) ? ocrSnapshot.topReps : [];
+    ocrRepRows.forEach((row) => {
+      const rawRepId = String(row?.value || "").trim();
+      if (!rawRepId) return;
+      const existing =
+        repMap.get(rawRepId) ||
+        Array.from(repMap.values()).find(
+          (entry) => String(entry?.name || "").trim() === rawRepId
+        ) || {
+          name: shortIdLabel("Rep", rawRepId),
+          dealer: "",
+          quotes: 0,
+          proposals: 0,
+          responses: 0,
+          ocrScans: 0,
+        };
+      existing.ocrScans += Number(row?.count || 0);
+      repMap.set(existing.name, existing);
+    });
+    const rows = Array.from(repMap.values())
+      .map((row) => ({
+        ...row,
+        activityCount:
+          Number(row?.quotes || 0) +
+          Number(row?.proposals || 0) +
+          Number(row?.responses || 0) +
+          Number(row?.ocrScans || 0),
+      }))
+      .filter((row) => Number(row?.activityCount || 0) > 0)
+      .sort((a, b) => Number(b.activityCount || 0) - Number(a.activityCount || 0))
+      .slice(0, 8);
+    return {
+      hasData: rows.length > 0,
+      rows,
+    };
+  }, [dealerNetworkPerformance, ocrSnapshot?.topReps]);
   const renderPlatformAdminView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
         <div style={styles.eyebrow}>KLONDIKE ADMIN</div>
-        <h2 style={styles.heroTitle}>Platform Control Center</h2>
+        <h2 style={styles.heroTitle}>Klondike Admin Command Center</h2>
         <p style={styles.heroText}>
           Manage dealer onboarding, create users, approve access requests, and
           monitor platform activity.
@@ -2540,10 +2602,26 @@ const handleFinishDealerEnrollment = async () => {
                       gap: 10,
                       fontSize: 13,
                       color: "#e2e8f0",
+                      background: "rgba(30, 41, 59, 0.5)",
+                      border: "1px solid rgba(148, 163, 184, 0.2)",
+                      borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
+                      borderRadius: 8,
+                      padding: "8px 10px",
                     }}
                   >
                     <span>{row.name}</span>
-                    <span style={{ fontWeight: 800 }}>
+                    <span
+                      style={{
+                        fontWeight: 800,
+                        background: "rgba(246, 165, 49, 0.16)",
+                        border: "1px solid rgba(246, 165, 49, 0.45)",
+                        color: "#fed7aa",
+                        borderRadius: 999,
+                        padding: "3px 8px",
+                        lineHeight: 1.1,
+                        fontSize: 12,
+                      }}
+                    >
                       {row.count} ({row.percent}%)
                     </span>
                   </div>
@@ -2566,38 +2644,81 @@ const handleFinishDealerEnrollment = async () => {
             <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>Dealer Health</div>
             {adminDealerHealthFoundation.hasData ? (
               <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
-                  Active dealers:{" "}
-                  <strong>{adminDealerHealthFoundation.activeDealers}</strong>
-                </div>
-                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
-                  Dealers with quote activity:{" "}
-                  <strong>{adminDealerHealthFoundation.dealersWithQuoteActivity}</strong>
-                </div>
-                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
-                  Dealers with proposal activity:{" "}
-                  <strong>{adminDealerHealthFoundation.dealersWithProposalActivity}</strong>
-                </div>
-                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
-                  Dealers with OCR activity:{" "}
-                  <strong>{adminDealerHealthFoundation.dealersWithOcrActivity}</strong>
-                </div>
+                {[
+                  {
+                    label: "Active dealers",
+                    value: adminDealerHealthFoundation.activeDealers,
+                  },
+                  {
+                    label: "Dealers with quote activity",
+                    value: adminDealerHealthFoundation.dealersWithQuoteActivity,
+                  },
+                  {
+                    label: "Dealers with proposal activity",
+                    value: adminDealerHealthFoundation.dealersWithProposalActivity,
+                  },
+                  {
+                    label: "Dealers with OCR activity",
+                    value: adminDealerHealthFoundation.dealersWithOcrActivity,
+                  },
+                  {
+                    label: "Building momentum",
+                    value: adminDealerHealthFoundation.dealersBuildingMomentum,
+                  },
+                  {
+                    label: "Needs activity",
+                    value: adminDealerHealthFoundation.dealersNeedingAttention,
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: 13,
+                      color: "#e2e8f0",
+                      background: "rgba(30, 41, 59, 0.5)",
+                      border: "1px solid rgba(148, 163, 184, 0.2)",
+                      borderLeft: "2px solid rgba(96, 165, 250, 0.75)",
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    <span
+                      style={{
+                        fontWeight: 800,
+                        background: "rgba(96, 165, 250, 0.16)",
+                        border: "1px solid rgba(96, 165, 250, 0.45)",
+                        color: "#bfdbfe",
+                        borderRadius: 999,
+                        padding: "3px 8px",
+                        lineHeight: 1.1,
+                        fontSize: 12,
+                      }}
+                    >
+                      {item.value}
+                    </span>
+                  </div>
+                ))}
                 {adminDealerHealthFoundation.mostActiveDealerName ? (
-                  <div style={{ fontSize: 13, color: "#e2e8f0" }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "#e2e8f0",
+                      background: "rgba(30, 41, 59, 0.5)",
+                      border: "1px solid rgba(148, 163, 184, 0.2)",
+                      borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                    }}
+                  >
                     Most active dealer:{" "}
-                    <strong>
-                      {adminDealerHealthFoundation.mostActiveDealerName}
-                    </strong>
+                    <strong>{adminDealerHealthFoundation.mostActiveDealerName}</strong>
                   </div>
                 ) : null}
-                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
-                  Building momentum:{" "}
-                  <strong>{adminDealerHealthFoundation.dealersBuildingMomentum}</strong>
-                </div>
-                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
-                  Needs activity:{" "}
-                  <strong>{adminDealerHealthFoundation.dealersNeedingAttention}</strong>
-                </div>
               </div>
             ) : (
               <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
@@ -2607,10 +2728,6 @@ const handleFinishDealerEnrollment = async () => {
             )}
           </div>
           {[
-            {
-              title: "Rep Leaderboard",
-              note: "Coming soon — data will populate as activity is logged.",
-            },
             {
               title: "Incentive Leaderboard",
               note: "Coming soon — data will populate as activity is logged.",
@@ -2626,11 +2743,91 @@ const handleFinishDealerEnrollment = async () => {
               }}
             >
               <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>{item.title}</div>
-              <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+              <div
+                style={{
+                  ...styles.listMeta,
+                  color: "#cbd5e1",
+                  marginTop: 10,
+                  background: "rgba(30, 41, 59, 0.5)",
+                  border: "1px solid rgba(148, 163, 184, 0.2)",
+                  borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                  lineHeight: 1.45,
+                }}
+              >
                 {item.note}
               </div>
             </div>
           ))}
+          <div
+            style={{
+              ...styles.summaryCard,
+              background: "#0f172a",
+              border: "1px solid rgba(148, 163, 184, 0.26)",
+              boxShadow: "0 10px 22px rgba(2, 6, 23, 0.26)",
+            }}
+          >
+            <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>Rep Leaderboard</div>
+            {adminRepLeaderboardFoundation.hasData ? (
+              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                {adminRepLeaderboardFoundation.rows.map((rep, idx) => (
+                  <div
+                    key={`rep-foundation-${rep.name}-${idx}`}
+                    style={{
+                      display: "grid",
+                      gap: 3,
+                      background: "rgba(30, 41, 59, 0.5)",
+                      border: "1px solid rgba(148, 163, 184, 0.2)",
+                      borderLeft: "2px solid rgba(96, 165, 250, 0.75)",
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 10,
+                        color: "#f8fafc",
+                        fontSize: 13,
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span>{rep.name}</span>
+                      <span
+                        style={{
+                          background: "rgba(246, 165, 49, 0.16)",
+                          border: "1px solid rgba(246, 165, 49, 0.45)",
+                          color: "#fed7aa",
+                          borderRadius: 999,
+                          padding: "3px 8px",
+                          lineHeight: 1.1,
+                          fontSize: 12,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {rep.activityCount} activity
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#cbd5e1" }}>
+                      {rep.dealer ? `Dealer: ${rep.dealer}` : "Dealer: —"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#93c5fd" }}>
+                      Quotes: {rep.quotes} • Proposals: {rep.proposals} • Responses:{" "}
+                      {rep.responses} • OCR scans: {rep.ocrScans}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+                Rep leaderboard data will populate as reps create quotes, send
+                proposals, and scan labels.
+              </div>
+            )}
+          </div>
         </div>
       )}
 
