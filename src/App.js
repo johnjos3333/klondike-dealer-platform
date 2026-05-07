@@ -4,6 +4,141 @@ import { PDS_MAP } from "./data/pdsMap";
 import { PDS_LIBRARY_INDEX } from "./data/pdsLibraryIndex";
 import { supabase } from "./supabase";
 
+/** Phase 51B — proposal mobile/print layout (injected where proposal UI renders) */
+const KD_PROPOSAL_MOBILE_CSS = `
+@media screen {
+  .kd-public-proposal-root,
+  .kd-dealer-proposal-root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+  .kd-public-inner,
+  .kd-dealer-inner {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1000px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media screen and (max-width: 900px) {
+  .kd-public-inner,
+  .kd-dealer-inner {
+    max-width: 100% !important;
+    padding-left: max(16px, env(safe-area-inset-left)) !important;
+    padding-right: max(16px, env(safe-area-inset-right)) !important;
+  }
+  .kd-public-proposal-hero-title {
+    font-size: clamp(22px, 6.5vw, 28px) !important;
+    line-height: 1.15 !important;
+  }
+  .kd-public-proposal-grid-3,
+  .kd-dealer-grid-3 {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .kd-public-proposal-grid-4,
+  .kd-dealer-product-meta-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .kd-dealer-cat-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .kd-dealer-contact-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 14px !important;
+  }
+  .kd-public-proposal-card-row,
+  .kd-dealer-proposal-card-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .kd-public-price-block {
+    text-align: left !important;
+    width: 100%;
+    min-width: 0;
+  }
+  .kd-public-proposal-actions,
+  .kd-dealer-proposal-actions {
+    flex-wrap: wrap !important;
+  }
+  .kd-public-investment-row,
+  .kd-dealer-investment-line {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+  .kd-public-investment-row span:last-child,
+  .kd-dealer-investment-line strong {
+    align-self: flex-end;
+  }
+}
+
+.kd-public-proposal-grid-4,
+.kd-dealer-product-meta-grid,
+.kd-dealer-contact-grid,
+.kd-public-proposal-grid-3,
+.kd-dealer-grid-3,
+.kd-dealer-cat-grid {
+  min-width: 0;
+}
+
+.kd-public-proposal-grid-4 > div,
+.kd-dealer-product-meta-grid > div,
+.kd-dealer-contact-grid > div,
+.kd-public-proposal-grid-3 > div,
+.kd-dealer-grid-3 > div,
+.kd-dealer-cat-grid > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media print {
+  .kd-public-proposal-root,
+  .kd-dealer-proposal-root {
+    overflow: visible !important;
+    max-width: none !important;
+  }
+  .kd-public-inner,
+  .kd-dealer-inner {
+    max-width: 1000px !important;
+  }
+  .kd-public-proposal-grid-3,
+  .kd-dealer-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  .kd-public-proposal-grid-4,
+  .kd-dealer-product-meta-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  .kd-dealer-cat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .kd-dealer-contact-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  .kd-public-proposal-card-row,
+  .kd-dealer-proposal-card-row {
+    flex-direction: row !important;
+    align-items: flex-start !important;
+  }
+  .kd-public-price-block {
+    text-align: right !important;
+    width: auto !important;
+  }
+  .kd-public-investment-row,
+  .kd-dealer-investment-line {
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+}
+`;
+
 function parsePackageLabelGallonsEstimate(packageLabel) {
   const match = String(packageLabel || "").match(
     /(\d+(?:\.\d+)?)\s*(?:gal|gallon)/i
@@ -8378,6 +8513,7 @@ const renderProposalCategorySummarySection = () => {
         aria-hidden
       />
       <div
+        className="kd-dealer-cat-grid"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
@@ -11649,7 +11785,8 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
         )}
 
         {dealerActiveTab === "proposal_view" && isRep && (
-  <div className="proposal-print-area" style={{ background: "#f8fafc", minHeight: "100vh", paddingBottom: 40 }}>
+  <div className="proposal-print-area kd-dealer-proposal-root" style={{ background: "#f8fafc", minHeight: "100vh", paddingBottom: 40 }}>
+    <style dangerouslySetInnerHTML={{ __html: KD_PROPOSAL_MOBILE_CSS }} />
     {/* DEALER BRANDED HEADER */}
 <div
   style={{
@@ -11658,7 +11795,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
     borderBottom: "6px solid #f6a531",
   }}
 >
-  <div style={{ maxWidth: 1000, margin: "0 auto", padding: "36px 32px" }}>
+  <div className="kd-dealer-inner" style={{ maxWidth: 1000, margin: "0 auto", padding: "36px 32px" }}>
     
     {/* TOP ROW */}
     <div
@@ -11721,9 +11858,10 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
 
     {/* CONTACT STRIP */}
     <div
+      className="kd-dealer-contact-grid"
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
         gap: 20,
         fontSize: 13,
         opacity: 0.9,
@@ -11774,6 +11912,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
 
 {/* EXECUTIVE SUMMARY */}
 <div
+  className="kd-dealer-inner"
   style={{
     maxWidth: 1000,
     margin: "0 auto",
@@ -11829,7 +11968,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
 </div>
 
     {/* MAIN CONTENT */}
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "0 32px 48px" }}>
+    <div className="kd-dealer-inner" style={{ maxWidth: 1000, margin: "0 auto", padding: "0 32px 48px" }}>
       {/* TITLE SECTION */}
       <div
         style={{
@@ -11932,7 +12071,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
           style={{ height: 1, background: "#e8ecf2", marginBottom: 22, marginLeft: 14 }}
           aria-hidden
         />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 28, fontSize: 14, rowGap: 22 }}>
+        <div className="kd-dealer-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 28, fontSize: 14, rowGap: 22 }}>
           {companyName && (
             <div>
               <div style={{ color: "#64748b", fontWeight: 700, marginBottom: 6 }}>Company Name</div>
@@ -12082,6 +12221,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
           >
             {/* HEADER ROW */}
             <div
+              className="kd-dealer-proposal-card-row"
               style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -12130,9 +12270,10 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
             </div>
 {/* DETAILS ROW */}
 <div
+  className="kd-dealer-product-meta-grid"
   style={{
     display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
+    gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
     gap: 14,
     fontSize: 13,
     marginBottom: 16,
@@ -12293,7 +12434,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
     })()
   ) : (
     <>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div className="kd-dealer-proposal-actions" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button
           type="button"
           onClick={() =>
@@ -12440,6 +12581,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
             }}
           >
             <div
+              className="kd-dealer-proposal-card-row"
               style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -12447,7 +12589,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                 marginBottom: 8,
               }}
             >
-              <div>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: "#0a2540" }}>
                   {item.name}
                 </div>
@@ -12456,7 +12598,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                 </div>
               </div>
 
-              <div style={{ textAlign: "right" }}>
+              <div className="kd-public-price-block" style={{ textAlign: "right" }}>
                 <div style={{ fontSize: 12, color: "#64748b" }}>Line Total</div>
                 <div style={{ fontSize: 16, fontWeight: 900, color: "#f6a531" }}>
                   {formatMoney(total)}
@@ -12557,6 +12699,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
   />
 
   <div
+    className="kd-dealer-investment-line"
     style={{
       display: "flex",
       justifyContent: "space-between",
@@ -12571,6 +12714,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
 
   {equipmentItems.length > 0 && (
     <div
+      className="kd-dealer-investment-line"
       style={{
         display: "flex",
         justifyContent: "space-between",
@@ -12593,6 +12737,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
   )}
 
   <div
+    className="kd-dealer-investment-line"
     style={{
       borderTop: "1px solid rgba(255,255,255,0.2)",
       marginTop: 16,
@@ -14182,7 +14327,20 @@ const closingStatement =
 }
 
   return (
-    <div style={{ background: "#f8fafc", minHeight: "100vh", fontFamily: "Arial, sans-serif" }}>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: KD_PROPOSAL_MOBILE_CSS }} />
+      <div
+        className="kd-public-proposal-root"
+        style={{
+          background: "#f8fafc",
+          minHeight: "100vh",
+          fontFamily: "Arial, sans-serif",
+          width: "100%",
+          maxWidth: "100%",
+          overflowX: "hidden",
+          boxSizing: "border-box",
+        }}
+      >
       <div
         style={{
           background: "linear-gradient(135deg, #0a2540 0%, #1a3f5e 100%)",
@@ -14190,7 +14348,7 @@ const closingStatement =
           borderBottom: "6px solid #f6a531",
         }}
       >
-        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "36px 32px" }}>
+        <div className="kd-public-inner" style={{ maxWidth: 1000, margin: "0 auto", padding: "36px 32px" }}>
           {quote.dealer_logo_url && (
   <img
     src={quote.dealer_logo_url}
@@ -14214,8 +14372,8 @@ const closingStatement =
             Prepared for <strong>{quote.customer_name || "Customer"}</strong>
           </div>
 
-          <div style={{ marginTop: 24 }}>
-            <div style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.2 }}>
+          <div className="kd-public-proposal-hero-block" style={{ marginTop: 24 }}>
+            <div className="kd-public-proposal-hero-title" style={{ fontSize: 36, fontWeight: 900, lineHeight: 1.2 }}>
               Improving Equipment Reliability &
               <br />
               Reducing Operating Cost
@@ -14228,7 +14386,7 @@ const closingStatement =
         </div>
       </div>
 
-      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 32px" }}>
+      <div className="kd-public-inner" style={{ maxWidth: 1000, margin: "0 auto", padding: "28px 32px" }}>
         <div
           style={{
             background: "#fff",
@@ -14236,13 +14394,16 @@ const closingStatement =
             padding: 28,
             marginBottom: 28,
             border: "1px solid #e5e7eb",
+            boxSizing: "border-box",
+            width: "100%",
+            maxWidth: "100%",
           }}
         >
           <div style={{ fontSize: 12, fontWeight: 900, textTransform: "uppercase", color: "#64748b", marginBottom: 14 }}>
             Customer Profile
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
+          <div className="kd-public-proposal-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 18 }}>
             <div>
               <div style={{ color: "#64748b", fontSize: 13, fontWeight: 800 }}>Company</div>
               <div style={{ color: "#0a2540", fontWeight: 900 }}>{quote.customer_name || "—"}</div>
@@ -14310,8 +14471,8 @@ const closingStatement =
                     boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
-                    <div>
+                  <div className="kd-public-proposal-card-row" style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
+                    <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 18, fontWeight: 900, color: "#0a2540" }}>
                         {productName}
                       </div>
@@ -14321,7 +14482,7 @@ const closingStatement =
                       </div>
                     </div>
 
-                    <div style={{ textAlign: "right" }}>
+                    <div className="kd-public-price-block" style={{ textAlign: "right", flexShrink: 0 }}>
                       <div style={{ color: "#64748b", fontSize: 13 }}>Line Total</div>
                       <div style={{ fontWeight: 900, color: "#f6a531", fontSize: 18 }}>
                         {formatMoney(price)}
@@ -14330,14 +14491,18 @@ const closingStatement =
                   </div>
 
                   <div
+                    className="kd-public-proposal-grid-4"
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(4, 1fr)",
+                      gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                       gap: 12,
                       marginTop: 16,
                       padding: 14,
                       borderRadius: 10,
                       background: "#f8fafc",
+                      boxSizing: "border-box",
+                      width: "100%",
+                      maxWidth: "100%",
                     }}
                   >
                     <div>
@@ -14407,6 +14572,7 @@ const closingStatement =
                   )}
 
                   <div
+                    className="kd-public-proposal-actions"
                     style={{
                       display: "flex",
                       gap: 10,
@@ -14516,8 +14682,8 @@ const closingStatement =
               boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
             }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
-              <div>
+            <div className="kd-public-proposal-card-row" style={{ display: "flex", justifyContent: "space-between", gap: 20 }}>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 18, fontWeight: 900, color: "#0a2540" }}>
                   {item.equipment_name}
                 </div>
@@ -14527,7 +14693,7 @@ const closingStatement =
                 </div>
               </div>
 
-              <div style={{ textAlign: "right" }}>
+              <div className="kd-public-price-block" style={{ textAlign: "right", flexShrink: 0 }}>
                 <div style={{ color: "#64748b", fontSize: 13 }}>Line Total</div>
                 <div style={{ fontWeight: 900, color: "#f6a531", fontSize: 18 }}>
                   ${totalPrice.toFixed(2)}
@@ -14542,6 +14708,7 @@ const closingStatement =
 
             {/* APPROVE / DECLINE */}
             <div
+              className="kd-public-proposal-actions"
               style={{
                 display: "flex",
                 gap: 10,
@@ -14664,7 +14831,7 @@ const closingStatement =
             Investment Summary
           </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 900 }}>
+          <div className="kd-public-investment-row" style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 900 }}>
             <span>Total Investment</span>
             <span>{formatMoney(total)}</span>
           </div>
@@ -14677,6 +14844,9 @@ const closingStatement =
             padding: 28,
             marginBottom: 32,
             border: "1px solid #e5e7eb",
+            boxSizing: "border-box",
+            width: "100%",
+            maxWidth: "100%",
           }}
         >
           <div style={{ fontSize: 13, fontWeight: 900, textTransform: "uppercase", color: "#0a2540", marginBottom: 16 }}>
@@ -14820,7 +14990,8 @@ const closingStatement =
           {submitting ? "Submitting..." : "Submit Proposal Decisions"}
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 const styles = {
