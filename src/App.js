@@ -552,6 +552,8 @@ useEffect(() => {
     matchSuccessRate: 0,
     topViscosity: "",
     topBrand: "",
+    topBrands: [],
+    topViscosities: [],
   });
 
   const [dealerMessage, setDealerMessage] = React.useState("");
@@ -1869,6 +1871,8 @@ const handleFinishDealerEnrollment = async () => {
               matchSuccessRate: 0,
               topViscosity: "",
               topBrand: "",
+              topBrands: [],
+              topViscosities: [],
             });
           }
           return;
@@ -1891,9 +1895,26 @@ const handleFinishDealerEnrollment = async () => {
           const [top] = Object.entries(counts).sort((a, b) => b[1] - a[1]);
           return top?.[0] || "";
         };
+        const countTopList = (values, limit = 5) => {
+          const counts = values.reduce((acc, rawValue) => {
+            const key = String(rawValue || "").trim();
+            if (!key) return acc;
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+          }, {});
+          return Object.entries(counts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, limit)
+            .map(([value, count]) => ({ value, count }));
+        };
 
         const topViscosity = countTopValue(rows.map((row) => row?.detected_viscosity));
         const topBrand = countTopValue(rows.map((row) => row?.detected_brand));
+        const topBrands = countTopList(rows.map((row) => row?.detected_brand), 5);
+        const topViscosities = countTopList(
+          rows.map((row) => row?.detected_viscosity),
+          5
+        );
 
         if (!cancelled) {
           setOcrSnapshot({
@@ -1901,6 +1922,8 @@ const handleFinishDealerEnrollment = async () => {
             matchSuccessRate,
             topViscosity,
             topBrand,
+            topBrands,
+            topViscosities,
           });
         }
       } finally {
@@ -2105,26 +2128,80 @@ const handleFinishDealerEnrollment = async () => {
           ) : ocrSnapshot.totalScans === 0 ? (
             <p style={styles.muted}>No OCR scan activity yet.</p>
           ) : (
-            <div style={styles.grid3}>
-              <div style={styles.summaryCard}>
-                <div style={styles.summaryLabel}>Total OCR Scans</div>
-                <div style={styles.summaryValue}>{ocrSnapshot.totalScans}</div>
-              </div>
-              <div style={styles.summaryCard}>
-                <div style={styles.summaryLabel}>Match Success Rate</div>
-                <div style={styles.summaryValue}>{ocrSnapshot.matchSuccessRate}%</div>
-              </div>
-              <div style={styles.summaryCard}>
-                <div style={styles.summaryLabel}>Most Scanned Viscosity</div>
-                <div style={styles.summaryValue}>
-                  {ocrSnapshot.topViscosity || "—"}
+            <>
+              <div style={styles.grid3}>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Total OCR Scans</div>
+                  <div style={styles.summaryValue}>{ocrSnapshot.totalScans}</div>
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Match Success Rate</div>
+                  <div style={styles.summaryValue}>{ocrSnapshot.matchSuccessRate}%</div>
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Most Scanned Viscosity</div>
+                  <div style={styles.summaryValue}>
+                    {ocrSnapshot.topViscosity || "—"}
+                  </div>
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Most Scanned Competitor Brand</div>
+                  <div style={styles.summaryValue}>{ocrSnapshot.topBrand || "—"}</div>
                 </div>
               </div>
-              <div style={styles.summaryCard}>
-                <div style={styles.summaryLabel}>Most Scanned Competitor Brand</div>
-                <div style={styles.summaryValue}>{ocrSnapshot.topBrand || "—"}</div>
+              <div style={{ ...styles.grid3, marginTop: 14 }}>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Top 5 Scanned Competitor Brands</div>
+                  {(ocrSnapshot.topBrands || []).length > 0 ? (
+                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                      {ocrSnapshot.topBrands.map((item, idx) => (
+                        <div
+                          key={`${item.value}-${idx}`}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            fontSize: 13,
+                            color: "#0f172a",
+                            gap: 10,
+                          }}
+                        >
+                          <span>{item.value}</span>
+                          <span style={{ fontWeight: 800 }}>{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ ...styles.muted, marginTop: 10 }}>—</div>
+                  )}
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Top 5 Scanned Viscosities</div>
+                  {(ocrSnapshot.topViscosities || []).length > 0 ? (
+                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                      {ocrSnapshot.topViscosities.map((item, idx) => (
+                        <div
+                          key={`${item.value}-${idx}`}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            fontSize: 13,
+                            color: "#0f172a",
+                            gap: 10,
+                          }}
+                        >
+                          <span>{item.value}</span>
+                          <span style={{ fontWeight: 800 }}>{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ ...styles.muted, marginTop: 10 }}>—</div>
+                  )}
+                </div>
               </div>
-            </div>
+            </>
           )}
         </div>
       )}
