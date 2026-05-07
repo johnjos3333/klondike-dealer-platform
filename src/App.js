@@ -2390,6 +2390,52 @@ const handleFinishDealerEnrollment = async () => {
       rows: rows.sort((a, b) => b.count - a.count),
     };
   }, [dealerNetworkPerformance]);
+  const adminDealerHealthFoundation = React.useMemo(() => {
+    const rows = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+    const activeDealers = rows.length;
+    const dealersWithQuoteActivity = rows.filter(
+      (dealer) => Number(dealer?.quotesCreated || 0) > 0
+    ).length;
+    const dealersWithProposalActivity = rows.filter(
+      (dealer) => Number(dealer?.proposalsSent || 0) > 0
+    ).length;
+    const dealersWithOcrActivity = Array.isArray(ocrSnapshot?.topDealers)
+      ? ocrSnapshot.topDealers.length
+      : 0;
+    const mostActiveDealer = rows.reduce((best, dealer) => {
+      const score =
+        Number(dealer?.quotesCreated || 0) +
+        Number(dealer?.proposalsSent || 0) +
+        Number(dealer?.customerResponses || 0);
+      if (!best || score > best.score) {
+        return { name: String(dealer?.name || "—"), score };
+      }
+      return best;
+    }, null);
+    const dealersNeedingAttention = rows.filter((dealer) => {
+      const quoteCount = Number(dealer?.quotesCreated || 0);
+      const proposalCount = Number(dealer?.proposalsSent || 0);
+      const responseCount = Number(dealer?.customerResponses || 0);
+      return quoteCount === 0 && proposalCount === 0 && responseCount === 0;
+    }).length;
+    const dealersBuildingMomentum = rows.filter((dealer) => {
+      const quoteCount = Number(dealer?.quotesCreated || 0);
+      const proposalCount = Number(dealer?.proposalsSent || 0);
+      const responseCount = Number(dealer?.customerResponses || 0);
+      return quoteCount > 0 && (proposalCount > 0 || responseCount > 0);
+    }).length;
+    return {
+      hasData: activeDealers > 0,
+      activeDealers,
+      dealersWithQuoteActivity,
+      dealersWithProposalActivity,
+      dealersWithOcrActivity,
+      mostActiveDealerName: mostActiveDealer?.name || "",
+      mostActiveDealerScore: Number(mostActiveDealer?.score || 0),
+      dealersNeedingAttention,
+      dealersBuildingMomentum,
+    };
+  }, [dealerNetworkPerformance, ocrSnapshot?.topDealers]);
   const renderPlatformAdminView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
@@ -2509,11 +2555,58 @@ const handleFinishDealerEnrollment = async () => {
               </div>
             )}
           </div>
+          <div
+            style={{
+              ...styles.summaryCard,
+              background: "#0f172a",
+              border: "1px solid rgba(148, 163, 184, 0.26)",
+              boxShadow: "0 10px 22px rgba(2, 6, 23, 0.26)",
+            }}
+          >
+            <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>Dealer Health</div>
+            {adminDealerHealthFoundation.hasData ? (
+              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
+                  Active dealers:{" "}
+                  <strong>{adminDealerHealthFoundation.activeDealers}</strong>
+                </div>
+                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
+                  Dealers with quote activity:{" "}
+                  <strong>{adminDealerHealthFoundation.dealersWithQuoteActivity}</strong>
+                </div>
+                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
+                  Dealers with proposal activity:{" "}
+                  <strong>{adminDealerHealthFoundation.dealersWithProposalActivity}</strong>
+                </div>
+                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
+                  Dealers with OCR activity:{" "}
+                  <strong>{adminDealerHealthFoundation.dealersWithOcrActivity}</strong>
+                </div>
+                {adminDealerHealthFoundation.mostActiveDealerName ? (
+                  <div style={{ fontSize: 13, color: "#e2e8f0" }}>
+                    Most active dealer:{" "}
+                    <strong>
+                      {adminDealerHealthFoundation.mostActiveDealerName}
+                    </strong>
+                  </div>
+                ) : null}
+                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
+                  Building momentum:{" "}
+                  <strong>{adminDealerHealthFoundation.dealersBuildingMomentum}</strong>
+                </div>
+                <div style={{ fontSize: 13, color: "#e2e8f0" }}>
+                  Needs activity:{" "}
+                  <strong>{adminDealerHealthFoundation.dealersNeedingAttention}</strong>
+                </div>
+              </div>
+            ) : (
+              <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+                Dealer health data will populate as dealers, reps, quotes, and OCR
+                activity are logged.
+              </div>
+            )}
+          </div>
           {[
-            {
-              title: "Dealer Health",
-              note: "Coming soon — data will populate as activity is logged.",
-            },
             {
               title: "Rep Leaderboard",
               note: "Coming soon — data will populate as activity is logged.",
