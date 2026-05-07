@@ -396,6 +396,206 @@ function buildManagerDashboardInsights(repSnapshot, demandIntel, assignedRepCoun
   return [...new Set(insights)];
 }
 
+function countDeclinedProductAndEquipmentLinesInProposalResponses(responses) {
+  let n = 0;
+  (responses || []).forEach((res) => {
+    getProposalProductResponseArray(res).forEach((item) => {
+      if (item.decision === "declined") n += 1;
+    });
+    const dd = res.decision_data || {};
+    const equipmentResponses = Array.isArray(dd.equipment)
+      ? dd.equipment
+      : Array.isArray(res.equipment)
+      ? res.equipment
+      : [];
+    equipmentResponses.forEach((item) => {
+      if (item.decision === "declined") n += 1;
+    });
+  });
+  return n;
+}
+
+function buildPortalFollowUpIntelligenceRows({
+  awaitingQuoteCount,
+  customerResponseRecordCount,
+  declinedLineCount,
+  approvedDemandLineCount,
+  distinctApprovedSkus,
+  inventoryApprovedLineCount,
+}) {
+  const rows = [];
+  if (awaitingQuoteCount > 0) {
+    rows.push({
+      key: "await",
+      label: "Proposals awaiting customer response",
+      value: String(awaitingQuoteCount),
+      hint: "Quotes in your scope that are still waiting on the customer.",
+      accent: "orange",
+    });
+  }
+  if (customerResponseRecordCount > 0) {
+    rows.push({
+      key: "received",
+      label: "Customer responses received",
+      value: String(customerResponseRecordCount),
+      hint: "Proposal response records on file for your scope.",
+      accent: "blue",
+    });
+  }
+  if ((approvedDemandLineCount || 0) > 0 || (distinctApprovedSkus || 0) > 0) {
+    rows.push({
+      key: "demand",
+      label: "Approved proposal demand captured",
+      value:
+        (distinctApprovedSkus || 0) > 0
+          ? `${distinctApprovedSkus} SKU(s) · ${approvedDemandLineCount || 0} line(s)`
+          : `${approvedDemandLineCount || 0} line(s)`,
+      hint: "Rolls up approved lubricant rows from customer-submitted decisions.",
+      accent: "orange",
+    });
+  }
+  if (declinedLineCount > 0) {
+    rows.push({
+      key: "declined",
+      label: "Declined items needing attention",
+      value: String(declinedLineCount),
+      hint: "Product or equipment lines marked declined—follow up with the customer.",
+      accent: "orange",
+    });
+  }
+  if (inventoryApprovedLineCount > 0) {
+    rows.push({
+      key: "inventory",
+      label: "Inventory alert data available",
+      value: String(inventoryApprovedLineCount),
+      hint: "Approved SKU lines feeding inventory views—open Inventory Alerts for detail.",
+      accent: "blue",
+    });
+  }
+  return rows;
+}
+
+function buildDealerAdminFollowUpIntelligenceRows(perf) {
+  const rows = [];
+  if ((perf?.quotesAwaitingCustomer || 0) > 0) {
+    rows.push({
+      key: "await",
+      label: "Proposals awaiting customer response",
+      value: String(perf.quotesAwaitingCustomer),
+      hint: "Dealer-wide quotes marked sent without a submitted customer review.",
+      accent: "orange",
+    });
+  }
+  if ((perf?.customerResponses || 0) > 0) {
+    rows.push({
+      key: "received",
+      label: "Customer responses recorded",
+      value: String(perf.customerResponses),
+      hint: "Proposal response submissions logged for this dealer.",
+      accent: "blue",
+    });
+  }
+  if ((perf?.approvedDemandLineCount || 0) > 0 || (perf?.demandDistinctSkus || 0) > 0) {
+    rows.push({
+      key: "demand",
+      label: "Approved proposal demand captured",
+      value:
+        (perf?.demandDistinctSkus || 0) > 0
+          ? `${perf.demandDistinctSkus} SKU(s) · ${perf.approvedDemandLineCount || 0} line(s)`
+          : `${perf.approvedDemandLineCount || 0} line(s)`,
+      hint: "Rolls up approved lubricant lines from customer-submitted decisions.",
+      accent: "orange",
+    });
+  }
+  if ((perf?.declinedLineCount || 0) > 0) {
+    rows.push({
+      key: "declined",
+      label: "Declined items needing attention",
+      value: String(perf.declinedLineCount),
+      hint: "Product or equipment lines marked declined across proposal responses.",
+      accent: "orange",
+    });
+  }
+  if (
+    (perf?.approvedDemandLineCount || 0) > 0 ||
+    (perf?.demandDistinctSkus || 0) > 0
+  ) {
+    rows.push({
+      key: "inventory",
+      label: "Inventory alert data available",
+      value: "Yes",
+      hint: "Approved demand exists—open Inventory Alerts for SKU-level rollup.",
+      accent: "blue",
+    });
+  }
+  return rows;
+}
+
+function DashboardFollowUpIntelligenceCard({ styles, rows }) {
+  const empty = !rows?.length;
+  return (
+    <div
+      style={{
+        ...styles.card,
+        ...styles.dashboardCard,
+        borderLeft: "6px solid #1e40af",
+      }}
+    >
+      <div style={styles.eyebrow}>FOLLOW-UP INTELLIGENCE</div>
+      <h3 style={{ ...styles.cardTitle, marginBottom: 10 }}>
+        Priorities from proposal activity
+      </h3>
+      <p style={{ ...styles.cardBody, marginTop: 0, marginBottom: empty ? 0 : 14 }}>
+        Signals from quotes and proposal responses already loaded in this session. No email or SMS is sent from this panel.
+      </p>
+      {empty ? (
+        <p
+          style={{
+            margin: "12px 0 0",
+            fontSize: 14,
+            color: "#64748b",
+            lineHeight: 1.65,
+          }}
+        >
+          Follow-up intelligence will populate as proposals are sent and customers respond.
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {rows.map((r) => (
+            <div
+              key={r.key}
+              style={{
+                padding: "12px 14px",
+                borderRadius: 10,
+                background: "#fcfdff",
+                border: "1px solid #e7edf3",
+                borderLeft:
+                  r.accent === "blue" ? "4px solid #1e3a8a" : "4px solid #f6a531",
+              }}
+            >
+              <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 14 }}>{r.label}</div>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 900,
+                  color: "#0a2540",
+                  marginTop: 4,
+                  wordBreak: "break-word",
+                }}
+              >
+                {r.value}
+              </div>
+              {r.hint ? (
+                <div style={{ ...styles.listMeta, marginTop: 6, lineHeight: 1.45 }}>{r.hint}</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function buildManagerAssignedRepDisplayNames(teamAssignments, repProfiles, sessionUserId) {
   const ids = (teamAssignments || [])
     .filter(
@@ -1675,6 +1875,7 @@ const [dealerPerformance, setDealerPerformance] = useState({
   quotesAwaitingCustomer: 0,
   topQuotedMixName: null,
   topQuotedMixPercent: 0,
+  declinedLineCount: 0,
 });
 const [dealerNetworkPerformance, setDealerNetworkPerformance] = useState([]);
 const [selectedDealerPerformance, setSelectedDealerPerformance] = useState(null);
@@ -5894,6 +6095,22 @@ const handleFinishDealerEnrollment = async () => {
       ? Math.round((topQuotedMixRow[1] / totalProductCount) * 100)
       : 0;
 
+  let declinedLineCount = 0;
+  responseRows.forEach((row) => {
+    getProposalProductResponseArray(row).forEach((item) => {
+      if (item.decision === "declined") declinedLineCount += 1;
+    });
+    const ddr = row.decision_data || {};
+    const equipmentResponses = Array.isArray(ddr.equipment)
+      ? ddr.equipment
+      : Array.isArray(row.equipment)
+      ? row.equipment
+      : [];
+    equipmentResponses.forEach((item) => {
+      if (item.decision === "declined") declinedLineCount += 1;
+    });
+  });
+
   setDealerPerformance({
     quotesCreated: dealerQuotes.length,
     proposalsSent: dealerQuotes.filter((q) => q.status === "sent").length,
@@ -5921,6 +6138,7 @@ const handleFinishDealerEnrollment = async () => {
     quotesAwaitingCustomer,
     topQuotedMixName: topQuotedMixRow ? topQuotedMixRow[0] : null,
     topQuotedMixPercent,
+    declinedLineCount,
   });
 };
 useEffect(() => {
@@ -5976,6 +6194,11 @@ useEffect(() => {
     }))
   );
 };
+const dealerAdminFollowUpIntelligenceRows = React.useMemo(
+  () => buildDealerAdminFollowUpIntelligenceRows(dealerPerformance),
+  [dealerPerformance]
+);
+
 const renderDealerAdminView = () => (
   <div style={styles.grid24}>
     {!dealerProfile?.setup_completed && !dealerEnrollmentStarted ? (
@@ -6202,6 +6425,11 @@ const renderDealerAdminView = () => (
                 )}
               </ul>
             </div>
+
+            <DashboardFollowUpIntelligenceCard
+              styles={styles}
+              rows={dealerAdminFollowUpIntelligenceRows}
+            />
 
             <div style={{ ...styles.card, ...styles.dashboardCard }}>
               <div style={styles.eyebrow}>CORE ACTIVITY</div>
@@ -7212,6 +7440,65 @@ const managerDashboardInsightLines = React.useMemo(
     ),
   [repSnapshot, managerDemandIntel, assignedRepCountShell]
 );
+
+const repScopedProposalResponses = React.useMemo(() => {
+  if (!isRep || !session?.user?.id || !activeMembership?.organization_id) return [];
+  const myEmail = String(session?.user?.email || "").toLowerCase();
+  return (proposalResponses || []).filter((res) => {
+    const q = res.quote;
+    if (!q || q.organization_id !== activeMembership.organization_id) return false;
+    return (
+      q.user_id === session.user.id ||
+      String(q.rep_email || "").toLowerCase() === myEmail
+    );
+  });
+}, [
+  isRep,
+  proposalResponses,
+  session?.user?.id,
+  session?.user?.email,
+  activeMembership?.organization_id,
+]);
+
+const repDemandIntel = React.useMemo(
+  () => summarizeApprovedDemandFromProposalRows(repScopedProposalResponses, {}),
+  [repScopedProposalResponses]
+);
+
+const repFollowUpIntelligenceRows = React.useMemo(() => {
+  if (!isRep) return [];
+  const invLines = collectApprovedProductLines(repScopedProposalResponses).length;
+  return buildPortalFollowUpIntelligenceRows({
+    awaitingQuoteCount: pipeline.awaiting.length,
+    customerResponseRecordCount: pipeline.reviewed.length,
+    declinedLineCount: countDeclinedProductAndEquipmentLinesInProposalResponses(
+      repScopedProposalResponses
+    ),
+    approvedDemandLineCount: repDemandIntel.approvedLineCount || 0,
+    distinctApprovedSkus: repDemandIntel.distinctSkus || 0,
+    inventoryApprovedLineCount: invLines,
+  });
+}, [isRep, pipeline, repScopedProposalResponses, repDemandIntel]);
+
+const managerFollowUpIntelligenceRows = React.useMemo(() => {
+  if (!isManager) return [];
+  const invLines = collectApprovedProductLines(managerEligibleResponsesForIntel).length;
+  return buildPortalFollowUpIntelligenceRows({
+    awaitingQuoteCount: pipeline.awaiting.length,
+    customerResponseRecordCount: pipeline.reviewed.length,
+    declinedLineCount: countDeclinedProductAndEquipmentLinesInProposalResponses(
+      managerEligibleResponsesForIntel
+    ),
+    approvedDemandLineCount: managerDemandIntel.approvedLineCount || 0,
+    distinctApprovedSkus: managerDemandIntel.distinctSkus || 0,
+    inventoryApprovedLineCount: invLines,
+  });
+}, [
+  isManager,
+  pipeline,
+  managerEligibleResponsesForIntel,
+  managerDemandIntel,
+]);
 
   React.useEffect(() => {
   const loadResponses = async () => {
@@ -10133,6 +10420,12 @@ return (
           <div style={styles.summaryValue}>{myQuotes.length}</div>
         </div>
       </div>
+
+      <DashboardFollowUpIntelligenceCard
+        styles={styles}
+        rows={repFollowUpIntelligenceRows}
+      />
+
 {leaderboard.length > 0 && (
   <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 24 }}>
     <div style={styles.eyebrow}>Dealer Leaderboard</div>
@@ -13448,6 +13741,11 @@ setTier(rec.tier || "Good");
 
                 {isManager && dealerActiveTab === "dashboard" && (
           <>
+            <DashboardFollowUpIntelligenceCard
+              styles={styles}
+              rows={managerFollowUpIntelligenceRows}
+            />
+
             <div style={{ ...styles.card, ...styles.dashboardCard }}>
               <div style={styles.eyebrow}>MANAGER DASHBOARD</div>
               <h3 style={styles.cardTitle}>Team intelligence</h3>
