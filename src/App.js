@@ -7171,6 +7171,355 @@ const getRecommendationMessage = (item) => {
   return "Recommended based on your operating environment, equipment demands, and lubrication requirements to support reliable and efficient performance.";
 };
 
+const getProposalCategoryKey = (item) => {
+  const baseName = String(item.klondike || item.catalogProductName || "").toLowerCase();
+  const pds = findPds(item.catalogProductName || item.klondike);
+  const source = `${String(pds?.category || pds?.segment || "")} ${baseName}`.toLowerCase();
+
+  if (source.includes("hydraulic")) return "Hydraulic Fluids";
+  if (source.includes("grease")) return "Grease";
+  if (source.includes("transmission")) return "Transmission Fluids";
+  if (source.includes("gear")) return "Gear Oils";
+  if (source.includes("coolant") || source.includes("chemical")) return "Coolants / Chemicals";
+  if (source.includes("engine") || source.includes("diesel")) return "HD Engine Oils";
+
+  return "Other";
+};
+
+const getProposalCategorySummary = () => {
+  const items = getProposalItems();
+
+  const buckets = {};
+
+  items.forEach((item) => {
+    const key = getProposalCategoryKey(item);
+    if (!buckets[key]) {
+      buckets[key] = {
+        key,
+        count: 0,
+        packageCounts: {},
+        hasSynthetic: false,
+      };
+    }
+
+    const bucket = buckets[key];
+    bucket.count += 1;
+
+    const pkg =
+      item.packageSize ||
+      item.package ||
+      item.pack_size ||
+      item.pkg ||
+      "";
+    const pkgKey = String(pkg || "").trim() || "Unspecified";
+    bucket.packageCounts[pkgKey] = (bucket.packageCounts[pkgKey] || 0) + 1;
+
+    const name = String(item.klondike || item.catalogProductName || "").toLowerCase();
+    if (name.includes("full synthetic") || name.includes("synthetic")) {
+      bucket.hasSynthetic = true;
+    }
+  });
+
+  return buckets;
+};
+
+const getProposalUpgradeSignals = () => {
+  const items = getProposalItems();
+  if (!items.length) return null;
+
+  const tiers = items.reduce(
+    (acc, item) => {
+      const tier = String(item.tier || "").trim();
+      if (!tier) return acc;
+      acc.total += 1;
+      if (tier === "Best") acc.best += 1;
+      else if (tier === "Better") acc.better += 1;
+      else if (tier === "Good") acc.good += 1;
+      return acc;
+    },
+    { good: 0, better: 0, best: 0, total: 0 }
+  );
+
+  const hasUpgrades = tiers.better > 0 || tiers.best > 0;
+  if (!hasUpgrades) return null;
+
+  return tiers;
+};
+
+const getProposalConsolidationSignals = () => {
+  const buckets = getProposalCategorySummary();
+  const entries = Object.values(buckets || {}).filter(
+    (bucket) => bucket && bucket.key !== "Other" && bucket.count > 1
+  );
+
+  if (!entries.length) return null;
+
+  return entries.sort((a, b) => b.count - a.count);
+};
+
+const renderProposalExecutiveSummaryHighlights = () => {
+  const items = getProposalItems();
+  if (!items.length) return null;
+
+  const buckets = getProposalCategorySummary();
+  const categoryEntries = Object.values(buckets || {}).filter(
+    (bucket) => bucket && bucket.key !== "Other" && bucket.count > 0
+  );
+
+  const primaryCategories = categoryEntries.slice(0, 3);
+
+  const hasEquipmentSelections = Array.isArray(equipmentItems) && equipmentItems.length > 0;
+
+  if (!primaryCategories.length && !hasEquipmentSelections) {
+    return null;
+  }
+
+  return (
+    <ul
+      style={{
+        marginTop: 14,
+        marginBottom: 0,
+        paddingLeft: 20,
+        fontSize: 14,
+        lineHeight: 1.7,
+        color: "#111827",
+      }}
+    >
+      {primaryCategories.length > 0 && (
+        <li>
+          This recommendation focuses on{" "}
+          {primaryCategories
+            .map((bucket) => `${bucket.key.toLowerCase()}`)
+            .join(", ")
+            .replace(/, ([^,]*)$/, " and $1")}{" "}
+          aligned to your current equipment mix.
+        </li>
+      )}
+      {hasEquipmentSelections && (
+        <li>
+          Supporting equipment selections have been included to reinforce handling, storage, and
+          contamination control practices.
+        </li>
+      )}
+    </ul>
+  );
+};
+
+const renderProposalCategorySummarySection = () => {
+  const buckets = getProposalCategorySummary();
+  const ordered = [
+    "HD Engine Oils",
+    "Hydraulic Fluids",
+    "Grease",
+    "Gear Oils",
+    "Transmission Fluids",
+    "Coolants / Chemicals",
+  ]
+    .map((key) => buckets[key])
+    .filter((bucket) => bucket && bucket.count > 0);
+
+  if (!ordered.length) return null;
+
+  return (
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 12,
+        padding: 24,
+        marginBottom: 32,
+        border: "1px solid #e5e7eb",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 900,
+          textTransform: "uppercase",
+          color: "#64748b",
+          letterSpacing: 1,
+          marginBottom: 14,
+        }}
+      >
+        Product Category Summary
+      </div>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: 16,
+          fontSize: 13,
+        }}
+      >
+        {ordered.map((bucket) => {
+          const packages = Object.entries(bucket.packageCounts || {})
+            .filter(([, count]) => count > 0)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .map(([pkg]) => pkg)
+            .filter((pkg) => pkg && pkg !== "Unspecified");
+
+          return (
+            <div
+              key={bucket.key}
+              style={{
+                padding: 12,
+                borderRadius: 10,
+                background: "#f9fafb",
+                border: "1px solid #e5e7eb",
+              }}
+            >
+              <div style={{ fontWeight: 800, color: "#111827", marginBottom: 4 }}>
+                {bucket.key}
+              </div>
+              <div style={{ color: "#4b5563" }}>
+                {bucket.count} product{bucket.count === 1 ? "" : "s"} included
+              </div>
+              {packages.length > 0 && (
+                <div style={{ color: "#6b7280", marginTop: 4 }}>
+                  Package mix: {packages.join(" • ")}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const renderProposalRolloutGuidanceSection = () => {
+  const items = getProposalItems();
+  if (!items.length) return null;
+
+  const buckets = getProposalCategorySummary();
+  const consolidationSignals = getProposalConsolidationSignals();
+  const hasEquipmentSelections = Array.isArray(equipmentItems) && equipmentItems.length > 0;
+
+  const hasMultipleCategories =
+    Object.values(buckets || {}).filter((bucket) => bucket && bucket.key !== "Other" && bucket.count > 0)
+      .length > 1;
+
+  return (
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 12,
+        padding: 24,
+        marginBottom: 32,
+        border: "1px solid #e5e7eb",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 900,
+          textTransform: "uppercase",
+          color: "#64748b",
+          letterSpacing: 1,
+          marginBottom: 12,
+        }}
+      >
+        Operational Rollout Guidance
+      </div>
+      <ul
+        style={{
+          margin: 0,
+          paddingLeft: 20,
+          fontSize: 14,
+          lineHeight: 1.8,
+          color: "#111827",
+        }}
+      >
+        {hasMultipleCategories && (
+          <li>
+            Implementation can be staged by product category so that engine, hydraulic, drivetrain,
+            and grease applications are transitioned in a controlled sequence.
+          </li>
+        )}
+        {hasEquipmentSelections && (
+          <li>
+            Supporting equipment items in this proposal can be used to align storage, dispensing, and
+            contamination control practices with the new lubricant lineup.
+          </li>
+        )}
+        {Array.isArray(consolidationSignals) && consolidationSignals.length > 0 && (
+          <li>
+            Certain categories include multiple products, which may present consolidation
+            opportunities to review against current equipment requirements and approvals.
+          </li>
+        )}
+        <li>
+          Before rollout, the proposal can be compared against existing OEM approvals and internal
+          standards to confirm alignment and document any required exceptions.
+        </li>
+      </ul>
+    </div>
+  );
+};
+
+const renderProposalUpgradeAndConsolidationSection = () => {
+  const items = getProposalItems();
+  if (!items.length) return null;
+
+  const upgradeSignals = getProposalUpgradeSignals();
+  const consolidationSignals = getProposalConsolidationSignals();
+
+  if (!upgradeSignals && (!consolidationSignals || !consolidationSignals.length)) {
+    return null;
+  }
+
+  return (
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 12,
+        padding: 24,
+        marginBottom: 32,
+        border: "1px solid #e5e7eb",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 900,
+          textTransform: "uppercase",
+          color: "#64748b",
+          letterSpacing: 1,
+          marginBottom: 12,
+        }}
+      >
+        Upgrade & Consolidation Visibility
+      </div>
+      <ul
+        style={{
+          margin: 0,
+          paddingLeft: 20,
+          fontSize: 14,
+          lineHeight: 1.8,
+          color: "#111827",
+        }}
+      >
+        {upgradeSignals && (upgradeSignals.better > 0 || upgradeSignals.best > 0) && (
+          <li>
+            This proposal includes higher-tier recommendations (Better/Best) intended to support
+            stronger protection and service life where operating conditions justify the upgrade.
+          </li>
+        )}
+        {Array.isArray(consolidationSignals) &&
+          consolidationSignals.map((bucket) => (
+            <li key={bucket.key}>
+              {bucket.key} includes {bucket.count} products in this recommendation, which may allow
+              for product consolidation after reviewing specific equipment requirements.
+            </li>
+          ))}
+      </ul>
+    </div>
+  );
+};
+
 const getEquipmentReason = (equipmentType) => {
   if (equipmentType === "Diesel Engines") return "Selected for diesel engine applications where soot control, wear protection, and reliable operation under load are priorities.";
   if (equipmentType === "Hydraulic Systems") return "Selected for hydraulic systems where clean operation, anti-wear protection, and consistent fluid performance are critical.";
@@ -10349,8 +10698,12 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
 
   The following recommendations are designed to align lubricant performance with application requirements, optimize handling and storage practices, and support long-term equipment protection. By implementing a more structured lubrication approach, your operation can benefit from improved uptime, more consistent performance, and reduced maintenance-related costs.
 </p>
+        {renderProposalExecutiveSummaryHighlights()}
       </div>
-<div className="page-break" />
+      {renderProposalCategorySummarySection()}
+      {renderProposalRolloutGuidanceSection()}
+      {renderProposalUpgradeAndConsolidationSection()}
+      <div className="page-break" />
      {/* PRODUCT RECOMMENDATIONS SECTION */}
 {getProposalItems().length > 0 && (
   <div style={{ marginBottom: 32 }}>
