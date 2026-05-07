@@ -7188,7 +7188,45 @@ return (
           {!!advisorResult.message && (
             <p style={styles.muted}>{advisorResult.message}</p>
           )}
-          {advisorResult.matches?.length > 0 && (
+          {advisorResult.intent === "comparison" &&
+            advisorResult.matches?.length >= 2 && (
+            <div style={{ ...styles.grid2, gap: 10 }}>
+              {advisorResult.matches.slice(0, 2).map((match, idx) => (
+                <div
+                  key={`${match.productName}-${idx}`}
+                  style={{
+                    ...styles.card,
+                    padding: "12px 12px 10px",
+                    margin: 0,
+                    boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
+                  }}
+                >
+                  <div style={styles.listTitle}>{match.productName}</div>
+                  <p style={{ ...styles.listMeta, marginTop: 6, marginBottom: 8 }}>
+                    {firstAdvisorSentence(match.why) ||
+                      "Comparison details are based on current PDS metadata."}
+                  </p>
+                  {Array.isArray(match.specs) && match.specs.length > 0 && (
+                    <ul
+                      style={{
+                        margin: 0,
+                        paddingLeft: 18,
+                        display: "grid",
+                        gap: 4,
+                        color: "#334155",
+                        fontSize: 12,
+                      }}
+                    >
+                      {match.specs.slice(0, 5).map((spec, specIdx) => (
+                        <li key={`${match.productName}-spec-${specIdx}`}>{spec}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {advisorResult.intent !== "comparison" && advisorResult.matches?.length > 0 && (
             <div style={{ display: "grid", gap: 10 }}>
               {advisorResult.matches.map((match, idx) => (
                 <div key={`${match.productName}-${idx}`} style={styles.listRow}>
