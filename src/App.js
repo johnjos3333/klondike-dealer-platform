@@ -112,6 +112,13 @@ function normalizeAdvisorText(value) {
     .trim();
 }
 
+function firstAdvisorSentence(text) {
+  const value = String(text || "").trim();
+  if (!value) return "";
+  const parts = value.split(/(?<=[.!?])\s+/);
+  return String(parts[0] || value).trim();
+}
+
 function extractAdvisorSpecTerms(question) {
   const raw = String(question || "");
   const terms = new Set();
@@ -138,45 +145,129 @@ function extractAdvisorSpecTerms(question) {
   return Array.from(terms);
 }
 
+function advisorFallbackResponse() {
+  return {
+    intent: "unknown",
+    terms: [],
+    matches: [],
+    answer: "",
+    message:
+      "The current PDS/spec library does not contain enough information to answer confidently.",
+  };
+}
+
 function lookupLubricantAdvisor(question) {
   const normalizedQuestion = normalizeAdvisorText(question);
   if (!normalizedQuestion) {
-    return { terms: [], matches: [] };
+    return {
+      intent: "unknown",
+      terms: [],
+      matches: [],
+      answer: "",
+      message: "Enter a spec or requirement to search the PDS/spec library.",
+    };
   }
 
   const terms = extractAdvisorSpecTerms(question);
-  const fallbackTerms = terms.length
-    ? terms
-    : normalizedQuestion.split(" ").filter((part) => part.length >= 3).slice(0, 6);
+  const isComparisonQuestion =
+    /\b(vs|versus|compare|difference|better than|over)\b/i.test(question);
+  const isBenefitQuestion =
+    /\b(why|advantage|benefit|benefits|application|applications|use|severe service|synthetic blend|full synthetic)\b/i.test(
+      question
+    );
+
+  const fallbackTerms = normalizedQuestion
+    .split(" ")
+    .filter((part) => part.length >= 3)
+    .slice(0, 8);
+  const searchTerms = terms.length ? terms : fallbackTerms;
 
   const matches = Object.entries(PDS_MAP)
     .map(([productName, entry]) => {
       const specs = Array.isArray(entry?.specs) ? entry.specs : [];
       const aliases = Array.isArray(entry?.aliases) ? entry.aliases : [];
+      const why = String(entry?.why || "").trim();
       const searchText = normalizeAdvisorText(
-        [productName, ...specs, ...aliases].join(" ")
+        [productName, why, ...specs, ...aliases].join(" ")
       );
-      const matchedTerms = fallbackTerms.filter((term) =>
+      const matchedTerms = searchTerms.filter((term) =>
         searchText.includes(normalizeAdvisorText(term))
       );
       const matchedSpec = specs.find((spec) =>
-        fallbackTerms.some((term) =>
+        searchTerms.some((term) =>
           normalizeAdvisorText(spec).includes(normalizeAdvisorText(term))
         )
       );
       return {
         productName,
-        why: entry?.why || "",
+        why,
         specs,
         matchedTerms,
         matchedSpec: matchedSpec || "",
+        relevanceScore: matchedTerms.length,
       };
     })
     .filter((row) => row.matchedTerms.length > 0)
-    .sort((a, b) => b.matchedTerms.length - a.matchedTerms.length)
+    .sort((a, b) => b.relevanceScore - a.relevanceScore)
     .slice(0, 5);
 
-  return { terms: fallbackTerms, matches };
+  if (terms.length > 0) {
+    if (!matches.length) {
+      return {
+        intent: "spec",
+        terms,
+        matches: [],
+        answer: "",
+        message:
+          "No matching Klondike products were found in the current PDS/spec library.",
+      };
+    }
+    return {
+      intent: "spec",
+      terms,
+      matches,
+      answer:
+        "These products in the current PDS/spec library match the requested specification.",
+      message: "",
+    };
+  }
+
+  if (isComparisonQuestion) {
+    if (matches.length < 2) {
+      return advisorFallbackResponse();
+    }
+    const first = matches[0];
+    const second = matches[1];
+    return {
+      intent: "comparison",
+      terms: searchTerms,
+      matches: [first, second],
+      answer: `${first.productName}: ${firstAdvisorSentence(
+        first.why
+      )} ${second.productName}: ${firstAdvisorSentence(second.why)}`,
+      message: "",
+    };
+  }
+
+  if (isBenefitQuestion) {
+    if (!matches.length) {
+      return advisorFallbackResponse();
+    }
+    const top = matches[0];
+    const supportProducts = matches.slice(0, 3).map((row) => row.productName);
+    const supportLabel = supportProducts.length
+      ? ` Relevant products: ${supportProducts.join(", ")}.`
+      : "";
+    return {
+      intent: "benefit",
+      terms: searchTerms,
+      matches: matches.slice(0, 3),
+      answer: `${firstAdvisorSentence(top.why)}${supportLabel}`,
+      message: "",
+    };
+  }
+
+  return advisorFallbackResponse();
 }
 
 const OCR_FAILURE_RECOVERY_MESSAGE =
@@ -4849,13 +4940,12 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       }
       const result = lookupLubricantAdvisor(question);
       setAdvisorResult({
+        intent: result.intent,
         question,
         terms: result.terms,
         matches: result.matches,
-        message:
-          result.matches.length > 0
-            ? ""
-            : "No matching Klondike products were found in the current PDS/spec library.",
+        answer: result.answer,
+        message: result.message,
       });
     }, [advisorQuestion]);
 
@@ -7092,6 +7182,9 @@ return (
       </div>
       {advisorResult && (
         <div style={{ marginTop: 12 }}>
+          {!!advisorResult.answer && (
+            <p style={{ ...styles.cardBody, marginBottom: 10 }}>{advisorResult.answer}</p>
+          )}
           {!!advisorResult.message && (
             <p style={styles.muted}>{advisorResult.message}</p>
           )}
@@ -7105,7 +7198,8 @@ return (
                       Why:{" "}
                       {match.matchedSpec
                         ? `Matches ${match.matchedSpec}.`
-                        : "Matches requested specification terms."}
+                        : firstAdvisorSentence(match.why) ||
+                          "Matches requested terms in the PDS/spec library."}
                     </div>
                   </div>
                 </div>
