@@ -156,6 +156,55 @@ function advisorFallbackResponse() {
   };
 }
 
+const ADVISOR_MANUFACTURER_ALIAS_MAP = {
+  caterpillar: ["cat", "caterpillar", "ecf", "to-4", "to-4m"],
+  "john deere": ["john deere", "jd", "jdm", "j20c", "j20d"],
+  jcb: ["jcb"],
+  gm: ["gm", "general motors", "dexos", "dexos1", "dexos2", "dexosd"],
+  cummins: [
+    "cummins",
+    "ces",
+    "ces 20086",
+    "ces 20087",
+    "ces 20074",
+    "ces 14603",
+  ],
+  detroit: [
+    "detroit",
+    "detroit diesel",
+    "dfs",
+    "93k",
+    "93k222",
+    "93k223",
+    "93k216",
+    "93k217",
+  ],
+  mack: ["mack", "eos", "eos-4.5", "go-j", "go-h", "to-a plus"],
+  volvo: ["volvo", "vds", "vds-4", "vds-4.5"],
+  allison: ["allison", "tes", "tes-295", "tes 668", "c-4", "c4"],
+  ford: ["ford", "wss", "m2c"],
+  hydraulic_oem: ["denison", "hf-0", "hf-1", "hf-2", "eaton", "vickers"],
+};
+
+function getAdvisorManufacturerAliases(question) {
+  const normalized = normalizeAdvisorText(question);
+  const aliasTerms = new Set();
+  Object.values(ADVISOR_MANUFACTURER_ALIAS_MAP).forEach((aliases) => {
+    const normalizedAliases = (aliases || [])
+      .map((alias) => normalizeAdvisorText(alias))
+      .filter(Boolean);
+    const clusterMatched = normalizedAliases.some((alias) =>
+      normalized.includes(alias)
+    );
+    if (!clusterMatched) return;
+    normalizedAliases.forEach((alias) => {
+      const token = normalizeAdvisorText(alias);
+      if (token) aliasTerms.add(token);
+    });
+  });
+  return Array.from(aliasTerms);
+}
+
 function lookupLubricantAdvisor(question) {
   const normalizedQuestion = normalizeAdvisorText(question);
   if (!normalizedQuestion) {
@@ -180,7 +229,11 @@ function lookupLubricantAdvisor(question) {
     .split(" ")
     .filter((part) => part.length >= 3)
     .slice(0, 8);
-  const searchTerms = terms.length ? terms : fallbackTerms;
+  const manufacturerAliases = getAdvisorManufacturerAliases(question);
+  const baseTerms = terms.length ? terms : fallbackTerms;
+  const searchTerms = Array.from(
+    new Set([...baseTerms, ...manufacturerAliases].map((term) => normalizeAdvisorText(term)).filter(Boolean))
+  );
 
   const matches = Object.entries(PDS_MAP)
     .map(([productName, entry]) => {
@@ -229,6 +282,27 @@ function lookupLubricantAdvisor(question) {
       matches,
       answer:
         "These products in the current PDS/spec library match the requested specification.",
+      message: "",
+    };
+  }
+
+  if (manufacturerAliases.length > 0) {
+    if (!matches.length) {
+      return {
+        intent: "manufacturer",
+        terms: manufacturerAliases,
+        matches: [],
+        answer: "",
+        message:
+          "No matching Klondike products were found in the current PDS/spec library.",
+      };
+    }
+    return {
+      intent: "manufacturer",
+      terms: manufacturerAliases,
+      matches,
+      answer:
+        "These products in the current PDS/spec library match the requested manufacturer/spec terms.",
       message: "",
     };
   }
@@ -5136,10 +5210,11 @@ setPricingMap(map);
       ? [
           { id: "dashboard", label: "Dashboard" },
           { id: "quote", label: "Start New Quote" },
+          { id: "advisor", label: "Lubricant Advisor" },
           { id: "cross", label: "Cross Reference" },
           { id: "library", label: "Quote / Proposal Library" },
           { id: "pds", label: "PDS Library" },
-          { id: "proposal_view", label: "Proposal Viewer (Demo)" },
+          { id: "proposal_view", label: "Proposal Viewer" },
         ]
             : isManager
       ? [
@@ -5512,6 +5587,9 @@ const handleUseAdvisorProduct = (productName) => {
   setKlondike(candidate);
   setPackageSize("");
   setQuoteStep(2);
+  if (dealerActiveTab === "advisor") {
+    setDealerActiveTab("quote");
+  }
 
   if (hasCatalogMatch) {
     setSelectedProduct({
@@ -7182,170 +7260,6 @@ return (
     </div>
 
     {/* TIER + PACKAGE */}
-    <div style={{ ...styles.card, marginTop: 14 }}>
-      <div style={styles.eyebrow}>LUBRICANT ADVISOR</div>
-      <h4 style={{ ...styles.cardTitle, marginBottom: 8 }}>PDS-backed Spec Search</h4>
-      <p style={{ ...styles.cardBody, marginBottom: 12 }}>
-        Ask for a specification and review matching Klondike products from the current
-        PDS/spec library.
-      </p>
-      <p style={{ ...styles.listMeta, marginBottom: 10, fontWeight: 700 }}>
-        Source: Current Klondike PDS/spec library
-      </p>
-      <div style={{ ...styles.grid2, alignItems: "center" }}>
-        <input
-          style={styles.input}
-          placeholder="e.g. What oil meets Cummins CES 20086?"
-          value={advisorQuestion}
-          onChange={(e) => setAdvisorQuestion(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleAskLubricantAdvisor();
-            }
-          }}
-        />
-        <button
-          type="button"
-          style={{ ...styles.secondaryButton, minHeight: 46 }}
-          onClick={handleAskLubricantAdvisor}
-        >
-          Ask
-        </button>
-      </div>
-      {advisorResult && (
-        <div style={{ marginTop: 12 }}>
-          {!!advisorResult.answer && (
-            <p style={{ ...styles.cardBody, marginBottom: 10 }}>{advisorResult.answer}</p>
-          )}
-          {!!advisorResult.message && (
-            <p style={styles.muted}>{advisorResult.message}</p>
-          )}
-          {advisorResult.intent === "comparison" &&
-            advisorResult.matches?.length >= 2 && (
-            <div style={{ ...styles.grid2, gap: 10 }}>
-              {advisorResult.matches.slice(0, 2).map((match, idx) => (
-                <div
-                  key={`${match.productName}-${idx}`}
-                  style={{
-                    ...styles.card,
-                    padding: "12px 12px 10px",
-                    margin: 0,
-                    boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
-                  }}
-                >
-                  <div style={styles.listTitle}>{match.productName}</div>
-                  <p style={{ ...styles.listMeta, marginTop: 6, marginBottom: 8 }}>
-                    {firstAdvisorSentence(match.why) ||
-                      "Comparison details are based on current PDS metadata."}
-                  </p>
-                  {!!match.url && (
-                    <a
-                      href={match.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        ...styles.secondaryButton,
-                        display: "inline-flex",
-                        minHeight: 34,
-                        padding: "6px 10px",
-                        fontSize: 12,
-                        marginBottom: 8,
-                        textDecoration: "none",
-                      }}
-                    >
-                      View PDS
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleUseAdvisorProduct(match.productName)}
-                    style={{
-                      ...styles.secondaryButton,
-                      display: "inline-flex",
-                      minHeight: 34,
-                      padding: "6px 10px",
-                      fontSize: 12,
-                      marginBottom: 8,
-                    }}
-                  >
-                    Use as Selected Product
-                  </button>
-                  {Array.isArray(match.specs) && match.specs.length > 0 && (
-                    <ul
-                      style={{
-                        margin: 0,
-                        paddingLeft: 18,
-                        display: "grid",
-                        gap: 4,
-                        color: "#334155",
-                        fontSize: 12,
-                      }}
-                    >
-                      {match.specs.slice(0, 5).map((spec, specIdx) => (
-                        <li key={`${match.productName}-spec-${specIdx}`}>{spec}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          {advisorResult.intent !== "comparison" && advisorResult.matches?.length > 0 && (
-            <div style={{ display: "grid", gap: 10 }}>
-              {advisorResult.matches.map((match, idx) => (
-                <div key={`${match.productName}-${idx}`} style={styles.listRow}>
-                  <div>
-                    <div style={styles.listTitle}>{match.productName}</div>
-                    <div style={styles.listMeta}>
-                      Why:{" "}
-                      {match.matchedSpec
-                        ? `Matches ${match.matchedSpec}.`
-                        : firstAdvisorSentence(match.why) ||
-                          "Matches requested terms in the PDS/spec library."}
-                    </div>
-                    {!!match.url && (
-                      <a
-                        href={match.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          ...styles.secondaryButton,
-                          display: "inline-flex",
-                          minHeight: 32,
-                          padding: "5px 10px",
-                          fontSize: 12,
-                          marginTop: 8,
-                          textDecoration: "none",
-                        }}
-                      >
-                        View PDS
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleUseAdvisorProduct(match.productName)}
-                      style={{
-                        ...styles.secondaryButton,
-                        display: "inline-flex",
-                        minHeight: 32,
-                        padding: "5px 10px",
-                        fontSize: 12,
-                        marginTop: 8,
-                        marginLeft: 8,
-                      }}
-                    >
-                      Use as Selected Product
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-
     <div style={{ ...styles.grid3, marginTop: 14 }}>
       <select
         style={styles.input}
@@ -7811,6 +7725,175 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                     </div>
         </div>
       )}
+
+        {dealerActiveTab === "advisor" && isRep && (
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>LUBRICANT ADVISOR</div>
+            <h3 style={{ ...styles.cardTitle, marginBottom: 8 }}>Lubricant Advisor</h3>
+            <p style={{ ...styles.cardBody, marginBottom: 12 }}>
+              Ask product, spec, or application questions using the current Klondike
+              PDS/spec library.
+            </p>
+            <p style={{ ...styles.listMeta, marginBottom: 10, fontWeight: 700 }}>
+              Source: Current Klondike PDS/spec library
+            </p>
+            <div style={{ ...styles.grid2, alignItems: "center" }}>
+              <input
+                style={styles.input}
+                placeholder="e.g. What oil meets Cummins CES 20086?"
+                value={advisorQuestion}
+                onChange={(e) => setAdvisorQuestion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAskLubricantAdvisor();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                style={{ ...styles.secondaryButton, minHeight: 46 }}
+                onClick={handleAskLubricantAdvisor}
+              >
+                Ask
+              </button>
+            </div>
+            {advisorResult && (
+              <div style={{ marginTop: 12 }}>
+                {!!advisorResult.answer && (
+                  <p style={{ ...styles.cardBody, marginBottom: 10 }}>
+                    {advisorResult.answer}
+                  </p>
+                )}
+                {!!advisorResult.message && (
+                  <p style={styles.muted}>{advisorResult.message}</p>
+                )}
+                {advisorResult.intent === "comparison" &&
+                  advisorResult.matches?.length >= 2 && (
+                  <div style={{ ...styles.grid2, gap: 10 }}>
+                    {advisorResult.matches.slice(0, 2).map((match, idx) => (
+                      <div
+                        key={`${match.productName}-${idx}`}
+                        style={{
+                          ...styles.card,
+                          padding: "12px 12px 10px",
+                          margin: 0,
+                          boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
+                        }}
+                      >
+                        <div style={styles.listTitle}>{match.productName}</div>
+                        <p style={{ ...styles.listMeta, marginTop: 6, marginBottom: 8 }}>
+                          {firstAdvisorSentence(match.why) ||
+                            "Comparison details are based on current PDS metadata."}
+                        </p>
+                        {!!match.url && (
+                          <a
+                            href={match.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              ...styles.secondaryButton,
+                              display: "inline-flex",
+                              minHeight: 34,
+                              padding: "6px 10px",
+                              fontSize: 12,
+                              marginBottom: 8,
+                              textDecoration: "none",
+                            }}
+                          >
+                            View PDS
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleUseAdvisorProduct(match.productName)}
+                          style={{
+                            ...styles.secondaryButton,
+                            display: "inline-flex",
+                            minHeight: 34,
+                            padding: "6px 10px",
+                            fontSize: 12,
+                            marginBottom: 8,
+                          }}
+                        >
+                          Use as Selected Product
+                        </button>
+                        {Array.isArray(match.specs) && match.specs.length > 0 && (
+                          <ul
+                            style={{
+                              margin: 0,
+                              paddingLeft: 18,
+                              display: "grid",
+                              gap: 4,
+                              color: "#334155",
+                              fontSize: 12,
+                            }}
+                          >
+                            {match.specs.slice(0, 5).map((spec, specIdx) => (
+                              <li key={`${match.productName}-spec-${specIdx}`}>{spec}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {advisorResult.intent !== "comparison" &&
+                  advisorResult.matches?.length > 0 && (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {advisorResult.matches.map((match, idx) => (
+                      <div key={`${match.productName}-${idx}`} style={styles.listRow}>
+                        <div>
+                          <div style={styles.listTitle}>{match.productName}</div>
+                          <div style={styles.listMeta}>
+                            Why:{" "}
+                            {match.matchedSpec
+                              ? `Matches ${match.matchedSpec}.`
+                              : firstAdvisorSentence(match.why) ||
+                                "Matches requested terms in the PDS/spec library."}
+                          </div>
+                          {!!match.url && (
+                            <a
+                              href={match.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                ...styles.secondaryButton,
+                                display: "inline-flex",
+                                minHeight: 32,
+                                padding: "5px 10px",
+                                fontSize: 12,
+                                marginTop: 8,
+                                textDecoration: "none",
+                              }}
+                            >
+                              View PDS
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleUseAdvisorProduct(match.productName)}
+                            style={{
+                              ...styles.secondaryButton,
+                              display: "inline-flex",
+                              minHeight: 32,
+                              padding: "5px 10px",
+                              fontSize: 12,
+                              marginTop: 8,
+                              marginLeft: 8,
+                            }}
+                          >
+                            Use as Selected Product
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {dealerActiveTab === "proposal_view" && isRep && (
   <div className="proposal-print-area" style={{ background: "#f8fafc", minHeight: "100vh", paddingBottom: 40 }}>
@@ -10828,8 +10911,8 @@ const styles = {
 
   portalCommandBar: {
     display: "flex",
-    gap: 10,
-    flexWrap: "wrap",
+    gap: 8,
+    flexWrap: "nowrap",
     alignItems: "center",
     padding: "var(--kd-portal-command-padding)",
     borderRadius: "var(--kd-portal-command-radius)",
@@ -10838,6 +10921,9 @@ const styles = {
     boxShadow: "var(--kd-portal-command-shadow)",
     marginBottom: 4,
     minWidth: 0,
+    overflowX: "auto",
+    overflowY: "hidden",
+    WebkitOverflowScrolling: "touch",
   },
 
   portalTabButton: {
@@ -10854,6 +10940,8 @@ const styles = {
     transition:
       "border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease",
     outline: "none",
+    whiteSpace: "nowrap",
+    flex: "0 0 auto",
   },
 
   portalTabButtonActive: {
