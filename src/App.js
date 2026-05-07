@@ -2563,6 +2563,81 @@ const handleFinishDealerEnrollment = async () => {
       rows,
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.topReps]);
+  const adminTerritoryPerformanceRollup = React.useMemo(() => {
+    const dealers = Array.isArray(dealerNetworkPerformance)
+      ? dealerNetworkPerformance
+      : [];
+    const totalDealers = dealers.length;
+    const totalQuotesCreated = dealers.reduce(
+      (sum, dealer) => sum + Number(dealer?.quotesCreated || 0),
+      0
+    );
+    const totalProposalsSent = dealers.reduce(
+      (sum, dealer) => sum + Number(dealer?.proposalsSent || 0),
+      0
+    );
+    const totalCustomerResponses = dealers.reduce(
+      (sum, dealer) => sum + Number(dealer?.customerResponses || 0),
+      0
+    );
+    const hasApprovedRevenueData = dealers.some((dealer) =>
+      Number.isFinite(Number(dealer?.revenueWon))
+    );
+    const approvedRevenue = hasApprovedRevenueData
+      ? dealers.reduce((sum, dealer) => sum + Number(dealer?.revenueWon || 0), 0)
+      : null;
+    const totalOcrScans = Number(ocrSnapshot?.totalScans || 0);
+    const mostActiveDealer = dealers.reduce((best, dealer) => {
+      const activityScore =
+        Number(dealer?.quotesCreated || 0) +
+        Number(dealer?.proposalsSent || 0) +
+        Number(dealer?.customerResponses || 0);
+      if (!best || activityScore > best.activityScore) {
+        return {
+          name: String(dealer?.name || "").trim(),
+          activityScore,
+        };
+      }
+      return best;
+    }, null);
+    const mostActiveRep = Array.isArray(adminRepLeaderboardFoundation?.rows)
+      ? adminRepLeaderboardFoundation.rows[0] || null
+      : null;
+    const hasActivityData =
+      totalDealers > 0 ||
+      totalQuotesCreated > 0 ||
+      totalProposalsSent > 0 ||
+      totalCustomerResponses > 0 ||
+      totalOcrScans > 0;
+    let executiveSummary = "";
+    if (hasActivityData && totalProposalsSent > 0 && totalCustomerResponses > 0) {
+      executiveSummary =
+        "Field activity and proposal engagement continue to expand across the territory.";
+    } else if (hasActivityData && totalQuotesCreated > 0) {
+      executiveSummary =
+        "Dealer quote activity is building momentum across the territory network.";
+    } else if (hasActivityData && totalOcrScans > 0) {
+      executiveSummary =
+        "OCR field scanning activity is increasing and improving territory visibility.";
+    }
+    return {
+      hasActivityData,
+      totalDealers,
+      totalQuotesCreated,
+      totalProposalsSent,
+      totalCustomerResponses,
+      totalOcrScans,
+      hasApprovedRevenueData,
+      approvedRevenue,
+      mostActiveDealerName:
+        Number(mostActiveDealer?.activityScore || 0) > 0
+          ? mostActiveDealer?.name || ""
+          : "",
+      mostActiveRepName:
+        Number(mostActiveRep?.activityCount || 0) > 0 ? mostActiveRep?.name || "" : "",
+      executiveSummary,
+    };
+  }, [dealerNetworkPerformance, ocrSnapshot?.totalScans, adminRepLeaderboardFoundation]);
   const renderPlatformAdminView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
@@ -2639,6 +2714,159 @@ const handleFinishDealerEnrollment = async () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <div
+          style={{
+            ...styles.card,
+            background:
+              "linear-gradient(145deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.92) 58%, rgba(30, 41, 59, 0.95) 100%)",
+            border: "1px solid rgba(96, 165, 250, 0.34)",
+            boxShadow:
+              "0 20px 36px rgba(2, 6, 23, 0.42), inset 0 1px 0 rgba(148, 163, 184, 0.15)",
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ ...styles.summaryLabel, color: "#93c5fd", letterSpacing: "0.06em" }}>
+            TERRITORY PERFORMANCE
+          </div>
+          {adminTerritoryPerformanceRollup.hasActivityData ? (
+            <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                }}
+              >
+                {[
+                  {
+                    label: "Total Dealers",
+                    value: adminTerritoryPerformanceRollup.totalDealers,
+                    color: "rgba(96, 165, 250, 0.75)",
+                  },
+                  {
+                    label: "Total Quotes Created",
+                    value: adminTerritoryPerformanceRollup.totalQuotesCreated,
+                    color: "rgba(246, 165, 49, 0.8)",
+                  },
+                  {
+                    label: "Total Proposals Sent",
+                    value: adminTerritoryPerformanceRollup.totalProposalsSent,
+                    color: "rgba(96, 165, 250, 0.75)",
+                  },
+                  {
+                    label: "Total Customer Responses",
+                    value: adminTerritoryPerformanceRollup.totalCustomerResponses,
+                    color: "rgba(246, 165, 49, 0.8)",
+                  },
+                  {
+                    label: "OCR Scan Activity",
+                    value: adminTerritoryPerformanceRollup.totalOcrScans,
+                    color: "rgba(96, 165, 250, 0.75)",
+                  },
+                ]
+                  .concat(
+                    adminTerritoryPerformanceRollup.hasApprovedRevenueData
+                      ? [
+                          {
+                            label: "Approved Revenue",
+                            value: `$${Number(
+                              adminTerritoryPerformanceRollup.approvedRevenue || 0
+                            ).toLocaleString()}`,
+                            color: "rgba(246, 165, 49, 0.8)",
+                          },
+                        ]
+                      : []
+                  )
+                  .map((item) => (
+                    <div
+                      key={item.label}
+                      style={{
+                        background: "rgba(15, 23, 42, 0.58)",
+                        border: "1px solid rgba(148, 163, 184, 0.24)",
+                        borderLeft: `2px solid ${item.color}`,
+                        borderRadius: 10,
+                        padding: "10px 12px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#93c5fd",
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {item.label}
+                      </div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: "#f8fafc", marginTop: 4 }}>
+                        {item.value}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                }}
+              >
+                <div
+                  style={{
+                    background: "rgba(30, 41, 59, 0.5)",
+                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    color: "#e2e8f0",
+                    fontSize: 13,
+                  }}
+                >
+                  Most Active Dealer:{" "}
+                  <strong>{adminTerritoryPerformanceRollup.mostActiveDealerName || "—"}</strong>
+                </div>
+                <div
+                  style={{
+                    background: "rgba(30, 41, 59, 0.5)",
+                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    borderLeft: "2px solid rgba(96, 165, 250, 0.75)",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    color: "#e2e8f0",
+                    fontSize: 13,
+                  }}
+                >
+                  Most Active Rep:{" "}
+                  <strong>{adminTerritoryPerformanceRollup.mostActiveRepName || "—"}</strong>
+                </div>
+              </div>
+              {adminTerritoryPerformanceRollup.executiveSummary ? (
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#cbd5e1",
+                    background: "rgba(30, 41, 59, 0.5)",
+                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    marginTop: 2,
+                  }}
+                >
+                  {adminTerritoryPerformanceRollup.executiveSummary}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+              Territory performance data will populate as dealer and rep activity
+              increases.
+            </div>
+          )}
         </div>
       )}
 
@@ -10423,77 +10651,6 @@ setTier(rec.tier || "Good");
               Browse {PDS_LIBRARY_INDEX.length} Klondike product data sheets.
               Links open the PDF in a new tab.
             </p>
-
-            <div
-              style={{
-                marginTop: 22,
-                marginBottom: 6,
-                padding: "22px 22px 24px",
-                borderRadius: 18,
-                background:
-                  "linear-gradient(145deg, #0c1629 0%, #152036 42%, #1e293b 100%)",
-                border: "1px solid rgba(246, 165, 49, 0.28)",
-                boxShadow:
-                  "0 14px 36px rgba(15, 23, 42, 0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
-              }}
-            >
-              <div
-                style={{
-                  ...styles.eyebrow,
-                  color: "#94a3b8",
-                  opacity: 1,
-                  letterSpacing: "0.08em",
-                }}
-              >
-                TECHNICAL ADVISOR
-              </div>
-              <h4
-                style={{
-                  margin: "10px 0 0",
-                  fontSize: 20,
-                  fontWeight: 900,
-                  color: "#f8fafc",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                Klondike Technical Advisor
-              </h4>
-              <p
-                style={{
-                  margin: "12px 0 18px",
-                  fontSize: 14,
-                  lineHeight: 1.58,
-                  color: "#e2e8f0",
-                  fontWeight: 600,
-                }}
-              >
-                AI-assisted lubricant application guidance powered by Klondike
-                product data and PDS documents.
-              </p>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 10,
-                  alignItems: "center",
-                }}
-              >
-                <button
-                  type="button"
-                  disabled
-                  style={{
-                    ...styles.secondaryButton,
-                    opacity: 0.58,
-                    cursor: "not-allowed",
-                  }}
-                >
-                  Ask Technical Advisor
-                </button>
-                <span style={{ ...styles.listMeta, color: "#94a3b8" }}>
-                  Coming soon
-                </span>
-              </div>
-            </div>
 
             {Object.entries(
               PDS_LIBRARY_INDEX.reduce((acc, row) => {
