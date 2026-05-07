@@ -36,6 +36,22 @@ Our team is committed to delivering not only high-quality products, but also the
 
 Your representative will follow up to review next steps and ensure a smooth implementation.`;
 
+/**
+ * Label OCR stub. Do not put API keys here — real OCR should call a Supabase Edge Function
+ * (or other backend) so secrets stay off the client.
+ * @param {File} imageFile
+ * @returns {Promise<{ text: string }>}
+ */
+async function extractLabelTextFromImage(imageFile) {
+  if (!imageFile) {
+    return { text: "" };
+  }
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  return {
+    text: "Detected label text will appear here once OCR is connected.",
+  };
+}
+
 function LeaderboardBadgeTray({
   index,
   proposals,
@@ -4166,6 +4182,60 @@ const [crossSearch, setCrossSearch] = useState("");
 const [crossReferenceResult, setCrossReferenceResult] = useState(null);
 const [crossCatalogMap, setCrossCatalogMap] = React.useState({});
 const [selectedPackage, setSelectedPackage] = React.useState("");
+    const labelScanInputRef = React.useRef(null);
+    const scannedLabelBlobRef = React.useRef(null);
+    const [scannedLabelImage, setScannedLabelImage] = React.useState(null);
+    const [scannedLabelPreview, setScannedLabelPreview] = React.useState(null);
+    const [scannedLabelMessage, setScannedLabelMessage] = React.useState("");
+    const [scannedLabelOcrLoading, setScannedLabelOcrLoading] =
+      React.useState(false);
+    const [scannedLabelExtractedText, setScannedLabelExtractedText] =
+      React.useState("");
+    React.useEffect(() => {
+      return () => {
+        if (scannedLabelBlobRef.current) {
+          URL.revokeObjectURL(scannedLabelBlobRef.current);
+          scannedLabelBlobRef.current = null;
+        }
+      };
+    }, []);
+
+    const clearScannedLabel = React.useCallback(() => {
+      if (scannedLabelBlobRef.current) {
+        URL.revokeObjectURL(scannedLabelBlobRef.current);
+        scannedLabelBlobRef.current = null;
+      }
+      setScannedLabelPreview(null);
+      setScannedLabelImage(null);
+      setScannedLabelMessage("");
+      setScannedLabelOcrLoading(false);
+      setScannedLabelExtractedText("");
+    }, []);
+
+    const handleOpenLabelScan = React.useCallback(() => {
+      labelScanInputRef.current?.click();
+    }, []);
+
+    const handleLabelScanFileChange = React.useCallback((e) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file || !String(file.type || "").startsWith("image/")) {
+        return;
+      }
+      if (scannedLabelBlobRef.current) {
+        URL.revokeObjectURL(scannedLabelBlobRef.current);
+      }
+      const url = URL.createObjectURL(file);
+      scannedLabelBlobRef.current = url;
+      setScannedLabelPreview(url);
+      setScannedLabelImage(file);
+      setScannedLabelExtractedText("");
+      setScannedLabelOcrLoading(false);
+      setScannedLabelMessage(
+        "Image captured. AI label recognition will be connected next."
+      );
+    }, []);
+
     const [companyName, setCompanyName] = React.useState("");
     const [contactName, setContactName] = React.useState("");
     const [quoteContactEmail, setQuoteContactEmail] = React.useState("");
@@ -4189,6 +4259,32 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
     const [packageSize, setPackageSize] = React.useState("");
     const [quoteSearchResults, setQuoteSearchResults] = React.useState([]);
     const [selectedProduct, setSelectedProduct] = React.useState(null);
+
+    const handleExtractLabelText = React.useCallback(async () => {
+      if (!scannedLabelImage || scannedLabelOcrLoading) return;
+      setScannedLabelOcrLoading(true);
+      try {
+        const { text } = await extractLabelTextFromImage(scannedLabelImage);
+        setScannedLabelExtractedText(text || "");
+      } finally {
+        setScannedLabelOcrLoading(false);
+      }
+    }, [scannedLabelImage, scannedLabelOcrLoading]);
+
+    const handleUseTextForCrossReference = React.useCallback(() => {
+      const value = String(scannedLabelExtractedText || "").trim();
+      if (!value) return;
+      setCompetitor(value);
+      setCrossSearch(value);
+      setSelectedPackage("");
+      setCrossReferenceResult(null);
+      setCrossCatalogMap({});
+      setKlondike("");
+      setPackageSize("");
+      setSelectedProduct(null);
+      setQuoteMessage("");
+      setDealerActiveTab("cross");
+    }, [scannedLabelExtractedText]);
 
     const [proposalDecisions, setProposalDecisions] = React.useState({});
 const [proposalFeedback, setProposalFeedback] = React.useState({});
@@ -5343,6 +5439,202 @@ return (
           ))}
         </div>
 
+        {isRep && (
+          <input
+            ref={labelScanInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={handleLabelScanFileChange}
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              padding: 0,
+              margin: -1,
+              overflow: "hidden",
+              clip: "rect(0,0,0,0)",
+              whiteSpace: "nowrap",
+              border: 0,
+            }}
+          />
+        )}
+
+        {isRep &&
+          scannedLabelPreview &&
+          scannedLabelImage && (
+          <div
+            className="kd-label-scan-preview"
+            style={{
+              marginTop: 6,
+              marginBottom: 4,
+              padding: "14px 16px 16px",
+              borderRadius: 16,
+              background:
+                "linear-gradient(148deg, #0f172a 0%, #1e293b 55%, #0f172a 100%)",
+              border: "1px solid rgba(246, 165, 49, 0.25)",
+              boxShadow:
+                "0 14px 32px rgba(15, 23, 42, 0.22), inset 0 1px 0 rgba(255,255,255,0.04)",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 14,
+              alignItems: "flex-start",
+              maxWidth: "100%",
+            }}
+          >
+            <div
+              style={{
+                flex: "0 0 auto",
+                borderRadius: 12,
+                overflow: "hidden",
+                border: "1px solid rgba(226,232,240,0.15)",
+                background: "#020617",
+              }}
+            >
+              <img
+                src={scannedLabelPreview}
+                alt=""
+                style={{
+                  display: "block",
+                  width: 96,
+                  height: 96,
+                  objectFit: "cover",
+                }}
+              />
+            </div>
+            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  color: "#94a3b8",
+                  marginBottom: 6,
+                  textTransform: "uppercase",
+                }}
+              >
+                Label capture
+              </div>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#e2e8f0",
+                  marginBottom: 6,
+                  wordBreak: "break-word",
+                }}
+              >
+                {scannedLabelImage.name || "Captured image"}
+              </div>
+              <p style={{ margin: "0 0 12px", fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}>
+                {scannedLabelMessage}
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.secondaryButton,
+                    fontSize: 13,
+                    padding: "8px 14px",
+                  }}
+                  onClick={clearScannedLabel}
+                  disabled={scannedLabelOcrLoading}
+                >
+                  Clear image
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.primaryButton,
+                    fontSize: 13,
+                    padding: "8px 14px",
+                  }}
+                  onClick={handleOpenLabelScan}
+                  disabled={scannedLabelOcrLoading}
+                >
+                  Replace image
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.primaryButton,
+                    fontSize: 13,
+                    padding: "8px 14px",
+                    opacity: scannedLabelOcrLoading ? 0.65 : 1,
+                  }}
+                  onClick={handleExtractLabelText}
+                  disabled={scannedLabelOcrLoading}
+                >
+                  {scannedLabelOcrLoading ? "Extracting…" : "Extract Label Text"}
+                </button>
+              </div>
+              {scannedLabelOcrLoading && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: "#fbbf24",
+                  }}
+                >
+                  Processing image for text…
+                </div>
+              )}
+              <div style={{ marginTop: 14, width: "100%" }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: "0.08em",
+                    color: "#94a3b8",
+                    marginBottom: 8,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Detected Label Text
+                </div>
+                <textarea
+                  value={scannedLabelExtractedText}
+                  onChange={(e) => setScannedLabelExtractedText(e.target.value)}
+                  placeholder='Run "Extract Label Text" or type here…'
+                  rows={4}
+                  disabled={scannedLabelOcrLoading}
+                  style={{
+                    ...styles.textarea,
+                    width: "100%",
+                    minHeight: 100,
+                    maxWidth: "100%",
+                    boxSizing: "border-box",
+                    fontSize: 14,
+                    background: "#0f172a",
+                    color: "#f1f5f9",
+                    border: "1px solid rgba(148, 163, 184, 0.35)",
+                    borderRadius: 12,
+                  }}
+                />
+                <button
+                  type="button"
+                  style={{
+                    ...styles.secondaryButton,
+                    marginTop: 10,
+                    fontSize: 13,
+                    padding: "8px 14px",
+                  }}
+                  disabled={
+                    scannedLabelOcrLoading ||
+                    !String(scannedLabelExtractedText || "").trim()
+                  }
+                  onClick={handleUseTextForCrossReference}
+                >
+                  Use Text for Cross Reference
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
 {dealerActiveTab === "dashboard" && isRep && (
   <>
     <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 24 }}>
@@ -5954,6 +6246,31 @@ return (
       setQuoteMessage("");
     }}
   />
+
+  <div
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 10,
+      alignItems: "center",
+    }}
+  >
+    <button
+      type="button"
+      style={{
+        ...styles.secondaryButton,
+        flex: "0 1 auto",
+        whiteSpace: "nowrap",
+        minHeight: 40,
+        fontSize: 13,
+        padding: "8px 14px",
+      }}
+      onClick={handleOpenLabelScan}
+    >
+      📷 Scan Product Label
+    </button>
+  </div>
 
   {quickCrossLoading && (
     <div style={{ ...styles.listMeta, marginTop: 6 }}>
@@ -7535,9 +7852,17 @@ We look forward to partnering with you on implementation and delivering measurab
     Search a competitor product and compare Good / Better / Best Klondike recommendations.
   </p>
 
-  <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
-    <input
-      style={styles.input}
+  <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20 }}>
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 10,
+        alignItems: "stretch",
+      }}
+    >
+      <input
+        style={{ ...styles.input, flex: "1 1 220px", minWidth: 0 }}
       placeholder="Example: Shell Rotella T4 15W-40"
       value={crossSearch}
       onChange={(e) => {
@@ -7547,10 +7872,23 @@ We look forward to partnering with you on implementation and delivering measurab
   setCrossCatalogMap({});
 }}
     />
+      <button
+        type="button"
+        style={{
+          ...styles.secondaryButton,
+          flex: "0 1 auto",
+          whiteSpace: "nowrap",
+          minHeight: 44,
+        }}
+        onClick={handleOpenLabelScan}
+      >
+        📷 Scan Label
+      </button>
+    </div>
 
     <button
       type="button"
-      style={styles.primaryButton}
+      style={{ ...styles.primaryButton, width: "100%", maxWidth: "100%" }}
       onClick={handleCrossReferenceSearch}
     >
       Search Cross Reference
@@ -7765,6 +8103,78 @@ setTier(rec.tier || "Good");
               Browse {PDS_LIBRARY_INDEX.length} Klondike product data sheets.
               Links open the PDF in a new tab.
             </p>
+
+            <div
+              style={{
+                marginTop: 22,
+                marginBottom: 6,
+                padding: "22px 22px 24px",
+                borderRadius: 18,
+                background:
+                  "linear-gradient(145deg, #0c1629 0%, #152036 42%, #1e293b 100%)",
+                border: "1px solid rgba(246, 165, 49, 0.28)",
+                boxShadow:
+                  "0 14px 36px rgba(15, 23, 42, 0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
+              }}
+            >
+              <div
+                style={{
+                  ...styles.eyebrow,
+                  color: "#94a3b8",
+                  opacity: 1,
+                  letterSpacing: "0.08em",
+                }}
+              >
+                TECHNICAL ADVISOR
+              </div>
+              <h4
+                style={{
+                  margin: "10px 0 0",
+                  fontSize: 20,
+                  fontWeight: 900,
+                  color: "#f8fafc",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Klondike Technical Advisor
+              </h4>
+              <p
+                style={{
+                  margin: "12px 0 18px",
+                  fontSize: 14,
+                  lineHeight: 1.58,
+                  color: "#e2e8f0",
+                  fontWeight: 600,
+                }}
+              >
+                AI-assisted lubricant application guidance powered by Klondike
+                product data and PDS documents.
+              </p>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  alignItems: "center",
+                }}
+              >
+                <button
+                  type="button"
+                  disabled
+                  style={{
+                    ...styles.secondaryButton,
+                    opacity: 0.58,
+                    cursor: "not-allowed",
+                  }}
+                >
+                  Ask Technical Advisor
+                </button>
+                <span style={{ ...styles.listMeta, color: "#94a3b8" }}>
+                  Coming soon
+                </span>
+              </div>
+            </div>
+
             {Object.entries(
               PDS_LIBRARY_INDEX.reduce((acc, row) => {
                 if (!acc[row.category]) acc[row.category] = [];
