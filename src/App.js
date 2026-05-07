@@ -97,6 +97,11 @@ function extractViscosityFromText(text) {
   return m ? m[0].toUpperCase() : "";
 }
 
+const OCR_FAILURE_RECOVERY_MESSAGE =
+  "Could not confidently identify the product label.";
+const OCR_FAILURE_RECOVERY_GUIDANCE =
+  "Try another photo, edit the product text manually, or continue with manual cross-reference.";
+
 async function logOcrScanEvent(payload) {
   try {
     const { error } = await supabase.from("ocr_scan_events").insert(payload);
@@ -4440,6 +4445,7 @@ const [crossReferenceResult, setCrossReferenceResult] = useState(null);
 const [crossCatalogMap, setCrossCatalogMap] = React.useState({});
 const [selectedPackage, setSelectedPackage] = React.useState("");
     const labelScanInputRef = React.useRef(null);
+    const scannedLabelTextAreaRef = React.useRef(null);
     const scannedLabelBlobRef = React.useRef(null);
     const [scannedLabelImage, setScannedLabelImage] = React.useState(null);
     const [scannedLabelPreview, setScannedLabelPreview] = React.useState(null);
@@ -4512,7 +4518,7 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
         setScannedLabelMessage("Analyzing product label...");
         void (async () => {
           try {
-            const { text, error, confidence, brand, viscosity } =
+            const { text, confidence, brand, viscosity } =
               await extractLabelTextFromImage(file);
             const detectedText = String(text || "").trim();
             const detectedBrand = String(brand || "").trim();
@@ -4560,8 +4566,7 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
             } else {
               setQuoteMessage("");
               setScannedLabelMessage(
-                error ||
-                  "No label text detected. Try a clearer image or enter the product manually."
+                `${OCR_FAILURE_RECOVERY_MESSAGE} ${OCR_FAILURE_RECOVERY_GUIDANCE}`
               );
             }
             if (detectedText) {
@@ -4608,7 +4613,7 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       if (!scannedLabelImage || scannedLabelOcrLoading) return;
       setScannedLabelOcrLoading(true);
       try {
-        const { text, error, confidence, brand, viscosity } =
+        const { text, confidence, brand, viscosity } =
           await extractLabelTextFromImage(scannedLabelImage);
         const detectedText = String(text || "").trim();
         const detectedBrand = String(brand || "").trim();
@@ -4631,8 +4636,7 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
         setScannedLabelExtractedText(detectedText);
         if (!detectedText) {
           setScannedLabelMessage(
-            error ||
-              "No label text detected. Try a clearer image or enter the product manually."
+            `${OCR_FAILURE_RECOVERY_MESSAGE} ${OCR_FAILURE_RECOVERY_GUIDANCE}`
           );
         } else {
           const confidenceMessage =
@@ -5972,7 +5976,20 @@ return (
                   onClick={() => handleOpenLabelScan("step2")}
                   disabled={scannedLabelOcrLoading}
                 >
-                  Replace image
+                  Try Another Photo
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...styles.secondaryButton,
+                    fontSize: 14,
+                    padding: "10px 16px",
+                    minHeight: 44,
+                  }}
+                  onClick={() => scannedLabelTextAreaRef.current?.focus()}
+                  disabled={scannedLabelOcrLoading}
+                >
+                  Edit Product Text Manually
                 </button>
                 <button
                   type="button"
@@ -6054,6 +6071,7 @@ return (
                   Detected Label Text
                 </div>
                 <textarea
+                  ref={scannedLabelTextAreaRef}
                   className="kd-label-scan-textarea"
                   value={scannedLabelExtractedText}
                   onChange={(e) => setScannedLabelExtractedText(e.target.value)}
@@ -6088,7 +6106,7 @@ return (
                 >
                   {String(scannedLabelExtractedText || "").trim()
                     ? "Re-run Cross Reference"
-                    : "Use Text for Cross Reference"}
+                    : "Continue With Manual Cross Reference"}
                 </button>
               </div>
             </div>
