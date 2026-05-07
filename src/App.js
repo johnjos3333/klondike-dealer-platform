@@ -4490,7 +4490,12 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
 
     const handleUseTextForCrossReference = React.useCallback(async () => {
       const value = String(scannedLabelExtractedText || "").trim();
-      if (!value) return;
+      if (!value) {
+        setScannedLabelMessage(
+          "Enter detected product text before running cross-reference."
+        );
+        return;
+      }
       const normalizedCrossoverText = normalizeOcrCrossoverText(value);
       setCompetitor(value);
       setCrossSearch(value);
@@ -5887,13 +5892,12 @@ return (
                     fontSize: 13,
                     padding: "8px 14px",
                   }}
-                  disabled={
-                    scannedLabelOcrLoading ||
-                    !String(scannedLabelExtractedText || "").trim()
-                  }
+                  disabled={scannedLabelOcrLoading}
                   onClick={handleUseTextForCrossReference}
                 >
-                  Use Text for Cross Reference
+                  {String(scannedLabelExtractedText || "").trim()
+                    ? "Re-run Cross Reference"
+                    : "Use Text for Cross Reference"}
                 </button>
               </div>
             </div>
