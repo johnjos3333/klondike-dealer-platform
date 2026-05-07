@@ -2689,6 +2689,65 @@ const handleFinishDealerEnrollment = async () => {
       };
     });
   }, [dealerNetworkPerformance, ocrSnapshot?.topDealers]);
+  const adminTerritoryTrendIntelligence = React.useMemo(() => {
+    const insights = [];
+    const productLeader =
+      Array.isArray(adminProductMixIntelligence?.rows) &&
+      adminProductMixIntelligence.rows.length > 0
+        ? adminProductMixIntelligence.rows[0]
+        : null;
+    if (productLeader && Number(productLeader?.count || 0) > 0) {
+      insights.push(`${productLeader.name} currently leads quoted product activity.`);
+    }
+    const topDealerByProposals = (Array.isArray(dealerNetworkPerformance)
+      ? dealerNetworkPerformance
+      : []
+    )
+      .slice()
+      .sort(
+        (a, b) => Number(b?.proposalsSent || 0) - Number(a?.proposalsSent || 0)
+      )[0];
+    if (Number(topDealerByProposals?.proposalsSent || 0) > 0) {
+      insights.push(
+        `Proposal activity is currently strongest at ${topDealerByProposals?.name || "the leading dealer"}.`
+      );
+    }
+    if (
+      Number(ocrSnapshot?.totalScans || 0) > 0 &&
+      Array.isArray(ocrSnapshot?.topReps) &&
+      ocrSnapshot.topReps.length > 0
+    ) {
+      insights.push("OCR scanning activity is concentrated among active field reps.");
+    }
+    if (String(ocrSnapshot?.topBrand || "").trim()) {
+      insights.push(`${String(ocrSnapshot.topBrand).trim()} remains the most scanned competitor brand.`);
+    }
+    if (String(ocrSnapshot?.topViscosity || "").trim()) {
+      insights.push(`${String(ocrSnapshot.topViscosity).trim()} is currently the most scanned viscosity.`);
+    }
+    const topRep =
+      Array.isArray(adminRepLeaderboardFoundation?.rows) &&
+      adminRepLeaderboardFoundation.rows.length > 0
+        ? adminRepLeaderboardFoundation.rows[0]
+        : null;
+    if (topRep && Number(topRep?.activityCount || 0) > 0) {
+      insights.push(
+        `${topRep?.name || "Top rep"} currently leads combined quote, proposal, response, and OCR activity.`
+      );
+    }
+    return {
+      hasData: insights.length > 0,
+      insights: insights.slice(0, 6),
+    };
+  }, [
+    adminProductMixIntelligence,
+    dealerNetworkPerformance,
+    ocrSnapshot?.totalScans,
+    ocrSnapshot?.topReps,
+    ocrSnapshot?.topBrand,
+    ocrSnapshot?.topViscosity,
+    adminRepLeaderboardFoundation,
+  ]);
   const renderPlatformAdminView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
@@ -2916,6 +2975,56 @@ const handleFinishDealerEnrollment = async () => {
             <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
               Territory performance data will populate as dealer and rep activity
               increases.
+            </div>
+          )}
+        </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <div
+          style={{
+            ...styles.card,
+            background:
+              "linear-gradient(145deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.92) 58%, rgba(30, 41, 59, 0.95) 100%)",
+            border: "1px solid rgba(96, 165, 250, 0.34)",
+            boxShadow:
+              "0 20px 36px rgba(2, 6, 23, 0.42), inset 0 1px 0 rgba(148, 163, 184, 0.15)",
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ ...styles.summaryLabel, color: "#93c5fd", letterSpacing: "0.06em" }}>
+            TERRITORY TREND INTELLIGENCE
+          </div>
+          {adminTerritoryTrendIntelligence.hasData ? (
+            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+              {adminTerritoryTrendIntelligence.insights.map((insight, idx) => (
+                <div
+                  key={`territory-trend-${idx}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 8,
+                    background: "rgba(30, 41, 59, 0.5)",
+                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    borderLeft:
+                      idx % 2 === 0
+                        ? "2px solid rgba(246, 165, 49, 0.76)"
+                        : "2px solid rgba(96, 165, 250, 0.76)",
+                    borderRadius: 8,
+                    padding: "9px 10px",
+                    fontSize: 13,
+                    color: "#e2e8f0",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <span style={{ color: "#93c5fd", fontWeight: 800, marginTop: 1 }}>•</span>
+                  <span>{insight}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+              Trend intelligence will expand as more territory activity is logged.
             </div>
           )}
         </div>
