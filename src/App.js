@@ -2803,6 +2803,63 @@ const handleFinishDealerEnrollment = async () => {
       insights: insights.slice(0, 6),
     };
   }, [adminProductMixIntelligence, dealerNetworkPerformance]);
+  const adminExecutiveSummaryIntelligence = React.useMemo(() => {
+    const insights = [];
+    if (adminTerritoryPerformanceRollup?.executiveSummary) {
+      insights.push(adminTerritoryPerformanceRollup.executiveSummary);
+    } else if (adminTerritoryPerformanceRollup?.hasActivityData) {
+      insights.push("Field activity continues expanding across the territory network.");
+    }
+    const dominantCategory =
+      Array.isArray(adminProductMixIntelligence?.rows) &&
+      adminProductMixIntelligence.rows.length > 0
+        ? adminProductMixIntelligence.rows[0]
+        : null;
+    if (Number(dominantCategory?.count || 0) > 0) {
+      insights.push(`${dominantCategory.name} continues to dominate current quoted activity.`);
+    }
+    if (Number(ocrSnapshot?.totalScans || 0) > 0 && (ocrSnapshot?.topReps || []).length > 0) {
+      insights.push("OCR scanning adoption is increasing among active field reps.");
+    }
+    if (adminDealerHealthFoundation?.mostActiveDealerName) {
+      insights.push(
+        `Proposal engagement remains strongest at ${adminDealerHealthFoundation.mostActiveDealerName}.`
+      );
+    }
+    if (
+      Array.isArray(adminProductOpportunityIntelligence?.insights) &&
+      adminProductOpportunityIntelligence.insights.some((entry) =>
+        String(entry || "").includes("concentrated primarily in one product category")
+      )
+    ) {
+      insights.push("Several dealers remain concentrated in a narrow product mix.");
+    }
+    const topRep =
+      Array.isArray(adminRepLeaderboardFoundation?.rows) &&
+      adminRepLeaderboardFoundation.rows.length > 0
+        ? adminRepLeaderboardFoundation.rows[0]
+        : null;
+    if (topRep && Number(topRep?.activityCount || 0) > 0) {
+      insights.push(
+        `${topRep.name} currently leads rep-level quote, proposal, response, and OCR activity.`
+      );
+    }
+    const uniqueInsights = Array.from(
+      new Map(insights.map((entry) => [String(entry).toLowerCase(), entry])).values()
+    ).slice(0, 6);
+    return {
+      hasData: uniqueInsights.length > 0,
+      insights: uniqueInsights,
+    };
+  }, [
+    adminTerritoryPerformanceRollup,
+    adminProductMixIntelligence,
+    ocrSnapshot?.totalScans,
+    ocrSnapshot?.topReps,
+    adminDealerHealthFoundation,
+    adminProductOpportunityIntelligence,
+    adminRepLeaderboardFoundation,
+  ]);
   const renderPlatformAdminView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
@@ -2836,6 +2893,57 @@ const handleFinishDealerEnrollment = async () => {
           </button>
         ))}
       </div>
+
+      {klondikeAdminTab === "dashboard" && (
+        <div
+          style={{
+            ...styles.card,
+            background:
+              "linear-gradient(145deg, rgba(15, 23, 42, 0.99) 0%, rgba(15, 23, 42, 0.94) 56%, rgba(30, 41, 59, 0.96) 100%)",
+            border: "1px solid rgba(96, 165, 250, 0.36)",
+            boxShadow:
+              "0 22px 38px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(148, 163, 184, 0.16)",
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ ...styles.summaryLabel, color: "#93c5fd", letterSpacing: "0.07em" }}>
+            EXECUTIVE SUMMARY INTELLIGENCE
+          </div>
+          {adminExecutiveSummaryIntelligence.hasData ? (
+            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+              {adminExecutiveSummaryIntelligence.insights.map((insight, idx) => (
+                <div
+                  key={`executive-summary-${idx}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 8,
+                    background: "rgba(30, 41, 59, 0.5)",
+                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    borderLeft:
+                      idx % 2 === 0
+                        ? "2px solid rgba(246, 165, 49, 0.78)"
+                        : "2px solid rgba(96, 165, 250, 0.78)",
+                    borderRadius: 8,
+                    padding: "9px 10px",
+                    fontSize: 13,
+                    color: "#e2e8f0",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <span style={{ color: "#93c5fd", fontWeight: 800, marginTop: 1 }}>•</span>
+                  <span>{insight}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+              Executive summary intelligence will expand as more territory activity is
+              logged.
+            </div>
+          )}
+        </div>
+      )}
 
       {klondikeAdminTab === "dashboard" && (
         <div
