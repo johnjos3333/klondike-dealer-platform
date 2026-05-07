@@ -83,6 +83,210 @@ function collectApprovedProductLines(eligibleResponses) {
   return lines;
 }
 
+function normalizeDashboardName(str) {
+  return String(str || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function getProposalProductResponseArray(row) {
+  const dd = row.decision_data || {};
+  return Array.isArray(dd.responses)
+    ? dd.responses
+    : Array.isArray(row.responses)
+    ? row.responses
+    : [];
+}
+
+function buildQuoteItemLookupById(itemRows) {
+  const map = {};
+  (itemRows || []).forEach((r) => {
+    if (r?.id != null) map[r.id] = r;
+  });
+  return map;
+}
+
+function getDashboardDemandCategoryFromProductName(productName) {
+  const n = String(productName || "").toLowerCase();
+  if (n.includes("grease")) return "Grease";
+  if (n.includes("hydraulic")) return "Hydraulic Fluids";
+  if (n.includes("transmission") || /\batf\b/i.test(n)) return "Transmission Fluids";
+  if (n.includes("coolant")) return "Coolants / Chemicals";
+  if (/\bgear\b/i.test(n) && (n.includes("lubricant") || n.includes("oil")))
+    return "Gear Oils";
+  if (
+    n.includes("engine") ||
+    n.includes("diesel") ||
+    n.includes("motor oil") ||
+    /\d+w-\d+/i.test(n)
+  )
+    return "HD Engine Oils";
+  return "Other";
+}
+
+function summarizeApprovedDemandFromProposalRows(responseRows, quoteItemByIdMap) {
+  const lines = [];
+  (responseRows || []).forEach((row) => {
+    getProposalProductResponseArray(row).forEach((item) => {
+      if (item.decision !== "approved") return;
+      if (item.type === "equipment") return;
+      if (String(item.package || "").toLowerCase() === "equipment") return;
+      lines.push(item);
+    });
+  });
+
+  const groups = {};
+  const categoryUnitTotals = {};
+
+  lines.forEach((item) => {
+    const pk = `${String(item.product || "")
+      .trim()
+      .toLowerCase()}__${String(item.package || "").trim().toLowerCase()}`;
+    if (!groups[pk]) groups[pk] = { qty: 0 };
+
+    let qty = 1;
+    const qid = item.quote_item_id;
+    if (qid && quoteItemByIdMap && quoteItemByIdMap[qid]) {
+      const qi = quoteItemByIdMap[qid];
+      qty =
+        qi.quantity != null && Number.isFinite(Number(qi.quantity))
+          ? Number(qi.quantity)
+          : 1;
+    }
+
+    groups[pk].qty += qty;
+    const cat = getDashboardDemandCategoryFromProductName(item.product);
+    categoryUnitTotals[cat] = (categoryUnitTotals[cat] || 0) + qty;
+  });
+
+  const distinctSkus = Object.keys(groups).length;
+  const totalUnits = Object.values(groups).reduce((sum, g) => sum + g.qty, 0);
+  let topCategory = null;
+  let maxUnits = -1;
+  Object.entries(categoryUnitTotals).forEach(([c, u]) => {
+    if (u > maxUnits) {
+      maxUnits = u;
+      topCategory = c;
+    }
+  });
+  const categoryShare =
+    totalUnits > 0 && topCategory != null && categoryUnitTotals[topCategory] != null
+      ? Math.round((categoryUnitTotals[topCategory] / totalUnits) * 100)
+      : 0;
+
+  return {
+    distinctSkus,
+    totalUnits,
+    approvedLineCount: lines.length,
+    topCategory,
+    categoryShare,
+    categoryUnitTotals,
+  };
+}
+
+function buildDealerAdminDashboardInsights(perf) {
+  const insights = [];
+  if ((perf?.approvedDemandLineCount || 0) === 0) {
+    insights.push(
+      "Inventory Alerts will populate as customers approve proposals."
+    );
+  } else if (
+    perf?.demandTopCategory &&
+    perf.demandTopCategory !== "Other" &&
+    (perf.demandCategoryShare || 0) >= 40
+  ) {
+    insights.push(
+      `Approved proposal demand concentrates in ${perf.demandTopCategory} (${perf.demandCategoryShare}% of accepted units).`
+    );
+  }
+
+  if ((perf?.quotesCreated || 0) > 0 && (perf?.proposalsSent || 0) > 0) {
+    insights.push(
+      "Quote and proposal submissions are underway across your dealer organization."
+    );
+  }
+
+  if (
+    (perf?.customerResponses || 0) > 0 &&
+    (perf?.approvedDemandLineCount || 0) === 0
+  ) {
+    insights.push(
+      "Customers have responded—approved SKUs surface after individual proposal lines are approved."
+    );
+  }
+
+  if (
+    perf?.topQuotedMixName &&
+    (perf?.topQuotedMixPercent || 0) >= 38 &&
+    (perf?.quotesCreated || 0) > 0
+  ) {
+    insights.push(
+      `Quoted lubricant categories skew toward ${perf.topQuotedMixName} (${perf.topQuotedMixPercent}% of bucketed quote lines).`
+    );
+  }
+
+  return [...new Set(insights)];
+}
+
+function buildManagerDashboardInsights(repSnapshot, demandIntel, assignedRepCount) {
+  const insights = [];
+  const lines = demandIntel?.approvedLineCount || 0;
+  const topCat = demandIntel?.topCategory;
+  const catShare = demandIntel?.categoryShare || 0;
+
+  if (lines === 0) {
+    insights.push(
+      "Inventory Alerts will populate as customers approve proposals."
+    );
+  } else if (
+    topCat &&
+    topCat !== "Other" &&
+    catShare >= 40
+  ) {
+    insights.push(
+      `Team approved demand concentrates in ${topCat} (${catShare}% of accepted units on scoped quotes).`
+    );
+  }
+
+  if ((repSnapshot?.quotes || 0) > 0 && (repSnapshot?.proposalsSent || 0) > 0) {
+    insights.push(
+      "Team activity is building through quote and proposal submissions."
+    );
+  }
+
+  if ((assignedRepCount || 0) > 0 && (repSnapshot?.quotes || 0) === 0) {
+    insights.push(
+      "Assigned reps are provisioned—quote volume will populate as reps create opportunities."
+    );
+  }
+
+  return [...new Set(insights)];
+}
+
+function buildManagerAssignedRepDisplayNames(teamAssignments, repProfiles, sessionUserId) {
+  const ids = (teamAssignments || [])
+    .filter(
+      (a) =>
+        a.manager_profile_id === sessionUserId ||
+        a.manager_user_id === sessionUserId
+    )
+    .map((a) => a.rep_profile_id)
+    .filter(Boolean);
+
+  const set = new Set();
+  ids.forEach((rid) => {
+    const rep = (repProfiles || []).find((r) => r.id === rid || r.user_id === rid);
+    if (!rep) return;
+    const display =
+      `${rep.first_name || ""} ${rep.last_name || ""}`.trim() ||
+      rep.full_name?.trim?.() ||
+      rep.email?.trim?.() ||
+      "";
+    const email = normalizeDashboardName(rep.email || "");
+    if (display) set.add(normalizeDashboardName(display));
+    if (email) set.add(email);
+  });
+  return set;
+}
+
 function InventoryAlertsSection({
   styles,
   useExternalResponses = false,
@@ -1327,6 +1531,15 @@ const [dealerPerformance, setDealerPerformance] = useState({
   leaderboard: [],
   productMix: [],
   followUps: [],
+  demandDistinctSkus: 0,
+  demandTotalUnits: 0,
+  demandTopCategory: null,
+  demandCategoryShare: 0,
+  approvedDemandLineCount: 0,
+  quotesWithCustomerResponse: 0,
+  quotesAwaitingCustomer: 0,
+  topQuotedMixName: null,
+  topQuotedMixPercent: 0,
 });
 const [dealerNetworkPerformance, setDealerNetworkPerformance] = useState([]);
 const [selectedDealerPerformance, setSelectedDealerPerformance] = useState(null);
@@ -5426,16 +5639,26 @@ const handleFinishDealerEnrollment = async () => {
   }
 
   const approvedResponses = responseRows.flatMap((row) => {
-    const productResponses = Array.isArray(row.responses) ? row.responses : [];
-    const equipmentResponses = Array.isArray(row.equipment) ? row.equipment : [];
+    const productResponses = getProposalProductResponseArray(row);
+    const dd = row.decision_data || {};
+    const equipmentResponses = Array.isArray(dd.equipment)
+      ? dd.equipment
+      : Array.isArray(row.equipment)
+      ? row.equipment
+      : [];
     return [...productResponses, ...equipmentResponses].filter(
       (item) => item.decision === "approved"
     );
   });
 
   const totalResponses = responseRows.flatMap((row) => {
-    const productResponses = Array.isArray(row.responses) ? row.responses : [];
-    const equipmentResponses = Array.isArray(row.equipment) ? row.equipment : [];
+    const productResponses = getProposalProductResponseArray(row);
+    const dd = row.decision_data || {};
+    const equipmentResponses = Array.isArray(dd.equipment)
+      ? dd.equipment
+      : Array.isArray(row.equipment)
+      ? row.equipment
+      : [];
     return [...productResponses, ...equipmentResponses];
   });
 
@@ -5473,8 +5696,13 @@ const handleFinishDealerEnrollment = async () => {
     if (repMap[repKey]) {
       repMap[repKey].responses += 1;
 
-      const productResponses = Array.isArray(row.responses) ? row.responses : [];
-      const equipmentResponses = Array.isArray(row.equipment) ? row.equipment : [];
+      const productResponses = getProposalProductResponseArray(row);
+      const dd = row.decision_data || {};
+      const equipmentResponses = Array.isArray(dd.equipment)
+        ? dd.equipment
+        : Array.isArray(row.equipment)
+        ? row.equipment
+        : [];
 
       repMap[repKey].revenue += [...productResponses, ...equipmentResponses]
         .filter((item) => item.decision === "approved")
@@ -5506,6 +5734,31 @@ const handleFinishDealerEnrollment = async () => {
   const totalProductCount =
     Object.values(productBuckets).reduce((sum, count) => sum + count, 0) || 1;
 
+  const quoteItemLookup = buildQuoteItemLookupById(itemRows);
+  const demandSummary = summarizeApprovedDemandFromProposalRows(
+    responseRows,
+    quoteItemLookup
+  );
+
+  const quoteIdsResponded = new Set(
+    (responseRows || []).map((r) => r.quote_id).filter(Boolean)
+  ).size;
+
+  const quotesAwaitingCustomer = dealerQuotes.filter(
+    (q) =>
+      q.status === "sent" &&
+      String(q.review_status || "").toLowerCase() !== "submitted"
+  ).length;
+
+  const topQuotedMixRow = [...Object.entries(productBuckets)]
+    .filter(([, cnt]) => cnt > 0)
+    .sort((a, b) => b[1] - a[1])[0];
+
+  const topQuotedMixPercent =
+    topQuotedMixRow && totalProductCount > 0
+      ? Math.round((topQuotedMixRow[1] / totalProductCount) * 100)
+      : 0;
+
   setDealerPerformance({
     quotesCreated: dealerQuotes.length,
     proposalsSent: dealerQuotes.filter((q) => q.status === "sent").length,
@@ -5524,6 +5777,15 @@ const handleFinishDealerEnrollment = async () => {
     followUps: dealerQuotes
       .filter((q) => q.status === "sent" || q.review_status === "open")
       .slice(0, 5),
+    demandDistinctSkus: demandSummary.distinctSkus,
+    demandTotalUnits: demandSummary.totalUnits,
+    demandTopCategory: demandSummary.topCategory,
+    demandCategoryShare: demandSummary.categoryShare,
+    approvedDemandLineCount: demandSummary.approvedLineCount,
+    quotesWithCustomerResponse: quoteIdsResponded,
+    quotesAwaitingCustomer,
+    topQuotedMixName: topQuotedMixRow ? topQuotedMixRow[0] : null,
+    topQuotedMixPercent,
   });
 };
 useEffect(() => {
@@ -5773,156 +6035,312 @@ const renderDealerAdminView = () => (
         )}
 
         {dealerAdminTab === "dashboard" && (
-  <>
-    <div style={styles.card}>
-      <div style={styles.eyebrow}>PERFORMANCE SNAPSHOT</div>
-      <h3 style={styles.cardTitle}>Dealer Performance Overview</h3>
-
-      <div style={styles.grid3}>
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Quotes Created</div>
-          <div style={styles.summaryValue}>{dealerPerformance.quotesCreated}</div>
-        </div>
-
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Proposals Sent</div>
-          <div style={styles.summaryValue}>{dealerPerformance.proposalsSent}</div>
-        </div>
-
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Customer Responses</div>
-          <div style={styles.summaryValue}>{dealerPerformance.customerResponses}</div>
-        </div>
-
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Approved Revenue</div>
-          <div style={styles.summaryValue}>
-            ${Number(dealerPerformance.revenueWon || 0).toLocaleString()}
-          </div>
-        </div>
-
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Approval Rate</div>
-          <div style={styles.summaryValue}>{dealerPerformance.approvalRate}%</div>
-        </div>
-
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Team Members</div>
-          <div style={styles.summaryValue}>{repProfiles.length}</div>
-        </div>
-      </div>
-    </div>
-
-    <div style={styles.card}>
-      <div style={styles.eyebrow}>DEALER LEADERBOARD</div>
-      <h3 style={styles.cardTitle}>Rep Performance Rankings</h3>
-
-      <div style={styles.stack}>
-        {dealerPerformance.leaderboard.length === 0 ? (
-          <p style={styles.cardBody}>No representative performance data yet.</p>
-        ) : (
-          dealerPerformance.leaderboard.map((rep, index) => (
+          <>
             <div
-              key={rep.name || index}
               style={{
-                ...styles.listRow,
-                background: index === 0 ? "#fffbea" : "#f8fafc",
-                border:
-                  index === 0
-                    ? "2px solid #f6a531"
-                    : "1px solid #e7edf3",
+                ...styles.card,
+                ...styles.dashboardCard,
+                borderLeft: "6px solid #1e3a8a",
               }}
             >
-              <div>
+              <div style={styles.eyebrow}>EXECUTIVE INSIGHTS</div>
+              <h3 style={styles.cardTitle}>Signals from live dealer data</h3>
+              <p style={styles.cardBody}>
+                Observations update from quotes, proposal responses, and approved
+                lubricant lines recorded in this tenant.
+              </p>
+              <ul
+                style={{
+                  margin: "10px 0 0",
+                  paddingLeft: 20,
+                  fontSize: 14,
+                  color: "#1e293b",
+                  lineHeight: 1.65,
+                }}
+              >
+                {buildDealerAdminDashboardInsights(dealerPerformance).map(
+                  (line, idx) => (
+                    <li key={`dealer-dash-insight-${idx}`} style={{ marginBottom: 8 }}>
+                      {line}
+                    </li>
+                  )
+                )}
+              </ul>
+            </div>
+
+            <div style={{ ...styles.card, ...styles.dashboardCard }}>
+              <div style={styles.eyebrow}>CORE ACTIVITY</div>
+              <h3 style={styles.cardTitle}>Dealer-wide sales motion</h3>
+              <p style={styles.cardBody}>
+                Quote, proposal, response, and approval metrics for every rep on this
+                dealer account.
+              </p>
+              <div style={styles.grid3}>
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    gap: 10,
-                    marginBottom: 4,
+                    ...styles.summaryCard,
+                    ...styles.dashboardSummaryCard,
                   }}
                 >
-                  <div style={styles.listTitle}>
-                    #{index + 1} {rep.name}
+                  <div style={styles.summaryLabel}>Quotes Created</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.quotesCreated}
                   </div>
-                  <LeaderboardBadgeTray
-                    index={index}
-                    proposals={rep.proposals}
-                    quotes={rep.quotes}
-                    responses={rep.responses}
-                    revenue={rep.revenue}
-                  />
                 </div>
-                <div style={styles.listMeta}>
-                  {rep.quotes} quote(s) • {rep.proposals} proposal(s) •{" "}
-                  {rep.responses} response(s)
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardSummaryCard,
+                  }}
+                >
+                  <div style={styles.summaryLabel}>Proposals Sent</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.proposalsSent}
+                  </div>
                 </div>
-              </div>
-
-              <div style={{ textAlign: "right" }}>
-                <div style={styles.listTitle}>
-                  ${Number(rep.revenue || 0).toLocaleString()}
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardSummaryCard,
+                  }}
+                >
+                  <div style={styles.summaryLabel}>Response Submissions</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.customerResponses}
+                  </div>
+                  <div style={styles.listMeta}>Total customer response records</div>
                 </div>
-                <div style={styles.listMeta}>Approved Revenue</div>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardSummaryCard,
+                  }}
+                >
+                  <div style={styles.summaryLabel}>Quotes w/ Responses</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.quotesWithCustomerResponse}
+                  </div>
+                  <div style={styles.listMeta}>Distinct quotes with activity</div>
+                </div>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardSummaryCard,
+                  }}
+                >
+                  <div style={styles.summaryLabel}>Sent & Awaiting Customer</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.quotesAwaitingCustomer}
+                  </div>
+                  <div style={styles.listMeta}>
+                    Status “sent” without submitted review
+                  </div>
+                </div>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardSummaryCard,
+                  }}
+                >
+                  <div style={styles.summaryLabel}>Approved Revenue</div>
+                  <div style={styles.summaryValue}>
+                    ${Number(dealerPerformance.revenueWon || 0).toLocaleString()}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardSummaryCard,
+                  }}
+                >
+                  <div style={styles.summaryLabel}>Line Approval Rate</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.approvalRate}%
+                  </div>
+                  <div style={styles.listMeta}>Approved vs. all evaluated lines</div>
+                </div>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    ...styles.dashboardSummaryCard,
+                  }}
+                >
+                  <div style={styles.summaryLabel}>Team Profiles</div>
+                  <div style={styles.summaryValue}>{repProfiles.length}</div>
+                  <div style={styles.listMeta}>Active rep / manager records</div>
+                </div>
               </div>
             </div>
-          ))
+
+            <div
+              style={{
+                ...styles.card,
+                ...styles.dashboardCard,
+                borderLeft: "6px solid #f6a531",
+              }}
+            >
+              <div style={styles.eyebrow}>APPROVED DEMAND · INVENTORY CONTEXT</div>
+              <h3 style={styles.cardTitle}>What customers already approved</h3>
+              <p style={styles.cardBody}>
+                Pulled from proposal response payloads and linked quote items. Open
+                Inventory Alerts for SKU-level demand detail.
+              </p>
+              <div style={styles.grid3}>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Distinct approved SKUs</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.demandDistinctSkus}
+                  </div>
+                  <div style={styles.listMeta}>Product + package combos</div>
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Accepted units (summed)</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.demandTotalUnits}
+                  </div>
+                  <div style={styles.listMeta}>Uses quantities stored on quotes</div>
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Approved product rows</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.approvedDemandLineCount}
+                  </div>
+                  <div style={styles.listMeta}>Individual approved lines</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ ...styles.card, ...styles.dashboardCard }}>
+              <div style={styles.eyebrow}>DEALER LEADERBOARD</div>
+              <h3 style={styles.cardTitle}>Rep Rankings · Approved Revenue</h3>
+
+              <div style={styles.stack}>
+                {dealerPerformance.leaderboard.length === 0 ? (
+                  <p style={styles.cardBody}>
+                    Representative performance metrics will populate after quotes flow
+                    through the organization.
+                  </p>
+                ) : (
+                  dealerPerformance.leaderboard.map((rep, index) => (
+                    <div
+                      key={rep.name || index}
+                      style={{
+                        ...styles.listRow,
+                        ...styles.dashboardLeaderboardRow,
+                        background:
+                          index === 0 ? "#fffbeb" : "#fcfdff",
+                        border:
+                          index === 0
+                            ? "1px solid #f6a531"
+                            : "1px solid #e7edf3",
+                        boxShadow:
+                          index === 0
+                            ? "var(--kd-dashboard-leaderboard-first-shadow)"
+                            : "var(--kd-dashboard-leaderboard-row-shadow)",
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 10,
+                            marginBottom: 4,
+                          }}
+                        >
+                          <div style={styles.listTitle}>
+                            #{index + 1} {rep.name}
+                          </div>
+                          <LeaderboardBadgeTray
+                            index={index}
+                            proposals={rep.proposals}
+                            quotes={rep.quotes}
+                            responses={rep.responses}
+                            revenue={rep.revenue}
+                          />
+                        </div>
+                        <div style={styles.listMeta}>
+                          {rep.quotes} quote(s) • {rep.proposals} proposal(s) •{" "}
+                          {rep.responses} response(s)
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: "right" }}>
+                        <div style={styles.listTitle}>
+                          ${Number(rep.revenue || 0).toLocaleString()}
+                        </div>
+                        <div style={styles.listMeta}>Approved Revenue</div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div style={{ ...styles.card, ...styles.dashboardCard }}>
+              <div style={styles.eyebrow}>CUSTOMER PROGRESS</div>
+              <h3 style={styles.cardTitle}>Proposal pipeline checkpoints</h3>
+
+              <div style={styles.grid2}>
+                <div style={{ ...styles.summaryCard, borderLeft: "5px solid #94a3b8" }}>
+                  <div style={styles.summaryLabel}>Awaiting Customer</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.quotesAwaitingCustomer}
+                  </div>
+                  <div style={styles.listMeta}>Sent proposals not yet reviewed</div>
+                </div>
+
+                <div style={{ ...styles.summaryCard, borderLeft: "5px solid #3b82f6" }}>
+                  <div style={styles.summaryLabel}>Quotes w/ Responses</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.quotesWithCustomerResponse}
+                  </div>
+                  <div style={styles.listMeta}>At least one response captured</div>
+                </div>
+
+                <div style={{ ...styles.summaryCard, borderLeft: "5px solid #22c55e" }}>
+                  <div style={styles.summaryLabel}>Line Approval Rate</div>
+                  <div style={styles.summaryValue}>{dealerPerformance.approvalRate}%</div>
+                  <div style={styles.listMeta}>Across proposal line decisions</div>
+                </div>
+
+                <div style={{ ...styles.summaryCard, borderLeft: "5px solid #64748b" }}>
+                  <div style={styles.summaryLabel}>Quoted Items on File</div>
+                  <div style={styles.summaryValue}>
+                    {dealerPerformance.productMix.reduce(
+                      (sum, row) => sum + Number(row.count || 0),
+                      0
+                    )}
+                  </div>
+                  <div style={styles.listMeta}>Sum of categorized quote SKUs</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ ...styles.card, ...styles.dashboardCard }}>
+              <div style={styles.eyebrow}>PRODUCT MIX SNAPSHOT</div>
+              <h3 style={styles.cardTitle}>How quoted lubricants bucket</h3>
+              <p style={styles.cardBody}>
+                Heuristic buckets built from textual product names captured on dealer
+                quote lines—not PDS classifications.
+              </p>
+
+              <div style={styles.grid3}>
+                {dealerPerformance.productMix.map((line) => (
+                  <div
+                    key={line.name}
+                    style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                  >
+                    <div style={styles.summaryLabel}>{line.name}</div>
+                    <div style={styles.summaryValue}>{line.percent}%</div>
+                    <div style={styles.listMeta}>{line.count} quoted item(s)</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
         )}
-      </div>
-    </div>
-
-    <div style={styles.card}>
-      <div style={styles.eyebrow}>PIPELINE</div>
-      <h3 style={styles.cardTitle}>Dealer Opportunity Pipeline</h3>
-
-      <div style={styles.grid2}>
-        <div style={{ ...styles.summaryCard, borderLeft: "5px solid #94a3b8" }}>
-          <div style={styles.summaryLabel}>Awaiting Review</div>
-          <div style={styles.summaryValue}>
-            {dealerPerformance.followUps.filter((q) => q.review_status !== "submitted").length}
-          </div>
-          <div style={styles.listMeta}>Proposals waiting on customer</div>
-        </div>
-
-        <div style={{ ...styles.summaryCard, borderLeft: "5px solid #3b82f6" }}>
-          <div style={styles.summaryLabel}>Reviewed</div>
-          <div style={styles.summaryValue}>{dealerPerformance.customerResponses}</div>
-          <div style={styles.listMeta}>Customer has responded</div>
-        </div>
-
-        <div style={{ ...styles.summaryCard, borderLeft: "5px solid #22c55e" }}>
-          <div style={styles.summaryLabel}>Approval Rate</div>
-          <div style={styles.summaryValue}>{dealerPerformance.approvalRate}%</div>
-          <div style={styles.listMeta}>Proposal approval rate</div>
-        </div>
-
-        <div style={{ ...styles.summaryCard, borderLeft: "5px solid #ef4444" }}>
-          <div style={styles.summaryLabel}>Needs Follow-Up</div>
-          <div style={styles.summaryValue}>
-            {dealerPerformance.followUps.filter((q) => q.review_status !== "submitted").length}
-          </div>
-          <div style={styles.listMeta}>Open opportunities requiring attention</div>
-        </div>
-      </div>
-    </div>
-
-    <div style={styles.card}>
-      <div style={styles.eyebrow}>PRODUCT LINE PERFORMANCE</div>
-      <h3 style={styles.cardTitle}>Dealer Product Mix</h3>
-
-      <div style={styles.grid3}>
-        {dealerPerformance.productMix.map((line) => (
-          <div key={line.name} style={styles.summaryCard}>
-            <div style={styles.summaryLabel}>{line.name}</div>
-            <div style={styles.summaryValue}>{line.percent}%</div>
-            <div style={styles.listMeta}>{line.count} quoted item(s)</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </>
-)}
 
       {dealerAdminTab === "profile" && (
   <>
@@ -6586,6 +7004,80 @@ const renderDealerAdminView = () => (
 });
 
 const [leaderboard, setLeaderboard] = React.useState([]);
+
+const managerEligibleResponsesForIntel = React.useMemo(() => {
+  if (!isManager) return [];
+  return filterInventoryEligibleResponses(
+    proposalResponses,
+    activeMembership,
+    true,
+    teamAssignments,
+    repProfiles,
+    session?.user?.id
+  );
+}, [
+  isManager,
+  proposalResponses,
+  activeMembership,
+  teamAssignments,
+  repProfiles,
+  session?.user?.id,
+]);
+
+const managerDemandIntel = React.useMemo(
+  () =>
+    summarizeApprovedDemandFromProposalRows(
+      managerEligibleResponsesForIntel,
+      {}
+    ),
+  [managerEligibleResponsesForIntel]
+);
+
+const managerScopedQuotesWithResponses = React.useMemo(
+  () =>
+    new Set(
+      managerEligibleResponsesForIntel.map((r) => r.quote_id).filter(Boolean)
+    ).size,
+  [managerEligibleResponsesForIntel]
+);
+
+const managerAssignedRepCanon = React.useMemo(
+  () =>
+    buildManagerAssignedRepDisplayNames(
+      teamAssignments,
+      repProfiles,
+      session?.user?.id
+    ),
+  [teamAssignments, repProfiles, session?.user?.id]
+);
+
+const managerScopedLeaderboard = React.useMemo(() => {
+  if (!isManager) return [];
+  if (!managerAssignedRepCanon.size) return [];
+  return (leaderboard || []).filter((row) =>
+    managerAssignedRepCanon.has(normalizeDashboardName(row.name))
+  );
+}, [isManager, leaderboard, managerAssignedRepCanon]);
+
+const assignedRepCountShell = React.useMemo(() => {
+  if (!isManager) return 0;
+  return teamAssignments.filter(
+    (assignment) =>
+      assignment.manager_profile_id === session?.user?.id ||
+      assignment.manager_user_id === session?.user?.id
+  ).length;
+}, [isManager, teamAssignments, session?.user?.id]);
+
+const managerDashboardInsightLines = React.useMemo(
+  () =>
+    buildManagerDashboardInsights(
+      repSnapshot,
+      managerDemandIntel,
+      assignedRepCountShell
+    ),
+  [repSnapshot, managerDemandIntel, assignedRepCountShell]
+);
+
   React.useEffect(() => {
   const loadResponses = async () => {
     const { data: responses, error } = await supabase
@@ -12400,53 +12892,93 @@ setTier(rec.tier || "Good");
           <>
             <div style={{ ...styles.card, ...styles.dashboardCard }}>
               <div style={styles.eyebrow}>MANAGER DASHBOARD</div>
-              <h3 style={styles.cardTitle}>Assigned Rep Performance</h3>
+              <h3 style={styles.cardTitle}>Team intelligence</h3>
               <p style={styles.cardBody}>
-                Monitor quote activity, proposals, customer responses, approval rate,
-                and approved revenue for reps assigned to you.
+                Quote and proposal activity, customer responses, approved demand, and
+                ranked performance for representatives assigned to you—scoped from
+                data already loaded for this session.
               </p>
 
-              <div style={styles.grid3}>
+              {managerDashboardInsightLines.length > 0 && (
+                <div
+                  style={{
+                    marginTop: 16,
+                    padding: "14px 16px",
+                    borderRadius: 12,
+                    background: "linear-gradient(135deg, #fff7ed 0%, #eff6ff 100%)",
+                    border: "1px solid #e2e8f0",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                      color: "#c2410c",
+                      marginBottom: 8,
+                    }}
+                  >
+                    EXECUTIVE INSIGHTS
+                  </div>
+                  <ul
+                    style={{
+                      margin: 0,
+                      paddingLeft: 18,
+                      color: "#0f172a",
+                      fontSize: 14,
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    {managerDashboardInsightLines.map((line, idx) => (
+                      <li key={idx}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div style={{ ...styles.grid3, marginTop: 20 }}>
                 <div
                   style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
                 >
-                  <div style={styles.summaryLabel}>Assigned Reps</div>
-                                   <div style={styles.summaryValue}>
-                    {
-                      teamAssignments.filter(
-                        (assignment) =>
-                          assignment.manager_profile_id === session?.user?.id ||
-                          assignment.manager_user_id === session?.user?.id
-                      ).length
-                    }
-                  </div>
+                  <div style={styles.summaryLabel}>Assigned reps</div>
+                  <div style={styles.summaryValue}>{assignedRepCountShell}</div>
                 </div>
 
                 <div
                   style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
                 >
-                  <div style={styles.summaryLabel}>Quotes Created</div>
+                  <div style={styles.summaryLabel}>Quotes created</div>
                   <div style={styles.summaryValue}>{repSnapshot.quotes}</div>
                 </div>
 
                 <div
                   style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
                 >
-                  <div style={styles.summaryLabel}>Proposals Sent</div>
+                  <div style={styles.summaryLabel}>Proposals sent</div>
                   <div style={styles.summaryValue}>{repSnapshot.proposalsSent}</div>
                 </div>
 
                 <div
                   style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
                 >
-                  <div style={styles.summaryLabel}>Customer Responses</div>
+                  <div style={styles.summaryLabel}>Customer responses</div>
                   <div style={styles.summaryValue}>{repSnapshot.responses}</div>
                 </div>
 
                 <div
                   style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
                 >
-                  <div style={styles.summaryLabel}>Approved Revenue</div>
+                  <div style={styles.summaryLabel}>Quotes with responses</div>
+                  <div style={styles.summaryValue}>
+                    {managerScopedQuotesWithResponses}
+                  </div>
+                  <div style={styles.listMeta}>Assigned-team scoped quotes</div>
+                </div>
+
+                <div
+                  style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                >
+                  <div style={styles.summaryLabel}>Approved revenue</div>
                   <div style={styles.summaryValue}>
                     ${Number(repSnapshot.approvedRevenue || 0).toLocaleString()}
                   </div>
@@ -12455,15 +12987,65 @@ setTier(rec.tier || "Good");
                 <div
                   style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
                 >
-                  <div style={styles.summaryLabel}>Approval Rate</div>
+                  <div style={styles.summaryLabel}>Approval rate</div>
                   <div style={styles.summaryValue}>{repSnapshot.approvalRate}%</div>
+                </div>
+
+                <div
+                  style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                >
+                  <div style={styles.summaryLabel}>Approved line items</div>
+                  <div style={styles.summaryValue}>
+                    {managerDemandIntel.approvedLineCount ?? 0}
+                  </div>
+                  <div style={styles.listMeta}>Accepted rows on scoped quotes</div>
+                </div>
+
+                <div
+                  style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                >
+                  <div style={styles.summaryLabel}>Distinct SKUs (demand)</div>
+                  <div style={styles.summaryValue}>
+                    {managerDemandIntel.distinctSkus ?? 0}
+                  </div>
+                </div>
+
+                <div
+                  style={{ ...styles.summaryCard, ...styles.dashboardSummaryCard }}
+                >
+                  <div style={styles.summaryLabel}>Accepted units (demand)</div>
+                  <div style={styles.summaryValue}>
+                    {managerDemandIntel.totalUnits ?? 0}
+                  </div>
+                  <div style={styles.listMeta}>
+                    Quantities inferred when line linkage is missing default to 1 per
+                    row.
+                  </div>
                 </div>
               </div>
             </div>
 
+            {(managerDemandIntel.distinctSkus ?? 0) > 0 && (
+              <div style={{ ...styles.card, ...styles.dashboardCard }}>
+                <div style={styles.eyebrow}>PRODUCT MIX</div>
+                <h3 style={styles.cardTitle}>Approved proposal demand snapshot</h3>
+                <p style={styles.cardBody}>
+                  Category split reflects accepted lubricant rows on proposals tied to
+                  your assigned team (same scope as Inventory Alerts eligibility).
+                  {managerDemandIntel.topCategory &&
+                  managerDemandIntel.topCategory !== "Other"
+                    ? ` Strongest concentration: ${managerDemandIntel.topCategory} (${managerDemandIntel.categoryShare ?? 0}% of inferred units).`
+                    : ""}
+                </p>
+              </div>
+            )}
+
             <div style={{ ...styles.card, ...styles.dashboardCard }}>
               <div style={styles.eyebrow}>PIPELINE</div>
-              <h3 style={styles.cardTitle}>Assigned Rep Pipeline</h3>
+              <h3 style={styles.cardTitle}>Assigned rep pipeline</h3>
+              <p style={styles.cardBody}>
+                Proposal stages filtered to quotes your team can touch in this session.
+              </p>
 
               <div style={styles.grid2}>
                 <div
@@ -12473,7 +13055,7 @@ setTier(rec.tier || "Good");
                     ...styles.pipelineAwaiting,
                   }}
                 >
-                  <div style={styles.summaryLabel}>Awaiting Review</div>
+                  <div style={styles.summaryLabel}>Awaiting review</div>
                   <div style={styles.summaryValue}>{pipeline.awaiting.length}</div>
                   <div style={styles.listMeta}>Proposals waiting on customer</div>
                 </div>
@@ -12509,7 +13091,7 @@ setTier(rec.tier || "Good");
                     ...styles.pipelineFollowUp,
                   }}
                 >
-                  <div style={styles.summaryLabel}>Needs Follow-Up</div>
+                  <div style={styles.summaryLabel}>Needs follow-up</div>
                   <div style={styles.summaryValue}>{pipeline.followUp.length}</div>
                   <div style={styles.listMeta}>Declined items requiring attention</div>
                 </div>
@@ -12517,18 +13099,27 @@ setTier(rec.tier || "Good");
             </div>
 
             <div style={{ ...styles.card, ...styles.dashboardCard }}>
-              <div style={styles.eyebrow}>DEALER LEADERBOARD</div>
-              <h3 style={styles.cardTitle}>Rep Performance Rankings</h3>
+              <div style={styles.eyebrow}>TEAM LEADERBOARD</div>
+              <h3 style={styles.cardTitle}>Top assigned reps</h3>
               <p style={styles.cardBody}>
-                Dealer-wide leaderboard remains visible so managers can compare team
-                performance across the organization.
+                Rows are filtered from the dealer leaderboard using names/emails tied
+                to reps assigned to you. If names differ from leaderboard entries,
+                rankings may appear empty until identifiers align.
               </p>
 
               <div style={styles.stack}>
-                {leaderboard.length === 0 ? (
-                  <p style={styles.muted}>No representative performance data yet.</p>
+                {assignedRepCountShell === 0 ? (
+                  <p style={styles.muted}>
+                    Assign representatives on the Team tab to populate rankings.
+                  </p>
+                ) : managerScopedLeaderboard.length === 0 ? (
+                  <p style={styles.muted}>
+                    No matching leaderboard rows for assigned reps yet. Performance
+                    will appear once assigned reps submit proposals that match
+                    leaderboard display names or emails.
+                  </p>
                 ) : (
-                  leaderboard.map((rep, index) => (
+                  managerScopedLeaderboard.map((rep, index) => (
                     <div
                       key={rep.name || index}
                       style={{
