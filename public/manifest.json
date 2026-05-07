@@ -1,0 +1,18 @@
+{
+  "short_name": "Klondike Growth",
+  "name": "Klondike Dealer Growth Platform",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08213f",
+  "theme_color": "#08213f",
+  "orientation": "portrait-primary"
+}
