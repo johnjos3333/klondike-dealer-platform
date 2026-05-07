@@ -2339,6 +2339,57 @@ const handleFinishDealerEnrollment = async () => {
       </div>
     </div>
   );
+  const adminProductMixIntelligence = React.useMemo(() => {
+    const targetCategories = [
+      "HD Engine Oils",
+      "Hydraulic Fluids",
+      "Automotive",
+      "Grease",
+      "Gear Oils",
+      "Transmission Fluids",
+      "Coolants / Chemicals",
+    ];
+    const categoryMap = {
+      "HD Engine Oils": ["Heavy Duty", "HD Engine Oils"],
+      "Hydraulic Fluids": ["Hydraulic Fluids"],
+      Automotive: ["Automotive"],
+      Grease: ["Grease"],
+      "Gear Oils": ["Gear Oils", "Gear"],
+      "Transmission Fluids": ["Transmission Fluids"],
+      "Coolants / Chemicals": ["Coolants", "Chemicals", "Coolants / Chemicals"],
+    };
+    const counts = Object.fromEntries(targetCategories.map((name) => [name, 0]));
+    (dealerNetworkPerformance || []).forEach((dealer) => {
+      const mixRows = Array.isArray(dealer?.productMix) ? dealer.productMix : [];
+      mixRows.forEach((row) => {
+        const sourceName = String(row?.name || "").trim();
+        const sourceCount = Number(row?.count || 0);
+        if (!sourceName || !Number.isFinite(sourceCount) || sourceCount <= 0) return;
+        targetCategories.forEach((targetName) => {
+          const aliases = categoryMap[targetName] || [];
+          if (aliases.includes(sourceName)) {
+            counts[targetName] += sourceCount;
+          }
+        });
+      });
+    });
+    const totalItems = Object.values(counts).reduce(
+      (sum, value) => sum + Number(value || 0),
+      0
+    );
+    const rows = targetCategories.map((name) => {
+      const count = Number(counts[name] || 0);
+      return {
+        name,
+        count,
+        percent: totalItems > 0 ? Math.round((count / totalItems) * 100) : 0,
+      };
+    });
+    return {
+      totalItems,
+      rows: rows.sort((a, b) => b.count - a.count),
+    };
+  }, [dealerNetworkPerformance]);
   const renderPlatformAdminView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
@@ -2424,11 +2475,45 @@ const handleFinishDealerEnrollment = async () => {
 
       {klondikeAdminTab === "dashboard" && (
         <div style={{ ...styles.grid3, marginBottom: 12 }}>
+          <div
+            style={{
+              ...styles.summaryCard,
+              background: "#0f172a",
+              border: "1px solid rgba(148, 163, 184, 0.26)",
+              boxShadow: "0 10px 22px rgba(2, 6, 23, 0.26)",
+            }}
+          >
+            <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>
+              Product Mix Intelligence
+            </div>
+            {adminProductMixIntelligence.totalItems > 0 ? (
+              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                {adminProductMixIntelligence.rows.map((row) => (
+                  <div
+                    key={`mix-${row.name}`}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 10,
+                      fontSize: 13,
+                      color: "#e2e8f0",
+                    }}
+                  >
+                    <span>{row.name}</span>
+                    <span style={{ fontWeight: 800 }}>
+                      {row.count} ({row.percent}%)
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+                Product mix data will populate as quotes are created and saved.
+              </div>
+            )}
+          </div>
           {[
-            {
-              title: "Product Mix Intelligence",
-              note: "Coming soon — data will populate as activity is logged.",
-            },
             {
               title: "Dealer Health",
               note: "Coming soon — data will populate as activity is logged.",
