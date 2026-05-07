@@ -4521,6 +4521,8 @@ const [crossSearch, setCrossSearch] = useState("");
 const [crossReferenceResult, setCrossReferenceResult] = useState(null);
 const [crossCatalogMap, setCrossCatalogMap] = React.useState({});
 const [selectedPackage, setSelectedPackage] = React.useState("");
+    const ocrDealerId = activeMembership?.organization_id || null;
+    const ocrRepId = session?.user?.id || null;
     const labelScanInputRef = React.useRef(null);
     const scannedLabelTextAreaRef = React.useRef(null);
     const scannedLabelBlobRef = React.useRef(null);
@@ -4639,6 +4641,8 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
                   matchResult?.matchedKlondikeProduct || null,
                 match_success: Boolean(matchResult?.matchSuccess),
                 image_source_type: "step2_scan",
+                dealer_id: ocrDealerId,
+                rep_id: ocrRepId,
               });
             } else {
               setQuoteMessage("");
@@ -4762,12 +4766,16 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
         matched_klondike_product: matchResult?.matchedKlondikeProduct || null,
         match_success: Boolean(matchResult?.matchSuccess),
         image_source_type: "manual_edit",
+        dealer_id: ocrDealerId,
+        rep_id: ocrRepId,
       });
     }, [
       scannedLabelExtractedText,
       scannedLabelDetectedBrand,
       scannedLabelDetectedViscosity,
       scannedLabelConfidence,
+      ocrDealerId,
+      ocrRepId,
     ]);
 
     const [proposalDecisions, setProposalDecisions] = React.useState({});
