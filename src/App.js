@@ -4320,6 +4320,8 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       React.useState(false);
     const [scannedLabelExtractedText, setScannedLabelExtractedText] =
       React.useState("");
+    const [scannedLabelConfidence, setScannedLabelConfidence] =
+      React.useState("");
     React.useEffect(() => {
       return () => {
         if (scannedLabelBlobRef.current) {
@@ -4340,6 +4342,7 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       setScannedLabelSource("generic");
       setScannedLabelOcrLoading(false);
       setScannedLabelExtractedText("");
+      setScannedLabelConfidence("");
     }, []);
 
     const handleOpenLabelScan = React.useCallback((source = "generic") => {
@@ -4363,6 +4366,7 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       setScannedLabelImage(file);
       setScannedLabelExtractedText("");
       setScannedLabelOcrLoading(false);
+      setScannedLabelConfidence("");
       setScannedLabelMessage(
         "Image captured. Review the detected label text and confirm the Klondike match."
       );
@@ -4371,8 +4375,20 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
         setScannedLabelMessage("Analyzing product label...");
         void (async () => {
           try {
-            const { text, error } = await extractLabelTextFromImage(file);
+            const { text, error, confidence } = await extractLabelTextFromImage(file);
             const detectedText = String(text || "").trim();
+            const normalizedConfidence = String(confidence || "")
+              .toLowerCase()
+              .trim();
+            const confidenceValue =
+              normalizedConfidence === "high" ||
+              normalizedConfidence === "medium" ||
+              normalizedConfidence === "low"
+                ? normalizedConfidence
+                : detectedText
+                ? "low"
+                : "";
+            setScannedLabelConfidence(confidenceValue);
             setScannedLabelExtractedText(detectedText);
             if (detectedText) {
               setCompetitor(detectedText);
@@ -4395,9 +4411,13 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
               );
             }
             if (detectedText) {
-              setScannedLabelMessage(
-                "Image captured. Review the detected label text and confirm the Klondike match."
-              );
+              const confidenceMessage =
+                confidenceValue === "high"
+                  ? "High-confidence product match detected."
+                  : confidenceValue === "medium"
+                  ? "Review detected product before confirming."
+                  : "Low-confidence label detection. Please verify product text manually.";
+              setScannedLabelMessage(confidenceMessage);
             }
           } finally {
             setScannedLabelOcrLoading(false);
@@ -4434,8 +4454,20 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       if (!scannedLabelImage || scannedLabelOcrLoading) return;
       setScannedLabelOcrLoading(true);
       try {
-        const { text, error } = await extractLabelTextFromImage(scannedLabelImage);
+        const { text, error, confidence } = await extractLabelTextFromImage(scannedLabelImage);
         const detectedText = String(text || "").trim();
+        const normalizedConfidence = String(confidence || "")
+          .toLowerCase()
+          .trim();
+        const confidenceValue =
+          normalizedConfidence === "high" ||
+          normalizedConfidence === "medium" ||
+          normalizedConfidence === "low"
+            ? normalizedConfidence
+            : detectedText
+            ? "low"
+            : "";
+        setScannedLabelConfidence(confidenceValue);
         setScannedLabelExtractedText(detectedText);
         if (!detectedText) {
           setScannedLabelMessage(
@@ -4443,9 +4475,13 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
               "No label text detected. Try a clearer image or enter the product manually."
           );
         } else {
-          setScannedLabelMessage(
-            "Image captured. Review the detected label text and confirm the Klondike match."
-          );
+          const confidenceMessage =
+            confidenceValue === "high"
+              ? "High-confidence product match detected."
+              : confidenceValue === "medium"
+              ? "Review detected product before confirming."
+              : "Low-confidence label detection. Please verify product text manually.";
+          setScannedLabelMessage(confidenceMessage);
         }
       } finally {
         setScannedLabelOcrLoading(false);
@@ -5770,6 +5806,42 @@ return (
                   }}
                 >
                   Analyzing product label...
+                </div>
+              )}
+              {!!scannedLabelConfidence && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    marginBottom: 6,
+                    padding: "8px 10px",
+                    borderRadius: 10,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    border:
+                      scannedLabelConfidence === "high"
+                        ? "1px solid rgba(34, 197, 94, 0.35)"
+                        : scannedLabelConfidence === "low"
+                        ? "1px solid rgba(245, 158, 11, 0.4)"
+                        : "1px solid rgba(148, 163, 184, 0.35)",
+                    background:
+                      scannedLabelConfidence === "high"
+                        ? "rgba(34, 197, 94, 0.16)"
+                        : scannedLabelConfidence === "low"
+                        ? "rgba(245, 158, 11, 0.18)"
+                        : "rgba(148, 163, 184, 0.18)",
+                    color:
+                      scannedLabelConfidence === "high"
+                        ? "#dcfce7"
+                        : scannedLabelConfidence === "low"
+                        ? "#fde68a"
+                        : "#e2e8f0",
+                  }}
+                >
+                  {scannedLabelConfidence === "high"
+                    ? "High-confidence product match detected."
+                    : scannedLabelConfidence === "medium"
+                    ? "Review detected product before confirming."
+                    : "Low-confidence label detection. Please verify product text manually."}
                 </div>
               )}
               <div style={{ marginTop: 14, width: "100%" }}>
