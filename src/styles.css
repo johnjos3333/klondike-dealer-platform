@@ -16,8 +16,9 @@
   --kd-page-overflow-x: hidden;
 
   /* ----- Content shell ----- */
-  --kd-shell-max-width: 1240px;
-  --kd-shell-gap: 24px;
+  --kd-shell-max-width: 1200px;
+  --kd-shell-gap: 22px;
+  --kd-grid24-gap: 20px;
 
   /* ----- Top chrome ----- */
   --kd-top-hero-background: #082846;
@@ -29,9 +30,9 @@
   /* ----- Hero card (portal strip) ----- */
   --kd-hero-card-background: linear-gradient(135deg, #0b3157 0%, #082846 100%);
   --kd-hero-card-border: 1px solid rgba(255, 255, 255, 0.12);
-  --kd-hero-card-border-radius: 24px;
-  --kd-hero-card-padding: 30px;
-  --kd-hero-card-shadow: 0 18px 45px rgba(0, 0, 0, 0.18);
+  --kd-hero-card-border-radius: 20px;
+  --kd-hero-card-padding: 22px 24px;
+  --kd-hero-card-shadow: 0 14px 40px rgba(0, 0, 0, 0.2);
 
   /* ----- Primary elevated card ----- */
   --kd-card-background: rgba(255, 255, 255, 0.98);
@@ -85,8 +86,8 @@
   --kd-page-title-font-size: 18px;
   --kd-page-title-letter-spacing: 0.08em;
 
-  --kd-hero-title-margin: 0 0 10px;
-  --kd-hero-title-font-size: 34px;
+  --kd-hero-title-margin: 0 0 8px;
+  --kd-hero-title-font-size: 28px;
 
   --kd-hero-text-margin-top: 8px;
   --kd-hero-text-font-size: 13px;
@@ -226,11 +227,191 @@
   --kd-sidebar-nav-hover: rgba(255, 255, 255, 0.08);
   --kd-sidebar-nav-active: linear-gradient(180deg, #f6a531 0%, #d87400 100%);
   --kd-sidebar-nav-radius: 10px;
+
+  /* ----- Authenticated top header (no sidebar) ----- */
+  --kd-shell-header-height: 50px;
+  --kd-shell-header-gap: 10px;
+  --kd-shell-header-background: linear-gradient(
+    180deg,
+    rgba(12, 28, 48, 0.95) 0%,
+    rgba(7, 16, 32, 0.92) 100%
+  );
+  --kd-shell-header-border: 1px solid rgba(255, 255, 255, 0.1);
+  --kd-shell-header-radius: 16px;
+  --kd-shell-header-shadow: 0 10px 36px rgba(0, 0, 0, 0.22),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  --kd-shell-header-logo-height: 40px;
+  --kd-shell-brand-font-size: 11px;
+  --kd-shell-content-offset-top: calc(
+    var(--kd-page-padding) + var(--kd-shell-header-height) +
+      var(--kd-shell-header-gap)
+  );
+
+  /* ----- Portal / workflow tab strip (rep & manager) ----- */
+  --kd-portal-command-padding: 12px 14px;
+  --kd-portal-command-radius: 16px;
+  --kd-portal-command-background: rgba(7, 16, 32, 0.82);
+  --kd-portal-command-border: 1px solid rgba(255, 255, 255, 0.1);
+  --kd-portal-command-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  --kd-portal-tab-padding-y: 11px;
+  --kd-portal-tab-padding-x: 16px;
+  --kd-portal-tab-min-height: 44px;
+  --kd-portal-tab-radius: 11px;
+  --kd-portal-tab-font-size: 14px;
+  --kd-portal-tab-border: 1px solid rgba(255, 255, 255, 0.14);
+  --kd-portal-tab-background: rgba(255, 255, 255, 0.07);
+  --kd-portal-tab-color: #ffffff;
+  --kd-portal-tab-active-border: 1px solid rgba(246, 165, 49, 0.95);
+  --kd-portal-tab-active-background: linear-gradient(
+    180deg,
+    #f6a531 0%,
+    #d87400 100%
+  );
+  --kd-portal-tab-active-color: #ffffff;
+  --kd-portal-tab-active-shadow: 0 4px 16px rgba(216, 116, 0, 0.35);
+
+  --kd-list-row-transition: border-color 0.18s ease, box-shadow 0.18s ease,
+    background 0.18s ease;
+
+  /* ----- PDS Library document rows ----- */
+  --kd-pds-doc-bg: linear-gradient(180deg, #1e293b 0%, #111827 100%);
+  --kd-pds-doc-border: 1px solid rgba(148, 163, 184, 0.28);
+  --kd-pds-doc-shadow: 0 2px 8px rgba(15, 23, 42, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  --kd-pds-doc-title: #f1f5f9;
+  --kd-pds-doc-icon: #94a3b8;
+  --kd-pds-doc-action-bg: rgba(246, 165, 49, 0.14);
+  --kd-pds-doc-action-border: 1px solid rgba(246, 165, 49, 0.45);
+  --kd-pds-doc-action-color: #fef3c7;
+  --kd-pds-doc-action-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 
 .App {
   font-family: sans-serif;
   text-align: center;
+}
+
+/* ----- PDS Library: enterprise doc links (visual only) ----- */
+#root a.kd-pds-doc-link:hover {
+  transform: translateY(-2px);
+  border-color: rgba(246, 165, 49, 0.45);
+  background: linear-gradient(180deg, #273548 0%, #172033 100%);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.2),
+    0 1px 0 rgba(255, 255, 255, 0.07) inset;
+}
+
+#root a.kd-pds-doc-link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35),
+    0 10px 28px rgba(0, 0, 0, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  border-color: rgba(96, 165, 250, 0.55);
+}
+
+#root a.kd-pds-doc-link:hover .kd-pds-doc-link-action {
+  background: rgba(246, 165, 49, 0.26);
+  border-color: rgba(246, 165, 49, 0.72);
+  color: #fffbeb;
+  box-shadow: 0 4px 14px rgba(216, 116, 0, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.12) inset;
+}
+
+#root a.kd-pds-doc-link:active {
+  transform: translateY(0);
+}
+
+/* ----- Leaderboard / rankings badges (visual only) ----- */
+#root .kd-lb-tray {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+#root .kd-lb-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  box-sizing: border-box;
+  border: 1px solid rgba(100, 116, 139, 0.28);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(241, 245, 249, 0.88) 100%
+  );
+  color: #475569;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05),
+    0 0 0 1px rgba(255, 255, 255, 0.65) inset;
+  cursor: default;
+  transition: transform 0.18s ease, border-color 0.18s ease,
+    box-shadow 0.18s ease, color 0.18s ease, filter 0.18s ease;
+}
+
+#root .kd-lb-badge:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07),
+    0 0 0 1px rgba(255, 255, 255, 0.75) inset;
+}
+
+#root .kd-lb-badge--top {
+  border-color: rgba(212, 175, 55, 0.55);
+  color: #92400e;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 251, 235, 0.98) 0%,
+    rgba(254, 243, 199, 0.92) 100%
+  );
+  box-shadow: 0 0 14px rgba(212, 175, 55, 0.22),
+    0 1px 2px rgba(146, 64, 14, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.55) inset;
+}
+
+#root .kd-lb-badge--fire {
+  border-color: rgba(234, 88, 12, 0.38);
+  color: #c2410c;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 247, 237, 0.98) 0%,
+    rgba(254, 215, 170, 0.65) 100%
+  );
+}
+
+#root .kd-lb-badge--target {
+  border-color: rgba(37, 99, 235, 0.35);
+  color: #1d4ed8;
+  background: linear-gradient(
+    180deg,
+    rgba(239, 246, 255, 0.98) 0%,
+    rgba(191, 219, 254, 0.55) 100%
+  );
+}
+
+#root .kd-lb-badge--bolt {
+  border-color: rgba(124, 58, 237, 0.32);
+  color: #6d28d9;
+  background: linear-gradient(
+    180deg,
+    rgba(250, 245, 255, 0.98) 0%,
+    rgba(233, 213, 255, 0.55) 100%
+  );
+}
+
+#root .kd-lb-badge--elite {
+  border-color: rgba(14, 165, 233, 0.42);
+  color: #0369a1;
+  background: linear-gradient(
+    135deg,
+    rgba(224, 242, 254, 0.95) 0%,
+    rgba(186, 230, 253, 0.75) 50%,
+    rgba(224, 231, 255, 0.85) 100%
+  );
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.18),
+    0 1px 2px rgba(3, 105, 161, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
 }
 
 /* ----- Enterprise form controls (#root) — focus/hover/disabled; no logic ----- */

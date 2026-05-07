@@ -1,6 +1,7 @@
 import "./styles.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { PDS_MAP } from "./data/pdsMap";
+import { PDS_LIBRARY_INDEX } from "./data/pdsLibraryIndex";
 import { supabase } from "./supabase";
 const PRODUCT_DB = [
   {
@@ -34,6 +35,231 @@ const DEFAULT_CLOSING = `We appreciate the opportunity to support your operation
 Our team is committed to delivering not only high-quality products, but also the technical expertise and support required to help you improve performance, reduce risk, and drive long-term results.
 
 Your representative will follow up to review next steps and ensure a smooth implementation.`;
+
+function LeaderboardBadgeTray({
+  index,
+  proposals,
+  approvalRate,
+  quotes,
+  responses,
+  revenue,
+  approved,
+}) {
+  const p = Number(proposals) || 0;
+  const q = quotes != null ? Number(quotes) : NaN;
+  const resp = responses != null ? Number(responses) : NaN;
+  const rev = revenue != null ? Number(revenue) : NaN;
+  const app =
+    approved != null && approved !== "" ? Number(approved) : NaN;
+  const ar =
+    approvalRate != null && approvalRate !== ""
+      ? Number(approvalRate)
+      : NaN;
+  const hasRate = Number.isFinite(ar);
+
+  const badges = [];
+
+  if (index === 0) {
+    badges.push({
+      key: "top",
+      className: "kd-lb-badge kd-lb-badge--top",
+      label: "Rank #1 — top performer",
+      node: (
+        <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden>
+          <path
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.85"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zM7 8H5a2 2 0 004 0m6-4h2a2 2 0 01-4 0"
+          />
+        </svg>
+      ),
+    });
+  }
+
+  if (hasRate) {
+    if (ar >= 78) {
+      badges.push({
+        key: "fire",
+        className: "kd-lb-badge kd-lb-badge--fire",
+        label: "Strong approval rate",
+        node: (
+          <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden>
+            <path
+              fill="currentColor"
+              d="M12 2c0 4-4 6-3 11 1 4 5 5 8 3-2 2-6 3-9 1C5 14 6 9 9 6 10 5 12 2 12 2z"
+            />
+          </svg>
+        ),
+      });
+    }
+    if (ar >= 52 && p >= 3 && (!Number.isFinite(app) || app >= 2)) {
+      badges.push({
+        key: "target",
+        className: "kd-lb-badge kd-lb-badge--target",
+        label: "Solid conversion on decisions",
+        node: (
+          <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden>
+            <circle
+              cx="12"
+              cy="12"
+              r="9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+          </svg>
+        ),
+      });
+    }
+    if (
+      index === 0 &&
+      ar >= 82 &&
+      p >= 6 &&
+      Number.isFinite(rev) &&
+      rev > 0
+    ) {
+      badges.push({
+        key: "elite",
+        className: "kd-lb-badge kd-lb-badge--elite",
+        label: "Elite performance",
+        node: (
+          <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden>
+            <path
+              fill="currentColor"
+              d="M12 3l2 5 5 .5-4 3.5 1 5L12 15l-4 2 1-5-4-3.5L10 8l2-5z"
+            />
+          </svg>
+        ),
+      });
+    }
+  } else {
+    if (Number.isFinite(resp) && resp >= 6 && p >= 3) {
+      badges.push({
+        key: "fire",
+        className: "kd-lb-badge kd-lb-badge--fire",
+        label: "High customer response activity",
+        node: (
+          <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden>
+            <path
+              fill="currentColor"
+              d="M12 2c0 4-4 6-3 11 1 4 5 5 8 3-2 2-6 3-9 1C5 14 6 9 9 6 10 5 12 2 12 2z"
+            />
+          </svg>
+        ),
+      });
+    }
+    if (Number.isFinite(q) && q >= 8 && p >= 4) {
+      badges.push({
+        key: "target",
+        className: "kd-lb-badge kd-lb-badge--target",
+        label: "Strong quote-to-proposal momentum",
+        node: (
+          <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden>
+            <circle
+              cx="12"
+              cy="12"
+              r="9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <circle
+              cx="12"
+              cy="12"
+              r="4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            />
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+          </svg>
+        ),
+      });
+    }
+    if (
+      index === 0 &&
+      p >= 8 &&
+      Number.isFinite(q) &&
+      q >= 10 &&
+      Number.isFinite(rev) &&
+      rev > 0
+    ) {
+      badges.push({
+        key: "elite",
+        className: "kd-lb-badge kd-lb-badge--elite",
+        label: "Elite coverage",
+        node: (
+          <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden>
+            <path
+              fill="currentColor"
+              d="M12 3l2 5 5 .5-4 3.5 1 5L12 15l-4 2 1-5-4-3.5L10 8l2-5z"
+            />
+          </svg>
+        ),
+      });
+    }
+  }
+
+  if (p >= 7) {
+    badges.push({
+      key: "bolt",
+      className: "kd-lb-badge kd-lb-badge--bolt",
+      label: "High proposal activity",
+      node: (
+        <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden>
+          <path
+            fill="currentColor"
+            d="M11 3L4 14h6l-1 7 9-11h-6l2.5-7H11z"
+          />
+        </svg>
+      ),
+    });
+  }
+
+  const seen = new Set();
+  const uniq = badges.filter((b) =>
+    seen.has(b.key) ? false : (seen.add(b.key), true)
+  );
+
+  const priority = ["top", "elite", "fire", "target", "bolt"];
+  const capped = [...uniq]
+    .sort((a, b) => priority.indexOf(a.key) - priority.indexOf(b.key))
+    .slice(0, 4);
+
+  if (capped.length === 0) return null;
+
+  return (
+    <span
+      className="kd-lb-tray"
+      role="list"
+      aria-label="Performance highlights"
+    >
+      {capped.map((b) => (
+        <span
+          key={b.key}
+          className={b.className}
+          role="listitem"
+          title={b.label}
+        >
+          {b.node}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export default function App() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1662,8 +1888,25 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <div>
-                      <div style={styles.listTitle}>
-                        #{index + 1} {rep.name}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: 10,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <div style={styles.listTitle}>
+                          #{index + 1} {rep.name}
+                        </div>
+                        <LeaderboardBadgeTray
+                          index={index}
+                          proposals={rep.proposals}
+                          quotes={rep.quotes}
+                          responses={rep.responses}
+                          revenue={rep.revenue}
+                        />
                       </div>
                       <div style={styles.listMeta}>
                         {rep.quotes} quote(s) • {rep.proposals} proposal(s) •{" "}
@@ -2416,21 +2659,15 @@ const renderDealerAdminView = () => (
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={styles.workflowTabBar}>
           {["dashboard", "team", "add_users", "profile"].map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setDealerAdminTab(tab)}
               style={{
-                padding: "10px 14px",
-                borderRadius: 999,
-                border: "1px solid #cbd5e1",
-                background: dealerAdminTab === tab ? "#f6a531" : "#fff",
-                color: dealerAdminTab === tab ? "#fff" : "#0a2540",
-                fontWeight: 900,
-                cursor: "pointer",
-                textTransform: "capitalize",
+                ...styles.workflowTab,
+                ...(dealerAdminTab === tab ? styles.workflowTabActive : {}),
               }}
             >
               {tab === "add_users"
@@ -2504,8 +2741,25 @@ const renderDealerAdminView = () => (
               }}
             >
               <div>
-                <div style={styles.listTitle}>
-                  #{index + 1} {rep.name}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 10,
+                    marginBottom: 4,
+                  }}
+                >
+                  <div style={styles.listTitle}>
+                    #{index + 1} {rep.name}
+                  </div>
+                  <LeaderboardBadgeTray
+                    index={index}
+                    proposals={rep.proposals}
+                    quotes={rep.quotes}
+                    responses={rep.responses}
+                    revenue={rep.revenue}
+                  />
                 </div>
                 <div style={styles.listMeta}>
                   {rep.quotes} quote(s) • {rep.proposals} proposal(s) •{" "}
@@ -4611,18 +4865,8 @@ const PortalButton = ({ tab }) => {
   setDealerActiveTab(tab.id)
 }}
       style={{
-        padding: "13px 18px",
-        borderRadius: 12,
-        border: active
-          ? "1px solid rgba(246,165,49,0.9)"
-          : "1px solid rgba(255,255,255,0.14)",
-        background: active
-          ? "linear-gradient(180deg, #f6a531 0%, #d87400 100%)"
-          : "rgba(255,255,255,0.08)",
-        color: "#fff",
-        fontSize: 15,
-        fontWeight: 900,
-        cursor: "pointer",
+        ...styles.portalTabButton,
+        ...(active ? styles.portalTabButtonActive : {}),
       }}
     >
       {tab.label}
@@ -4640,8 +4884,8 @@ return (
           src={dealerLogoUrl || dealerProfile?.logo_url}
           alt="Dealer Logo"
           style={{
-            width: 70,
-            height: 70,
+            width: 58,
+            height: 58,
             objectFit: "contain",
             borderRadius: 12,
             background: "#fff",
@@ -4676,17 +4920,7 @@ return (
   </div>
 </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            flexWrap: "wrap",
-            padding: 18,
-            borderRadius: 22,
-            background: "rgba(7,16,32,0.72)",
-            border: "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
+        <div style={styles.portalCommandBar}>
           {tabs.map((tab) => (
             <PortalButton key={tab.id} tab={tab} />
           ))}
@@ -4759,8 +4993,25 @@ return (
           }}
         >
           <div>
-            <div style={styles.listTitle}>
-              {index + 1}. {rep.name}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: 10,
+                marginBottom: 4,
+              }}
+            >
+              <div style={styles.listTitle}>
+                {index + 1}. {rep.name}
+              </div>
+              <LeaderboardBadgeTray
+                index={index}
+                proposals={rep.proposals}
+                approvalRate={rep.approvalRate}
+                revenue={rep.revenue}
+                approved={rep.approved}
+              />
             </div>
 
             <div style={styles.listMeta}>
@@ -7020,11 +7271,118 @@ setTier(rec.tier || "Good");
         {dealerActiveTab === "pds" && isRep && (
           <div style={styles.card}>
             <div style={styles.eyebrow}>PDS LIBRARY</div>
-            <h3 style={styles.cardTitle}>Product Documents</h3>
+            <h3 style={styles.cardTitle}>Product data sheets (PDS)</h3>
             <p style={styles.cardBody}>
-              Product data sheets and spec sheets will be added here once
-              uploaded.
+              Browse {PDS_LIBRARY_INDEX.length} Klondike product data sheets.
+              Links open the PDF in a new tab.
             </p>
+            {Object.entries(
+              PDS_LIBRARY_INDEX.reduce((acc, row) => {
+                if (!acc[row.category]) acc[row.category] = [];
+                acc[row.category].push(row);
+                return acc;
+              }, {})
+            )
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([category, items]) => (
+                <div key={category} style={{ marginTop: 22 }}>
+                  <div
+                    style={{
+                      ...styles.eyebrow,
+                      marginBottom: 10,
+                      color: "#334155",
+                      opacity: 1,
+                    }}
+                  >
+                    {category}
+                  </div>
+                  <div style={{ ...styles.stack, gap: 10 }}>
+                    {items
+                      .slice()
+                      .sort((x, y) =>
+                        x.displayName.localeCompare(y.displayName)
+                      )
+                      .map((row) => (
+                        <a
+                          key={row.path}
+                          className="kd-pds-doc-link"
+                          href={row.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={styles.pdsDocLink}
+                        >
+                          <span style={styles.pdsDocLinkMain}>
+                            <span
+                              style={styles.pdsDocLinkIconWrap}
+                              aria-hidden
+                            >
+                              <svg
+                                width="18"
+                                height="18"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                style={{ display: "block" }}
+                              >
+                                <path
+                                  d="M8 3h7l5 5v13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"
+                                  stroke="currentColor"
+                                  strokeWidth="1.75"
+                                  strokeLinejoin="round"
+                                />
+                                <path
+                                  d="M14 3v4h4"
+                                  stroke="currentColor"
+                                  strokeWidth="1.75"
+                                  strokeLinejoin="round"
+                                />
+                                <path
+                                  d="M9 14h6M9 17h4"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                            </span>
+                            <span style={styles.pdsDocLinkTitle}>
+                              {row.displayName}
+                            </span>
+                          </span>
+                          <span
+                            className="kd-pds-doc-link-action"
+                            style={styles.pdsDocLinkAction}
+                          >
+                            <span>Open PDF</span>
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                              aria-hidden
+                              style={{ display: "block", flexShrink: 0 }}
+                            >
+                              <path
+                                d="M9 5h10v10M19 5L6 18"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M15 5h4v4"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </span>
+                        </a>
+                      ))}
+                  </div>
+                </div>
+              ))}
           </div>
         )}
 
@@ -7188,8 +7546,25 @@ setTier(rec.tier || "Good");
                       }}
                     >
                       <div>
-                        <div style={styles.listTitle}>
-                          #{index + 1} {rep.name}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            gap: 10,
+                            marginBottom: 4,
+                          }}
+                        >
+                          <div style={styles.listTitle}>
+                            #{index + 1} {rep.name}
+                          </div>
+                          <LeaderboardBadgeTray
+                            index={index}
+                            proposals={rep.proposals}
+                            approvalRate={rep.approvalRate}
+                            revenue={rep.revenue}
+                            approved={rep.approved}
+                          />
                         </div>
 
                         <div style={styles.listMeta}>
@@ -7460,90 +7835,38 @@ case "rep":
       </div>
     );
   }
-  const sidebarNavItems = [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "team", label: "Team" },
-    { id: "add_users", label: "Add Users" },
-    { id: "quote", label: "Quotes" },
-    { id: "library", label: "Proposal Library" },
-    { id: "cross", label: "Cross Reference" },
-    { id: "pds", label: "PDS Library" },
-    { id: "profile", label: "Settings" },
-  ];
-
-  const isDealerAdminSidebar = activeMembership?.role === "dealer_admin";
-  const getSidebarActive = (id) =>
-    isDealerAdminSidebar && dealerAdminTab === id;
 
   return (
     <div style={styles.page}>
       <div style={styles.appShellLayout}>
-        <aside style={styles.sidebarRail}>
-          <div style={styles.sidebarTop}>
+        <header style={styles.shellTopBar}>
+          <div style={styles.shellTopBarLeft}>
             <img
-              src="/klondike-full-logo.png"
+              src="/favicon.png"
               alt="Klondike"
-              style={styles.sidebarLogo}
+              style={styles.shellHeaderLogo}
             />
-            <div style={styles.sidebarTitle}>Dealer Growth Platform</div>
-            <div style={styles.sidebarSubtext}>
-              Enterprise Workspace
-            </div>
+            <h1 style={styles.shellBrandTitle}>
+              KLONDIKE DEALER GROWTH PLATFORM
+            </h1>
           </div>
-          <nav style={styles.sidebarNavList}>
-            {sidebarNavItems.map((item) => {
-              const isActive = getSidebarActive(item.id);
-              const isClickable = isDealerAdminSidebar;
-
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    if (isClickable) setDealerAdminTab(item.id);
-                  }}
-                  style={{
-                    ...styles.sidebarNavItem,
-                    ...(isActive ? styles.sidebarNavItemActive : {}),
-                    opacity: isClickable || isActive ? 1 : 0.75,
-                    cursor: isClickable ? "pointer" : "default",
-                  }}
-                >
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
-          <div style={styles.sidebarFooter}>
-            <div style={styles.sidebarUserEmail}>
-              {profile?.email || session.user.email}
-            </div>
-            <button onClick={handleLogout} style={styles.smallButton}>
+          <div style={styles.shellTopBarRight}>
+            <span style={styles.shellHeaderUser}>
+              Signed in as{" "}
+              <strong>{profile?.email || session.user.email}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={handleLogout}
+              style={styles.shellLogoutButton}
+            >
               Log Out
             </button>
           </div>
-        </aside>
+        </header>
 
         <div style={styles.shellMain}>
           <div style={styles.shell}>
-            <div style={styles.topHero}>
-              <div>
-                <img
-                  src="/klondike-full-logo.png"
-                  alt="Klondike"
-                  style={styles.logo}
-                />
-                <h1 style={styles.pageTitle}>KLONDIKE DEALER GROWTH PLATFORM</h1>
-                <p style={styles.heroText}>
-                  Signed in as{" "}
-                  <strong>{profile?.email || session.user.email}</strong>
-                </p>
-              </div>
-
-              <button onClick={handleLogout} style={styles.smallButton}>
-                Log Out
-              </button>
-            </div>
             {profile?.must_reset_password ? (
               <div style={styles.card}>
                 <h3 style={styles.cardTitle}>Set Your Password</h3>
@@ -8505,88 +8828,166 @@ const styles = {
   appShellLayout: {
     position: "relative",
     minHeight: "calc(100vh - (var(--kd-page-padding) * 2))",
+    textAlign: "left",
   },
 
-  sidebarRail: {
+  shellTopBar: {
     position: "fixed",
     top: "var(--kd-page-padding)",
     left: "var(--kd-page-padding)",
-    width: "var(--kd-sidebar-width)",
-    height: "calc(100vh - (var(--kd-page-padding) * 2))",
-    background: "var(--kd-sidebar-background)",
-    border: "var(--kd-sidebar-border)",
-    borderRadius: "var(--kd-sidebar-radius)",
-    boxShadow: "var(--kd-sidebar-shadow)",
-    padding: "var(--kd-sidebar-padding)",
-    display: "grid",
-    gridTemplateRows: "auto 1fr auto",
+    right: "var(--kd-page-padding)",
+    height: "var(--kd-shell-header-height)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 14,
+    padding: "0 18px",
+    boxSizing: "border-box",
+    background: "var(--kd-shell-header-background)",
+    border: "var(--kd-shell-header-border)",
+    borderRadius: "var(--kd-shell-header-radius)",
+    boxShadow: "var(--kd-shell-header-shadow)",
+    backdropFilter: "blur(14px)",
+    zIndex: 45,
+    flexWrap: "wrap",
+  },
+
+  shellTopBarLeft: {
+    display: "flex",
+    alignItems: "center",
     gap: 16,
-    zIndex: 20,
-    backdropFilter: "blur(10px)",
+    minWidth: 0,
+    flex: "1 1 auto",
   },
 
-  sidebarTop: {
-    display: "grid",
-    gap: 8,
+  shellTopBarRight: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    flexShrink: 0,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
   },
 
-  sidebarLogo: {
-    width: 150,
-    height: "auto",
+  shellHeaderLogo: {
+    height: "var(--kd-shell-header-logo-height)",
+    width: "auto",
+    objectFit: "contain",
+    flexShrink: 0,
+    display: "block",
   },
 
-  sidebarTitle: {
-    color: "#fff",
-    fontSize: 15,
+  shellBrandTitle: {
+    margin: 0,
+    fontSize: "var(--kd-shell-brand-font-size)",
     fontWeight: 900,
-    letterSpacing: "0.04em",
+    letterSpacing: "0.07em",
     textTransform: "uppercase",
-  },
-
-  sidebarSubtext: {
-    color: "var(--kd-sidebar-nav-muted)",
-    fontSize: 12,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    fontWeight: 700,
-  },
-
-  sidebarNavList: {
-    display: "grid",
-    gap: "var(--kd-sidebar-nav-gap)",
-    alignContent: "start",
-  },
-
-  sidebarNavItem: {
-    border: "none",
-    borderRadius: "var(--kd-sidebar-nav-radius)",
-    background: "transparent",
-    color: "var(--kd-sidebar-nav-color)",
-    textAlign: "left",
-    fontSize: 14,
-    fontWeight: 800,
-    padding: "10px 12px",
-  },
-
-  sidebarNavItemActive: {
-    background: "var(--kd-sidebar-nav-active)",
     color: "#fff",
+    lineHeight: 1.2,
+    flex: "1 1 160px",
+    minWidth: 0,
+    textAlign: "left",
   },
 
-  sidebarFooter: {
-    display: "grid",
-    gap: 10,
-  },
-
-  sidebarUserEmail: {
+  shellHeaderUser: {
     fontSize: 12,
     color: "var(--kd-sidebar-nav-muted)",
-    wordBreak: "break-word",
+    maxWidth: "min(42vw, 320px)",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+
+  shellLogoutButton: {
+    padding: "8px 16px",
+    borderRadius: 11,
+    border: "1px solid rgba(255,255,255,0.22)",
+    background: "rgba(255,255,255,0.08)",
+    color: "#fff",
+    fontWeight: 800,
+    fontSize: 14,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  },
+
+  portalCommandBar: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    alignItems: "center",
+    padding: "var(--kd-portal-command-padding)",
+    borderRadius: "var(--kd-portal-command-radius)",
+    background: "var(--kd-portal-command-background)",
+    border: "var(--kd-portal-command-border)",
+    boxShadow: "var(--kd-portal-command-shadow)",
+    marginBottom: 4,
+    minWidth: 0,
+  },
+
+  portalTabButton: {
+    padding: "var(--kd-portal-tab-padding-y) var(--kd-portal-tab-padding-x)",
+    minHeight: "var(--kd-portal-tab-min-height)",
+    borderRadius: "var(--kd-portal-tab-radius)",
+    border: "var(--kd-portal-tab-border)",
+    background: "var(--kd-portal-tab-background)",
+    color: "var(--kd-portal-tab-color)",
+    fontSize: "var(--kd-portal-tab-font-size)",
+    fontWeight: "var(--kd-font-weight-heavy)",
+    cursor: "pointer",
+    boxSizing: "border-box",
+    transition:
+      "border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease",
+    outline: "none",
+  },
+
+  portalTabButtonActive: {
+    border: "var(--kd-portal-tab-active-border)",
+    background: "var(--kd-portal-tab-active-background)",
+    color: "var(--kd-portal-tab-active-color)",
+    boxShadow: "var(--kd-portal-tab-active-shadow)",
+  },
+
+  workflowTabBar: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    alignItems: "center",
+    marginBottom: 18,
+    minWidth: 0,
+  },
+
+  workflowTab: {
+    padding: "var(--kd-portal-tab-padding-y) var(--kd-portal-tab-padding-x)",
+    minHeight: "var(--kd-portal-tab-min-height)",
+    borderRadius: "var(--kd-portal-tab-radius)",
+    border: "1px solid #cbd5e1",
+    background: "#f8fafc",
+    color: "#0f172a",
+    fontSize: "var(--kd-portal-tab-font-size)",
+    fontWeight: "var(--kd-font-weight-heavy)",
+    cursor: "pointer",
+    boxSizing: "border-box",
+    textTransform: "capitalize",
+    transition:
+      "border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease",
+    outline: "none",
+  },
+
+  workflowTabActive: {
+    border: "var(--kd-portal-tab-active-border)",
+    background: "var(--kd-portal-tab-active-background)",
+    color: "var(--kd-portal-tab-active-color)",
+    boxShadow: "var(--kd-portal-tab-active-shadow)",
   },
 
   shellMain: {
-    marginLeft: "var(--kd-main-left-offset)",
+    marginLeft: 0,
     minWidth: 0,
+    width: "100%",
+    maxWidth: "100%",
+    paddingTop: "var(--kd-shell-content-offset-top)",
+    boxSizing: "border-box",
   },
 
   grid2: {
@@ -8852,7 +9253,7 @@ const styles = {
 
   grid24: {
     display: "grid",
-    gap: 22,
+    gap: "var(--kd-grid24-gap)",
     minWidth: 0,
   },
 
@@ -8980,6 +9381,74 @@ const styles = {
     gap: 12,
   },
 
+  pdsDocLink: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 14,
+    flexWrap: "wrap",
+    padding: "12px 18px",
+    minHeight: 52,
+    boxSizing: "border-box",
+    borderRadius: 999,
+    textDecoration: "none",
+    cursor: "pointer",
+    background: "var(--kd-pds-doc-bg)",
+    border: "var(--kd-pds-doc-border)",
+    boxShadow: "var(--kd-pds-doc-shadow)",
+    color: "var(--kd-pds-doc-title)",
+    outline: "none",
+    transition:
+      "transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease",
+  },
+
+  pdsDocLinkMain: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    flex: "1 1 220px",
+    minWidth: 0,
+  },
+
+  pdsDocLinkIconWrap: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+    color: "var(--kd-pds-doc-icon)",
+    opacity: 0.92,
+  },
+
+  pdsDocLinkTitle: {
+    fontSize: 15,
+    fontWeight: 700,
+    lineHeight: 1.35,
+    letterSpacing: "-0.01em",
+    color: "inherit",
+    flex: "1 1 auto",
+    minWidth: 0,
+    wordBreak: "break-word",
+  },
+
+  pdsDocLinkAction: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+    padding: "9px 16px",
+    borderRadius: 999,
+    fontSize: 13,
+    fontWeight: 800,
+    letterSpacing: "0.03em",
+    textTransform: "uppercase",
+    background: "var(--kd-pds-doc-action-bg)",
+    border: "var(--kd-pds-doc-action-border)",
+    color: "var(--kd-pds-doc-action-color)",
+    boxShadow: "var(--kd-pds-doc-action-shadow)",
+    transition:
+      "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
+  },
+
   listRow: {
     display: "flex",
     justifyContent: "space-between",
@@ -8991,6 +9460,7 @@ const styles = {
     border: "1px solid #e7edf3",
     flexWrap: "wrap",
     minWidth: 0,
+    transition: "var(--kd-list-row-transition)",
   },
 
   listTitle: {
