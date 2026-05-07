@@ -97,6 +97,12 @@ function extractViscosityFromText(text) {
   return m ? m[0].toUpperCase() : "";
 }
 
+function shortIdLabel(prefix, value) {
+  const raw = String(value || "").trim();
+  if (!raw) return `${prefix} —`;
+  return `${prefix} ${raw.slice(0, 4)}...`;
+}
+
 const OCR_FAILURE_RECOVERY_MESSAGE =
   "Could not confidently identify the product label.";
 const OCR_FAILURE_RECOVERY_GUIDANCE =
@@ -554,6 +560,8 @@ useEffect(() => {
     topBrand: "",
     topBrands: [],
     topViscosities: [],
+    topDealers: [],
+    topReps: [],
   });
 
   const [dealerMessage, setDealerMessage] = React.useState("");
@@ -1860,7 +1868,9 @@ const handleFinishDealerEnrollment = async () => {
       try {
         const { data, error } = await supabase
           .from("ocr_scan_events")
-          .select("detected_brand, detected_viscosity, match_success")
+          .select(
+            "detected_brand, detected_viscosity, match_success, dealer_id, rep_id"
+          )
           .order("created_at", { ascending: false })
           .limit(1000);
 
@@ -1873,6 +1883,8 @@ const handleFinishDealerEnrollment = async () => {
               topBrand: "",
               topBrands: [],
               topViscosities: [],
+              topDealers: [],
+              topReps: [],
             });
           }
           return;
@@ -1915,6 +1927,8 @@ const handleFinishDealerEnrollment = async () => {
           rows.map((row) => row?.detected_viscosity),
           5
         );
+        const topDealers = countTopList(rows.map((row) => row?.dealer_id), 5);
+        const topReps = countTopList(rows.map((row) => row?.rep_id), 5);
 
         if (!cancelled) {
           setOcrSnapshot({
@@ -1924,6 +1938,8 @@ const handleFinishDealerEnrollment = async () => {
             topBrand,
             topBrands,
             topViscosities,
+            topDealers,
+            topReps,
           });
         }
       } finally {
@@ -2192,6 +2208,58 @@ const handleFinishDealerEnrollment = async () => {
                           }}
                         >
                           <span>{item.value}</span>
+                          <span style={{ fontWeight: 800 }}>{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ ...styles.muted, marginTop: 10 }}>—</div>
+                  )}
+                </div>
+              </div>
+              <div style={{ ...styles.grid3, marginTop: 14 }}>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Top 5 OCR-Active Dealers</div>
+                  {(ocrSnapshot.topDealers || []).length > 0 ? (
+                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                      {ocrSnapshot.topDealers.map((item, idx) => (
+                        <div
+                          key={`${item.value}-${idx}`}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            fontSize: 13,
+                            color: "#0f172a",
+                            gap: 10,
+                          }}
+                        >
+                          <span>{shortIdLabel("Dealer", item.value)}</span>
+                          <span style={{ fontWeight: 800 }}>{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ ...styles.muted, marginTop: 10 }}>—</div>
+                  )}
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Top 5 OCR-Active Reps</div>
+                  {(ocrSnapshot.topReps || []).length > 0 ? (
+                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                      {ocrSnapshot.topReps.map((item, idx) => (
+                        <div
+                          key={`${item.value}-${idx}`}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            fontSize: 13,
+                            color: "#0f172a",
+                            gap: 10,
+                          }}
+                        >
+                          <span>{shortIdLabel("Rep", item.value)}</span>
                           <span style={{ fontWeight: 800 }}>{item.count}</span>
                         </div>
                       ))}
