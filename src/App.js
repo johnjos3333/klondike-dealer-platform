@@ -2498,6 +2498,71 @@ const handleFinishDealerEnrollment = async () => {
       rows,
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.topReps]);
+  const adminIncentiveLeaderboardFoundation = React.useMemo(() => {
+    const dealers = Array.isArray(dealerNetworkPerformance)
+      ? dealerNetworkPerformance
+      : [];
+    const repMap = new Map();
+    dealers.forEach((dealer) => {
+      const dealerName = String(dealer?.name || "Dealer").trim();
+      const reps = Array.isArray(dealer?.leaderboard) ? dealer.leaderboard : [];
+      reps.forEach((rep) => {
+        const repName = String(rep?.name || "").trim();
+        if (!repName) return;
+        const existing = repMap.get(repName) || {
+          name: repName,
+          dealer: dealerName,
+          quotes: 0,
+          proposals: 0,
+          responses: 0,
+          ocrScans: 0,
+        };
+        existing.quotes += Number(rep?.quotes || 0);
+        existing.proposals += Number(rep?.proposals || 0);
+        existing.responses += Number(rep?.responses || 0);
+        if (!existing.dealer && dealerName) existing.dealer = dealerName;
+        repMap.set(repName, existing);
+      });
+    });
+    const ocrRepRows = Array.isArray(ocrSnapshot?.topReps) ? ocrSnapshot.topReps : [];
+    ocrRepRows.forEach((row) => {
+      const rawRepId = String(row?.value || "").trim();
+      if (!rawRepId) return;
+      const existing =
+        repMap.get(rawRepId) ||
+        Array.from(repMap.values()).find(
+          (entry) => String(entry?.name || "").trim() === rawRepId
+        ) || {
+          name: shortIdLabel("Rep", rawRepId),
+          dealer: "",
+          quotes: 0,
+          proposals: 0,
+          responses: 0,
+          ocrScans: 0,
+        };
+      existing.ocrScans += Number(row?.count || 0);
+      repMap.set(existing.name, existing);
+    });
+    const rows = Array.from(repMap.values())
+      .map((row) => {
+        const quotes = Number(row?.quotes || 0);
+        const proposals = Number(row?.proposals || 0);
+        const responses = Number(row?.responses || 0);
+        const ocrScans = Number(row?.ocrScans || 0);
+        const activityPoints = quotes * 1 + proposals * 2 + responses * 3 + ocrScans * 1;
+        return {
+          ...row,
+          activityPoints,
+        };
+      })
+      .filter((row) => Number(row?.activityPoints || 0) > 0)
+      .sort((a, b) => Number(b.activityPoints || 0) - Number(a.activityPoints || 0))
+      .slice(0, 8);
+    return {
+      hasData: rows.length > 0,
+      rows,
+    };
+  }, [dealerNetworkPerformance, ocrSnapshot?.topReps]);
   const renderPlatformAdminView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
@@ -2727,39 +2792,88 @@ const handleFinishDealerEnrollment = async () => {
               </div>
             )}
           </div>
-          {[
-            {
-              title: "Incentive Leaderboard",
-              note: "Coming soon — data will populate as activity is logged.",
-            },
-          ].map((item) => (
-            <div
-              key={item.title}
-              style={{
-                ...styles.summaryCard,
-                background: "#0f172a",
-                border: "1px solid rgba(148, 163, 184, 0.26)",
-                boxShadow: "0 10px 22px rgba(2, 6, 23, 0.26)",
-              }}
-            >
-              <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>{item.title}</div>
-              <div
-                style={{
-                  ...styles.listMeta,
-                  color: "#cbd5e1",
-                  marginTop: 10,
-                  background: "rgba(30, 41, 59, 0.5)",
-                  border: "1px solid rgba(148, 163, 184, 0.2)",
-                  borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
-                  borderRadius: 8,
-                  padding: "8px 10px",
-                  lineHeight: 1.45,
-                }}
-              >
-                {item.note}
-              </div>
+          <div
+            style={{
+              ...styles.summaryCard,
+              background: "#0f172a",
+              border: "1px solid rgba(148, 163, 184, 0.26)",
+              boxShadow: "0 10px 22px rgba(2, 6, 23, 0.26)",
+            }}
+          >
+            <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>
+              Incentive Leaderboard
             </div>
-          ))}
+            {adminIncentiveLeaderboardFoundation.hasData ? (
+              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                {adminIncentiveLeaderboardFoundation.rows.map((rep, idx) => (
+                  <div
+                    key={`incentive-foundation-${rep.name}-${idx}`}
+                    style={{
+                      display: "grid",
+                      gap: 3,
+                      background: "rgba(30, 41, 59, 0.5)",
+                      border: "1px solid rgba(148, 163, 184, 0.2)",
+                      borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 10,
+                        color: "#f8fafc",
+                        fontSize: 13,
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span>{rep.name}</span>
+                      <span
+                        style={{
+                          background: "rgba(246, 165, 49, 0.16)",
+                          border: "1px solid rgba(246, 165, 49, 0.45)",
+                          color: "#fed7aa",
+                          borderRadius: 999,
+                          padding: "3px 8px",
+                          lineHeight: 1.1,
+                          fontSize: 12,
+                          fontWeight: 800,
+                        }}
+                      >
+                        {rep.activityPoints} pts
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#cbd5e1" }}>
+                      {rep.dealer ? `Dealer: ${rep.dealer}` : "Dealer: —"}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#93c5fd" }}>
+                      Quotes: {rep.quotes} • Proposals: {rep.proposals} • Responses:{" "}
+                      {rep.responses} • OCR scans: {rep.ocrScans}
+                    </div>
+                  </div>
+                ))}
+                <div
+                  style={{
+                    ...styles.listMeta,
+                    color: "#cbd5e1",
+                    marginTop: 4,
+                    fontSize: 11,
+                    lineHeight: 1.4,
+                  }}
+                >
+                  Activity points are based on existing logged quotes, proposals,
+                  responses, and OCR scans.
+                </div>
+              </div>
+            ) : (
+              <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+                Incentive leaderboard data will populate as reps create quotes, send
+                proposals, receive responses, and scan labels.
+              </div>
+            )}
+          </div>
           <div
             style={{
               ...styles.summaryCard,
