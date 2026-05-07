@@ -81,12 +81,30 @@ async function extractLabelTextFromImage(imageFile) {
     return {
       text: detectedText,
       error: "",
+      brand: String(data?.brand || "").trim(),
+      viscosity: String(data?.viscosity || "").trim(),
       confidence: data?.confidence,
       source: data?.source,
     };
   } catch (err) {
     console.error("OCR extraction failed:", err);
     return { text: "", error: "OCR function failed" };
+  }
+}
+
+function extractViscosityFromText(text) {
+  const m = String(text || "").match(/\b\d{1,2}W-\d{2}\b/i);
+  return m ? m[0].toUpperCase() : "";
+}
+
+async function logOcrScanEvent(payload) {
+  try {
+    const { error } = await supabase.from("ocr_scan_events").insert(payload);
+    if (error) {
+      console.error("OCR scan event log failed:", error.message || error);
+    }
+  } catch (err) {
+    console.error("OCR scan event log failed:", err);
   }
 }
 
@@ -4322,6 +4340,10 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       React.useState("");
     const [scannedLabelConfidence, setScannedLabelConfidence] =
       React.useState("");
+    const [scannedLabelDetectedBrand, setScannedLabelDetectedBrand] =
+      React.useState("");
+    const [scannedLabelDetectedViscosity, setScannedLabelDetectedViscosity] =
+      React.useState("");
     React.useEffect(() => {
       return () => {
         if (scannedLabelBlobRef.current) {
@@ -4343,6 +4365,8 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       setScannedLabelOcrLoading(false);
       setScannedLabelExtractedText("");
       setScannedLabelConfidence("");
+      setScannedLabelDetectedBrand("");
+      setScannedLabelDetectedViscosity("");
     }, []);
 
     const handleOpenLabelScan = React.useCallback((source = "generic") => {
@@ -4367,6 +4391,8 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       setScannedLabelExtractedText("");
       setScannedLabelOcrLoading(false);
       setScannedLabelConfidence("");
+      setScannedLabelDetectedBrand("");
+      setScannedLabelDetectedViscosity("");
       setScannedLabelMessage(
         "Image captured. Review the detected label text and confirm the Klondike match."
       );
@@ -4375,8 +4401,12 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
         setScannedLabelMessage("Analyzing product label...");
         void (async () => {
           try {
-            const { text, error, confidence } = await extractLabelTextFromImage(file);
+            const { text, error, confidence, brand, viscosity } =
+              await extractLabelTextFromImage(file);
             const detectedText = String(text || "").trim();
+            const detectedBrand = String(brand || "").trim();
+            const detectedViscosity =
+              String(viscosity || "").trim() || extractViscosityFromText(detectedText);
             const normalizedConfidence = String(confidence || "")
               .toLowerCase()
               .trim();
@@ -4389,6 +4419,8 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
                 ? "low"
                 : "";
             setScannedLabelConfidence(confidenceValue);
+            setScannedLabelDetectedBrand(detectedBrand);
+            setScannedLabelDetectedViscosity(detectedViscosity);
             setScannedLabelExtractedText(detectedText);
             if (detectedText) {
               setCompetitor(detectedText);
@@ -4399,10 +4431,21 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
               setQuoteMessage("");
               const normalizedCrossoverText =
                 normalizeOcrCrossoverText(detectedText);
-              await quickCrossToQuote(
+              const matchResult = await quickCrossToQuote(
                 normalizedCrossoverText || detectedText,
                 "No confident match found. Please refine the detected product text or search manually."
               );
+              void logOcrScanEvent({
+                raw_ocr_text: detectedText,
+                normalized_search_text: normalizedCrossoverText || detectedText,
+                detected_brand: detectedBrand || null,
+                detected_viscosity: detectedViscosity || null,
+                confidence: confidenceValue || null,
+                matched_klondike_product:
+                  matchResult?.matchedKlondikeProduct || null,
+                match_success: Boolean(matchResult?.matchSuccess),
+                image_source_type: "step2_scan",
+              });
             } else {
               setQuoteMessage("");
               setScannedLabelMessage(
@@ -4454,8 +4497,12 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       if (!scannedLabelImage || scannedLabelOcrLoading) return;
       setScannedLabelOcrLoading(true);
       try {
-        const { text, error, confidence } = await extractLabelTextFromImage(scannedLabelImage);
+        const { text, error, confidence, brand, viscosity } =
+          await extractLabelTextFromImage(scannedLabelImage);
         const detectedText = String(text || "").trim();
+        const detectedBrand = String(brand || "").trim();
+        const detectedViscosity =
+          String(viscosity || "").trim() || extractViscosityFromText(detectedText);
         const normalizedConfidence = String(confidence || "")
           .toLowerCase()
           .trim();
@@ -4468,6 +4515,8 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
             ? "low"
             : "";
         setScannedLabelConfidence(confidenceValue);
+        setScannedLabelDetectedBrand(detectedBrand);
+        setScannedLabelDetectedViscosity(detectedViscosity);
         setScannedLabelExtractedText(detectedText);
         if (!detectedText) {
           setScannedLabelMessage(
@@ -4507,11 +4556,27 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       setSelectedProduct(null);
       setQuoteMessage("");
       setQuoteStep(2);
-      await quickCrossToQuote(
+      const matchResult = await quickCrossToQuote(
         normalizedCrossoverText || value,
         "No confident match found. Please refine the detected product text or search manually."
       );
-    }, [scannedLabelExtractedText]);
+      void logOcrScanEvent({
+        raw_ocr_text: value,
+        normalized_search_text: normalizedCrossoverText || value,
+        detected_brand: scannedLabelDetectedBrand || null,
+        detected_viscosity:
+          scannedLabelDetectedViscosity || extractViscosityFromText(value) || null,
+        confidence: scannedLabelConfidence || null,
+        matched_klondike_product: matchResult?.matchedKlondikeProduct || null,
+        match_success: Boolean(matchResult?.matchSuccess),
+        image_source_type: "manual_edit",
+      });
+    }, [
+      scannedLabelExtractedText,
+      scannedLabelDetectedBrand,
+      scannedLabelDetectedViscosity,
+      scannedLabelConfidence,
+    ]);
 
     const [proposalDecisions, setProposalDecisions] = React.useState({});
 const [proposalFeedback, setProposalFeedback] = React.useState({});
@@ -5052,7 +5117,9 @@ const quickCrossToQuote = async (
   noMatchMessage = "No Klondike match found."
 ) => {
   const searchValue = String((searchOverride ?? competitor) || "").trim();
-  if (!searchValue) return;
+  if (!searchValue) {
+    return { matchSuccess: false, matchedKlondikeProduct: null };
+  }
 
   try {
     const { data, error } = await supabase
@@ -5066,7 +5133,7 @@ const quickCrossToQuote = async (
     if (error) {
       console.error("Quick cross-reference error:", error.message);
       setQuoteMessage("Cross reference search failed.");
-      return;
+      return { matchSuccess: false, matchedKlondikeProduct: null };
     }
 
     const row = data?.[0];
@@ -5076,7 +5143,7 @@ const quickCrossToQuote = async (
       setPackageSize("");
       setSelectedProduct(null);
       setQuoteMessage(noMatchMessage);
-      return;
+      return { matchSuccess: false, matchedKlondikeProduct: null };
     }
 
     const competitorName = `${row.competitor_brand || ""} ${
@@ -5113,9 +5180,14 @@ const quickCrossToQuote = async (
     if (catalogRows?.length) {
       setPackageSize(catalogRows[0].package_size || "");
     }
+    return {
+      matchSuccess: true,
+      matchedKlondikeProduct: row.klondike_product || null,
+    };
   } catch (err) {
     console.error("quickCrossToQuote failed:", err);
     setQuoteMessage("Quick cross-reference failed.");
+    return { matchSuccess: false, matchedKlondikeProduct: null };
   }
 };
 React.useEffect(() => {
