@@ -2638,6 +2638,57 @@ const handleFinishDealerEnrollment = async () => {
       executiveSummary,
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.totalScans, adminRepLeaderboardFoundation]);
+  const adminDealerDrilldownRows = React.useMemo(() => {
+    const dealers = Array.isArray(dealerNetworkPerformance)
+      ? dealerNetworkPerformance
+      : [];
+    const ocrDealerMap = new Map();
+    (Array.isArray(ocrSnapshot?.topDealers) ? ocrSnapshot.topDealers : []).forEach((row) => {
+      const key = String(row?.value || "").trim();
+      if (!key) return;
+      ocrDealerMap.set(key, Number(row?.count || 0));
+    });
+    return dealers.map((dealer) => {
+      const quotesCreated = Number(dealer?.quotesCreated || 0);
+      const proposalsSent = Number(dealer?.proposalsSent || 0);
+      const customerResponses = Number(dealer?.customerResponses || 0);
+      const activityScore = quotesCreated + proposalsSent + customerResponses;
+      const status =
+        activityScore === 0
+          ? "Needs Attention"
+          : proposalsSent > 0 || customerResponses > 0
+            ? "Building Momentum"
+            : "Active";
+      const productMixRows = Array.isArray(dealer?.productMix) ? dealer.productMix : [];
+      const topProductCategory = productMixRows
+        .slice()
+        .sort((a, b) => Number(b?.count || 0) - Number(a?.count || 0))[0]?.name;
+      const repRows = Array.isArray(dealer?.leaderboard) ? dealer.leaderboard : [];
+      const mostActiveRep = repRows
+        .slice()
+        .sort((a, b) => {
+          const aScore =
+            Number(a?.quotes || 0) + Number(a?.proposals || 0) + Number(a?.responses || 0);
+          const bScore =
+            Number(b?.quotes || 0) + Number(b?.proposals || 0) + Number(b?.responses || 0);
+          if (bScore !== aScore) return bScore - aScore;
+          return Number(b?.revenue || 0) - Number(a?.revenue || 0);
+        })[0];
+      const ocrActivityCount =
+        Number(ocrDealerMap.get(String(dealer?.organization_id || "").trim()) || 0) ||
+        Number(ocrDealerMap.get(String(dealer?.name || "").trim()) || 0) ||
+        0;
+      return {
+        ...dealer,
+        status,
+        activityScore,
+        topProductCategory: topProductCategory || "",
+        mostActiveRepName: String(mostActiveRep?.name || "").trim(),
+        ocrActivityCount,
+        hasOcrActivity: ocrActivityCount > 0,
+      };
+    });
+  }, [dealerNetworkPerformance, ocrSnapshot?.topDealers]);
   const renderPlatformAdminView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
@@ -3800,18 +3851,18 @@ const handleFinishDealerEnrollment = async () => {
       {klondikeAdminTab === "dealers" && (
       <div style={styles.card}>
         <div style={styles.eyebrow}>DEALER PERFORMANCE COMMAND CENTER</div>
-        <h3 style={styles.cardTitle}>Dealer Account Snapshots</h3>
+        <h3 style={styles.cardTitle}>Dealer Network Performance Intelligence</h3>
         <p style={styles.cardBody}>
-          Monitor dealer activity across quotes, proposals, customer responses,
-          approved revenue, approval rate, and platform adoption.
+          Actionable dealer drilldown visibility across activity, momentum,
+          product demand, OCR adoption, and team execution.
         </p>
 
         <div style={styles.stack}>
-          {dealerNetworkPerformance.length === 0 && (
+          {adminDealerDrilldownRows.length === 0 && (
             <p style={styles.muted}>No dealer performance data loaded yet.</p>
           )}
 
-          {dealerNetworkPerformance.map((dealer) => (
+          {adminDealerDrilldownRows.map((dealer) => (
             <button
               key={dealer.organization_id}
               type="button"
@@ -3823,61 +3874,156 @@ const handleFinishDealerEnrollment = async () => {
                 cursor: "pointer",
                 background:
                   selectedDealerPerformance?.organization_id === dealer.organization_id
-                    ? "#fffbea"
-                    : "#ffffff",
+                    ? "linear-gradient(145deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.92) 58%, rgba(30, 41, 59, 0.95) 100%)"
+                    : "linear-gradient(145deg, rgba(15, 23, 42, 0.94) 0%, rgba(30, 41, 59, 0.92) 100%)",
                 border:
                   selectedDealerPerformance?.organization_id === dealer.organization_id
-                    ? "2px solid #f6a531"
-                    : "1px solid #e7edf3",
-                padding: 18,
+                    ? "2px solid rgba(246, 165, 49, 0.88)"
+                    : "1px solid rgba(96, 165, 250, 0.32)",
+                boxShadow:
+                  selectedDealerPerformance?.organization_id === dealer.organization_id
+                    ? "0 16px 32px rgba(2, 6, 23, 0.4), inset 0 1px 0 rgba(255,255,255,0.08)"
+                    : "0 12px 26px rgba(2, 6, 23, 0.28)",
+                padding: 16,
+                borderRadius: 14,
+                display: "grid",
+                gap: 12,
               }}
             >
-              <div style={{ minWidth: 240, flex: "1 1 260px" }}>
-                <div style={styles.listTitle}>{dealer.name}</div>
-                <div style={styles.listMeta}>
-                  {dealer.slug || "dealer-account"} • Click for dealer dashboard
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: 10,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ minWidth: 240, flex: "1 1 260px" }}>
+                  <div style={{ ...styles.listTitle, color: "#f8fafc", fontSize: 18 }}>
+                    {dealer.name}
+                  </div>
+                  <div style={{ ...styles.listMeta, color: "#93c5fd", marginTop: 4 }}>
+                    {dealer.slug || "dealer-account"} • Click for dealer dashboard
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  <span
+                    style={{
+                      ...styles.statusPill,
+                      fontSize: 11,
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      ...(dealer.status === "Needs Attention"
+                        ? { background: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca" }
+                        : dealer.status === "Building Momentum"
+                          ? {
+                              background: "rgba(246, 165, 49, 0.18)",
+                              color: "#fed7aa",
+                              border: "1px solid rgba(246, 165, 49, 0.48)",
+                            }
+                          : {
+                              background: "rgba(96, 165, 250, 0.18)",
+                              color: "#bfdbfe",
+                              border: "1px solid rgba(96, 165, 250, 0.48)",
+                            }),
+                    }}
+                  >
+                    {dealer.status}
+                  </span>
+                  <span
+                    style={{
+                      ...styles.statusPill,
+                      fontSize: 11,
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      background: dealer.hasOcrActivity
+                        ? "rgba(34, 197, 94, 0.18)"
+                        : "rgba(148, 163, 184, 0.18)",
+                      color: dealer.hasOcrActivity ? "#bbf7d0" : "#cbd5e1",
+                      border: dealer.hasOcrActivity
+                        ? "1px solid rgba(34, 197, 94, 0.48)"
+                        : "1px solid rgba(148, 163, 184, 0.42)",
+                    }}
+                  >
+                    {dealer.hasOcrActivity
+                      ? `OCR Active (${dealer.ocrActivityCount})`
+                      : "OCR Inactive"}
+                  </span>
                 </div>
               </div>
 
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(6, minmax(90px, 1fr))",
-                  gap: 12,
-                  flex: "3 1 680px",
-                  width: "100%",
+                  gap: 10,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
                 }}
               >
-                <div>
-                  <div style={styles.summaryLabel}>Quotes</div>
-                  <div style={styles.summaryValue}>{dealer.quotesCreated}</div>
-                </div>
-
-                <div>
-                  <div style={styles.summaryLabel}>Proposals</div>
-                  <div style={styles.summaryValue}>{dealer.proposalsSent}</div>
-                </div>
-
-                <div>
-                  <div style={styles.summaryLabel}>Responses</div>
-                  <div style={styles.summaryValue}>{dealer.customerResponses}</div>
-                </div>
-
-                <div>
-                  <div style={styles.summaryLabel}>Revenue</div>
-                  <div style={styles.summaryValue}>
-                    ${Number(dealer.revenueWon || 0).toLocaleString()}
+                {[
+                  { label: "Quotes", value: dealer.quotesCreated, accent: "rgba(96, 165, 250, 0.76)" },
+                  { label: "Proposals", value: dealer.proposalsSent, accent: "rgba(246, 165, 49, 0.8)" },
+                  {
+                    label: "Responses",
+                    value: dealer.customerResponses,
+                    accent: "rgba(96, 165, 250, 0.76)",
+                  },
+                  {
+                    label: "Approved Revenue",
+                    value: `$${Number(dealer.revenueWon || 0).toLocaleString()}`,
+                    accent: "rgba(246, 165, 49, 0.8)",
+                  },
+                  { label: "Approval", value: `${dealer.approvalRate}%`, accent: "rgba(96, 165, 250, 0.76)" },
+                  { label: "Team", value: dealer.teamMembers, accent: "rgba(246, 165, 49, 0.8)" },
+                ].map((item) => (
+                  <div
+                    key={`${dealer.organization_id}-${item.label}`}
+                    style={{
+                      background: "rgba(15, 23, 42, 0.58)",
+                      border: "1px solid rgba(148, 163, 184, 0.22)",
+                      borderLeft: `2px solid ${item.accent}`,
+                      borderRadius: 10,
+                      padding: "8px 10px",
+                    }}
+                  >
+                    <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>{item.label}</div>
+                    <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>{item.value}</div>
                   </div>
-                </div>
+                ))}
+              </div>
 
-                <div>
-                  <div style={styles.summaryLabel}>Approval</div>
-                  <div style={styles.summaryValue}>{dealer.approvalRate}%</div>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 8,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                }}
+              >
+                <div
+                  style={{
+                    background: "rgba(30, 41, 59, 0.48)",
+                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    borderLeft: "2px solid rgba(246, 165, 49, 0.74)",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    fontSize: 12,
+                    color: "#e2e8f0",
+                  }}
+                >
+                  Top Product Category: <strong>{dealer.topProductCategory || "—"}</strong>
                 </div>
-
-                <div>
-                  <div style={styles.summaryLabel}>Team</div>
-                  <div style={styles.summaryValue}>{dealer.teamMembers}</div>
+                <div
+                  style={{
+                    background: "rgba(30, 41, 59, 0.48)",
+                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    borderLeft: "2px solid rgba(96, 165, 250, 0.74)",
+                    borderRadius: 8,
+                    padding: "8px 10px",
+                    fontSize: 12,
+                    color: "#e2e8f0",
+                  }}
+                >
+                  Most Active Rep: <strong>{dealer.mostActiveRepName || "—"}</strong>
                 </div>
               </div>
             </button>
