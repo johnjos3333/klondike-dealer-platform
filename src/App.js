@@ -2493,40 +2493,109 @@ const handleFinishDealerEnrollment = async () => {
 
       {klondikeAdminTab === "dashboard" && (
         <div style={styles.card}>
-          <div style={styles.eyebrow}>OCR INTELLIGENCE SNAPSHOT</div>
-          <h3 style={styles.cardTitle}>OCR Intelligence Snapshot</h3>
+          <div style={styles.eyebrow}>OCR TERRITORY INTELLIGENCE</div>
+          <h3 style={styles.cardTitle}>OCR Territory Intelligence</h3>
           <p style={styles.cardBody}>
-            Executive view of recent OCR scan analytics from field activity.
+            Field scan activity showing competitor demand, viscosity trends, and dealer
+            adoption signals.
           </p>
           {ocrSnapshotLoading ? (
             <p style={styles.muted}>Loading OCR scan activity...</p>
           ) : ocrSnapshot.totalScans === 0 ? (
-            <p style={styles.muted}>No OCR scan activity yet.</p>
+            <p style={styles.muted}>
+              No OCR scan activity has been logged yet. Once reps begin scanning labels,
+              this section will show competitor, viscosity, dealer, and rep activity.
+            </p>
           ) : (
             <>
-              <div style={styles.grid3}>
-                <div style={styles.summaryCard}>
+              <div
+                style={{
+                  ...styles.grid3,
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    background: "#0f172a",
+                    border: "1px solid rgba(148,163,184,0.28)",
+                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                  }}
+                >
                   <div style={styles.summaryLabel}>Total OCR Scans</div>
-                  <div style={styles.summaryValue}>{ocrSnapshot.totalScans}</div>
+                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                    {ocrSnapshot.totalScans}
+                  </div>
                 </div>
-                <div style={styles.summaryCard}>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    background: "#0f172a",
+                    border: "1px solid rgba(148,163,184,0.28)",
+                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                  }}
+                >
                   <div style={styles.summaryLabel}>Match Success Rate</div>
-                  <div style={styles.summaryValue}>{ocrSnapshot.matchSuccessRate}%</div>
+                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                    {ocrSnapshot.matchSuccessRate}%
+                  </div>
                 </div>
-                <div style={styles.summaryCard}>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    background: "#0f172a",
+                    border: "1px solid rgba(148,163,184,0.28)",
+                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                  }}
+                >
                   <div style={styles.summaryLabel}>Most Scanned Viscosity</div>
-                  <div style={styles.summaryValue}>
+                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
                     {ocrSnapshot.topViscosity || "—"}
                   </div>
                 </div>
-                <div style={styles.summaryCard}>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    background: "#0f172a",
+                    border: "1px solid rgba(148,163,184,0.28)",
+                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                  }}
+                >
                   <div style={styles.summaryLabel}>Most Scanned Competitor Brand</div>
-                  <div style={styles.summaryValue}>{ocrSnapshot.topBrand || "—"}</div>
+                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                    {ocrSnapshot.topBrand || "—"}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    background: "#0f172a",
+                    border: "1px solid rgba(148,163,184,0.28)",
+                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                  }}
+                >
+                  <div style={styles.summaryLabel}>Active Dealers</div>
+                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                    {(ocrSnapshot.topDealers || []).length}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    ...styles.summaryCard,
+                    background: "#0f172a",
+                    border: "1px solid rgba(148,163,184,0.28)",
+                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                  }}
+                >
+                  <div style={styles.summaryLabel}>Active Reps</div>
+                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                    {(ocrSnapshot.topReps || []).length}
+                  </div>
                 </div>
               </div>
               <div style={{ ...styles.grid3, marginTop: 14 }}>
                 <div style={styles.summaryCard}>
-                  <div style={styles.summaryLabel}>Top 5 Scanned Competitor Brands</div>
+                  <div style={styles.summaryLabel}>Top Competitor Brands</div>
                   {(ocrSnapshot.topBrands || []).length > 0 ? (
                     <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
                       {ocrSnapshot.topBrands.map((item, idx) => (
@@ -2542,7 +2611,13 @@ const handleFinishDealerEnrollment = async () => {
                           }}
                         >
                           <span>{item.value}</span>
-                          <span style={{ fontWeight: 800 }}>{item.count}</span>
+                          <span style={{ fontWeight: 800 }}>
+                            {item.count} (
+                            {ocrSnapshot.totalScans
+                              ? `${Math.round((item.count / ocrSnapshot.totalScans) * 100)}%`
+                              : "0%"}
+                            )
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -2551,7 +2626,7 @@ const handleFinishDealerEnrollment = async () => {
                   )}
                 </div>
                 <div style={styles.summaryCard}>
-                  <div style={styles.summaryLabel}>Top 5 Scanned Viscosities</div>
+                  <div style={styles.summaryLabel}>Top Viscosities</div>
                   {(ocrSnapshot.topViscosities || []).length > 0 ? (
                     <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
                       {ocrSnapshot.topViscosities.map((item, idx) => (
@@ -2567,13 +2642,41 @@ const handleFinishDealerEnrollment = async () => {
                           }}
                         >
                           <span>{item.value}</span>
-                          <span style={{ fontWeight: 800 }}>{item.count}</span>
+                          <span style={{ fontWeight: 800 }}>
+                            {item.count} (
+                            {ocrSnapshot.totalScans
+                              ? `${Math.round((item.count / ocrSnapshot.totalScans) * 100)}%`
+                              : "0%"}
+                            )
+                          </span>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div style={{ ...styles.muted, marginTop: 10 }}>—</div>
                   )}
+                </div>
+                <div style={styles.summaryCard}>
+                  <div style={styles.summaryLabel}>Adoption Signals</div>
+                  <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                    <div style={{ fontSize: 13, color: "#0f172a" }}>
+                      {(ocrSnapshot.topDealers || []).length} dealers have used OCR
+                      scanning.
+                    </div>
+                    <div style={{ fontSize: 13, color: "#0f172a" }}>
+                      {(ocrSnapshot.topReps || []).length} reps have used OCR scanning.
+                    </div>
+                    {ocrSnapshot.topBrand ? (
+                      <div style={{ fontSize: 13, color: "#0f172a" }}>
+                        Most scanned competitor: {ocrSnapshot.topBrand}.
+                      </div>
+                    ) : null}
+                    {ocrSnapshot.topViscosity ? (
+                      <div style={{ fontSize: 13, color: "#0f172a" }}>
+                        Most scanned viscosity: {ocrSnapshot.topViscosity}.
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               </div>
               <div style={{ ...styles.grid3, marginTop: 14 }}>
