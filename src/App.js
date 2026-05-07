@@ -146,6 +146,74 @@ function deriveOcrApplicationSignal(text) {
   return "";
 }
 
+function normalizeSignalToken(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[®™]/g, "")
+    .replace(/[^a-z0-9\-/. ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractMatchedSignalOverlap({
+  ocrText,
+  ocrSignals,
+  detectedViscosity,
+  matchedProductName,
+  matchedSpecs,
+  matchedAliases,
+  matchedWhy,
+  matchedCategory,
+}) {
+  const candidateSignals = [];
+  if (Array.isArray(ocrSignals)) candidateSignals.push(...ocrSignals);
+  const viscosity = String(detectedViscosity || extractViscosityFromText(ocrText) || "").trim();
+  if (viscosity) candidateSignals.push(`SAE ${viscosity.toUpperCase()}`);
+  const applicationSignals = [
+    { label: "Heavy Duty Diesel", pattern: /\bheavy duty diesel\b/i },
+    { label: "Diesel Engine", pattern: /\bdiesel\b/i },
+    { label: "Engine Oil", pattern: /\bengine oil\b/i },
+    { label: "Hydraulic Fluid", pattern: /\bhydraulic\b/i },
+    { label: "Transmission Fluid", pattern: /\btransmission\b|\batf\b/i },
+    { label: "Gear Lubricant", pattern: /\bgear\b/i },
+    { label: "Coolant / Antifreeze", pattern: /\bcoolant\b|\bantifreeze\b/i },
+    { label: "Grease", pattern: /\bgrease\b/i },
+  ];
+  const rawOcrText = String(ocrText || "");
+  applicationSignals.forEach((entry) => {
+    if (entry.pattern.test(rawOcrText)) {
+      candidateSignals.push(entry.label);
+    }
+  });
+
+  const matchedText = normalizeSignalToken(
+    [
+      matchedProductName,
+      ...(Array.isArray(matchedSpecs) ? matchedSpecs : []),
+      ...(Array.isArray(matchedAliases) ? matchedAliases : []),
+      matchedWhy,
+      matchedCategory,
+    ].join(" ")
+  );
+  if (!matchedText) return [];
+
+  const overlap = [];
+  candidateSignals.forEach((signal) => {
+    const normalizedSignal = normalizeSignalToken(signal);
+    if (!normalizedSignal) return;
+    if (matchedText.includes(normalizedSignal)) {
+      const display = String(signal || "").trim();
+      if (
+        display &&
+        !overlap.some((item) => normalizeSignalToken(item) === normalizeSignalToken(display))
+      ) {
+        overlap.push(display);
+      }
+    }
+  });
+  return overlap;
+}
+
 function shortIdLabel(prefix, value) {
   const raw = String(value || "").trim();
   if (!raw) return `${prefix} —`;
@@ -5062,6 +5130,112 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       const klondikeName = String(klondike || "").trim();
       return klondikeName;
     }, [selectedProduct?.name, klondike]);
+    const scannedLabelMatchedProductMeta = React.useMemo(() => {
+      const productName = String(scannedLabelMatchedProductName || "").trim();
+      if (!productName) {
+        return { specs: [], aliases: [], why: "", category: "" };
+      }
+      const directEntry = PDS_MAP?.[productName];
+      const fallbackKey = Object.keys(PDS_MAP || {}).find(
+        (key) => normalizeSignalToken(key) === normalizeSignalToken(productName)
+      );
+      const fallbackEntry = fallbackKey ? PDS_MAP?.[fallbackKey] : null;
+      const entry = directEntry || fallbackEntry || {};
+      return {
+        specs: Array.isArray(entry?.specs) ? entry.specs : [],
+        aliases: Array.isArray(entry?.aliases) ? entry.aliases : [],
+        why: String(entry?.why || ""),
+        category: String(selectedProduct?.category || ""),
+      };
+    }, [scannedLabelMatchedProductName, selectedProduct?.category]);
+    const scannedLabelMatchedOverlapSignals = React.useMemo(
+      () =>
+        extractMatchedSignalOverlap({
+          ocrText: scannedLabelExtractedText,
+          ocrSignals: scannedLabelSpecSignals,
+          detectedViscosity: scannedLabelDetectedViscosity,
+          matchedProductName: scannedLabelMatchedProductName,
+          matchedSpecs: scannedLabelMatchedProductMeta.specs,
+          matchedAliases: scannedLabelMatchedProductMeta.aliases,
+          matchedWhy: scannedLabelMatchedProductMeta.why,
+          matchedCategory: scannedLabelMatchedProductMeta.category,
+        }),
+      [
+        scannedLabelExtractedText,
+        scannedLabelSpecSignals,
+        scannedLabelDetectedViscosity,
+        scannedLabelMatchedProductName,
+        scannedLabelMatchedProductMeta,
+      ]
+    );
+    const scannedLabelOemApprovalAlignment = React.useMemo(
+      () =>
+        scannedLabelMatchedOverlapSignals.filter((signal) =>
+          /(ces\s*\d{5}|vds-?\d(?:\.\d)?|tes[-\s]?\d+|dfs|93k\d{3}|jdm|j20[cd]|denison|hf-\d|ecf-\d|wss|m2c|dexos|allison|cummins|volvo|mack|eaton|vickers)/i.test(
+            String(signal || "")
+          )
+        ),
+      [scannedLabelMatchedOverlapSignals]
+    );
+    const scannedLabelConfidenceFactors = React.useMemo(() => {
+      const factors = [];
+      const resolvedViscosity = String(
+        scannedLabelDetectedViscosity || extractViscosityFromText(scannedLabelExtractedText) || ""
+      ).trim();
+      if (
+        resolvedViscosity &&
+        scannedLabelMatchedOverlapSignals.some((signal) =>
+          normalizeSignalToken(signal).includes(normalizeSignalToken(resolvedViscosity))
+        )
+      ) {
+        factors.push("Exact viscosity match");
+      }
+      if (scannedLabelOemApprovalAlignment.length > 0) {
+        factors.push("OEM approvals aligned");
+      }
+      if (
+        scannedLabelDetectedApplication &&
+        normalizeSignalToken(
+          [
+            scannedLabelMatchedProductName,
+            scannedLabelMatchedProductMeta.category,
+            scannedLabelMatchedProductMeta.why,
+            ...scannedLabelMatchedProductMeta.specs,
+          ].join(" ")
+        ).includes(normalizeSignalToken(scannedLabelDetectedApplication))
+      ) {
+        factors.push("Application category aligned");
+      }
+      const keywordTokens = normalizeSignalToken(scannedLabelExtractedText)
+        .split(" ")
+        .filter((token) => token.length >= 4)
+        .slice(0, 8);
+      const matchedText = normalizeSignalToken(
+        [
+          scannedLabelMatchedProductName,
+          scannedLabelMatchedProductMeta.why,
+          ...scannedLabelMatchedProductMeta.specs,
+          ...scannedLabelMatchedProductMeta.aliases,
+        ].join(" ")
+      );
+      if (keywordTokens.some((token) => matchedText.includes(token))) {
+        factors.push("Product keywords aligned");
+      }
+      return factors;
+    }, [
+      scannedLabelDetectedViscosity,
+      scannedLabelExtractedText,
+      scannedLabelMatchedOverlapSignals,
+      scannedLabelOemApprovalAlignment,
+      scannedLabelDetectedApplication,
+      scannedLabelMatchedProductName,
+      scannedLabelMatchedProductMeta,
+    ]);
+    const scannedLabelMatchStrength = React.useMemo(() => {
+      if (scannedLabelMatchedOverlapSignals.length >= 3) return "Strong";
+      if (scannedLabelMatchedOverlapSignals.length >= 1) return "Moderate";
+      return "";
+    }, [scannedLabelMatchedOverlapSignals]);
     const [advisorQuestion, setAdvisorQuestion] = React.useState("");
     const [advisorResult, setAdvisorResult] = React.useState(null);
 
@@ -6688,6 +6862,25 @@ return (
                   <div style={{ ...styles.listTitle, color: "#e2e8f0", marginBottom: 8 }}>
                     Why This Match Was Selected
                   </div>
+                  {!!scannedLabelMatchStrength && (
+                    <div
+                      style={{
+                        marginBottom: 8,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "4px 9px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(34, 197, 94, 0.35)",
+                        background: "rgba(34, 197, 94, 0.12)",
+                        color: "#dcfce7",
+                        fontSize: 11,
+                        fontWeight: 700,
+                      }}
+                    >
+                      Match Strength: {scannedLabelMatchStrength}
+                    </div>
+                  )}
                   <div style={{ display: "grid", gap: 5, fontSize: 12, color: "#cbd5e1" }}>
                     {!!scannedLabelDetectedViscosity && (
                       <div>✓ Viscosity aligned: {scannedLabelDetectedViscosity}</div>
@@ -6700,6 +6893,45 @@ return (
                     <div>✓ Product text matched through deterministic crossover</div>
                     <div>✓ Rep confirmation still required before adding to quote</div>
                   </div>
+                  {Array.isArray(scannedLabelMatchedOverlapSignals) &&
+                    scannedLabelMatchedOverlapSignals.length > 0 && (
+                      <div style={{ marginTop: 10 }}>
+                        <div style={{ ...styles.listTitle, color: "#e2e8f0", marginBottom: 6 }}>
+                          Matched Signals
+                        </div>
+                        <div style={{ display: "grid", gap: 4, fontSize: 12, color: "#bbf7d0" }}>
+                          {scannedLabelMatchedOverlapSignals.map((signal) => (
+                            <div key={`matched-signal-${signal}`}>✔ {signal}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  {Array.isArray(scannedLabelOemApprovalAlignment) &&
+                    scannedLabelOemApprovalAlignment.length > 0 && (
+                      <div style={{ marginTop: 10 }}>
+                        <div style={{ ...styles.listTitle, color: "#e2e8f0", marginBottom: 6 }}>
+                          OEM Approval Alignment
+                        </div>
+                        <div style={{ display: "grid", gap: 4, fontSize: 12, color: "#bbf7d0" }}>
+                          {scannedLabelOemApprovalAlignment.map((signal) => (
+                            <div key={`oem-alignment-${signal}`}>✔ {signal}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  {Array.isArray(scannedLabelConfidenceFactors) &&
+                    scannedLabelConfidenceFactors.length > 0 && (
+                      <div style={{ marginTop: 10 }}>
+                        <div style={{ ...styles.listTitle, color: "#e2e8f0", marginBottom: 6 }}>
+                          Confidence Factors
+                        </div>
+                        <div style={{ display: "grid", gap: 4, fontSize: 12, color: "#cbd5e1" }}>
+                          {scannedLabelConfidenceFactors.map((factor) => (
+                            <div key={`confidence-factor-${factor}`}>✔ {factor}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                 </div>
               )}
               <div style={{ marginTop: 14, width: "100%" }}>
