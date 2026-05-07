@@ -43,9 +43,8 @@ Your representative will follow up to review next steps and ensure a smooth impl
  * @returns {Promise<{ text: string }>}
  */
 async function extractLabelTextFromImage(imageFile) {
-  const fallbackText = "Detected label text will appear here once OCR is connected.";
   if (!imageFile) {
-    return { text: "" };
+    return { text: "", error: "No image selected" };
   }
   try {
     const base64Image = await new Promise((resolve, reject) => {
@@ -66,21 +65,61 @@ async function extractLabelTextFromImage(imageFile) {
         contentType: imageFile.type || null,
       },
     });
+    console.log("OCR invoke full response:", { data, error });
 
     if (error) {
       console.error("OCR function invoke failed:", error);
-      return { text: fallbackText };
+      return { text: "", error: error.message || "OCR function failed" };
+    }
+    console.log("OCR invoke data.text:", data?.text);
+
+    const detectedText = String(data?.text || "").trim();
+    if (!detectedText) {
+      return {
+        text: "",
+        error: String(data?.error || "No label text detected"),
+      };
     }
 
     return {
-      text: String(data?.text || fallbackText),
+      text: detectedText,
+      error: "",
       confidence: data?.confidence,
       source: data?.source,
     };
   } catch (err) {
     console.error("OCR extraction failed:", err);
-    return { text: fallbackText };
+    return { text: "", error: "OCR function failed" };
   }
+}
+
+function normalizeOcrCrossoverText(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return "";
+
+  const viscosityMatch = raw.match(/\b\d{1,2}W-\d{2}\b/i);
+  const viscosity = viscosityMatch ? viscosityMatch[0].toUpperCase() : "";
+
+  const isShellRotellaT6 =
+    /shell/i.test(raw) && /rotella/i.test(raw) && /\bt6\b/i.test(raw);
+  if (isShellRotellaT6) {
+    return ["Shell Rotella T6", viscosity].filter(Boolean).join(" ").trim();
+  }
+
+  const noisePattern =
+    /\b(full\s+synthetic|synthetic|sae|heavy\s+duty|diesel|engine\s+oil|motor\s+oil)\b/gi;
+
+  let normalized = raw
+    .replace(noisePattern, " ")
+    .replace(/[()]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (viscosity && !new RegExp(`\\b${viscosity}\\b`, "i").test(normalized)) {
+    normalized = `${normalized} ${viscosity}`.trim();
+  }
+
+  return normalized;
 }
 
 function LeaderboardBadgeTray({
@@ -4274,8 +4313,10 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
         setScannedLabelMessage("Analyzing product label...");
         void (async () => {
           try {
-            const { text } = await extractLabelTextFromImage(file);
+            const { text, error } = await extractLabelTextFromImage(file);
+            console.log("OCR extracted text (step2):", text);
             const detectedText = String(text || "").trim();
+            console.log("OCR state assignment scannedLabelExtractedText (step2):", detectedText);
             setScannedLabelExtractedText(detectedText);
             if (detectedText) {
               setCompetitor(detectedText);
@@ -4284,14 +4325,33 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
               setPackageSize("");
               setSelectedProduct(null);
               setQuoteMessage("");
+              const normalizedCrossoverText =
+                normalizeOcrCrossoverText(detectedText);
+              console.log(
+                "OCR auto path -> detected text passed into quickCrossToQuote:",
+                detectedText
+              );
+              console.log("OCR raw text:", detectedText);
+              console.log(
+                "OCR normalized crossover text:",
+                normalizedCrossoverText
+              );
               await quickCrossToQuote(
-                detectedText,
+                normalizedCrossoverText || detectedText,
                 "No confident match found. Please refine the detected product text or search manually."
               );
+            } else {
+              setQuoteMessage("");
+              setScannedLabelMessage(
+                error ||
+                  "No label text detected. Try a clearer image or enter the product manually."
+              );
             }
-            setScannedLabelMessage(
-              "Image captured. AI label recognition will be connected next."
-            );
+            if (detectedText) {
+              setScannedLabelMessage(
+                "Image captured. AI label recognition will be connected next."
+              );
+            }
           } finally {
             setScannedLabelOcrLoading(false);
           }
@@ -4327,16 +4387,40 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       if (!scannedLabelImage || scannedLabelOcrLoading) return;
       setScannedLabelOcrLoading(true);
       try {
-        const { text } = await extractLabelTextFromImage(scannedLabelImage);
-        setScannedLabelExtractedText(text || "");
+        const { text, error } = await extractLabelTextFromImage(scannedLabelImage);
+        console.log("OCR extracted text (manual):", text);
+        const detectedText = String(text || "").trim();
+        console.log(
+          "OCR state assignment scannedLabelExtractedText (manual):",
+          detectedText
+        );
+        setScannedLabelExtractedText(detectedText);
+        if (!detectedText) {
+          setScannedLabelMessage(
+            error ||
+              "No label text detected. Try a clearer image or enter the product manually."
+          );
+        } else {
+          setScannedLabelMessage(
+            "Image captured. AI label recognition will be connected next."
+          );
+        }
       } finally {
         setScannedLabelOcrLoading(false);
       }
     }, [scannedLabelImage, scannedLabelOcrLoading]);
 
-    const handleUseTextForCrossReference = React.useCallback(() => {
+    const handleUseTextForCrossReference = React.useCallback(async () => {
       const value = String(scannedLabelExtractedText || "").trim();
       if (!value) return;
+      const normalizedCrossoverText = normalizeOcrCrossoverText(value);
+      console.log("Use Text for Cross Reference value:", value);
+      console.log("Use Text for Cross Reference calling quickCrossToQuote.");
+      console.log("OCR raw text:", value);
+      console.log(
+        "OCR normalized crossover text:",
+        normalizedCrossoverText
+      );
       setCompetitor(value);
       setCrossSearch(value);
       setSelectedPackage("");
@@ -4347,6 +4431,10 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       setSelectedProduct(null);
       setQuoteMessage("");
       setQuoteStep(2);
+      await quickCrossToQuote(
+        normalizedCrossoverText || value,
+        "No confident match found. Please refine the detected product text or search manually."
+      );
     }, [scannedLabelExtractedText]);
 
     const [proposalDecisions, setProposalDecisions] = React.useState({});
@@ -4888,6 +4976,8 @@ const quickCrossToQuote = async (
   noMatchMessage = "No Klondike match found."
 ) => {
   const searchValue = String((searchOverride ?? competitor) || "").trim();
+  console.log("quickCrossToQuote searchOverride value:", searchOverride);
+  console.log("quickCrossToQuote computed searchValue:", searchValue);
 
   if (!searchValue) return;
 
@@ -4907,6 +4997,7 @@ const quickCrossToQuote = async (
     }
 
     const row = data?.[0];
+    console.log("quickCrossToQuote Klondike match found:", Boolean(row?.klondike_product));
 
     if (!row?.klondike_product) {
       setKlondike("");

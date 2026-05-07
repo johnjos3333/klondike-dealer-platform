@@ -7,16 +7,52 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const fallbackResponse = {
-  text: "Shell Rotella T6 15W-40 Heavy Duty Engine Oil",
-  brand: "Shell",
-  productName: "Rotella T6",
-  viscosity: "15W-40",
-  application: "Heavy Duty Engine Oil",
+const errorResponse = {
+  text: "",
+  brand: "",
+  productName: "",
+  viscosity: "",
+  application: "",
   specs: [] as string[],
   confidence: "low",
-  source: "stub",
+  source: "openai-vision",
+  error: "Unable to extract label text",
 };
+
+function cleanText(value: unknown) {
+  return String(value || "").trim();
+}
+
+function normalizeVisionPayload(parsed: Record<string, unknown>) {
+  const brand = cleanText(parsed.brand);
+  const productName = cleanText(parsed.productName);
+  const viscosity = cleanText(parsed.viscosity);
+  const application = cleanText(parsed.application);
+  const specs = Array.isArray(parsed.specs)
+    ? parsed.specs.map((x) => cleanText(x)).filter(Boolean)
+    : [];
+
+  const confidenceRaw = cleanText(parsed.confidence).toLowerCase();
+  const confidence =
+    confidenceRaw === "high" || confidenceRaw === "medium" || confidenceRaw === "low"
+      ? confidenceRaw
+      : "low";
+
+  const textParts = [brand, productName, viscosity, application].filter(Boolean);
+  const providedText = cleanText(parsed.text);
+  const text = providedText || textParts.join(" ");
+
+  return {
+    text,
+    brand,
+    productName,
+    viscosity,
+    application,
+    specs,
+    confidence,
+    source: "openai-vision",
+  };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -43,6 +79,12 @@ serve(async (req) => {
     const body = await req.json();
     const imageBase64 = String(body?.imageBase64 || "");
     const contentType = String(body?.contentType || "image/jpeg");
+    console.log("OCR request payload:", {
+      hasImage: imageBase64.length > 0,
+      imageBase64Length: imageBase64.length,
+      contentType,
+      filename: body?.filename || null,
+    });
 
     if (!imageBase64) {
       return new Response(
@@ -57,7 +99,7 @@ serve(async (req) => {
     const openAiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openAiApiKey) {
       return new Response(
-        JSON.stringify(fallbackResponse),
+        JSON.stringify(errorResponse),
         {
           status: 200,
           headers: { "Content-Type": "application/json", ...corsHeaders },
@@ -66,9 +108,23 @@ serve(async (req) => {
     }
 
     const prompt =
-      "Extract product label data from this lubricant image. Return strict JSON only with keys: text, brand, productName, viscosity, application, specs, confidence. " +
-      "Rules: text should be normalized concise product text; specs must be an array of readable spec strings; confidence must be one of high, medium, low.";
+      "You extract lubricant product information from product label images.\n" +
+      "Return JSON only.\n" +
+      "Do not recommend replacement products.\n" +
+      "Do not choose Klondike products.\n" +
+      "Only extract what is visible or strongly implied from the label.\n" +
+      "If unsure, leave fields blank and set confidence to low.\n\n" +
+      "Extract:\n" +
+      "- brand\n" +
+      "- productName\n" +
+      "- viscosity\n" +
+      "- application\n" +
+      "- visible specifications\n" +
+      "- confidence\n\n" +
+      "The `text` field should be a clean searchable phrase combining the extracted values.\n" +
+      "Output strict JSON with keys: text, brand, productName, viscosity, application, specs, confidence.";
 
+    console.log("About to call OpenAI Vision");
     const visionResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -83,7 +139,7 @@ serve(async (req) => {
           {
             role: "system",
             content:
-              "You are an OCR extraction assistant for lubricant labels. Output JSON only.",
+              "You are an OCR extraction assistant for lubricant product labels. Output JSON only.",
           },
           {
             role: "user",
@@ -100,42 +156,32 @@ serve(async (req) => {
         ],
       }),
     });
+    console.log("OpenAI response status:", visionResponse.status);
+    console.log("OpenAI response ok:", visionResponse.ok);
 
     if (!visionResponse.ok) {
-      throw new Error(`OpenAI request failed with status ${visionResponse.status}`);
+      const errorText = await visionResponse.text();
+      console.log("OpenAI error body:", errorText);
+      throw new Error(`OpenAI request failed: ${visionResponse.status}`);
     }
 
     const visionJson = await visionResponse.json();
+    console.log("OpenAI raw response:", visionJson);
     const rawContent = visionJson?.choices?.[0]?.message?.content;
     if (!rawContent) {
       throw new Error("OpenAI response missing content");
     }
 
-    let parsed: Record<string, unknown>;
+    let parsed: Record<string, unknown> = {};
     try {
       parsed = JSON.parse(String(rawContent));
     } catch {
       throw new Error("OpenAI returned non-JSON content");
     }
+    console.log("OpenAI parsed JSON:", parsed);
 
-    const confidenceRaw = String(parsed.confidence || "").toLowerCase();
-    const confidence =
-      confidenceRaw === "high" || confidenceRaw === "medium" || confidenceRaw === "low"
-        ? confidenceRaw
-        : "low";
-
-    const normalizedResponse = {
-      text: String(parsed.text || fallbackResponse.text),
-      brand: String(parsed.brand || ""),
-      productName: String(parsed.productName || ""),
-      viscosity: String(parsed.viscosity || ""),
-      application: String(parsed.application || ""),
-      specs: Array.isArray(parsed.specs)
-        ? parsed.specs.map((x) => String(x)).filter(Boolean)
-        : [],
-      confidence,
-      source: "openai-vision",
-    };
+    const normalizedResponse = normalizeVisionPayload(parsed);
+    console.log("OCR final payload:", normalizedResponse);
 
     return new Response(
       JSON.stringify(normalizedResponse),
@@ -144,9 +190,10 @@ serve(async (req) => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
-  } catch (_err) {
+  } catch (err) {
+    console.error("OCR Edge Function caught error:", err);
     return new Response(
-      JSON.stringify(fallbackResponse),
+      JSON.stringify(errorResponse),
       {
         status: 200,
         headers: { "Content-Type": "application/json", ...corsHeaders },
