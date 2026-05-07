@@ -202,6 +202,7 @@ function lookupLubricantAdvisor(question) {
         productName,
         why,
         specs,
+        url: String(entry?.url || "").trim(),
         matchedTerms,
         matchedSpec: matchedSpec || "",
         relevanceScore: matchedTerms.length,
@@ -7206,6 +7207,24 @@ return (
                     {firstAdvisorSentence(match.why) ||
                       "Comparison details are based on current PDS metadata."}
                   </p>
+                  {!!match.url && (
+                    <a
+                      href={match.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        ...styles.secondaryButton,
+                        display: "inline-flex",
+                        minHeight: 34,
+                        padding: "6px 10px",
+                        fontSize: 12,
+                        marginBottom: 8,
+                        textDecoration: "none",
+                      }}
+                    >
+                      View PDS
+                    </a>
+                  )}
                   {Array.isArray(match.specs) && match.specs.length > 0 && (
                     <ul
                       style={{
@@ -7239,6 +7258,24 @@ return (
                         : firstAdvisorSentence(match.why) ||
                           "Matches requested terms in the PDS/spec library."}
                     </div>
+                    {!!match.url && (
+                      <a
+                        href={match.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          ...styles.secondaryButton,
+                          display: "inline-flex",
+                          minHeight: 32,
+                          padding: "5px 10px",
+                          fontSize: 12,
+                          marginTop: 8,
+                          textDecoration: "none",
+                        }}
+                      >
+                        View PDS
+                      </a>
+                    )}
                   </div>
                 </div>
               ))}
