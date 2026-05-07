@@ -7189,6 +7189,9 @@ return (
         Ask for a specification and review matching Klondike products from the current
         PDS/spec library.
       </p>
+      <p style={{ ...styles.listMeta, marginBottom: 10, fontWeight: 700 }}>
+        Source: Current Klondike PDS/spec library
+      </p>
       <div style={{ ...styles.grid2, alignItems: "center" }}>
         <input
           style={styles.input}
