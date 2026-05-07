@@ -3,6 +3,470 @@ import React, { useEffect, useMemo, useState } from "react";
 import { PDS_MAP } from "./data/pdsMap";
 import { PDS_LIBRARY_INDEX } from "./data/pdsLibraryIndex";
 import { supabase } from "./supabase";
+
+function parsePackageLabelGallonsEstimate(packageLabel) {
+  const match = String(packageLabel || "").match(
+    /(\d+(?:\.\d+)?)\s*(?:gal|gallon)/i
+  );
+  if (!match) return null;
+  const n = Number(match[1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function filterInventoryEligibleResponses(
+  raw,
+  activeMembership,
+  isManager,
+  teamAssignments,
+  repProfiles,
+  sessionUserId
+) {
+  if (!activeMembership?.organization_id) return [];
+  const orgId = activeMembership.organization_id;
+  return (raw || []).filter((res) => {
+    const q = res.quote;
+    if (!q || q.organization_id !== orgId) return false;
+    if (!isManager) return true;
+
+    const assignedRepProfileIds = (teamAssignments || [])
+      .filter(
+        (assignment) =>
+          assignment.manager_profile_id === sessionUserId ||
+          assignment.manager_user_id === sessionUserId
+      )
+      .map((assignment) => assignment.rep_profile_id)
+      .filter(Boolean);
+
+    const assignedRepEmails = (repProfiles || [])
+      .filter(
+        (rep) =>
+          assignedRepProfileIds.includes(rep.id) ||
+          assignedRepProfileIds.includes(rep.user_id)
+      )
+      .map((rep) => String(rep.email || "").toLowerCase())
+      .filter(Boolean);
+
+    const quoteRepEmail = String(q.rep_email || "").toLowerCase();
+
+    return (
+      assignedRepProfileIds.includes(q.user_id) ||
+      assignedRepEmails.includes(quoteRepEmail)
+    );
+  });
+}
+
+function collectApprovedProductLines(eligibleResponses) {
+  const lines = [];
+  (eligibleResponses || []).forEach((res) => {
+    const customerName =
+      res.decision_data?.customer_name || res.quote?.customer_name || "";
+    const customerEmail =
+      res.decision_data?.customer_email || res.quote?.customer_email || "";
+    const rows = res.decision_data?.responses || [];
+    rows.forEach((row) => {
+      if (row.decision !== "approved") return;
+      if (row.type === "equipment") return;
+      if (String(row.package || "").toLowerCase() === "equipment") return;
+      lines.push({
+        responseId: res.id,
+        quoteId: res.quote_id,
+        createdAt: res.created_at,
+        customerName,
+        customerEmail,
+        product: row.product || "—",
+        package: row.package || "",
+        price: Number(row.price || 0),
+        quoteItemId: row.quote_item_id,
+      });
+    });
+  });
+  return lines;
+}
+
+function InventoryAlertsSection({
+  styles,
+  useExternalResponses = false,
+  proposalResponses: externalProposalResponses = [],
+  activeMembership,
+  isManager,
+  teamAssignments = [],
+  repProfiles = [],
+  session,
+}) {
+  const [fetchedResponses, setFetchedResponses] = React.useState([]);
+  const [fetchDone, setFetchDone] = React.useState(useExternalResponses);
+
+  React.useEffect(() => {
+    if (useExternalResponses) {
+      setFetchDone(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data: responses, error } = await supabase
+        .from("proposal_responses")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error || cancelled) return;
+      const quoteIds = [...new Set((responses || []).map((r) => r.quote_id))];
+      if (!quoteIds.length) {
+        if (!cancelled) {
+          setFetchedResponses([]);
+          setFetchDone(true);
+        }
+        return;
+      }
+      const { data: quotes } = await supabase
+        .from("quotes")
+        .select(
+          "id, customer_name, customer_email, organization_id, user_id, rep_email"
+        )
+        .in("id", quoteIds);
+      const quoteMap = {};
+      (quotes || []).forEach((q) => {
+        quoteMap[q.id] = q;
+      });
+      if (!cancelled) {
+        setFetchedResponses(
+          (responses || []).map((res) => ({
+            ...res,
+            quote: quoteMap[res.quote_id] || null,
+          }))
+        );
+        setFetchDone(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [useExternalResponses, activeMembership?.organization_id]);
+
+  const proposalResponses = useExternalResponses
+    ? externalProposalResponses
+    : fetchedResponses;
+
+  const eligibleResponses = React.useMemo(
+    () =>
+      filterInventoryEligibleResponses(
+        proposalResponses,
+        activeMembership,
+        isManager,
+        teamAssignments,
+        repProfiles,
+        session?.user?.id
+      ),
+    [
+      proposalResponses,
+      activeMembership,
+      isManager,
+      teamAssignments,
+      repProfiles,
+      session?.user?.id,
+    ]
+  );
+
+  const approvedLines = React.useMemo(
+    () => collectApprovedProductLines(eligibleResponses),
+    [eligibleResponses]
+  );
+
+  const quoteItemIdsKey = React.useMemo(() => {
+    const s = new Set();
+    approvedLines.forEach((l) => {
+      if (l.quoteItemId) s.add(l.quoteItemId);
+    });
+    return [...s].sort().join(",");
+  }, [approvedLines]);
+
+  const [quoteItemById, setQuoteItemById] = React.useState({});
+
+  React.useEffect(() => {
+    if (!fetchDone) return;
+    const ids = quoteItemIdsKey ? quoteItemIdsKey.split(",").filter(Boolean) : [];
+    if (!ids.length) {
+      setQuoteItemById({});
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from("quote_items")
+      .select(
+        "id, quantity, package, klondike_product, product_name, part_number"
+      )
+      .in("id", ids)
+      .then(({ data, error }) => {
+        if (cancelled || error) return;
+        const map = {};
+        (data || []).forEach((row) => {
+          map[row.id] = row;
+        });
+        setQuoteItemById(map);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchDone, quoteItemIdsKey]);
+
+  const demandRows = React.useMemo(() => {
+    const groups = {};
+    approvedLines.forEach((line) => {
+      const pkgNorm = String(line.package || "").trim().toLowerCase();
+      const productNorm = String(line.product || "").trim().toLowerCase();
+      const key = `${productNorm}__${pkgNorm}`;
+      if (!groups[key]) {
+        groups[key] = {
+          product: line.product,
+          package: line.package || "—",
+          quoteIds: new Set(),
+          totalUnits: 0,
+          gallonsEstimate: null,
+          partNumber: "",
+        };
+      }
+      const g = groups[key];
+      g.quoteIds.add(line.quoteId);
+      const qi = line.quoteItemId ? quoteItemById[line.quoteItemId] : null;
+      const qty =
+        qi && qi.quantity != null && Number.isFinite(Number(qi.quantity))
+          ? Number(qi.quantity)
+          : 1;
+      g.totalUnits += qty;
+      const galFromQi = qi ? parsePackageLabelGallonsEstimate(qi.package) : null;
+      const galFromLine = parsePackageLabelGallonsEstimate(line.package);
+      const gallonsPerUnit =
+        galFromQi != null ? galFromQi : galFromLine;
+      if (gallonsPerUnit != null) {
+        const add = gallonsPerUnit * qty;
+        g.gallonsEstimate =
+          g.gallonsEstimate != null ? g.gallonsEstimate + add : add;
+      }
+      const pn = qi?.part_number ? String(qi.part_number).trim() : "";
+      if (pn && !g.partNumber) g.partNumber = pn;
+    });
+    return Object.values(groups).sort((a, b) => b.totalUnits - a.totalUnits);
+  }, [approvedLines, quoteItemById]);
+
+  const summary = React.useMemo(() => {
+    if (!demandRows.length) {
+      return {
+        approvedProductSkus: 0,
+        totalAcceptedUnits: 0,
+        topProduct: "—",
+        topPackage: "—",
+      };
+    }
+    const approvedProductSkus = demandRows.length;
+    const totalAcceptedUnits = demandRows.reduce(
+      (s, r) => s + r.totalUnits,
+      0
+    );
+    const top = demandRows.reduce(
+      (best, r) => (r.totalUnits > (best?.totalUnits ?? 0) ? r : best),
+      demandRows[0]
+    );
+    const packageCounts = {};
+    demandRows.forEach((r) => {
+      const p = String(r.package || "—").trim() || "—";
+      packageCounts[p] = (packageCounts[p] || 0) + r.totalUnits;
+    });
+    let topPackage = "—";
+    let topPkgCount = -1;
+    Object.entries(packageCounts).forEach(([pkg, c]) => {
+      if (c > topPkgCount) {
+        topPkgCount = c;
+        topPackage = pkg;
+      }
+    });
+    return {
+      approvedProductSkus,
+      totalAcceptedUnits,
+      topProduct: top?.product || "—",
+      topPackage,
+    };
+  }, [demandRows]);
+
+  const empty = fetchDone && approvedLines.length === 0;
+
+  return (
+    <>
+      <div style={styles.card}>
+        <div style={styles.eyebrow}>INVENTORY ALERTS</div>
+        <h3 style={styles.cardTitle}>Approved Proposal Demand</h3>
+        <p style={styles.cardBody}>
+          Demand visibility from customer-approved proposal line items (SKUs /
+          packages). Use this as a planning signal only.
+        </p>
+        <div
+          style={{
+            marginTop: 12,
+            padding: "12px 14px",
+            borderRadius: 10,
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            borderLeft: "4px solid #1e3a8a",
+            fontSize: 13,
+            color: "#1e3a8a",
+            fontWeight: 600,
+            lineHeight: 1.5,
+          }}
+        >
+          Inventory Alerts are based on approved proposal demand only and do not
+          reflect dealer on-hand inventory.
+        </div>
+      </div>
+
+      {empty && (
+        <div style={styles.card}>
+          <p style={{ ...styles.cardBody, margin: 0 }}>
+            Inventory alert data will populate as customers approve proposals.
+          </p>
+        </div>
+      )}
+
+      {!empty && (
+        <>
+          <div style={{ ...styles.card, ...styles.dashboardCard }}>
+            <div style={styles.eyebrow}>SUMMARY</div>
+            <h3 style={styles.cardTitle}>Accepted Demand Snapshot</h3>
+            <div style={styles.grid3}>
+              <div
+                style={{
+                  ...styles.summaryCard,
+                  ...styles.dashboardSummaryCard,
+                }}
+              >
+                <div style={styles.summaryLabel}>Approved Products</div>
+                <div style={styles.summaryValue}>
+                  {summary.approvedProductSkus}
+                </div>
+                <div style={styles.listMeta}>
+                  Distinct product + package lines
+                </div>
+              </div>
+              <div
+                style={{
+                  ...styles.summaryCard,
+                  ...styles.dashboardSummaryCard,
+                }}
+              >
+                <div style={styles.summaryLabel}>Total Accepted Units</div>
+                <div style={styles.summaryValue}>
+                  {summary.totalAcceptedUnits}
+                </div>
+                <div style={styles.listMeta}>
+                  Sum of accepted quantities on file
+                </div>
+              </div>
+              <div
+                style={{
+                  ...styles.summaryCard,
+                  ...styles.dashboardSummaryCard,
+                }}
+              >
+                <div style={styles.summaryLabel}>Top Accepted Product</div>
+                <div
+                  style={{
+                    ...styles.summaryValue,
+                    fontSize: 18,
+                    lineHeight: 1.25,
+                  }}
+                >
+                  {summary.topProduct}
+                </div>
+                <div style={styles.listMeta}>By total accepted units</div>
+              </div>
+              <div
+                style={{
+                  ...styles.summaryCard,
+                  ...styles.dashboardSummaryCard,
+                }}
+              >
+                <div style={styles.summaryLabel}>Top Package Type</div>
+                <div
+                  style={{
+                    ...styles.summaryValue,
+                    fontSize: 18,
+                    lineHeight: 1.25,
+                  }}
+                >
+                  {summary.topPackage}
+                </div>
+                <div style={styles.listMeta}>By accepted unit volume</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>PRODUCT DEMAND</div>
+            <h3 style={styles.cardTitle}>Aggregated Approved Lines</h3>
+            <p style={styles.cardBody}>
+              Grouped by product name and package. Proposal count counts distinct
+              quotes with an approval for that line. Volume estimates apply only
+              when a gallon value can be read from the package label text.
+            </p>
+            <div style={styles.stack}>
+              {demandRows.map((row, idx) => (
+                <div
+                  key={`${row.product}-${row.package}-${idx}`}
+                  style={{
+                    ...styles.listRow,
+                    alignItems: "flex-start",
+                    flexWrap: "wrap",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                    <div style={styles.listTitle}>{row.product}</div>
+                    {row.partNumber ? (
+                      <div style={styles.listMeta}>Part #: {row.partNumber}</div>
+                    ) : null}
+                    <div style={styles.listMeta}>Package: {row.package}</div>
+                    <div style={styles.listMeta}>
+                      Customer / proposal references: {row.quoteIds.size}{" "}
+                      proposal{row.quoteIds.size === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      textAlign: "right",
+                      minWidth: "min(100%, 200px)",
+                    }}
+                  >
+                    <div style={styles.listTitle}>
+                      Qty: {row.totalUnits}
+                    </div>
+                    <div style={styles.listMeta}>Accepted units (summed)</div>
+                    {row.gallonsEstimate != null ? (
+                      <div
+                        style={{
+                          ...styles.listMeta,
+                          marginTop: 6,
+                          color: "#0a2540",
+                          fontWeight: 700,
+                        }}
+                      >
+                        Est. volume: ~{row.gallonsEstimate.toLocaleString()} gal
+                        <span style={{ fontWeight: 600, color: "#64748b" }}>
+                          {" "}
+                          (from package label text × qty)
+                        </span>
+                      </div>
+                    ) : (
+                      <div style={{ ...styles.listMeta, marginTop: 6 }}>
+                        Est. volume: not derivable from package label
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 const PRODUCT_DB = [
   {
     brand: "Shell",
@@ -5266,7 +5730,13 @@ const renderDealerAdminView = () => (
         </div>
 
         <div style={styles.workflowTabBar}>
-          {["dashboard", "team", "add_users", "profile"].map((tab) => (
+          {[
+            "dashboard",
+            "inventory_alerts",
+            "team",
+            "add_users",
+            "profile",
+          ].map((tab) => (
             <button
               key={tab}
               type="button"
@@ -5277,13 +5747,30 @@ const renderDealerAdminView = () => (
               }}
             >
               {tab === "add_users"
-  ? "Add Users"
-  : tab === "team"
-  ? "Team"
-  : tab}
+                ? "Add Users"
+                : tab === "team"
+                ? "Team"
+                : tab === "inventory_alerts"
+                ? "Inventory Alerts"
+                : tab === "dashboard"
+                ? "Dashboard"
+                : tab === "profile"
+                ? "Profile"
+                : tab}
             </button>
           ))}
         </div>
+
+        {dealerAdminTab === "inventory_alerts" && (
+          <InventoryAlertsSection
+            styles={styles}
+            activeMembership={activeMembership}
+            isManager={false}
+            teamAssignments={teamAssignments}
+            repProfiles={repProfiles}
+            session={session}
+          />
+        )}
 
         {dealerAdminTab === "dashboard" && (
   <>
@@ -6112,7 +6599,9 @@ const [leaderboard, setLeaderboard] = React.useState([]);
 
     const { data: quotes } = await supabase
       .from("quotes")
-      .select("id, customer_name, customer_email")
+      .select(
+        "id, customer_name, customer_email, organization_id, user_id, rep_email"
+      )
       .in("id", quoteIds);
 
     const quoteMap = {};
@@ -6880,6 +7369,7 @@ setPricingMap(map);
             : isManager
       ? [
           { id: "dashboard", label: "Dashboard" },
+          { id: "inventory_alerts", label: "Inventory Alerts" },
           { id: "team", label: "Team" },
           { id: "request", label: "Add Users" },
         ]
@@ -12095,6 +12585,19 @@ setTier(rec.tier || "Good");
               </div>
             </div>
           </>
+        )}
+
+        {isManager && dealerActiveTab === "inventory_alerts" && (
+          <InventoryAlertsSection
+            styles={styles}
+            useExternalResponses
+            proposalResponses={proposalResponses}
+            activeMembership={activeMembership}
+            isManager
+            teamAssignments={teamAssignments}
+            repProfiles={repProfiles}
+            session={session}
+          />
         )}
 
         {isManager && dealerActiveTab === "team" && (
