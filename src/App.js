@@ -8168,19 +8168,49 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
       )}
 
         {dealerActiveTab === "advisor" && isRep && (
-          <div style={styles.card}>
+          <div
+            style={{
+              ...styles.card,
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 12px 28px rgba(15, 23, 42, 0.08)",
+            }}
+          >
             <div style={styles.eyebrow}>LUBRICANT ADVISOR</div>
             <h3 style={{ ...styles.cardTitle, marginBottom: 8 }}>Lubricant Advisor</h3>
-            <p style={{ ...styles.cardBody, marginBottom: 12 }}>
+            <p style={{ ...styles.cardBody, marginBottom: 12, color: "#334155" }}>
               Ask product, spec, or application questions using the current Klondike
               PDS/spec library.
             </p>
-            <p style={{ ...styles.listMeta, marginBottom: 10, fontWeight: 700 }}>
+            <p
+              style={{
+                ...styles.listMeta,
+                marginBottom: 14,
+                fontWeight: 700,
+                color: "#1e3a8a",
+              }}
+            >
               Source: Current Klondike PDS/spec library
             </p>
-            <div style={{ ...styles.grid2, alignItems: "center" }}>
+            <div
+              style={{
+                ...styles.grid2,
+                alignItems: "center",
+                gap: 10,
+                padding: 12,
+                borderRadius: 12,
+                border: "1px solid #e2e8f0",
+                background: "#f8fafc",
+              }}
+            >
               <input
-                style={styles.input}
+                style={{
+                  ...styles.input,
+                  minHeight: 46,
+                  background: "#ffffff",
+                  border: "1px solid #cbd5e1",
+                  color: "#0f172a",
+                }}
                 placeholder="e.g. What oil meets Cummins CES 20086?"
                 value={advisorQuestion}
                 onChange={(e) => setAdvisorQuestion(e.target.value)}
@@ -8193,16 +8223,39 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
               />
               <button
                 type="button"
-                style={{ ...styles.secondaryButton, minHeight: 46 }}
+                style={{
+                  ...styles.primaryButton,
+                  minHeight: 46,
+                  padding: "11px 18px",
+                  fontWeight: 700,
+                  width: "100%",
+                  justifyContent: "center",
+                }}
                 onClick={handleAskLubricantAdvisor}
               >
                 Ask
               </button>
             </div>
             {advisorResult && (
-              <div style={{ marginTop: 12 }}>
+              <div
+                style={{
+                  marginTop: 14,
+                  paddingTop: 12,
+                  borderTop: "1px solid #e2e8f0",
+                }}
+              >
                 {!!advisorResult.answer && (
-                  <p style={{ ...styles.cardBody, marginBottom: 10 }}>
+                  <p
+                    style={{
+                      ...styles.cardBody,
+                      marginBottom: 10,
+                      color: "#334155",
+                      background: "#ffffff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                    }}
+                  >
                     {advisorResult.answer}
                   </p>
                 )}
@@ -8217,48 +8270,74 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                         key={`${match.productName}-${idx}`}
                         style={{
                           ...styles.card,
-                          padding: "12px 12px 10px",
+                          padding: "12px 12px 12px",
                           margin: 0,
-                          boxShadow: "0 6px 14px rgba(15,23,42,0.08)",
+                          border: "1px solid #e2e8f0",
+                          borderTop: "3px solid #f59e0b",
+                          background: "#ffffff",
+                          boxShadow: "0 10px 22px rgba(15, 23, 42, 0.08)",
                         }}
                       >
-                        <div style={styles.listTitle}>{match.productName}</div>
-                        <p style={{ ...styles.listMeta, marginTop: 6, marginBottom: 8 }}>
+                        <div style={{ ...styles.listTitle, color: "#0f172a", fontSize: 15 }}>
+                          {match.productName}
+                        </div>
+                        <p
+                          style={{
+                            ...styles.listMeta,
+                            marginTop: 6,
+                            marginBottom: 10,
+                            color: "#475569",
+                            lineHeight: 1.45,
+                          }}
+                        >
                           {firstAdvisorSentence(match.why) ||
                             "Comparison details are based on current PDS metadata."}
                         </p>
-                        {!!match.url && (
-                          <a
-                            href={match.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{
-                              ...styles.secondaryButton,
-                              display: "inline-flex",
-                              minHeight: 34,
-                              padding: "6px 10px",
-                              fontSize: 12,
-                              marginBottom: 8,
-                              textDecoration: "none",
-                            }}
-                          >
-                            View PDS
-                          </a>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleUseAdvisorProduct(match.productName)}
+                        <div
                           style={{
-                            ...styles.secondaryButton,
-                            display: "inline-flex",
-                            minHeight: 34,
-                            padding: "6px 10px",
-                            fontSize: 12,
-                            marginBottom: 8,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 8,
+                            marginBottom: 10,
                           }}
                         >
-                          Use as Selected Product
-                        </button>
+                          {!!match.url && (
+                            <a
+                              href={match.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                ...styles.portalTabButton,
+                                ...styles.portalTabButtonActive,
+                                display: "inline-flex",
+                                minHeight: 36,
+                                padding: "7px 12px",
+                                fontSize: 12,
+                                textDecoration: "none",
+                                justifyContent: "center",
+                                borderColor: "#1e3a8a",
+                                background: "#1e3a8a",
+                                color: "#ffffff",
+                              }}
+                            >
+                              View PDS
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleUseAdvisorProduct(match.productName)}
+                            style={{
+                              ...styles.primaryButton,
+                              display: "inline-flex",
+                              minHeight: 36,
+                              padding: "7px 12px",
+                              fontSize: 12,
+                              justifyContent: "center",
+                            }}
+                          >
+                            Add to Quote
+                          </button>
+                        </div>
                         {Array.isArray(match.specs) && match.specs.length > 0 && (
                           <ul
                             style={{
@@ -8283,49 +8362,75 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                   advisorResult.matches?.length > 0 && (
                   <div style={{ display: "grid", gap: 10 }}>
                     {advisorResult.matches.map((match, idx) => (
-                      <div key={`${match.productName}-${idx}`} style={styles.listRow}>
+                      <div
+                        key={`${match.productName}-${idx}`}
+                        style={{
+                          ...styles.listRow,
+                          border: "1px solid #e2e8f0",
+                          borderTop: "3px solid #f59e0b",
+                          background: "#ffffff",
+                          boxShadow: "0 8px 18px rgba(15, 23, 42, 0.08)",
+                          alignItems: "flex-start",
+                          gap: 10,
+                          padding: "14px 14px 12px",
+                        }}
+                      >
                         <div>
-                          <div style={styles.listTitle}>{match.productName}</div>
-                          <div style={styles.listMeta}>
+                          <div style={{ ...styles.listTitle, color: "#0f172a", fontSize: 15 }}>
+                            {match.productName}
+                          </div>
+                          <div style={{ ...styles.listMeta, color: "#475569", lineHeight: 1.45 }}>
                             Why:{" "}
                             {match.matchedSpec
                               ? `Matches ${match.matchedSpec}.`
                               : firstAdvisorSentence(match.why) ||
                                 "Matches requested terms in the PDS/spec library."}
                           </div>
-                          {!!match.url && (
-                            <a
-                              href={match.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              style={{
-                                ...styles.secondaryButton,
-                                display: "inline-flex",
-                                minHeight: 32,
-                                padding: "5px 10px",
-                                fontSize: 12,
-                                marginTop: 8,
-                                textDecoration: "none",
-                              }}
-                            >
-                              View PDS
-                            </a>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleUseAdvisorProduct(match.productName)}
+                          <div
                             style={{
-                              ...styles.secondaryButton,
-                              display: "inline-flex",
-                              minHeight: 32,
-                              padding: "5px 10px",
-                              fontSize: 12,
-                              marginTop: 8,
-                              marginLeft: 8,
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: 8,
+                              marginTop: 10,
                             }}
                           >
-                            Use as Selected Product
-                          </button>
+                            {!!match.url && (
+                              <a
+                                href={match.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  ...styles.portalTabButton,
+                                  ...styles.portalTabButtonActive,
+                                  display: "inline-flex",
+                                  minHeight: 34,
+                                  padding: "6px 12px",
+                                  fontSize: 12,
+                                  textDecoration: "none",
+                                  justifyContent: "center",
+                                  borderColor: "#1e3a8a",
+                                  background: "#1e3a8a",
+                                  color: "#ffffff",
+                                }}
+                              >
+                                View PDS
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleUseAdvisorProduct(match.productName)}
+                              style={{
+                                ...styles.primaryButton,
+                                display: "inline-flex",
+                                minHeight: 34,
+                                padding: "6px 12px",
+                                fontSize: 12,
+                                justifyContent: "center",
+                              }}
+                            >
+                              Add to Quote
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
