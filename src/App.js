@@ -5502,6 +5502,35 @@ const getPackageOptionsForProduct = (productName) => {
     .filter(Boolean);
 };
 
+const handleUseAdvisorProduct = (productName) => {
+  const candidate = String(productName || "").trim();
+  if (!candidate) return;
+
+  const packageOptions = getPackageOptionsForProduct(candidate);
+  const hasCatalogMatch = packageOptions.length > 0;
+
+  setKlondike(candidate);
+  setPackageSize("");
+  setQuoteStep(2);
+
+  if (hasCatalogMatch) {
+    setSelectedProduct({
+      brand: "Advisor",
+      name: candidate,
+      category: "",
+      klondike: candidate,
+      tier: cleanTier("", candidate),
+    });
+    setQuoteMessage("");
+    return;
+  }
+
+  setSelectedProduct(null);
+  setQuoteMessage(
+    "Advisor product found in PDS library. Please select the matching catalog product/package manually."
+  );
+};
+
 const handleAddProduct = () => {
   if (!selectedProduct) {
     setQuoteMessage("Select a competitor product first.");
@@ -7225,6 +7254,20 @@ return (
                       View PDS
                     </a>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => handleUseAdvisorProduct(match.productName)}
+                    style={{
+                      ...styles.secondaryButton,
+                      display: "inline-flex",
+                      minHeight: 34,
+                      padding: "6px 10px",
+                      fontSize: 12,
+                      marginBottom: 8,
+                    }}
+                  >
+                    Use as Selected Product
+                  </button>
                   {Array.isArray(match.specs) && match.specs.length > 0 && (
                     <ul
                       style={{
@@ -7276,6 +7319,21 @@ return (
                         View PDS
                       </a>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleUseAdvisorProduct(match.productName)}
+                      style={{
+                        ...styles.secondaryButton,
+                        display: "inline-flex",
+                        minHeight: 32,
+                        padding: "5px 10px",
+                        fontSize: 12,
+                        marginTop: 8,
+                        marginLeft: 8,
+                      }}
+                    >
+                      Use as Selected Product
+                    </button>
                   </div>
                 </div>
               ))}
