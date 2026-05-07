@@ -378,6 +378,7 @@ useEffect(() => {
   const [newUserName, setNewUserName] = React.useState("");
   const [newUserEmail, setNewUserEmail] = React.useState("");
   const [newUserRole, setNewUserRole] = React.useState("rep");
+  const [klondikeAdminTab, setKlondikeAdminTab] = useState("dashboard");
 
   const [dealerMessage, setDealerMessage] = React.useState("");
   const [userMessage, setUserMessage] = React.useState("");
@@ -1709,6 +1710,30 @@ const handleFinishDealerEnrollment = async () => {
         </p>
       </div>
 
+      <div style={styles.workflowTabBar}>
+        {[
+          { id: "dashboard", label: "DASHBOARD" },
+          { id: "dealers", label: "DEALERS" },
+          { id: "create_dealer", label: "CREATE DEALER" },
+          { id: "create_dealer_user", label: "CREATE DEALER USER" },
+          { id: "approvals", label: "APPROVALS" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setKlondikeAdminTab(tab.id)}
+            style={{
+              ...styles.workflowTab,
+              ...(klondikeAdminTab === tab.id ? styles.workflowTabActive : {}),
+              textTransform: "none",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {klondikeAdminTab === "dashboard" && (
       <div style={styles.grid3}>
         <div style={styles.summaryCard}>
           <div style={styles.summaryLabel}>Dealers</div>
@@ -1725,7 +1750,108 @@ const handleFinishDealerEnrollment = async () => {
           <div style={styles.summaryValue}>{recentInvites.length}</div>
         </div>
       </div>
-          <div style={styles.card}>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+      <div style={styles.card}>
+        <div style={styles.eyebrow}>DEALER NETWORK PERFORMANCE</div>
+        <h3 style={styles.cardTitle}>Dealer Network Performance</h3>
+        <p style={styles.cardBody}>
+          Combined network visibility using currently loaded dealer performance
+          metrics.
+        </p>
+
+        {dealerNetworkPerformance.length > 0 ? (
+          <div style={styles.grid3}>
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Quotes Created</div>
+              <div style={styles.summaryValue}>
+                {dealerNetworkPerformance.reduce(
+                  (sum, dealer) => sum + Number(dealer.quotesCreated || 0),
+                  0
+                )}
+              </div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Proposals Sent</div>
+              <div style={styles.summaryValue}>
+                {dealerNetworkPerformance.reduce(
+                  (sum, dealer) => sum + Number(dealer.proposalsSent || 0),
+                  0
+                )}
+              </div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Customer Responses</div>
+              <div style={styles.summaryValue}>
+                {dealerNetworkPerformance.reduce(
+                  (sum, dealer) => sum + Number(dealer.customerResponses || 0),
+                  0
+                )}
+              </div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Approved Revenue</div>
+              <div style={styles.summaryValue}>
+                $
+                {dealerNetworkPerformance
+                  .reduce(
+                    (sum, dealer) => sum + Number(dealer.revenueWon || 0),
+                    0
+                  )
+                  .toLocaleString()}
+              </div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Average Approval Rate</div>
+              <div style={styles.summaryValue}>
+                {Math.round(
+                  dealerNetworkPerformance.reduce(
+                    (sum, dealer) => sum + Number(dealer.approvalRate || 0),
+                    0
+                  ) / dealerNetworkPerformance.length
+                )}
+                %
+              </div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Active Teams</div>
+              <div style={styles.summaryValue}>
+                {dealerNetworkPerformance.reduce(
+                  (sum, dealer) => sum + Number(dealer.teamMembers || 0),
+                  0
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={styles.grid3}>
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Quotes Created</div>
+              <div style={styles.summaryValue}>—</div>
+              <div style={styles.listMeta}>Coming from dealer proposal activity</div>
+            </div>
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Proposals Sent</div>
+              <div style={styles.summaryValue}>—</div>
+              <div style={styles.listMeta}>Coming from dealer proposal activity</div>
+            </div>
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryLabel}>Customer Responses</div>
+              <div style={styles.summaryValue}>—</div>
+              <div style={styles.listMeta}>Coming from dealer proposal activity</div>
+            </div>
+          </div>
+        )}
+      </div>
+      )}
+      {klondikeAdminTab === "dealers" && (
+      <div style={styles.card}>
         <div style={styles.eyebrow}>DEALER PERFORMANCE COMMAND CENTER</div>
         <h3 style={styles.cardTitle}>Dealer Account Snapshots</h3>
         <p style={styles.cardBody}>
@@ -1811,8 +1937,9 @@ const handleFinishDealerEnrollment = async () => {
           ))}
         </div>
       </div>
+      )}
 
-      {selectedDealerPerformance && (
+      {klondikeAdminTab === "dealers" && selectedDealerPerformance && (
         <>
           <div style={styles.card}>
             <div style={styles.eyebrow}>DEALER ADMIN DASHBOARD VIEW</div>
@@ -2020,10 +2147,13 @@ const handleFinishDealerEnrollment = async () => {
           </div>
         </>
       )}
+      {(klondikeAdminTab === "create_dealer" ||
+        klondikeAdminTab === "create_dealer_user") && (
       <div>
         <div style={styles.sectionHeader}>Primary Actions</div>
 
         <div style={styles.grid2}>
+          {klondikeAdminTab === "create_dealer" && (
           <div style={styles.card}>
             <div style={styles.eyebrow}>CREATE DEALER</div>
             <h3 style={styles.cardTitle}>Create Dealer Organization</h3>
@@ -2077,7 +2207,9 @@ const handleFinishDealerEnrollment = async () => {
               <p style={styles.message}>{newDealerMessage}</p>
             )}
           </div>
+          )}
 
+          {klondikeAdminTab === "create_dealer_user" && (
           <div style={styles.card}>
             <div style={styles.eyebrow}>CREATE USER</div>
             <h3 style={styles.cardTitle}>Provision Dealer User</h3>
@@ -2130,7 +2262,7 @@ const handleFinishDealerEnrollment = async () => {
               <button
                 type="submit"
                 disabled={inviteLoading}
-                style={styles.secondaryButton}
+                style={styles.primaryButton}
               >
                 {inviteLoading ? "Creating..." : "Create User"}
               </button>
@@ -2138,11 +2270,13 @@ const handleFinishDealerEnrollment = async () => {
 
             {inviteMessage && <p style={styles.message}>{inviteMessage}</p>}
           </div>
+          )}
         </div>
       </div>
+      )}
 
+      {klondikeAdminTab === "approvals" && (
       <div>
-<div>
   <div style={styles.sectionHeader}>Access Approvals</div>
 
   <div style={styles.card}>
@@ -2261,10 +2395,12 @@ const handleFinishDealerEnrollment = async () => {
 
     {reviewMessage && <p style={styles.message}>{reviewMessage}</p>}
   </div>
-</div>
-        <div style={styles.sectionHeader}>Recent Activity</div>
+      </div>
+      )}
+        {klondikeAdminTab === "approvals" && (
+        <div>
+          <div style={styles.sectionHeader}>Recent Activity</div>
 
-        <div style={styles.grid2}>
           <div style={styles.card}>
             <div style={styles.eyebrow}>RECENT INVITES</div>
             <h3 style={styles.cardTitle}>Provisioning History</h3>
@@ -2291,7 +2427,10 @@ const handleFinishDealerEnrollment = async () => {
               ))}
             </div>
           </div>
+        </div>
+        )}
 
+          {klondikeAdminTab === "dealers" && (
           <div style={styles.card}>
             <div style={styles.eyebrow}>DEALER NETWORK</div>
             <h3 style={styles.cardTitle}>Dealer Organizations</h3>
@@ -2316,8 +2455,7 @@ const handleFinishDealerEnrollment = async () => {
               ))}
             </div>
           </div>
-        </div>
-      </div>
+          )}
     </div>
   );
   const loadDealerPerformance = async () => {
@@ -3047,7 +3185,7 @@ const renderDealerAdminView = () => (
         <button
           type="submit"
           disabled={requestLoading}
-          style={styles.secondaryButton}
+          style={styles.primaryButton}
         >
           {requestLoading ? "Submitting..." : "Add Additional User Request"}
         </button>
@@ -3406,7 +3544,7 @@ const renderDealerAdminView = () => (
             <button
               type="submit"
               disabled={requestLoading}
-              style={styles.secondaryButton}
+              style={styles.primaryButton}
             >
               {requestLoading ? "Submitting..." : "Add Additional User Request"}
             </button>
