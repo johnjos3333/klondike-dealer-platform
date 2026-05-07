@@ -2748,6 +2748,61 @@ const handleFinishDealerEnrollment = async () => {
     ocrSnapshot?.topViscosity,
     adminRepLeaderboardFoundation,
   ]);
+  const adminProductOpportunityIntelligence = React.useMemo(() => {
+    const insights = [];
+    const productRows = Array.isArray(adminProductMixIntelligence?.rows)
+      ? adminProductMixIntelligence.rows
+      : [];
+    const nonZeroRows = productRows.filter((row) => Number(row?.count || 0) > 0);
+    if (nonZeroRows.length > 0) {
+      const dominant = nonZeroRows[0];
+      insights.push(`${dominant.name} currently dominates quoted product activity.`);
+    }
+    const lowActivityRow = nonZeroRows
+      .slice()
+      .reverse()
+      .find((row) => Number(row?.count || 0) > 0);
+    if (lowActivityRow && lowActivityRow.name !== nonZeroRows?.[0]?.name) {
+      insights.push(
+        `${lowActivityRow.name} remains lightly represented across current dealer activity.`
+      );
+    }
+    const dealers = Array.isArray(dealerNetworkPerformance)
+      ? dealerNetworkPerformance
+      : [];
+    const concentratedDealers = dealers.filter((dealer) => {
+      const rows = Array.isArray(dealer?.productMix) ? dealer.productMix : [];
+      const total = rows.reduce((sum, row) => sum + Number(row?.count || 0), 0);
+      if (total <= 0) return false;
+      const topShare = rows.reduce((best, row) => {
+        const ratio = Number(row?.count || 0) / total;
+        return ratio > best ? ratio : best;
+      }, 0);
+      return topShare >= 0.6;
+    }).length;
+    if (concentratedDealers > 0) {
+      insights.push("Several dealers are concentrated primarily in one product category.");
+    }
+    const broadAdoptionRows = nonZeroRows.filter((row) => Number(row?.percent || 0) >= 12);
+    if (broadAdoptionRows.length > 1) {
+      const names = broadAdoptionRows.slice(0, 3).map((row) => row.name);
+      insights.push(
+        `${names.join(", ")} show broader adoption across current dealer activity.`
+      );
+    }
+    const underrepresented = productRows
+      .filter((row) => Number(row?.count || 0) === 0)
+      .map((row) => row.name);
+    if (underrepresented.length > 0) {
+      insights.push(
+        `${underrepresented.slice(0, 2).join(" and ")} appear underrepresented in current quoted product activity.`
+      );
+    }
+    return {
+      hasData: insights.length > 0,
+      insights: insights.slice(0, 6),
+    };
+  }, [adminProductMixIntelligence, dealerNetworkPerformance]);
   const renderPlatformAdminView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
@@ -3025,6 +3080,57 @@ const handleFinishDealerEnrollment = async () => {
           ) : (
             <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
               Trend intelligence will expand as more territory activity is logged.
+            </div>
+          )}
+        </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <div
+          style={{
+            ...styles.card,
+            background:
+              "linear-gradient(145deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.92) 58%, rgba(30, 41, 59, 0.95) 100%)",
+            border: "1px solid rgba(96, 165, 250, 0.34)",
+            boxShadow:
+              "0 20px 36px rgba(2, 6, 23, 0.42), inset 0 1px 0 rgba(148, 163, 184, 0.15)",
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ ...styles.summaryLabel, color: "#93c5fd", letterSpacing: "0.06em" }}>
+            PRODUCT OPPORTUNITY INTELLIGENCE
+          </div>
+          {adminProductOpportunityIntelligence.hasData ? (
+            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+              {adminProductOpportunityIntelligence.insights.map((insight, idx) => (
+                <div
+                  key={`product-opportunity-${idx}`}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 8,
+                    background: "rgba(30, 41, 59, 0.5)",
+                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    borderLeft:
+                      idx % 2 === 0
+                        ? "2px solid rgba(246, 165, 49, 0.76)"
+                        : "2px solid rgba(96, 165, 250, 0.76)",
+                    borderRadius: 8,
+                    padding: "9px 10px",
+                    fontSize: 13,
+                    color: "#e2e8f0",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <span style={{ color: "#93c5fd", fontWeight: 800, marginTop: 1 }}>•</span>
+                  <span>{insight}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+              Product opportunity intelligence will expand as more quote and product
+              activity is logged.
             </div>
           )}
         </div>
