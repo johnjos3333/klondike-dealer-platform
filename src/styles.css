@@ -473,6 +473,43 @@
   filter: brightness(0.96);
 }
 
+/* OCR mobile polish (visual-only) */
+@media (max-width: 640px) {
+  #root .kd-label-scan-preview {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  #root .kd-label-scan-thumb-wrap {
+    width: 84px;
+    height: 84px;
+  }
+
+  #root .kd-label-scan-thumb {
+    width: 84px !important;
+    height: 84px !important;
+  }
+
+  #root .kd-label-scan-actions {
+    width: 100%;
+    gap: 10px;
+  }
+
+  #root .kd-label-scan-actions button,
+  #root .kd-label-scan-rerun-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 46px;
+    font-size: 15px;
+  }
+
+  #root .kd-label-scan-textarea {
+    min-height: 140px !important;
+    font-size: 16px !important;
+    line-height: 1.45;
+  }
+}
+
 /* Sign-in / loading shell: warm focus ring on glass inputs (class on card only) */
 #root .auth-card-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus-visible {
   border-color: var(--kd-auth-input-focus-border);

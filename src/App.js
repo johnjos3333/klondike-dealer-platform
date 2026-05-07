@@ -5716,6 +5716,7 @@ return (
             }}
           >
             <div
+              className="kd-label-scan-thumb-wrap"
               style={{
                 flex: "0 0 auto",
                 borderRadius: 12,
@@ -5727,6 +5728,7 @@ return (
               <img
                 src={scannedLabelPreview}
                 alt=""
+                className="kd-label-scan-thumb"
                 style={{
                   display: "block",
                   width: 96,
@@ -5762,13 +5764,14 @@ return (
               <p style={{ margin: "0 0 12px", fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}>
                 {scannedLabelMessage}
               </p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <div className="kd-label-scan-actions" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 <button
                   type="button"
                   style={{
                     ...styles.secondaryButton,
-                    fontSize: 13,
-                    padding: "8px 14px",
+                    fontSize: 14,
+                    padding: "10px 16px",
+                    minHeight: 44,
                   }}
                   onClick={clearScannedLabel}
                   disabled={scannedLabelOcrLoading}
@@ -5779,8 +5782,9 @@ return (
                   type="button"
                   style={{
                     ...styles.primaryButton,
-                    fontSize: 13,
-                    padding: "8px 14px",
+                    fontSize: 14,
+                    padding: "10px 16px",
+                    minHeight: 44,
                   }}
                   onClick={() => handleOpenLabelScan("step2")}
                   disabled={scannedLabelOcrLoading}
@@ -5791,8 +5795,9 @@ return (
                   type="button"
                   style={{
                     ...styles.primaryButton,
-                    fontSize: 13,
-                    padding: "8px 14px",
+                    fontSize: 14,
+                    padding: "10px 16px",
+                    minHeight: 44,
                     opacity: scannedLabelOcrLoading ? 0.65 : 1,
                   }}
                   onClick={handleExtractLabelText}
@@ -5866,6 +5871,7 @@ return (
                   Detected Label Text
                 </div>
                 <textarea
+                  className="kd-label-scan-textarea"
                   value={scannedLabelExtractedText}
                   onChange={(e) => setScannedLabelExtractedText(e.target.value)}
                   placeholder='Run "Extract Label Text" or type here…'
@@ -5874,10 +5880,10 @@ return (
                   style={{
                     ...styles.textarea,
                     width: "100%",
-                    minHeight: 100,
+                    minHeight: 124,
                     maxWidth: "100%",
                     boxSizing: "border-box",
-                    fontSize: 14,
+                    fontSize: 15,
                     background: "#0f172a",
                     color: "#f1f5f9",
                     border: "1px solid rgba(148, 163, 184, 0.35)",
@@ -5885,12 +5891,14 @@ return (
                   }}
                 />
                 <button
+                  className="kd-label-scan-rerun-btn"
                   type="button"
                   style={{
                     ...styles.secondaryButton,
                     marginTop: 10,
-                    fontSize: 13,
-                    padding: "8px 14px",
+                    fontSize: 14,
+                    padding: "10px 16px",
+                    minHeight: 44,
                   }}
                   disabled={scannedLabelOcrLoading}
                   onClick={handleUseTextForCrossReference}
@@ -6531,9 +6539,9 @@ return (
         ...styles.secondaryButton,
         flex: "0 1 auto",
         whiteSpace: "nowrap",
-        minHeight: 40,
-        fontSize: 13,
-        padding: "8px 14px",
+        minHeight: 46,
+        fontSize: 14,
+        padding: "10px 16px",
       }}
       onClick={() => handleOpenLabelScan("step2")}
     >
