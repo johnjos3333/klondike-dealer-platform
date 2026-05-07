@@ -541,6 +541,13 @@ useEffect(() => {
   const [newUserEmail, setNewUserEmail] = React.useState("");
   const [newUserRole, setNewUserRole] = React.useState("rep");
   const [klondikeAdminTab, setKlondikeAdminTab] = useState("dashboard");
+  const [ocrSnapshotLoading, setOcrSnapshotLoading] = React.useState(false);
+  const [ocrSnapshot, setOcrSnapshot] = React.useState({
+    totalScans: 0,
+    matchSuccessRate: 0,
+    topViscosity: "",
+    topBrand: "",
+  });
 
   const [dealerMessage, setDealerMessage] = React.useState("");
   const [userMessage, setUserMessage] = React.useState("");
@@ -1837,6 +1844,74 @@ const handleFinishDealerEnrollment = async () => {
         .toLowerCase() === "pending"
   );
 
+  useEffect(() => {
+    if (!isPlatformAdmin || klondikeAdminTab !== "dashboard") return;
+    let cancelled = false;
+
+    const loadOcrSnapshot = async () => {
+      setOcrSnapshotLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("ocr_scan_events")
+          .select("detected_brand, detected_viscosity, match_success")
+          .order("created_at", { ascending: false })
+          .limit(1000);
+
+        if (error) {
+          if (!cancelled) {
+            setOcrSnapshot({
+              totalScans: 0,
+              matchSuccessRate: 0,
+              topViscosity: "",
+              topBrand: "",
+            });
+          }
+          return;
+        }
+
+        const rows = data || [];
+        const totalScans = rows.length;
+        const matchedCount = rows.filter((row) => row?.match_success === true).length;
+        const matchSuccessRate = totalScans
+          ? Math.round((matchedCount / totalScans) * 100)
+          : 0;
+
+        const countTopValue = (values) => {
+          const counts = values.reduce((acc, rawValue) => {
+            const key = String(rawValue || "").trim();
+            if (!key) return acc;
+            acc[key] = (acc[key] || 0) + 1;
+            return acc;
+          }, {});
+          const [top] = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+          return top?.[0] || "";
+        };
+
+        const topViscosity = countTopValue(rows.map((row) => row?.detected_viscosity));
+        const topBrand = countTopValue(rows.map((row) => row?.detected_brand));
+
+        if (!cancelled) {
+          setOcrSnapshot({
+            totalScans,
+            matchSuccessRate,
+            topViscosity,
+            topBrand,
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setOcrSnapshotLoading(false);
+        }
+      }
+    };
+
+    loadOcrSnapshot();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPlatformAdmin, klondikeAdminTab]);
+
   const renderRoleBadge = (role) => (
     <span style={styles.roleBadge}>{roleLabel(role)}</span>
   );
@@ -2011,6 +2086,42 @@ const handleFinishDealerEnrollment = async () => {
           </div>
         )}
       </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <div style={styles.card}>
+          <div style={styles.eyebrow}>OCR INTELLIGENCE SNAPSHOT</div>
+          <h3 style={styles.cardTitle}>OCR Intelligence Snapshot</h3>
+          <p style={styles.cardBody}>
+            Executive view of recent OCR scan analytics from field activity.
+          </p>
+          {ocrSnapshotLoading ? (
+            <p style={styles.muted}>Loading OCR scan activity...</p>
+          ) : ocrSnapshot.totalScans === 0 ? (
+            <p style={styles.muted}>No OCR scan activity yet.</p>
+          ) : (
+            <div style={styles.grid3}>
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryLabel}>Total OCR Scans</div>
+                <div style={styles.summaryValue}>{ocrSnapshot.totalScans}</div>
+              </div>
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryLabel}>Match Success Rate</div>
+                <div style={styles.summaryValue}>{ocrSnapshot.matchSuccessRate}%</div>
+              </div>
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryLabel}>Most Scanned Viscosity</div>
+                <div style={styles.summaryValue}>
+                  {ocrSnapshot.topViscosity || "—"}
+                </div>
+              </div>
+              <div style={styles.summaryCard}>
+                <div style={styles.summaryLabel}>Most Scanned Competitor Brand</div>
+                <div style={styles.summaryValue}>{ocrSnapshot.topBrand || "—"}</div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {klondikeAdminTab === "dashboard" && (
