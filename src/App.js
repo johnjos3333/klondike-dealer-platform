@@ -2374,6 +2374,93 @@ const handleFinishDealerEnrollment = async () => {
       </div>
 
       {klondikeAdminTab === "dashboard" && (
+        <div
+          style={{
+            ...styles.card,
+            background:
+              "linear-gradient(152deg, #0b1224 0%, #0f172a 58%, #1e293b 100%)",
+            border: "1px solid rgba(148, 163, 184, 0.24)",
+            boxShadow: "0 18px 36px rgba(2, 6, 23, 0.32)",
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ ...styles.eyebrow, color: "#93c5fd" }}>
+            KLONDIKE ADMIN COMMAND CENTER
+          </div>
+          <h2 style={{ ...styles.cardTitle, color: "#f8fafc", marginBottom: 8 }}>
+            Klondike Admin Command Center
+          </h2>
+          <p style={{ ...styles.cardBody, color: "#cbd5e1" }}>
+            Territory performance, dealer activity, product demand, and field
+            intelligence in one view.
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+            {[
+              "Territory Performance",
+              "Dealer Adoption",
+              "Field Intelligence",
+              "OCR Territory Intelligence",
+            ].map((label) => (
+              <div
+                key={label}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  background: "rgba(15, 23, 42, 0.58)",
+                  border: "1px solid rgba(148, 163, 184, 0.34)",
+                  color: "#e2e8f0",
+                }}
+              >
+                {label}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <div style={{ ...styles.grid3, marginBottom: 12 }}>
+          {[
+            {
+              title: "Product Mix Intelligence",
+              note: "Coming soon — data will populate as activity is logged.",
+            },
+            {
+              title: "Dealer Health",
+              note: "Coming soon — data will populate as activity is logged.",
+            },
+            {
+              title: "Rep Leaderboard",
+              note: "Coming soon — data will populate as activity is logged.",
+            },
+            {
+              title: "Incentive Leaderboard",
+              note: "Coming soon — data will populate as activity is logged.",
+            },
+          ].map((item) => (
+            <div
+              key={item.title}
+              style={{
+                ...styles.summaryCard,
+                background: "#0f172a",
+                border: "1px solid rgba(148, 163, 184, 0.26)",
+                boxShadow: "0 10px 22px rgba(2, 6, 23, 0.26)",
+              }}
+            >
+              <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>{item.title}</div>
+              <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+                {item.note}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
       <div style={styles.grid3}>
         <div style={styles.summaryCard}>
           <div style={styles.summaryLabel}>Dealers</div>
