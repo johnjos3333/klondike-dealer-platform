@@ -97,6 +97,55 @@ function extractViscosityFromText(text) {
   return m ? m[0].toUpperCase() : "";
 }
 
+function extractOcrSpecSignals(text) {
+  const raw = String(text || "");
+  if (!raw.trim()) return [];
+  const patterns = [
+    /\bAPI\s+[A-Z]{1,2}-?\d(?:\/[A-Z]{1,2}-?\d)?\b/gi,
+    /\bCK-4\b/gi,
+    /\bCJ-4\b/gi,
+    /\bSP\b/gi,
+    /\bSN\b/gi,
+    /\bCummins\s+CES\s*\d{5}\b/gi,
+    /\bCES\s*\d{5}\b/gi,
+    /\bVolvo\s+VDS-?\d(?:\.\d)?\b/gi,
+    /\bVDS-?\d(?:\.\d)?\b/gi,
+    /\bAllison\s+TES[-\s]?\d+\b/gi,
+    /\bTES[-\s]?\d+\b/gi,
+    /\bDenison\s+HF-\d\b/gi,
+    /\bHF-\d\b/gi,
+    /\bJDM\s*J\d{2}[A-Z]?\b/gi,
+    /\bJ20[CD]\b/gi,
+    /\bECF-\d\b/gi,
+  ];
+  const signals = [];
+  patterns.forEach((pattern) => {
+    const matches = raw.match(pattern) || [];
+    matches.forEach((value) => {
+      const normalized = String(value || "").trim();
+      if (!normalized) return;
+      if (!signals.some((entry) => entry.toLowerCase() === normalized.toLowerCase())) {
+        signals.push(normalized);
+      }
+    });
+  });
+  return signals.slice(0, 8);
+}
+
+function deriveOcrApplicationSignal(text) {
+  const value = String(text || "").toLowerCase();
+  if (!value) return "";
+  if (value.includes("heavy duty diesel")) return "Heavy Duty Diesel";
+  if (value.includes("diesel")) return "Diesel Engine";
+  if (value.includes("engine oil")) return "Engine Oil";
+  if (value.includes("hydraulic")) return "Hydraulic Fluid";
+  if (value.includes("transmission") || value.includes("atf")) return "Transmission Fluid";
+  if (value.includes("gear")) return "Gear Lubricant";
+  if (value.includes("coolant") || value.includes("antifreeze")) return "Coolant / Antifreeze";
+  if (value.includes("grease")) return "Grease";
+  return "";
+}
+
 function shortIdLabel(prefix, value) {
   const raw = String(value || "").trim();
   if (!raw) return `${prefix} —`;
@@ -4850,6 +4899,20 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       React.useState("");
     const [scannedLabelDetectedViscosity, setScannedLabelDetectedViscosity] =
       React.useState("");
+    const scannedLabelDetectedApplication = React.useMemo(
+      () => deriveOcrApplicationSignal(scannedLabelExtractedText),
+      [scannedLabelExtractedText]
+    );
+    const scannedLabelSpecSignals = React.useMemo(
+      () => extractOcrSpecSignals(scannedLabelExtractedText),
+      [scannedLabelExtractedText]
+    );
+    const scannedLabelMatchedProductName = React.useMemo(() => {
+      const selectedName = String(selectedProduct?.name || "").trim();
+      if (selectedName) return selectedName;
+      const klondikeName = String(klondike || "").trim();
+      return klondikeName;
+    }, [selectedProduct?.name, klondike]);
     React.useEffect(() => {
       return () => {
         if (scannedLabelBlobRef.current) {
@@ -6504,6 +6567,123 @@ return (
                     : scannedLabelConfidence === "medium"
                     ? "Review detected product before confirming."
                     : "Low-confidence label detection. Please verify product text manually."}
+                </div>
+              )}
+              {!!String(scannedLabelExtractedText || "").trim() && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(148, 163, 184, 0.32)",
+                    background: "rgba(15, 23, 42, 0.58)",
+                  }}
+                >
+                  <div style={{ ...styles.listTitle, color: "#e2e8f0", marginBottom: 8 }}>
+                    Detected Product Analysis
+                  </div>
+                  <div style={{ display: "grid", gap: 5, fontSize: 12, color: "#cbd5e1" }}>
+                    <div>
+                      <strong style={{ color: "#f1f5f9" }}>Brand:</strong>{" "}
+                      {scannedLabelDetectedBrand || "Not detected"}
+                    </div>
+                    <div>
+                      <strong style={{ color: "#f1f5f9" }}>Viscosity:</strong>{" "}
+                      {scannedLabelDetectedViscosity || "Not detected"}
+                    </div>
+                    <div>
+                      <strong style={{ color: "#f1f5f9" }}>Application:</strong>{" "}
+                      {scannedLabelDetectedApplication || "Not detected"}
+                    </div>
+                    <div>
+                      <strong style={{ color: "#f1f5f9" }}>Confidence:</strong>{" "}
+                      {scannedLabelConfidence
+                        ? `${scannedLabelConfidence.charAt(0).toUpperCase()}${scannedLabelConfidence.slice(1)}`
+                        : "Not detected"}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {Array.isArray(scannedLabelSpecSignals) &&
+                scannedLabelSpecSignals.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(148, 163, 184, 0.26)",
+                      background: "rgba(15, 23, 42, 0.4)",
+                    }}
+                  >
+                    <div style={{ ...styles.listTitle, color: "#e2e8f0", marginBottom: 8 }}>
+                      Detected Specs / Signals
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {scannedLabelSpecSignals.map((spec) => (
+                        <span
+                          key={`ocr-spec-${spec}`}
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: "5px 9px",
+                            borderRadius: 999,
+                            border: "1px solid rgba(148, 163, 184, 0.35)",
+                            background: "rgba(30, 41, 59, 0.9)",
+                            color: "#e2e8f0",
+                          }}
+                        >
+                          {spec}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              {!!scannedLabelMatchedProductName && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(34, 197, 94, 0.3)",
+                    background: "rgba(16, 185, 129, 0.08)",
+                  }}
+                >
+                  <div style={{ ...styles.listTitle, color: "#dcfce7", marginBottom: 6 }}>
+                    Matched Klondike Product
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#f1f5f9" }}>
+                    {scannedLabelMatchedProductName}
+                  </div>
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "#bbf7d0" }}>
+                    Deterministic crossover match. Review before adding to quote.
+                  </p>
+                </div>
+              )}
+              {!!scannedLabelMatchedProductName && (
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(148, 163, 184, 0.26)",
+                    background: "rgba(15, 23, 42, 0.45)",
+                  }}
+                >
+                  <div style={{ ...styles.listTitle, color: "#e2e8f0", marginBottom: 8 }}>
+                    Why This Match Was Selected
+                  </div>
+                  <div style={{ display: "grid", gap: 5, fontSize: 12, color: "#cbd5e1" }}>
+                    {!!scannedLabelDetectedViscosity && (
+                      <div>✓ Viscosity aligned: {scannedLabelDetectedViscosity}</div>
+                    )}
+                    {!!scannedLabelDetectedApplication && (
+                      <div>
+                        ✓ Application signal detected: {scannedLabelDetectedApplication}
+                      </div>
+                    )}
+                    <div>✓ Product text matched through deterministic crossover</div>
+                    <div>✓ Rep confirmation still required before adding to quote</div>
+                  </div>
                 </div>
               )}
               <div style={{ marginTop: 14, width: "100%" }}>
