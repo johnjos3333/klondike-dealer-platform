@@ -231,6 +231,193 @@ function getProposalProductResponseArray(row) {
     : [];
 }
 
+function collectProposalDecisionLines(row) {
+  const products = getProposalProductResponseArray(row);
+  const dd = row.decision_data || {};
+  const equipment = Array.isArray(dd.equipment)
+    ? dd.equipment
+    : Array.isArray(row.equipment)
+    ? row.equipment
+    : [];
+  return [...products, ...equipment];
+}
+
+function parseTimelineMs(value) {
+  if (!value) return null;
+  const ms = Date.parse(String(value));
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function formatTimelineDateLabel(iso) {
+  const ms = parseTimelineMs(iso);
+  if (ms == null) return null;
+  try {
+    return new Date(ms).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  } catch {
+    return null;
+  }
+}
+
+const CRM_TIMELINE_KIND_ORDER = {
+  ocr: 0,
+  quote_created: 1,
+  proposal_sent: 2,
+  customer_response: 3,
+  approved_demand: 4,
+  declined_followup: 5,
+};
+
+function buildCrmTimelineEntries({
+  quotes,
+  proposalResponses,
+  ocrEvents,
+  limit = 10,
+}) {
+  const quoteMap = {};
+  (quotes || []).forEach((q) => {
+    if (q?.id) quoteMap[q.id] = q;
+  });
+
+  const rows = [];
+
+  (quotes || []).forEach((q) => {
+    const cust = String(q.customer_name || "").trim() || "Customer";
+    const ref =
+      q.id != null
+        ? String(q.id).replace(/-/g, "").slice(0, 8).toUpperCase()
+        : "";
+    const refSuffix = ref ? ` · ${ref}` : "";
+    const cms = parseTimelineMs(q.created_at);
+    rows.push({
+      id: `qc-${q.id}`,
+      kind: "quote_created",
+      sortMs: cms ?? 0,
+      dateLabel: formatTimelineDateLabel(q.created_at),
+      badge: "Quote",
+      accent: "blue",
+      title: "Quote created",
+      detail: `${cust}${refSuffix}`,
+    });
+
+    const sentLike =
+      String(q.status || "").toLowerCase() === "sent" ||
+      Boolean(q.rep_signature);
+    if (sentLike) {
+      const sms =
+        parseTimelineMs(q.updated_at) ??
+        parseTimelineMs(q.created_at) ??
+        0;
+      rows.push({
+        id: `ps-${q.id}`,
+        kind: "proposal_sent",
+        sortMs: sms,
+        dateLabel:
+          formatTimelineDateLabel(q.updated_at) ||
+          formatTimelineDateLabel(q.created_at),
+        badge: "Proposal",
+        accent: "orange",
+        title: "Proposal sent",
+        detail: `${cust}${refSuffix}`,
+      });
+    }
+  });
+
+  (proposalResponses || []).forEach((res) => {
+    const quote = quoteMap[res.quote_id];
+    const cust = String(quote?.customer_name || "").trim() || "Customer";
+    const lines = collectProposalDecisionLines(res);
+    let approved = 0;
+    let declined = 0;
+    lines.forEach((ln) => {
+      if (ln.decision === "approved") approved += 1;
+      else if (ln.decision === "declined") declined += 1;
+    });
+    const rms = parseTimelineMs(res.created_at) ?? 0;
+    const ref =
+      res.quote_id != null
+        ? String(res.quote_id).replace(/-/g, "").slice(0, 8).toUpperCase()
+        : "";
+    const refSuffix = ref ? ` · ${ref}` : "";
+
+    rows.push({
+      id: `cr-${res.id}`,
+      kind: "customer_response",
+      sortMs: rms,
+      dateLabel: formatTimelineDateLabel(res.created_at),
+      badge: "Response",
+      accent: "blue",
+      title: "Customer response received",
+      detail: `${cust}${refSuffix} · Approved ${approved} · Declined ${declined}`,
+    });
+
+    if (approved > 0) {
+      rows.push({
+        id: `ad-${res.id}`,
+        kind: "approved_demand",
+        sortMs: rms,
+        dateLabel: formatTimelineDateLabel(res.created_at),
+        badge: "Demand",
+        accent: "orange",
+        title: "Approved lubricant demand captured",
+        detail: `${approved} approved line(s) · ${cust}${refSuffix}`,
+      });
+    }
+
+    if (declined > 0) {
+      rows.push({
+        id: `df-${res.id}`,
+        kind: "declined_followup",
+        sortMs: rms,
+        dateLabel: formatTimelineDateLabel(res.created_at),
+        badge: "Follow-up",
+        accent: "orange",
+        title: "Declined items require follow-up",
+        detail: `${declined} declined line(s) · ${cust}${refSuffix}`,
+      });
+    }
+  });
+
+  (ocrEvents || []).forEach((ev) => {
+    const ms = parseTimelineMs(ev.created_at) ?? 0;
+    const brand = String(ev.detected_brand || "").trim();
+    const visc = String(ev.detected_viscosity || "").trim();
+    const matchOk = ev.match_success === true;
+    const src = String(ev.image_source_type || "").replace(/_/g, " ") || "scan";
+    const bits = [
+      brand ? brand : null,
+      visc ? visc : null,
+      matchOk ? "Klondike match" : "No confident match",
+      src,
+    ].filter(Boolean);
+    rows.push({
+      id: `ocr-${ev.id}`,
+      kind: "ocr",
+      sortMs: ms,
+      dateLabel: formatTimelineDateLabel(ev.created_at),
+      badge: "OCR",
+      accent: "blue",
+      title: "Label scan activity",
+      detail: bits.join(" · "),
+    });
+  });
+
+  rows.sort((a, b) => {
+    if (b.sortMs !== a.sortMs) return b.sortMs - a.sortMs;
+    return (
+      (CRM_TIMELINE_KIND_ORDER[a.kind] ?? 99) -
+      (CRM_TIMELINE_KIND_ORDER[b.kind] ?? 99)
+    );
+  });
+
+  return rows.slice(0, limit);
+}
+
 function buildQuoteItemLookupById(itemRows) {
   const map = {};
   (itemRows || []).forEach((r) => {
@@ -590,6 +777,137 @@ function DashboardFollowUpIntelligenceCard({ styles, rows }) {
               ) : null}
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const CRM_TIMELINE_EMPTY =
+  "Timeline activity will populate as quotes, proposals, OCR scans, and customer responses occur.";
+
+function CrmTimelineCard({ styles, eyebrow, title, subtitle, entries }) {
+  const empty = !entries?.length;
+  return (
+    <div
+      style={{
+        ...styles.card,
+        ...styles.dashboardCard,
+        borderLeft: "6px solid #0a2540",
+        boxShadow: "0 4px 24px rgba(15, 23, 42, 0.06)",
+      }}
+    >
+      <div style={styles.eyebrow}>{eyebrow || "ACTIVITY"}</div>
+      <h3 style={{ ...styles.cardTitle, marginBottom: 8 }}>{title || "Timeline"}</h3>
+      {subtitle ? (
+        <p style={{ ...styles.cardBody, marginTop: 0, marginBottom: empty ? 0 : 16 }}>
+          {subtitle}
+        </p>
+      ) : null}
+      {empty ? (
+        <p
+          style={{
+            margin: "12px 0 0",
+            fontSize: 14,
+            color: "#64748b",
+            lineHeight: 1.65,
+          }}
+        >
+          {CRM_TIMELINE_EMPTY}
+        </p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {entries.map((e) => {
+            const borderColor = e.accent === "orange" ? "#f6a531" : "#1e3a8a";
+            return (
+              <div
+                key={e.id}
+                style={{
+                  display: "flex",
+                  gap: 12,
+                  alignItems: "flex-start",
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  background: "#ffffff",
+                  border: "1px solid #e7edf3",
+                  borderLeft: `4px solid ${borderColor}`,
+                  boxShadow: "0 1px 0 rgba(15, 23, 42, 0.04)",
+                }}
+              >
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background:
+                      e.accent === "orange"
+                        ? "linear-gradient(145deg, #fff7ed 0%, #fffbeb 100%)"
+                        : "linear-gradient(145deg, #eff6ff 0%, #f8fafc 100%)",
+                    color: e.accent === "orange" ? "#c2410c" : "#1e40af",
+                    fontSize: 16,
+                  }}
+                  aria-hidden
+                >
+                  {e.accent === "orange" ? "◎" : "◆"}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        padding: "3px 8px",
+                        borderRadius: 999,
+                        background: e.accent === "orange" ? "#fff7ed" : "#eff6ff",
+                        color: e.accent === "orange" ? "#c2410c" : "#1e40af",
+                        border:
+                          e.accent === "orange"
+                            ? "1px solid rgba(246, 165, 49, 0.35)"
+                            : "1px solid rgba(30, 58, 138, 0.2)",
+                      }}
+                    >
+                      {e.badge}
+                    </span>
+                    {e.dateLabel ? (
+                      <span style={{ ...styles.listMeta, fontSize: 12 }}>{e.dateLabel}</span>
+                    ) : (
+                      <span style={{ ...styles.listMeta, fontSize: 12, fontStyle: "italic" }}>
+                        Date unavailable
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      color: "#0f172a",
+                      fontSize: 15,
+                      marginTop: 6,
+                      lineHeight: 1.35,
+                    }}
+                  >
+                    {e.title}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "#475569",
+                      marginTop: 4,
+                      lineHeight: 1.5,
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {e.detail}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -1876,6 +2194,11 @@ const [dealerPerformance, setDealerPerformance] = useState({
   topQuotedMixName: null,
   topQuotedMixPercent: 0,
   declinedLineCount: 0,
+});
+const [dealerTimelineBundle, setDealerTimelineBundle] = useState({
+  quotes: [],
+  responses: [],
+  ocrEvents: [],
 });
 const [dealerNetworkPerformance, setDealerNetworkPerformance] = useState([]);
 const [selectedDealerPerformance, setSelectedDealerPerformance] = useState(null);
@@ -6111,6 +6434,31 @@ const handleFinishDealerEnrollment = async () => {
     });
   });
 
+  let ocrTimelineRows = [];
+  try {
+    const { data: ocrData, error: ocrTimelineError } = await supabase
+      .from("ocr_scan_events")
+      .select(
+        "id, created_at, detected_brand, detected_viscosity, match_success, matched_klondike_product, image_source_type, rep_id"
+      )
+      .eq("dealer_id", activeMembership.organization_id)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    if (ocrTimelineError) {
+      console.error("Dealer timeline OCR load error:", ocrTimelineError);
+    } else {
+      ocrTimelineRows = ocrData || [];
+    }
+  } catch (err) {
+    console.error("Dealer timeline OCR load error:", err);
+  }
+
+  setDealerTimelineBundle({
+    quotes: dealerQuotes,
+    responses: responseRows,
+    ocrEvents: ocrTimelineRows,
+  });
+
   setDealerPerformance({
     quotesCreated: dealerQuotes.length,
     proposalsSent: dealerQuotes.filter((q) => q.status === "sent").length,
@@ -6197,6 +6545,17 @@ useEffect(() => {
 const dealerAdminFollowUpIntelligenceRows = React.useMemo(
   () => buildDealerAdminFollowUpIntelligenceRows(dealerPerformance),
   [dealerPerformance]
+);
+
+const dealerAdminCrmTimelineEntries = React.useMemo(
+  () =>
+    buildCrmTimelineEntries({
+      quotes: dealerTimelineBundle.quotes,
+      proposalResponses: dealerTimelineBundle.responses,
+      ocrEvents: dealerTimelineBundle.ocrEvents,
+      limit: 10,
+    }),
+  [dealerTimelineBundle]
 );
 
 const renderDealerAdminView = () => (
@@ -6430,6 +6789,16 @@ const renderDealerAdminView = () => (
               styles={styles}
               rows={dealerAdminFollowUpIntelligenceRows}
             />
+
+            <div style={{ marginBottom: 24 }}>
+              <CrmTimelineCard
+                styles={styles}
+                eyebrow="CRM TIMELINE"
+                title="Recent activity"
+                subtitle="Operational visibility from quotes, proposals, customer responses, approved demand signals, follow-ups, and label scans already recorded for your organization."
+                entries={dealerAdminCrmTimelineEntries}
+              />
+            </div>
 
             <div style={{ ...styles.card, ...styles.dashboardCard }}>
               <div style={styles.eyebrow}>CORE ACTIVITY</div>
@@ -7358,6 +7727,12 @@ const renderDealerAdminView = () => (
   approved: [],
   followUp: [],
 });
+    const [dashboardScopedQuotes, setDashboardScopedQuotes] = React.useState(
+      []
+    );
+    const [dashboardScopedResponses, setDashboardScopedResponses] =
+      React.useState([]);
+    const [timelineOcrEvents, setTimelineOcrEvents] = React.useState([]);
     const [repSnapshot, setRepSnapshot] = React.useState({
   quotes: 0,
   proposalsSent: 0,
@@ -7499,6 +7874,17 @@ const managerFollowUpIntelligenceRows = React.useMemo(() => {
   managerEligibleResponsesForIntel,
   managerDemandIntel,
 ]);
+
+const portalCrmTimelineEntries = React.useMemo(
+  () =>
+    buildCrmTimelineEntries({
+      quotes: dashboardScopedQuotes,
+      proposalResponses: dashboardScopedResponses,
+      ocrEvents: timelineOcrEvents,
+      limit: 10,
+    }),
+  [dashboardScopedQuotes, dashboardScopedResponses, timelineOcrEvents]
+);
 
   React.useEffect(() => {
   const loadResponses = async () => {
@@ -7737,6 +8123,61 @@ const loadDashboardMetrics = async () => {
     approved: approvedDeals,
     followUp: needsFollowUp,
   });
+
+  setDashboardScopedQuotes(myQuotesForMetrics);
+  setDashboardScopedResponses(myResponses);
+
+  let ocrRows = [];
+  if (activeMembership?.organization_id && (isRep || isManager)) {
+    if (isRep && session?.user?.id) {
+      const { data, error } = await supabase
+        .from("ocr_scan_events")
+        .select(
+          "id, created_at, detected_brand, detected_viscosity, match_success, matched_klondike_product, image_source_type, rep_id"
+        )
+        .eq("dealer_id", activeMembership.organization_id)
+        .eq("rep_id", session.user.id)
+        .order("created_at", { ascending: false })
+        .limit(30);
+      if (!error) ocrRows = data || [];
+    } else if (isManager) {
+      const mgrAssignedRepProfileIds = (teamAssignments || [])
+        .filter(
+          (assignment) =>
+            assignment.manager_profile_id === session?.user?.id ||
+            assignment.manager_user_id === session?.user?.id
+        )
+        .map((assignment) => assignment.rep_profile_id)
+        .filter(Boolean);
+
+      const mgrAssignedRepUserIds = [
+        ...new Set(
+          (repProfiles || [])
+            .filter(
+              (rep) =>
+                mgrAssignedRepProfileIds.includes(rep.id) ||
+                mgrAssignedRepProfileIds.includes(rep.user_id)
+            )
+            .map((rep) => rep.user_id)
+            .filter(Boolean)
+        ),
+      ];
+
+      if (mgrAssignedRepUserIds.length > 0) {
+        const { data, error } = await supabase
+          .from("ocr_scan_events")
+          .select(
+            "id, created_at, detected_brand, detected_viscosity, match_success, matched_klondike_product, image_source_type, rep_id"
+          )
+          .eq("dealer_id", activeMembership.organization_id)
+          .in("rep_id", mgrAssignedRepUserIds)
+          .order("created_at", { ascending: false })
+          .limit(30);
+        if (!error) ocrRows = data || [];
+      }
+    }
+  }
+  setTimelineOcrEvents(ocrRows);
 };
 
 loadDashboardMetrics();
@@ -7747,6 +8188,7 @@ loadDashboardMetrics();
   repProfiles,
   teamAssignments,
   isManager,
+  isRep,
 ]);
     const [myQuotes, setMyQuotes] = React.useState([]);
     const [currentQuote, setCurrentQuote] = React.useState(null);
@@ -10425,6 +10867,16 @@ return (
         styles={styles}
         rows={repFollowUpIntelligenceRows}
       />
+
+      <div style={{ marginBottom: 24 }}>
+        <CrmTimelineCard
+          styles={styles}
+          eyebrow="CRM TIMELINE"
+          title="Recent activity"
+          subtitle="Operational visibility from your quotes, outbound proposals, customer responses, demand signals, follow-ups, and label scans already recorded on this account."
+          entries={portalCrmTimelineEntries}
+        />
+      </div>
 
 {leaderboard.length > 0 && (
   <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 24 }}>
@@ -13745,6 +14197,16 @@ setTier(rec.tier || "Good");
               styles={styles}
               rows={managerFollowUpIntelligenceRows}
             />
+
+            <div style={{ marginBottom: 24 }}>
+              <CrmTimelineCard
+                styles={styles}
+                eyebrow="CRM TIMELINE"
+                title="Recent activity"
+                subtitle="Operational visibility across assigned reps—quotes, proposals, customer responses, demand signals, follow-ups, and label scans derived from data already loaded for your team."
+                entries={portalCrmTimelineEntries}
+              />
+            </div>
 
             <div style={{ ...styles.card, ...styles.dashboardCard }}>
               <div style={styles.eyebrow}>MANAGER DASHBOARD</div>
