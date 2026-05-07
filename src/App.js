@@ -1850,6 +1850,268 @@ const handleFinishDealerEnrollment = async () => {
         )}
       </div>
       )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <>
+          <div style={{ ...styles.card, marginTop: 4 }}>
+            <div style={styles.eyebrow}>PRODUCT LINE PERFORMANCE</div>
+            <h3 style={styles.cardTitle}>Product Line Performance</h3>
+            <p style={styles.cardBody}>
+              Executive snapshot of lubricant category momentum across the
+              Klondike dealer network.
+            </p>
+            <p style={{ ...styles.muted, marginBottom: 18 }}>
+              Mock data — will connect to quote item activity
+            </p>
+
+            <div style={{ overflowX: "auto" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(200px, 1.4fr) repeat(3, minmax(88px, 1fr))",
+                  gap: 12,
+                  paddingBottom: 10,
+                  borderBottom: "1px solid #e7edf3",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  color: "#64748b",
+                }}
+              >
+                <div>Product line</div>
+                <div style={{ textAlign: "right" }}>Quotes</div>
+                <div style={{ textAlign: "right" }}>Revenue</div>
+                <div style={{ textAlign: "right" }}>Network mix %</div>
+              </div>
+              {[
+                {
+                  line: "Heavy Duty Engine Oils",
+                  quotes: 142,
+                  revenue: 428600,
+                  mix: 21,
+                },
+                {
+                  line: "Hydraulic Fluids",
+                  quotes: 98,
+                  revenue: 251400,
+                  mix: 17,
+                },
+                { line: "Automotive", quotes: 76, revenue: 189200, mix: 14 },
+                { line: "Grease", quotes: 61, revenue: 97200, mix: 11 },
+                { line: "Gear Oils", quotes: 54, revenue: 118400, mix: 10 },
+                {
+                  line: "Transmission Fluids",
+                  quotes: 47,
+                  revenue: 86200,
+                  mix: 9,
+                },
+                {
+                  line: "Coolants / Chemicals",
+                  quotes: 39,
+                  revenue: 71400,
+                  mix: 8,
+                },
+              ].map((row, i) => (
+                <div
+                  key={row.line}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "minmax(200px, 1.4fr) repeat(3, minmax(88px, 1fr))",
+                    gap: 12,
+                    alignItems: "center",
+                    padding: "14px 0",
+                    borderBottom:
+                      i < 6 ? "1px solid #f1f5f9" : "none",
+                    fontSize: 14,
+                  }}
+                >
+                  <div style={{ fontWeight: 800, color: "#0f172a" }}>
+                    {row.line}
+                  </div>
+                  <div style={{ textAlign: "right", fontWeight: 700 }}>
+                    {row.quotes.toLocaleString()}
+                  </div>
+                  <div style={{ textAlign: "right", fontWeight: 700 }}>
+                    ${row.revenue.toLocaleString()}
+                  </div>
+                  <div style={{ textAlign: "right", fontWeight: 800, color: "#c2410c" }}>
+                    {row.mix}%
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>TERRITORY LEADERBOARD</div>
+            <h3 style={styles.cardTitle}>Territory Rep Top 10</h3>
+            <p style={styles.cardBody}>
+              Recognition rankings for incentive trips, contests, prizes, and
+              territory performance — network-wide across dealers.
+            </p>
+            <p style={{ ...styles.muted, marginBottom: 18 }}>
+              Mock leaderboard — will connect to rep performance activity
+            </p>
+
+            <div style={{ overflowX: "auto" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "44px minmax(120px, 1fr) minmax(140px, 1fr) minmax(96px, 0.9fr) minmax(100px, 0.85fr) minmax(140px, 1.1fr)",
+                  gap: 10,
+                  paddingBottom: 10,
+                  borderBottom: "1px solid #e7edf3",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  color: "#64748b",
+                }}
+              >
+                <div>#</div>
+                <div>Rep</div>
+                <div>Dealer</div>
+                <div style={{ textAlign: "right" }}>Revenue</div>
+                <div style={{ textAlign: "right" }}>Approval</div>
+                <div>Status</div>
+              </div>
+              {[
+                {
+                  rank: 1,
+                  rep: "Jordan Ellis",
+                  dealer: "Northern Fluid Partners",
+                  revenue: 582400,
+                  approval: 91,
+                  badge: "#1 Trophy",
+                  badgeStyle: { background: "#fff7ed", color: "#c2410c", border: "1px solid #fdba74" },
+                },
+                {
+                  rank: 2,
+                  rep: "Priya Desai",
+                  dealer: "Atlas Fleet Supply",
+                  revenue: 519200,
+                  approval: 88,
+                  badge: "Hot Streak",
+                  badgeStyle: { background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" },
+                },
+                {
+                  rank: 3,
+                  rep: "Marcus Webb",
+                  dealer: "Great Lakes Lubricants",
+                  revenue: 476800,
+                  approval: 86,
+                  badge: "High Conversion",
+                  badgeStyle: { background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe" },
+                },
+                {
+                  rank: 4,
+                  rep: "Elena Vasquez",
+                  dealer: "Prairie Industrial Co.",
+                  revenue: 441100,
+                  approval: 84,
+                  badge: "Rising Rep",
+                  badgeStyle: { background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" },
+                },
+                {
+                  rank: 5,
+                  rep: "Daniel Okonkwo",
+                  dealer: "Maritime Equipment Ltd.",
+                  revenue: 398600,
+                  approval: 82,
+                  badge: "Hot Streak",
+                  badgeStyle: { background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" },
+                },
+                {
+                  rank: 6,
+                  rep: "Sarah Chen",
+                  dealer: "Mountain West Distributors",
+                  revenue: 362900,
+                  approval: 79,
+                  badge: "High Conversion",
+                  badgeStyle: { background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe" },
+                },
+                {
+                  rank: 7,
+                  rep: "Chris Duarte",
+                  dealer: "Pacific Rim Services",
+                  revenue: 328400,
+                  approval: 77,
+                  badge: "Rising Rep",
+                  badgeStyle: { background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" },
+                },
+                {
+                  rank: 8,
+                  rep: "Taylor Brooks",
+                  dealer: "Central Plains Supply",
+                  revenue: 294200,
+                  approval: 74,
+                  badge: "—",
+                  badgeStyle: { background: "#f8fafc", color: "#64748b", border: "1px solid #e2e8f0" },
+                },
+                {
+                  rank: 9,
+                  rep: "Alex Rivera",
+                  dealer: "Sunbelt Commercial Fluids",
+                  revenue: 261500,
+                  approval: 72,
+                  badge: "—",
+                  badgeStyle: { background: "#f8fafc", color: "#64748b", border: "1px solid #e2e8f0" },
+                },
+                {
+                  rank: 10,
+                  rep: "Jamie Foster",
+                  dealer: "Heartland Lubrication Group",
+                  revenue: 238700,
+                  approval: 70,
+                  badge: "—",
+                  badgeStyle: { background: "#f8fafc", color: "#64748b", border: "1px solid #e2e8f0" },
+                },
+              ].map((row, i) => (
+                <div
+                  key={row.rank}
+                  style={{
+                    ...styles.dashboardLeaderboardRow,
+                    display: "grid",
+                    gridTemplateColumns:
+                      "44px minmax(120px, 1fr) minmax(140px, 1fr) minmax(96px, 0.9fr) minmax(100px, 0.85fr) minmax(140px, 1.1fr)",
+                    gap: 10,
+                    alignItems: "center",
+                    marginBottom: i < 9 ? 8 : 0,
+                  }}
+                >
+                  <div style={{ fontWeight: 900, color: "#0f172a" }}>
+                    {row.rank}
+                  </div>
+                  <div style={styles.listTitle}>{row.rep}</div>
+                  <div style={styles.listMeta}>{row.dealer}</div>
+                  <div style={{ textAlign: "right", fontWeight: 800 }}>
+                    ${row.revenue.toLocaleString()}
+                  </div>
+                  <div style={{ textAlign: "right", fontWeight: 700 }}>
+                    {row.approval}%
+                  </div>
+                  <div>
+                    <span
+                      style={{
+                        ...styles.statusPill,
+                        fontSize: 11,
+                        padding: "4px 10px",
+                        ...row.badgeStyle,
+                      }}
+                    >
+                      {row.badge}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       {klondikeAdminTab === "dealers" && (
       <div style={styles.card}>
         <div style={styles.eyebrow}>DEALER PERFORMANCE COMMAND CENTER</div>
@@ -3930,6 +4192,13 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
 
     const [proposalDecisions, setProposalDecisions] = React.useState({});
 const [proposalFeedback, setProposalFeedback] = React.useState({});
+    const [repProposalResponseSnapshot, setRepProposalResponseSnapshot] =
+      React.useState(null);
+    React.useEffect(() => {
+      if (currentQuote?.id != null) {
+        setRepProposalResponseSnapshot(null);
+      }
+    }, [currentQuote?.id]);
     const [quoteSaving, setQuoteSaving] = React.useState(false);
     const [quoteMessage, setQuoteMessage] = React.useState("");
     const [useFloorPrice, setUseFloorPrice] = React.useState(false);
@@ -4689,6 +4958,7 @@ const handleDeleteQuote = async (quoteId) => {
   setMyQuotes((prev) => prev.filter((q) => q.id !== quoteId));
 };
 const handleOpenSavedQuote = async (quote) => {
+  setRepProposalResponseSnapshot(null);
   setQuoteMessage("");
   const { data, error } = await supabase
     .from("quote_items")
@@ -4989,6 +5259,11 @@ alert(
   `Proposal submitted.\n\nApproved: ${approved.length}\nDeclined: ${declined.length}\n\nRep notification sent.`
 );
 };
+const customerSubmittedResponses =
+  repProposalResponseSnapshot?.decision_data?.responses || [];
+const repProposalReadOnlyCustomerDecisions =
+  customerSubmittedResponses.length > 0;
+
 const PortalButton = ({ tab }) => {
   const active = dealerActiveTab === tab.id;
 
@@ -4998,6 +5273,10 @@ const PortalButton = ({ tab }) => {
       onClick={() => {
   if (tab.id === "proposal_view" && quoteItems.length > 0) {
     setProposalPreviewItems([...quoteItems]);
+  }
+
+  if (tab.id === "proposal_view" && dealerActiveTab !== "proposal_view") {
+    setRepProposalResponseSnapshot(null);
   }
 
   setDealerActiveTab(tab.id)
@@ -5348,12 +5627,24 @@ return (
 })()}
           <div style={{ display: "flex", gap: 8 }}>
   <button
+    type="button"
     style={styles.secondaryButton}
-    onClick={() => {
-      if (item.id) {
-        handleOpenSavedQuote(item);
-        setDealerActiveTab("quote");
-      }
+    onClick={async () => {
+      const quoteForView = item.quote_id
+        ? myQuotes.find((q) => q.id === item.quote_id) ?? {
+            id: item.quote_id,
+            customer_name:
+              item.customer_name ?? item.decision_data?.customer_name ?? "",
+            customer_email:
+              item.customer_email ?? item.decision_data?.customer_email ?? "",
+            industry: item.industry ?? "",
+          }
+        : item;
+      if (!quoteForView?.id) return;
+      await handleOpenSavedQuote(quoteForView);
+      if (item.quote_id) setRepProposalResponseSnapshot(item);
+      else setRepProposalResponseSnapshot(null);
+      setDealerActiveTab("proposal_view");
     }}
   >
     View
@@ -6364,6 +6655,22 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
         <p style={{ fontSize: 15, color: "#64748b", margin: 0, marginTop: 8 }}>
           A tailored lubrication strategy to optimize equipment performance and reduce operating costs
         </p>
+        {repProposalReadOnlyCustomerDecisions && (
+          <div
+            style={{
+              marginTop: 16,
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#f1f5f9",
+              border: "1px solid #e2e8f0",
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#334155",
+            }}
+          >
+            Submitted customer responses — read-only
+          </div>
+        )}
       </div>
 
       {/* CUSTOMER INFO CARD */}
@@ -6593,85 +6900,127 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
 <div
   style={{
     display: "flex",
+    flexDirection: "column",
     gap: 10,
     marginTop: 12,
     paddingTop: 12,
     borderTop: "1px solid #e5e7eb",
   }}
 >
-  <button
-    type="button"
-    onClick={() =>
-      setProposalDecisions((prev) => ({
-        ...prev,
-        [index]: "approved",
-      }))
-    }
-    style={{
-      padding: "8px 12px",
-      borderRadius: 8,
-      border:
-        proposalDecisions[index] === "approved"
-          ? "2px solid #16a34a"
-          : "1px solid #d1d5db",
-      background:
-        proposalDecisions[index] === "approved" ? "#dcfce7" : "#fff",
-      color: "#166534",
-      fontWeight: 900,
-      cursor: "pointer",
-    }}
-  >
-    Approve
-  </button>
+  {repProposalReadOnlyCustomerDecisions ? (
+    (() => {
+      const savedRow = customerSubmittedResponses[index];
+      const dec = savedRow?.decision;
+      const isApproved = dec === "approved";
+      const isDeclined = dec === "declined";
+      return (
+        <>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: "#64748b" }}>
+              Customer decision
+            </span>
+            {savedRow ? (
+              <span
+                style={{
+                  ...styles.statusPill,
+                  background: isApproved ? "#dcfce7" : isDeclined ? "#fee2e2" : "#f1f5f9",
+                  color: isApproved ? "#166534" : isDeclined ? "#991b1b" : "#475569",
+                }}
+              >
+                {isApproved ? "Approved" : isDeclined ? "Declined" : dec || "Recorded"}
+              </span>
+            ) : (
+              <span style={{ ...styles.statusPill, background: "#f1f5f9", color: "#64748b" }}>
+                No recorded line decision
+              </span>
+            )}
+          </div>
+          {savedRow?.feedback ? (
+            <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+              <strong>Follow-up / notes:</strong> {savedRow.feedback}
+            </div>
+          ) : null}
+        </>
+      );
+    })()
+  ) : (
+    <>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          onClick={() =>
+            setProposalDecisions((prev) => ({
+              ...prev,
+              [index]: "approved",
+            }))
+          }
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border:
+              proposalDecisions[index] === "approved"
+                ? "2px solid #16a34a"
+                : "1px solid #d1d5db",
+            background:
+              proposalDecisions[index] === "approved" ? "#dcfce7" : "#fff",
+            color: "#166534",
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          Approve
+        </button>
 
-  <button
-    type="button"
-    onClick={() =>
-      setProposalDecisions((prev) => ({
-        ...prev,
-        [index]: "declined",
-      }))
-      
-    }
-    style={{
-      padding: "8px 12px",
-      borderRadius: 8,
-      border:
-        proposalDecisions[index] === "declined"
-          ? "2px solid #dc2626"
-          : "1px solid #d1d5db",
-      background:
-        proposalDecisions[index] === "declined" ? "#fee2e2" : "#fff",
-      color: "#991b1b",
-      fontWeight: 900,
-      cursor: "pointer",
-    }}
-  >
-    Decline
-  </button>
-  {proposalDecisions[index] === "declined" && (
-  <div style={{ marginTop: 10 }}>
-    <textarea
-      placeholder="Optional: Tell us why this recommendation doesn't fit (price, preference, application, etc.)"
-      value={proposalFeedback[index] || ""}
-      onChange={(e) =>
-        setProposalFeedback((prev) => ({
-          ...prev,
-          [index]: e.target.value,
-        }))
-      }
-      style={{
-        width: "100%",
-        padding: 10,
-        borderRadius: 8,
-        border: "1px solid #e2e8f0",
-        fontSize: 13,
-        resize: "vertical",
-        minHeight: 60,
-      }}
-    />
-  </div>
-)}
+        <button
+          type="button"
+          onClick={() =>
+            setProposalDecisions((prev) => ({
+              ...prev,
+              [index]: "declined",
+            }))
+          }
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border:
+              proposalDecisions[index] === "declined"
+                ? "2px solid #dc2626"
+                : "1px solid #d1d5db",
+            background:
+              proposalDecisions[index] === "declined" ? "#fee2e2" : "#fff",
+            color: "#991b1b",
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          Decline
+        </button>
+      </div>
+      {proposalDecisions[index] === "declined" && (
+        <div style={{ marginTop: 4 }}>
+          <textarea
+            placeholder="Optional: Tell us why this recommendation doesn't fit (price, preference, application, etc.)"
+            value={proposalFeedback[index] || ""}
+            onChange={(e) =>
+              setProposalFeedback((prev) => ({
+                ...prev,
+                [index]: e.target.value,
+              }))
+            }
+            style={{
+              width: "100%",
+              padding: 10,
+              borderRadius: 8,
+              border: "1px solid #e2e8f0",
+              fontSize: 13,
+              resize: "vertical",
+              minHeight: 60,
+            }}
+          />
+        </div>
+      )}
+    </>
+  )}
 </div>
             {/* PDS */}
             {pds?.url && (
@@ -7125,6 +7474,7 @@ We look forward to partnering with you on implementation and delivering measurab
         </div>
       )}
 {/* SEND PROPOSAL TO CUSTOMER */}
+{!repProposalReadOnlyCustomerDecisions && (
 <div className="no-print" style={{ marginBottom: 20 }}>
   <button
     type="button"
@@ -7146,8 +7496,9 @@ We look forward to partnering with you on implementation and delivering measurab
     Send Proposal to Customer
   </button>
 </div>
+)}
       {/* SUBMIT DECISIONS BUTTON - CALL TO ACTION */}
-      {getProposalItems().length > 0 && (
+      {getProposalItems().length > 0 && !repProposalReadOnlyCustomerDecisions && (
         <div style={{ marginBottom: 40, paddingTop: 20 }}>
           <button
             type="button"
