@@ -14532,22 +14532,34 @@ equipment: equipmentPayload,
 const approved = allResponses.filter((row) => row.decision === "approved");
 const declined = allResponses.filter((row) => row.decision === "declined");
 
-    const { error: emailError } = await supabase.functions.invoke(
-      "send-proposal-reviewed-email",
-      {
-        body: {
-          repEmail: quote.rep_email,
-          repName: quote.rep_name || "Sales Representative",
-          customerName: quote.customer_name,
-          customerEmail: quote.customer_email,
-          approved,
-          declined,
-        },
-      }
-    );
+    const repEmailRaw = String(quote.rep_email || "").trim();
+    const repEmailLooksValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(repEmailRaw);
 
-    if (emailError) {
-      console.error("Rep notification email failed:", emailError);
+    if (repEmailLooksValid) {
+      const { error: emailError } = await supabase.functions.invoke(
+        "send-proposal-reviewed-email",
+        {
+          body: {
+            repEmail: repEmailRaw,
+            repName: quote.rep_name || "Sales Representative",
+            customerName: quote.customer_name,
+            customerEmail: quote.customer_email,
+            approvedCount: approved.length,
+            declinedCount: declined.length,
+            quoteId: quote.id,
+            platformOrigin:
+              typeof window !== "undefined" ? window.location.origin : "",
+          },
+        }
+      );
+
+      if (emailError) {
+        console.warn("Rep notification email failed (response still saved):", emailError);
+      }
+    } else {
+      console.warn(
+        "Proposal response saved; rep email notification skipped (no valid rep address on file)."
+      );
     }
 
     setSubmitting(false);
