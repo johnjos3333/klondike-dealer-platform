@@ -2428,24 +2428,20 @@ const handleFinishDealerEnrollment = async () => {
         <div
           style={{
             ...styles.card,
-            background:
-              "linear-gradient(152deg, #0b1224 0%, #0f172a 58%, #1e293b 100%)",
-            border: "1px solid rgba(148, 163, 184, 0.24)",
-            boxShadow: "0 18px 36px rgba(2, 6, 23, 0.32)",
-            marginBottom: 12,
+            background: "#ffffff",
+            border: "1px solid #fed7aa",
+            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.1)",
+            marginBottom: 14,
           }}
         >
-          <div style={{ ...styles.eyebrow, color: "#93c5fd" }}>
+          <div style={{ ...styles.eyebrow, color: "#9a3412" }}>
             KLONDIKE ADMIN COMMAND CENTER
           </div>
-          <h2 style={{ ...styles.cardTitle, color: "#f8fafc", marginBottom: 8 }}>
-            Klondike Admin Command Center
-          </h2>
-          <p style={{ ...styles.cardBody, color: "#cbd5e1" }}>
+          <p style={{ ...styles.cardBody, color: "#334155", marginTop: 8 }}>
             Territory performance, dealer activity, product demand, and field
             intelligence in one view.
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
             {[
               "Territory Performance",
               "Dealer Adoption",
@@ -2461,9 +2457,9 @@ const handleFinishDealerEnrollment = async () => {
                   fontWeight: 800,
                   letterSpacing: "0.04em",
                   textTransform: "uppercase",
-                  background: "rgba(15, 23, 42, 0.58)",
-                  border: "1px solid rgba(148, 163, 184, 0.34)",
-                  color: "#e2e8f0",
+                  background: "#fff7ed",
+                  border: "1px solid #fdba74",
+                  color: "#9a3412",
                 }}
               >
                 {label}
