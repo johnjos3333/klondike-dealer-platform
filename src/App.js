@@ -93,31 +93,98 @@ async function extractLabelTextFromImage(imageFile) {
   }
 }
 
+const OCR_CROSSOVER_NORMALIZATION_RULES = [
+  {
+    name: "Shell Rotella T6",
+    brandPatterns: [/shell/i],
+    productPatterns: [/rotella/i, /\bt6\b/i],
+    output: ({ viscosity }) =>
+      ["Shell Rotella T6", viscosity].filter(Boolean).join(" ").trim(),
+  },
+  {
+    name: "Shell Rotella T4",
+    brandPatterns: [/shell/i],
+    productPatterns: [/rotella/i, /\bt4\b/i],
+    output: ({ viscosity }) =>
+      ["Shell Rotella T4", viscosity].filter(Boolean).join(" ").trim(),
+  },
+  {
+    name: "Mobil Delvac",
+    brandPatterns: [/mobil/i],
+    productPatterns: [/delvac/i],
+    output: ({ viscosity, raw }) =>
+      [
+        "Mobil Delvac",
+        /\bmx\b/i.test(raw) ? "MX" : "",
+        /\bextreme\b/i.test(raw) ? "Extreme" : "",
+        viscosity,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .trim(),
+  },
+  {
+    name: "Chevron Delo",
+    brandPatterns: [/chevron/i],
+    productPatterns: [/delo/i],
+    output: ({ viscosity }) =>
+      ["Chevron Delo", viscosity].filter(Boolean).join(" ").trim(),
+  },
+  {
+    name: "Castrol Vecton",
+    brandPatterns: [/castrol/i],
+    productPatterns: [/vecton/i],
+    output: ({ viscosity }) =>
+      ["Castrol Vecton", viscosity].filter(Boolean).join(" ").trim(),
+  },
+  {
+    name: "Petro-Canada Duron",
+    brandPatterns: [/petro[-\s]?canada/i, /petro\s?can/i],
+    productPatterns: [/duron/i],
+    output: ({ viscosity }) =>
+      ["Petro-Canada Duron", viscosity].filter(Boolean).join(" ").trim(),
+  },
+  {
+    name: "Valvoline Premium Blue",
+    brandPatterns: [/valvoline/i],
+    productPatterns: [/premium\s+blue/i],
+    output: ({ viscosity }) =>
+      ["Valvoline Premium Blue", viscosity].filter(Boolean).join(" ").trim(),
+  },
+];
+
 function normalizeOcrCrossoverText(text) {
   const raw = String(text || "").trim();
   if (!raw) return "";
 
   const viscosityMatch = raw.match(/\b\d{1,2}W-\d{2}\b/i);
   const viscosity = viscosityMatch ? viscosityMatch[0].toUpperCase() : "";
-
-  const isShellRotellaT6 =
-    /shell/i.test(raw) && /rotella/i.test(raw) && /\bt6\b/i.test(raw);
-  if (isShellRotellaT6) {
-    return ["Shell Rotella T6", viscosity].filter(Boolean).join(" ").trim();
-  }
+  const matchedRule = OCR_CROSSOVER_NORMALIZATION_RULES.find((rule) => {
+    const brandOk = (rule.brandPatterns || []).some((rx) => rx.test(raw));
+    const productOk = (rule.productPatterns || []).some((rx) => rx.test(raw));
+    return brandOk && productOk;
+  });
 
   const noisePattern =
     /\b(full\s+synthetic|synthetic|sae|heavy\s+duty|diesel|engine\s+oil|motor\s+oil)\b/gi;
 
-  let normalized = raw
-    .replace(noisePattern, " ")
-    .replace(/[()]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  let normalized = matchedRule
+    ? matchedRule.output({ viscosity, raw })
+    : raw
+        .replace(noisePattern, " ")
+        .replace(/[()]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
 
   if (viscosity && !new RegExp(`\\b${viscosity}\\b`, "i").test(normalized)) {
     normalized = `${normalized} ${viscosity}`.trim();
   }
+
+  console.log(
+    "OCR normalization matched rule:",
+    matchedRule ? matchedRule.name : "generic-fallback"
+  );
+  console.log("OCR normalized crossover text:", normalized);
 
   return normalized;
 }
