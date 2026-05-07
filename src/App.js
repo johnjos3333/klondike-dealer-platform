@@ -4284,6 +4284,10 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
               setPackageSize("");
               setSelectedProduct(null);
               setQuoteMessage("");
+              await quickCrossToQuote(
+                detectedText,
+                "No confident match found. Please refine the detected product text or search manually."
+              );
             }
             setScannedLabelMessage(
               "Image captured. AI label recognition will be connected next."
@@ -4879,8 +4883,11 @@ const cleanTier = (value, productName = "") => {
 
   return "Good";
 };
-const quickCrossToQuote = async () => {
-  const searchValue = String(competitor || "").trim();
+const quickCrossToQuote = async (
+  searchOverride,
+  noMatchMessage = "No Klondike match found."
+) => {
+  const searchValue = String((searchOverride ?? competitor) || "").trim();
 
   if (!searchValue) return;
 
@@ -4905,7 +4912,7 @@ const quickCrossToQuote = async () => {
       setKlondike("");
       setPackageSize("");
       setSelectedProduct(null);
-      setQuoteMessage("No Klondike match found.");
+      setQuoteMessage(noMatchMessage);
       return;
     }
 
