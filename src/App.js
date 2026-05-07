@@ -2898,46 +2898,56 @@ const handleFinishDealerEnrollment = async () => {
         <div
           style={{
             ...styles.card,
-            background:
-              "linear-gradient(145deg, rgba(15, 23, 42, 0.99) 0%, rgba(15, 23, 42, 0.94) 56%, rgba(30, 41, 59, 0.96) 100%)",
-            border: "1px solid rgba(96, 165, 250, 0.36)",
-            boxShadow:
-              "0 22px 38px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(148, 163, 184, 0.16)",
+            background: "#ffffff",
+            border: "1px solid rgba(96, 165, 250, 0.32)",
+            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
             marginBottom: 12,
           }}
         >
-          <div style={{ ...styles.summaryLabel, color: "#93c5fd", letterSpacing: "0.07em" }}>
+          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
             EXECUTIVE SUMMARY INTELLIGENCE
           </div>
           {adminExecutiveSummaryIntelligence.hasData ? (
-            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
               {adminExecutiveSummaryIntelligence.insights.map((insight, idx) => (
                 <div
                   key={`executive-summary-${idx}`}
                   style={{
                     display: "flex",
                     alignItems: "flex-start",
-                    gap: 8,
-                    background: "rgba(30, 41, 59, 0.5)",
-                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    gap: 10,
+                    background:
+                      idx % 2 === 0 ? "#fff7ed" : "#f8fafc",
+                    border: "1px solid rgba(148, 163, 184, 0.26)",
                     borderLeft:
                       idx % 2 === 0
-                        ? "2px solid rgba(246, 165, 49, 0.78)"
-                        : "2px solid rgba(96, 165, 250, 0.78)",
-                    borderRadius: 8,
-                    padding: "9px 10px",
+                        ? "3px solid rgba(246, 165, 49, 0.88)"
+                        : "3px solid rgba(59, 130, 246, 0.82)",
+                    borderRadius: 10,
+                    padding: "10px 12px",
                     fontSize: 13,
-                    color: "#e2e8f0",
+                    color: "#0f172a",
                     lineHeight: 1.45,
+                    boxShadow: "0 6px 12px rgba(15, 23, 42, 0.08)",
                   }}
                 >
-                  <span style={{ color: "#93c5fd", fontWeight: 800, marginTop: 1 }}>•</span>
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background:
+                        idx % 2 === 0 ? "rgba(246, 165, 49, 0.95)" : "rgba(30, 64, 175, 0.9)",
+                      marginTop: 5,
+                      flex: "0 0 auto",
+                    }}
+                  />
                   <span>{insight}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+            <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
               Executive summary intelligence will expand as more territory activity is
               logged.
             </div>
@@ -2950,37 +2960,48 @@ const handleFinishDealerEnrollment = async () => {
           style={{
             ...styles.card,
             background: "#ffffff",
-            border: "1px solid #fed7aa",
-            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.1)",
-            marginBottom: 14,
+            border: "1px solid rgba(96, 165, 250, 0.32)",
+            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+            marginBottom: 16,
+            padding: 24,
           }}
         >
-          <div style={{ ...styles.eyebrow, color: "#9a3412" }}>
+          <div style={{ ...styles.eyebrow, color: "#1e3a8a", letterSpacing: "0.07em" }}>
             KLONDIKE ADMIN COMMAND CENTER
           </div>
-          <p style={{ ...styles.cardBody, color: "#334155", marginTop: 8 }}>
+          <p style={{ ...styles.cardBody, color: "#334155", marginTop: 10 }}>
             Territory performance, dealer activity, product demand, and field
             intelligence in one view.
           </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
             {[
               "Territory Performance",
               "Dealer Adoption",
               "Field Intelligence",
               "OCR Territory Intelligence",
-            ].map((label) => (
+            ].map((label, idx) => (
               <div
                 key={label}
                 style={{
-                  padding: "6px 10px",
+                  padding: "7px 13px",
                   borderRadius: 999,
                   fontSize: 11,
-                  fontWeight: 800,
+                  fontWeight: 900,
                   letterSpacing: "0.04em",
                   textTransform: "uppercase",
-                  background: "#fff7ed",
-                  border: "1px solid #fdba74",
-                  color: "#9a3412",
+                  background:
+                    idx === 0
+                      ? "#f59e0b"
+                      : "#f8fafc",
+                  border:
+                    idx === 0
+                      ? "1px solid #d97706"
+                      : "1px solid rgba(96, 165, 250, 0.45)",
+                  color: idx === 0 ? "#ffffff" : "#1e3a8a",
+                  boxShadow:
+                    idx === 0
+                      ? "0 6px 14px rgba(245, 158, 11, 0.28)"
+                      : "0 4px 10px rgba(15, 23, 42, 0.08)",
                 }}
               >
                 {label}
@@ -2994,15 +3015,14 @@ const handleFinishDealerEnrollment = async () => {
         <div
           style={{
             ...styles.card,
-            background:
-              "linear-gradient(145deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.92) 58%, rgba(30, 41, 59, 0.95) 100%)",
-            border: "1px solid rgba(96, 165, 250, 0.34)",
-            boxShadow:
-              "0 20px 36px rgba(2, 6, 23, 0.42), inset 0 1px 0 rgba(148, 163, 184, 0.15)",
-            marginBottom: 12,
+            background: "#ffffff",
+            border: "1px solid rgba(96, 165, 250, 0.32)",
+            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+            marginBottom: 16,
+            padding: 24,
           }}
         >
-          <div style={{ ...styles.summaryLabel, color: "#93c5fd", letterSpacing: "0.06em" }}>
+          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
             TERRITORY PERFORMANCE
           </div>
           {adminTerritoryPerformanceRollup.hasActivityData ? (
@@ -3058,8 +3078,8 @@ const handleFinishDealerEnrollment = async () => {
                     <div
                       key={item.label}
                       style={{
-                        background: "rgba(15, 23, 42, 0.58)",
-                        border: "1px solid rgba(148, 163, 184, 0.24)",
+                        background: "#f8fafc",
+                        border: "1px solid rgba(148, 163, 184, 0.26)",
                         borderLeft: `2px solid ${item.color}`,
                         borderRadius: 10,
                         padding: "10px 12px",
@@ -3068,7 +3088,7 @@ const handleFinishDealerEnrollment = async () => {
                       <div
                         style={{
                           fontSize: 11,
-                          color: "#93c5fd",
+                          color: "#1e3a8a",
                           letterSpacing: "0.04em",
                           textTransform: "uppercase",
                           fontWeight: 800,
@@ -3076,7 +3096,7 @@ const handleFinishDealerEnrollment = async () => {
                       >
                         {item.label}
                       </div>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: "#f8fafc", marginTop: 4 }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>
                         {item.value}
                       </div>
                     </div>
@@ -3091,12 +3111,12 @@ const handleFinishDealerEnrollment = async () => {
               >
                 <div
                   style={{
-                    background: "rgba(30, 41, 59, 0.5)",
-                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(148, 163, 184, 0.26)",
                     borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
                     borderRadius: 8,
                     padding: "8px 10px",
-                    color: "#e2e8f0",
+                    color: "#0f172a",
                     fontSize: 13,
                   }}
                 >
@@ -3105,12 +3125,12 @@ const handleFinishDealerEnrollment = async () => {
                 </div>
                 <div
                   style={{
-                    background: "rgba(30, 41, 59, 0.5)",
-                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(148, 163, 184, 0.26)",
                     borderLeft: "2px solid rgba(96, 165, 250, 0.75)",
                     borderRadius: 8,
                     padding: "8px 10px",
-                    color: "#e2e8f0",
+                    color: "#0f172a",
                     fontSize: 13,
                   }}
                 >
@@ -3122,9 +3142,9 @@ const handleFinishDealerEnrollment = async () => {
                 <div
                   style={{
                     fontSize: 12,
-                    color: "#cbd5e1",
-                    background: "rgba(30, 41, 59, 0.5)",
-                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    color: "#334155",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(148, 163, 184, 0.26)",
                     borderRadius: 8,
                     padding: "8px 10px",
                     marginTop: 2,
@@ -3135,7 +3155,7 @@ const handleFinishDealerEnrollment = async () => {
               ) : null}
             </div>
           ) : (
-            <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+            <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
               Territory performance data will populate as dealer and rep activity
               increases.
             </div>
@@ -3147,46 +3167,56 @@ const handleFinishDealerEnrollment = async () => {
         <div
           style={{
             ...styles.card,
-            background:
-              "linear-gradient(145deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.92) 58%, rgba(30, 41, 59, 0.95) 100%)",
-            border: "1px solid rgba(96, 165, 250, 0.34)",
-            boxShadow:
-              "0 20px 36px rgba(2, 6, 23, 0.42), inset 0 1px 0 rgba(148, 163, 184, 0.15)",
-            marginBottom: 12,
+            background: "#ffffff",
+            border: "1px solid rgba(96, 165, 250, 0.32)",
+            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+            marginBottom: 16,
           }}
         >
-          <div style={{ ...styles.summaryLabel, color: "#93c5fd", letterSpacing: "0.06em" }}>
+          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
             TERRITORY TREND INTELLIGENCE
           </div>
           {adminTerritoryTrendIntelligence.hasData ? (
-            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
               {adminTerritoryTrendIntelligence.insights.map((insight, idx) => (
                 <div
                   key={`territory-trend-${idx}`}
                   style={{
                     display: "flex",
                     alignItems: "flex-start",
-                    gap: 8,
-                    background: "rgba(30, 41, 59, 0.5)",
-                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    gap: 10,
+                    background:
+                      idx % 2 === 0 ? "#fff7ed" : "#f8fafc",
+                    border: "1px solid rgba(148, 163, 184, 0.26)",
                     borderLeft:
                       idx % 2 === 0
-                        ? "2px solid rgba(246, 165, 49, 0.76)"
-                        : "2px solid rgba(96, 165, 250, 0.76)",
-                    borderRadius: 8,
-                    padding: "9px 10px",
+                        ? "3px solid rgba(246, 165, 49, 0.8)"
+                        : "3px solid rgba(96, 165, 250, 0.8)",
+                    borderRadius: 10,
+                    padding: "10px 12px",
                     fontSize: 13,
-                    color: "#e2e8f0",
+                    color: "#0f172a",
                     lineHeight: 1.45,
+                    boxShadow: "0 6px 12px rgba(15, 23, 42, 0.08)",
                   }}
                 >
-                  <span style={{ color: "#93c5fd", fontWeight: 800, marginTop: 1 }}>•</span>
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background:
+                        idx % 2 === 0 ? "rgba(246, 165, 49, 0.9)" : "rgba(147, 197, 253, 0.9)",
+                      marginTop: 5,
+                      flex: "0 0 auto",
+                    }}
+                  />
                   <span>{insight}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+            <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
               Trend intelligence will expand as more territory activity is logged.
             </div>
           )}
@@ -3197,46 +3227,57 @@ const handleFinishDealerEnrollment = async () => {
         <div
           style={{
             ...styles.card,
-            background:
-              "linear-gradient(145deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.92) 58%, rgba(30, 41, 59, 0.95) 100%)",
-            border: "1px solid rgba(96, 165, 250, 0.34)",
-            boxShadow:
-              "0 20px 36px rgba(2, 6, 23, 0.42), inset 0 1px 0 rgba(148, 163, 184, 0.15)",
-            marginBottom: 12,
+            background: "#ffffff",
+            border: "1px solid rgba(96, 165, 250, 0.32)",
+            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+            marginBottom: 16,
+            padding: 24,
           }}
         >
-          <div style={{ ...styles.summaryLabel, color: "#93c5fd", letterSpacing: "0.06em" }}>
+          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
             PRODUCT OPPORTUNITY INTELLIGENCE
           </div>
           {adminProductOpportunityIntelligence.hasData ? (
-            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
               {adminProductOpportunityIntelligence.insights.map((insight, idx) => (
                 <div
                   key={`product-opportunity-${idx}`}
                   style={{
                     display: "flex",
                     alignItems: "flex-start",
-                    gap: 8,
-                    background: "rgba(30, 41, 59, 0.5)",
-                    border: "1px solid rgba(148, 163, 184, 0.2)",
+                    gap: 10,
+                    background:
+                      idx % 2 === 0 ? "#fff7ed" : "#f8fafc",
+                    border: "1px solid rgba(148, 163, 184, 0.26)",
                     borderLeft:
                       idx % 2 === 0
-                        ? "2px solid rgba(246, 165, 49, 0.76)"
-                        : "2px solid rgba(96, 165, 250, 0.76)",
-                    borderRadius: 8,
-                    padding: "9px 10px",
+                        ? "3px solid rgba(246, 165, 49, 0.8)"
+                        : "3px solid rgba(96, 165, 250, 0.8)",
+                    borderRadius: 10,
+                    padding: "10px 12px",
                     fontSize: 13,
-                    color: "#e2e8f0",
+                    color: "#0f172a",
                     lineHeight: 1.45,
+                    boxShadow: "0 6px 12px rgba(15, 23, 42, 0.08)",
                   }}
                 >
-                  <span style={{ color: "#93c5fd", fontWeight: 800, marginTop: 1 }}>•</span>
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 999,
+                      background:
+                        idx % 2 === 0 ? "rgba(246, 165, 49, 0.9)" : "rgba(147, 197, 253, 0.9)",
+                      marginTop: 5,
+                      flex: "0 0 auto",
+                    }}
+                  />
                   <span>{insight}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+            <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
               Product opportunity intelligence will expand as more quote and product
               activity is logged.
             </div>
@@ -3249,12 +3290,13 @@ const handleFinishDealerEnrollment = async () => {
           <div
             style={{
               ...styles.summaryCard,
-              background: "#0f172a",
-              border: "1px solid rgba(148, 163, 184, 0.26)",
-              boxShadow: "0 10px 22px rgba(2, 6, 23, 0.26)",
+              background: "#ffffff",
+              border: "1px solid rgba(96, 165, 250, 0.3)",
+              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.1)",
+              padding: 18,
             }}
           >
-            <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>
+            <div style={{ ...styles.summaryLabel, color: "#1e3a8a" }}>
               Product Mix Intelligence
             </div>
             {adminProductMixIntelligence.totalItems > 0 ? (
@@ -3268,23 +3310,23 @@ const handleFinishDealerEnrollment = async () => {
                       alignItems: "center",
                       gap: 10,
                       fontSize: 13,
-                      color: "#e2e8f0",
-                      background: "rgba(30, 41, 59, 0.5)",
+                      color: "#0f172a",
+                      background: "#f8fafc",
                       border: "1px solid rgba(148, 163, 184, 0.2)",
                       borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
-                      borderRadius: 8,
-                      padding: "8px 10px",
+                      borderRadius: 10,
+                      padding: "9px 11px",
                     }}
                   >
                     <span>{row.name}</span>
                     <span
                       style={{
                         fontWeight: 800,
-                        background: "rgba(246, 165, 49, 0.16)",
-                        border: "1px solid rgba(246, 165, 49, 0.45)",
-                        color: "#fed7aa",
+                        background: "#f8fafc",
+                        border: "1px solid rgba(203, 213, 225, 0.85)",
+                        color: "#0f172a",
                         borderRadius: 999,
-                        padding: "3px 8px",
+                        padding: "4px 9px",
                         lineHeight: 1.1,
                         fontSize: 12,
                       }}
@@ -3303,12 +3345,13 @@ const handleFinishDealerEnrollment = async () => {
           <div
             style={{
               ...styles.summaryCard,
-              background: "#0f172a",
-              border: "1px solid rgba(148, 163, 184, 0.26)",
-              boxShadow: "0 10px 22px rgba(2, 6, 23, 0.26)",
+              background: "#ffffff",
+              border: "1px solid rgba(96, 165, 250, 0.3)",
+              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.1)",
+              padding: 18,
             }}
           >
-            <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>Dealer Health</div>
+            <div style={{ ...styles.summaryLabel, color: "#1e3a8a" }}>Dealer Health</div>
             {adminDealerHealthFoundation.hasData ? (
               <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
                 {[
@@ -3345,12 +3388,12 @@ const handleFinishDealerEnrollment = async () => {
                       alignItems: "center",
                       gap: 10,
                       fontSize: 13,
-                      color: "#e2e8f0",
-                      background: "rgba(30, 41, 59, 0.5)",
+                      color: "#0f172a",
+                      background: "#f8fafc",
                       border: "1px solid rgba(148, 163, 184, 0.2)",
                       borderLeft: "2px solid rgba(96, 165, 250, 0.75)",
-                      borderRadius: 8,
-                      padding: "8px 10px",
+                      borderRadius: 10,
+                      padding: "9px 11px",
                     }}
                   >
                     <span>{item.label}</span>
@@ -3361,7 +3404,7 @@ const handleFinishDealerEnrollment = async () => {
                         border: "1px solid rgba(96, 165, 250, 0.45)",
                         color: "#bfdbfe",
                         borderRadius: 999,
-                        padding: "3px 8px",
+                        padding: "4px 9px",
                         lineHeight: 1.1,
                         fontSize: 12,
                       }}
@@ -3374,12 +3417,12 @@ const handleFinishDealerEnrollment = async () => {
                   <div
                     style={{
                       fontSize: 13,
-                      color: "#e2e8f0",
-                      background: "rgba(30, 41, 59, 0.5)",
+                      color: "#0f172a",
+                      background: "#f8fafc",
                       border: "1px solid rgba(148, 163, 184, 0.2)",
                       borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
-                      borderRadius: 8,
-                      padding: "8px 10px",
+                      borderRadius: 10,
+                      padding: "9px 11px",
                     }}
                   >
                     Most active dealer:{" "}
@@ -3397,12 +3440,13 @@ const handleFinishDealerEnrollment = async () => {
           <div
             style={{
               ...styles.summaryCard,
-              background: "#0f172a",
-              border: "1px solid rgba(148, 163, 184, 0.26)",
-              boxShadow: "0 10px 22px rgba(2, 6, 23, 0.26)",
+              background: "#ffffff",
+              border: "1px solid rgba(96, 165, 250, 0.3)",
+              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.1)",
+              padding: 18,
             }}
           >
-            <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>
+            <div style={{ ...styles.summaryLabel, color: "#1e3a8a" }}>
               Incentive Leaderboard
             </div>
             {adminIncentiveLeaderboardFoundation.hasData ? (
@@ -3413,11 +3457,11 @@ const handleFinishDealerEnrollment = async () => {
                     style={{
                       display: "grid",
                       gap: 3,
-                      background: "rgba(30, 41, 59, 0.5)",
+                      background: "#f8fafc",
                       border: "1px solid rgba(148, 163, 184, 0.2)",
                       borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
-                      borderRadius: 8,
-                      padding: "8px 10px",
+                      borderRadius: 10,
+                      padding: "9px 11px",
                     }}
                   >
                     <div
@@ -3426,7 +3470,7 @@ const handleFinishDealerEnrollment = async () => {
                         justifyContent: "space-between",
                         alignItems: "center",
                         gap: 10,
-                        color: "#f8fafc",
+                        color: "#0f172a",
                         fontSize: 13,
                         fontWeight: 700,
                       }}
@@ -3434,11 +3478,11 @@ const handleFinishDealerEnrollment = async () => {
                       <span>{rep.name}</span>
                       <span
                         style={{
-                          background: "rgba(246, 165, 49, 0.16)",
-                          border: "1px solid rgba(246, 165, 49, 0.45)",
-                          color: "#fed7aa",
+                          background: "#f8fafc",
+                          border: "1px solid rgba(203, 213, 225, 0.85)",
+                          color: "#0f172a",
                           borderRadius: 999,
-                          padding: "3px 8px",
+                          padding: "4px 9px",
                           lineHeight: 1.1,
                           fontSize: 12,
                           fontWeight: 800,
@@ -3447,10 +3491,10 @@ const handleFinishDealerEnrollment = async () => {
                         {rep.activityPoints} pts
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: "#cbd5e1" }}>
+                    <div style={{ fontSize: 12, color: "#475569" }}>
                       {rep.dealer ? `Dealer: ${rep.dealer}` : "Dealer: —"}
                     </div>
-                    <div style={{ fontSize: 12, color: "#93c5fd" }}>
+                    <div style={{ fontSize: 12, color: "#1e3a8a" }}>
                       Quotes: {rep.quotes} • Proposals: {rep.proposals} • Responses:{" "}
                       {rep.responses} • OCR scans: {rep.ocrScans}
                     </div>
@@ -3459,7 +3503,7 @@ const handleFinishDealerEnrollment = async () => {
                 <div
                   style={{
                     ...styles.listMeta,
-                    color: "#cbd5e1",
+                    color: "#475569",
                     marginTop: 4,
                     fontSize: 11,
                     lineHeight: 1.4,
@@ -3470,7 +3514,7 @@ const handleFinishDealerEnrollment = async () => {
                 </div>
               </div>
             ) : (
-              <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+              <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
                 Incentive leaderboard data will populate as reps create quotes, send
                 proposals, receive responses, and scan labels.
               </div>
@@ -3479,12 +3523,13 @@ const handleFinishDealerEnrollment = async () => {
           <div
             style={{
               ...styles.summaryCard,
-              background: "#0f172a",
-              border: "1px solid rgba(148, 163, 184, 0.26)",
-              boxShadow: "0 10px 22px rgba(2, 6, 23, 0.26)",
+              background: "#ffffff",
+              border: "1px solid rgba(96, 165, 250, 0.3)",
+              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.1)",
+              padding: 18,
             }}
           >
-            <div style={{ ...styles.summaryLabel, color: "#93c5fd" }}>Rep Leaderboard</div>
+            <div style={{ ...styles.summaryLabel, color: "#1e3a8a" }}>Rep Leaderboard</div>
             {adminRepLeaderboardFoundation.hasData ? (
               <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
                 {adminRepLeaderboardFoundation.rows.map((rep, idx) => (
@@ -3493,11 +3538,11 @@ const handleFinishDealerEnrollment = async () => {
                     style={{
                       display: "grid",
                       gap: 3,
-                      background: "rgba(30, 41, 59, 0.5)",
+                      background: "#f8fafc",
                       border: "1px solid rgba(148, 163, 184, 0.2)",
                       borderLeft: "2px solid rgba(96, 165, 250, 0.75)",
-                      borderRadius: 8,
-                      padding: "8px 10px",
+                      borderRadius: 10,
+                      padding: "9px 11px",
                     }}
                   >
                     <div
@@ -3506,7 +3551,7 @@ const handleFinishDealerEnrollment = async () => {
                         justifyContent: "space-between",
                         alignItems: "center",
                         gap: 10,
-                        color: "#f8fafc",
+                        color: "#0f172a",
                         fontSize: 13,
                         fontWeight: 700,
                       }}
@@ -3514,11 +3559,11 @@ const handleFinishDealerEnrollment = async () => {
                       <span>{rep.name}</span>
                       <span
                         style={{
-                          background: "rgba(246, 165, 49, 0.16)",
-                          border: "1px solid rgba(246, 165, 49, 0.45)",
-                          color: "#fed7aa",
+                          background: "#f8fafc",
+                          border: "1px solid rgba(203, 213, 225, 0.85)",
+                          color: "#0f172a",
                           borderRadius: 999,
-                          padding: "3px 8px",
+                          padding: "4px 9px",
                           lineHeight: 1.1,
                           fontSize: 12,
                           fontWeight: 800,
@@ -3527,10 +3572,10 @@ const handleFinishDealerEnrollment = async () => {
                         {rep.activityCount} activity
                       </span>
                     </div>
-                    <div style={{ fontSize: 12, color: "#cbd5e1" }}>
+                    <div style={{ fontSize: 12, color: "#475569" }}>
                       {rep.dealer ? `Dealer: ${rep.dealer}` : "Dealer: —"}
                     </div>
-                    <div style={{ fontSize: 12, color: "#93c5fd" }}>
+                    <div style={{ fontSize: 12, color: "#1e3a8a" }}>
                       Quotes: {rep.quotes} • Proposals: {rep.proposals} • Responses:{" "}
                       {rep.responses} • OCR scans: {rep.ocrScans}
                     </div>
@@ -3538,7 +3583,7 @@ const handleFinishDealerEnrollment = async () => {
                 ))}
               </div>
             ) : (
-              <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
+              <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
                 Rep leaderboard data will populate as reps create quotes, send
                 proposals, and scan labels.
               </div>
@@ -3666,8 +3711,15 @@ const handleFinishDealerEnrollment = async () => {
       )}
 
       {klondikeAdminTab === "dashboard" && (
-        <div style={styles.card}>
-          <div style={styles.eyebrow}>OCR TERRITORY INTELLIGENCE</div>
+        <div
+          style={{
+            ...styles.card,
+            background: "#ffffff",
+            border: "1px solid rgba(96, 165, 250, 0.32)",
+            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+          }}
+        >
+          <div style={{ ...styles.eyebrow, color: "#1e3a8a" }}>OCR TERRITORY INTELLIGENCE</div>
           <h3 style={styles.cardTitle}>OCR Territory Intelligence</h3>
           <p style={styles.cardBody}>
             Field scan activity showing competitor demand, viscosity trends, and dealer
@@ -3691,78 +3743,78 @@ const handleFinishDealerEnrollment = async () => {
                 <div
                   style={{
                     ...styles.summaryCard,
-                    background: "#0f172a",
-                    border: "1px solid rgba(148,163,184,0.28)",
-                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(148,163,184,0.26)",
+                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
                   }}
                 >
                   <div style={styles.summaryLabel}>Total OCR Scans</div>
-                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
                     {ocrSnapshot.totalScans}
                   </div>
                 </div>
                 <div
                   style={{
                     ...styles.summaryCard,
-                    background: "#0f172a",
-                    border: "1px solid rgba(148,163,184,0.28)",
-                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(148,163,184,0.26)",
+                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
                   }}
                 >
                   <div style={styles.summaryLabel}>Match Success Rate</div>
-                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
                     {ocrSnapshot.matchSuccessRate}%
                   </div>
                 </div>
                 <div
                   style={{
                     ...styles.summaryCard,
-                    background: "#0f172a",
-                    border: "1px solid rgba(148,163,184,0.28)",
-                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(148,163,184,0.26)",
+                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
                   }}
                 >
                   <div style={styles.summaryLabel}>Most Scanned Viscosity</div>
-                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
                     {ocrSnapshot.topViscosity || "—"}
                   </div>
                 </div>
                 <div
                   style={{
                     ...styles.summaryCard,
-                    background: "#0f172a",
-                    border: "1px solid rgba(148,163,184,0.28)",
-                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(148,163,184,0.26)",
+                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
                   }}
                 >
                   <div style={styles.summaryLabel}>Most Scanned Competitor Brand</div>
-                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
                     {ocrSnapshot.topBrand || "—"}
                   </div>
                 </div>
                 <div
                   style={{
                     ...styles.summaryCard,
-                    background: "#0f172a",
-                    border: "1px solid rgba(148,163,184,0.28)",
-                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(148,163,184,0.26)",
+                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
                   }}
                 >
                   <div style={styles.summaryLabel}>Active Dealers</div>
-                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
                     {(ocrSnapshot.topDealers || []).length}
                   </div>
                 </div>
                 <div
                   style={{
                     ...styles.summaryCard,
-                    background: "#0f172a",
-                    border: "1px solid rgba(148,163,184,0.28)",
-                    boxShadow: "0 10px 22px rgba(2,6,23,0.24)",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(148,163,184,0.26)",
+                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
                   }}
                 >
                   <div style={styles.summaryLabel}>Active Reps</div>
-                  <div style={{ ...styles.summaryValue, color: "#f8fafc" }}>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
                     {(ocrSnapshot.topReps || []).length}
                   </div>
                 </div>
