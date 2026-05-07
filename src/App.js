@@ -9205,35 +9205,73 @@ return (
 )}
         {isRep && dealerActiveTab === "quote" && (
   <div>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "stretch",
-              gap: 22,
-              width: "100%",
-              maxWidth: "100%",
-              minWidth: 0,
-              boxSizing: "border-box",
-            }}
-          >
-            <div
-              style={{
-                background: "#1e2f4a",
-                borderRadius: 16,
-                padding: "20px 18px",
-                color: "#fff",
-                height: "fit-content",
-                flex: "1 1 268px",
-                maxWidth: "100%",
-                minWidth: 0,
-                border: "1px solid rgba(59,130,246,0.35)",
-              }}
-            >
+          <style>{`
+            .kd-quote-journey-shell {
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 22px;
+              width: 100%;
+              max-width: 100%;
+              min-width: 0;
+              box-sizing: border-box;
+              align-items: start;
+            }
+            @media (min-width: 900px) {
+              .kd-quote-journey-shell {
+                grid-template-columns: minmax(276px, 324px) minmax(0, 1fr);
+                gap: 24px;
+              }
+            }
+            .kd-quote-journey-sidebar {
+              background: #1e2f4a;
+              border-radius: 16px;
+              padding: 20px 18px;
+              color: #fff;
+              height: fit-content;
+              border: 1px solid rgba(59,130,246,0.35);
+              min-width: 0;
+              box-sizing: border-box;
+              width: 100%;
+              max-width: 100%;
+            }
+            @media (min-width: 900px) {
+              .kd-quote-journey-sidebar {
+                padding: 14px 16px;
+                border-radius: 14px;
+              }
+              .kd-quote-journey-sidebar h3.kd-quote-journey-title {
+                margin-top: 4px;
+                font-size: 1.1rem;
+              }
+            }
+            .kd-quote-step-chip {
+              margin-top: 14px;
+              padding: 14px 14px;
+              border-radius: 12px;
+              cursor: pointer;
+              box-sizing: border-box;
+              min-height: 48px;
+              font-weight: 900;
+              border: 1px solid rgba(255,255,255,0.12);
+              -webkit-tap-highlight-color: transparent;
+            }
+            @media (min-width: 900px) {
+              .kd-quote-step-chip {
+                margin-top: 10px;
+                padding: 10px 12px;
+                border-radius: 10px;
+                min-height: 0;
+              }
+            }
+          `}</style>
+          <div className="kd-quote-journey-shell">
+            <div className="kd-quote-journey-sidebar">
               <div style={{ fontSize: 12, letterSpacing: 2, opacity: 0.7 }}>
                 WORKFLOW
               </div>
-              <h3 style={{ marginTop: 6 }}>Quote Journey</h3>
+              <h3 className="kd-quote-journey-title" style={{ marginTop: 6 }}>
+                Quote Journey
+              </h3>
 
               {[
                 { step: 1, label: "Customer Information" },
@@ -9242,18 +9280,12 @@ return (
               ].map(({ step, label }) => (
                 <div
                   key={step}
+                  className="kd-quote-step-chip"
                   onClick={() => setQuoteStep(step)}
                   style={{
-                    marginTop: 14,
-                    padding: "14px 14px",
-                    borderRadius: 12,
-                    cursor: "pointer",
                     background:
                       quoteStep === step ? "#f6a531" : "rgba(255,255,255,0.06)",
                     color: quoteStep === step ? "#0a2540" : "#fff",
-                    fontWeight: 900,
-                    minHeight: 48,
-                    boxSizing: "border-box",
                     border:
                       quoteStep === step
                         ? "1px solid rgba(246,165,49,0.65)"
@@ -9267,9 +9299,9 @@ return (
             </div>
 
             <div
+              className="kd-quote-journey-main"
               style={{
                 ...styles.card,
-                flex: "1 1 340px",
                 minWidth: 0,
                 maxWidth: "100%",
               }}
