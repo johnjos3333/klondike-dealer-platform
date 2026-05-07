@@ -7999,30 +7999,34 @@ return (
           <div
             className="kd-label-scan-preview"
             style={{
-              marginTop: 6,
-              marginBottom: 4,
-              padding: "14px 16px 16px",
-              borderRadius: 16,
+              marginTop: 8,
+              marginBottom: 6,
+              padding: "18px 16px 18px",
+              borderRadius: 18,
               background:
                 "linear-gradient(148deg, #0f172a 0%, #1e293b 55%, #0f172a 100%)",
-              border: "1px solid rgba(246, 165, 49, 0.25)",
+              border: "1px solid rgba(59, 130, 246, 0.28)",
               boxShadow:
-                "0 14px 32px rgba(15, 23, 42, 0.22), inset 0 1px 0 rgba(255,255,255,0.04)",
+                "0 16px 36px rgba(15, 23, 42, 0.24), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(246,165,49,0.12)",
               display: "flex",
               flexWrap: "wrap",
-              gap: 14,
-              alignItems: "flex-start",
+              gap: 16,
+              alignItems: "stretch",
               maxWidth: "100%",
+              minWidth: 0,
             }}
           >
             <div
               className="kd-label-scan-thumb-wrap"
               style={{
                 flex: "0 0 auto",
-                borderRadius: 12,
+                borderRadius: 14,
                 overflow: "hidden",
-                border: "1px solid rgba(226,232,240,0.15)",
+                border: "2px solid rgba(246, 165, 49, 0.45)",
+                boxShadow:
+                  "0 0 0 3px rgba(59, 130, 246, 0.25), inset 0 1px 0 rgba(255,255,255,0.06)",
                 background: "#020617",
+                alignSelf: "flex-start",
               }}
             >
               <img
@@ -8031,13 +8035,14 @@ return (
                 className="kd-label-scan-thumb"
                 style={{
                   display: "block",
-                  width: 96,
-                  height: 96,
+                  width: 124,
+                  height: 124,
+                  maxWidth: "min(100%, 124px)",
                   objectFit: "cover",
                 }}
               />
             </div>
-            <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+            <div style={{ flex: "1 1 min(100%, 220px)", minWidth: 0 }}>
               <div
                 style={{
                   fontSize: 11,
@@ -8068,9 +8073,11 @@ return (
                 className="kd-label-scan-actions"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: 10,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(152px, 1fr))",
+                  gap: 12,
                   width: "100%",
+                  maxWidth: "100%",
+                  minWidth: 0,
                 }}
               >
                 <button
@@ -8078,8 +8085,8 @@ return (
                   style={{
                     ...styles.secondaryButton,
                     fontSize: 14,
-                    padding: "11px 16px",
-                    minHeight: 46,
+                    padding: "12px 16px",
+                    minHeight: 48,
                     width: "100%",
                     justifyContent: "center",
                   }}
@@ -8093,8 +8100,8 @@ return (
                   style={{
                     ...styles.primaryButton,
                     fontSize: 14,
-                    padding: "11px 16px",
-                    minHeight: 46,
+                    padding: "12px 16px",
+                    minHeight: 48,
                     width: "100%",
                     justifyContent: "center",
                   }}
@@ -8108,8 +8115,8 @@ return (
                   style={{
                     ...styles.secondaryButton,
                     fontSize: 14,
-                    padding: "11px 16px",
-                    minHeight: 46,
+                    padding: "12px 16px",
+                    minHeight: 48,
                     width: "100%",
                     justifyContent: "center",
                   }}
@@ -8123,10 +8130,13 @@ return (
                   style={{
                     ...styles.primaryButton,
                     fontSize: 14,
-                    padding: "11px 16px",
-                    minHeight: 46,
+                    padding: "12px 16px",
+                    minHeight: 48,
                     width: "100%",
                     justifyContent: "center",
+                    border: "none",
+                    boxShadow:
+                      "inset 0 0 0 1px rgba(59,130,246,0.55), var(--kd-primary-button-shadow)",
                     opacity: scannedLabelOcrLoading ? 0.65 : 1,
                   }}
                   onClick={handleExtractLabelText}
@@ -8400,10 +8410,13 @@ return (
                   type="button"
                   style={{
                     ...styles.secondaryButton,
-                    marginTop: 12,
+                    marginTop: 14,
                     fontSize: 14,
-                    padding: "10px 16px",
-                    minHeight: 44,
+                    padding: "12px 18px",
+                    minHeight: 48,
+                    width: "100%",
+                    maxWidth: "100%",
+                    justifyContent: "center",
                   }}
                   disabled={scannedLabelOcrLoading}
                   onClick={handleUseTextForCrossReference}
@@ -8845,18 +8858,27 @@ return (
   <div>
           <div
             style={{
-              display: "grid",
-              gridTemplateColumns: "280px 1fr",
-              gap: 24,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "stretch",
+              gap: 22,
+              width: "100%",
+              maxWidth: "100%",
+              minWidth: 0,
+              boxSizing: "border-box",
             }}
           >
             <div
               style={{
                 background: "#1e2f4a",
                 borderRadius: 16,
-                padding: 20,
+                padding: "20px 18px",
                 color: "#fff",
                 height: "fit-content",
+                flex: "1 1 268px",
+                maxWidth: "100%",
+                minWidth: 0,
+                border: "1px solid rgba(59,130,246,0.35)",
               }}
             >
               <div style={{ fontSize: 12, letterSpacing: 2, opacity: 0.7 }}>
@@ -8873,14 +8895,20 @@ return (
                   key={step}
                   onClick={() => setQuoteStep(step)}
                   style={{
-                    marginTop: 12,
-                    padding: 12,
-                    borderRadius: 10,
+                    marginTop: 14,
+                    padding: "14px 14px",
+                    borderRadius: 12,
                     cursor: "pointer",
                     background:
                       quoteStep === step ? "#f6a531" : "rgba(255,255,255,0.06)",
                     color: quoteStep === step ? "#0a2540" : "#fff",
                     fontWeight: 900,
+                    minHeight: 48,
+                    boxSizing: "border-box",
+                    border:
+                      quoteStep === step
+                        ? "1px solid rgba(246,165,49,0.65)"
+                        : "1px solid rgba(255,255,255,0.12)",
                   }}
                 >
                   <div style={{ fontSize: 12, opacity: 0.75 }}>STEP {step}</div>
@@ -8889,7 +8917,14 @@ return (
               ))}
             </div>
 
-            <div style={styles.card}>
+            <div
+              style={{
+                ...styles.card,
+                flex: "1 1 340px",
+                minWidth: 0,
+                maxWidth: "100%",
+              }}
+            >
           
               {quoteStep === 1 && (
                 <div>
@@ -8899,7 +8934,14 @@ return (
                     Capture customer details to begin the quote.
                   </p>
 
-                  <div style={styles.grid2}>
+                  <div
+                    style={{
+                      ...styles.grid2,
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+                      gap: 14,
+                    }}
+                  >
                     <input
                       style={styles.input}
                       placeholder="Company Name"
@@ -8933,7 +8975,15 @@ return (
                     onChange={(e) => setAddress(e.target.value)}
                   />
 
-                  <div style={{ ...styles.grid3, marginTop: 14 }}>
+                  <div
+                    style={{
+                      ...styles.grid3,
+                      marginTop: 14,
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
+                      gap: 12,
+                    }}
+                  >
                     <input
                       style={styles.input}
                       placeholder="City"
@@ -8954,7 +9004,15 @@ return (
                     />
                   </div>
 
-                  <div style={{ ...styles.grid3, marginTop: 14 }}>
+                  <div
+                    style={{
+                      ...styles.grid3,
+                      marginTop: 14,
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
+                      gap: 12,
+                    }}
+                  >
                     <select
                       style={styles.input}
                       value={industry}
@@ -8995,7 +9053,14 @@ return (
 
                   <button
                     type="button"
-                    style={{ ...styles.primaryButton, marginTop: 18 }}
+                    style={{
+                      ...styles.primaryButton,
+                      marginTop: 20,
+                      minHeight: 48,
+                      padding: "12px 22px",
+                      width: "min(100%, 320px)",
+                      justifyContent: "center",
+                    }}
                     onClick={() => setQuoteStep(2)}
                   >
                     Next
@@ -9012,7 +9077,14 @@ return (
     </p>
 
     {/* INPUT ROW */}
-    <div style={styles.grid2}>
+    <div
+      style={{
+        ...styles.grid2,
+        gridTemplateColumns:
+          "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+        gap: 14,
+      }}
+    >
      <div style={{ position: "relative" }}>
   <input
     style={styles.input}
@@ -9033,20 +9105,25 @@ return (
     style={{
       display: "flex",
       flexWrap: "wrap",
-      gap: 8,
-      marginTop: 10,
-      alignItems: "center",
+      gap: 10,
+      marginTop: 12,
+      alignItems: "stretch",
     }}
   >
     <button
       type="button"
       style={{
         ...styles.secondaryButton,
-        flex: "0 1 auto",
-        whiteSpace: "nowrap",
-        minHeight: 46,
+        flex: "1 1 100%",
+        minWidth: "min(100%, 200px)",
+        minHeight: 50,
+        whiteSpace: "normal",
         fontSize: 14,
-        padding: "10px 16px",
+        padding: "12px 16px",
+        boxShadow:
+          "inset 0 0 0 1px rgba(246,165,49,0.45), var(--kd-secondary-button-shadow)",
+        justifyContent: "center",
+        textAlign: "center",
       }}
       onClick={() => handleOpenLabelScan("step2")}
     >
@@ -9112,7 +9189,15 @@ return (
     </div>
 
     {/* TIER + PACKAGE */}
-    <div style={{ ...styles.grid3, marginTop: 14 }}>
+    <div
+      style={{
+        ...styles.grid3,
+        marginTop: 16,
+        gap: 12,
+        gridTemplateColumns:
+          "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
+      }}
+    >
       <select
         style={styles.input}
         value={tier}
@@ -9152,17 +9237,44 @@ return (
     </div>
 
     {/* ADD BUTTON */}
-    <div style={{ marginTop: 12 }}>
+    <div
+      style={{
+        marginTop: 16,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "stretch",
+        gap: 8,
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 800,
+          color: "#475569",
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
+        }}
+      >
+        Add to quote
+      </div>
       <button
         style={{
           ...styles.primaryButton,
-          minHeight: 46,
-          padding: "11px 18px",
-          width: "min(260px, 100%)",
+          minHeight: 50,
+          padding: "12px 22px",
+          width: "min(100%, 360px)",
+          maxWidth: "100%",
           justifyContent: "center",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
           boxShadow:
             scannedLabelPreview && scannedLabelImage
-              ? "0 0 0 2px rgba(246,165,49,0.22), 0 10px 22px rgba(15,23,42,0.2)"
+              ? "0 0 0 2px rgba(59,130,246,0.35), 0 10px 22px rgba(15,23,42,0.2)"
               : styles.primaryButton?.boxShadow,
         }}
         onClick={handleAddProduct}
@@ -9192,7 +9304,12 @@ return (
           </div>
 
           <button
-            style={styles.secondaryButton}
+            style={{
+              ...styles.secondaryButton,
+              minHeight: 44,
+              padding: "10px 16px",
+              flexShrink: 0,
+            }}
             onClick={() => {
               setQuoteItems((prev) => prev.filter((_, i) => i !== index));
             }}
@@ -9214,20 +9331,33 @@ return (
 
       <div
         style={{
+          marginTop: 12,
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+      <div
+        style={{
           border: "1px solid #e2e8f0",
           borderRadius: 10,
           overflow: "hidden",
+          minWidth: "min(100%, 520px)",
         }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 100px 140px",
+            gridTemplateColumns: "minmax(160px, 1fr) minmax(76px, 100px) minmax(104px, 140px)",
             background: "#f8fafc",
-            padding: "10px 12px",
+            padding: "12px 12px",
             fontSize: 12,
             fontWeight: 600,
             color: "#64748b",
+            gap: 8,
+            alignItems: "center",
           }}
         >
           <div>EQUIPMENT ITEM</div>
@@ -9243,19 +9373,28 @@ return (
               key={item}
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 100px 140px",
-                padding: "10px 12px",
+                gridTemplateColumns:
+                  "minmax(160px, 1fr) minmax(76px, 100px) minmax(104px, 140px)",
+                padding: "12px 12px",
+                gap: 8,
                 borderTop: "1px solid #e2e8f0",
                 alignItems: "center",
               }}
             >
               <div>
                 <label
-                  style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: 10,
+                    fontSize: 14,
+                    lineHeight: 1.35,
+                  }}
                 >
                   <input
                     type="checkbox"
                     checked={!!existing}
+                    style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }}
                     onChange={(e) => {
                       if (e.target.checked) {
                         setEquipmentItems((prev) => [
@@ -9288,9 +9427,10 @@ return (
                       );
                     }}
                     style={{
-                      width: 70,
-                      padding: 6,
-                      borderRadius: 6,
+                      width: "min(84px, 100%)",
+                      minHeight: 40,
+                      padding: "8px 8px",
+                      borderRadius: 8,
                       border: "1px solid #cbd5e1",
                       textAlign: "center",
                     }}
@@ -9315,9 +9455,10 @@ return (
                       );
                     }}
                     style={{
-                      width: 100,
-                      padding: 6,
-                      borderRadius: 6,
+                      width: "min(112px, 100%)",
+                      minHeight: 40,
+                      padding: "8px 8px",
+                      borderRadius: 8,
                       border: "1px solid #cbd5e1",
                       textAlign: "center",
                     }}
@@ -9328,16 +9469,39 @@ return (
           );
         })}
       </div>
+      </div>
     </div>
 
     {/* NAV BUTTONS */}
-    <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-      <button style={styles.secondaryButton} onClick={() => setQuoteStep(1)}>
+    <div
+      style={{
+        display: "flex",
+        gap: 12,
+        marginTop: 22,
+        flexWrap: "wrap",
+      }}
+    >
+      <button
+        style={{
+          ...styles.secondaryButton,
+          flex: "1 1 auto",
+          minHeight: 48,
+          justifyContent: "center",
+          minWidth: "min(160px, 100%)",
+        }}
+        onClick={() => setQuoteStep(1)}
+      >
         Back
       </button>
 
       <button
-        style={styles.primaryButton}
+        style={{
+          ...styles.primaryButton,
+          flex: "2 1 220px",
+          minHeight: 48,
+          padding: "12px 18px",
+          justifyContent: "center",
+        }}
         onClick={() => setQuoteStep(3)}
         disabled={quoteItems.length === 0}
       >
@@ -9355,7 +9519,14 @@ return (
                     and proposal content before saving.
                   </p>
 
-                  <div style={styles.grid2}>
+                  <div
+                    style={{
+                      ...styles.grid2,
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+                      gap: 16,
+                    }}
+                  >
                     <div style={styles.summaryCard}>
                       <div style={styles.summaryLabel}>Customer</div>
                       <div style={styles.summaryValue}>
@@ -9380,14 +9551,29 @@ return (
                   </div>
                   <div style={{ marginTop: 18, marginBottom: 18 }}>
                     <label
-                      style={{ display: "flex", alignItems: "center", gap: 10 }}
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 12,
+                        cursor: "pointer",
+                        padding: "4px 0",
+                        maxWidth: "100%",
+                      }}
                     >
                       <input
                         type="checkbox"
                         checked={useFloorPrice}
+                        style={{
+                          width: 20,
+                          height: 20,
+                          flexShrink: 0,
+                          marginTop: 2,
+                        }}
                         onChange={(e) => setUseFloorPrice(e.target.checked)}
                       />
+                      <span style={{ fontWeight: 700, fontSize: 14, color: "#0f172a" }}>
                       Apply Floor Price (-10%)
+                      </span>
                     </label>
 
                     {useFloorPrice && (
@@ -9411,7 +9597,12 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                         return (
                           <div
                             key={`${item.competitor}-${index}`}
-                            style={styles.listRow}
+                            style={{
+                              ...styles.listRow,
+                              alignItems: "flex-start",
+                              gap: 16,
+                              padding: "16px",
+                            }}
                           >
                             <div>
                               <div style={styles.listTitle}>
@@ -9428,7 +9619,12 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                               </div>
                               {item.tier !== "Best" && (
   <button
-    style={{ ...styles.secondaryButton, marginTop: 8 }}
+    style={{
+      ...styles.secondaryButton,
+      marginTop: 10,
+      minHeight: 44,
+      padding: "10px 16px",
+    }}
     onClick={() => {
       const nextTier =
         item.tier === "Good"
@@ -9495,7 +9691,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                               )}
                             </div>
 
-                            <div style={{ textAlign: "right" }}>
+                            <div style={{ textAlign: "right", flex: "1 1 140px", minWidth: "min(100%,160px)" }}>
                               <div style={styles.listTitle}>
                                ${Number(price || 0).toFixed(2)}
                               </div>
@@ -9564,10 +9760,23 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 12,
+                      marginTop: 24,
+                      flexWrap: "wrap",
+                    }}
+                  >
                     <button
                       type="button"
-                      style={styles.secondaryButton}
+                      style={{
+                        ...styles.secondaryButton,
+                        flex: "1 1 auto",
+                        minHeight: 48,
+                        justifyContent: "center",
+                        minWidth: "min(160px, 100%)",
+                      }}
                       onClick={() => setQuoteStep(2)}
                     >
                       Back
@@ -9576,7 +9785,13 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                     <button
                       type="button"
                       disabled={quoteSaving}
-                      style={styles.primaryButton}
+                      style={{
+                        ...styles.primaryButton,
+                        flex: "2 1 240px",
+                        minHeight: 48,
+                        padding: "12px 18px",
+                        justifyContent: "center",
+                      }}
                       onClick={handleSaveQuote}
                     >
                       {quoteSaving ? "Saving..." : "Save & Continue to Proposal"}
@@ -9619,9 +9834,11 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
             <div
               style={{
                 ...styles.grid2,
-                alignItems: "center",
-                gap: 10,
-                padding: 12,
+                alignItems: "stretch",
+                gap: 12,
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+                padding: 14,
                 borderRadius: 12,
                 border: "1px solid #e2e8f0",
                 background: "#f8fafc",
@@ -9630,7 +9847,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
               <input
                 style={{
                   ...styles.input,
-                  minHeight: 46,
+                  minHeight: 48,
                   background: "#ffffff",
                   border: "1px solid #cbd5e1",
                   color: "#0f172a",
@@ -9649,11 +9866,13 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                 type="button"
                 style={{
                   ...styles.primaryButton,
-                  minHeight: 46,
-                  padding: "11px 18px",
+                  minHeight: 48,
+                  padding: "12px 18px",
                   fontWeight: 700,
                   width: "100%",
                   justifyContent: "center",
+                  display: "inline-flex",
+                  alignItems: "center",
                 }}
                 onClick={handleAskLubricantAdvisor}
               >
@@ -9688,18 +9907,26 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                 )}
                 {advisorResult.intent === "comparison" &&
                   advisorResult.matches?.length >= 2 && (
-                  <div style={{ ...styles.grid2, gap: 10 }}>
+                  <div
+                    style={{
+                      ...styles.grid2,
+                      gap: 14,
+                      gridTemplateColumns:
+                        "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+                    }}
+                  >
                     {advisorResult.matches.slice(0, 2).map((match, idx) => (
                       <div
                         key={`${match.productName}-${idx}`}
                         style={{
                           ...styles.card,
-                          padding: "12px 12px 12px",
+                          padding: "16px 14px 16px",
                           margin: 0,
                           border: "1px solid #e2e8f0",
                           borderTop: "3px solid #f59e0b",
                           background: "#ffffff",
                           boxShadow: "0 10px 22px rgba(15, 23, 42, 0.08)",
+                          gap: 4,
                         }}
                       >
                         <div style={{ ...styles.listTitle, color: "#0f172a", fontSize: 15 }}>
@@ -9721,8 +9948,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                           style={{
                             display: "flex",
                             flexWrap: "wrap",
-                            gap: 8,
-                            marginBottom: 10,
+                            gap: 10,
+                            marginBottom: 12,
+                            marginTop: 4,
                           }}
                         >
                           {!!match.url && (
@@ -9734,9 +9962,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                                 ...styles.portalTabButton,
                                 ...styles.portalTabButtonActive,
                                 display: "inline-flex",
-                                minHeight: 36,
-                                padding: "7px 12px",
-                                fontSize: 12,
+                                minHeight: 44,
+                                padding: "10px 14px",
+                                fontSize: 13,
                                 textDecoration: "none",
                                 justifyContent: "center",
                                 borderColor: "#1e3a8a",
@@ -9753,9 +9981,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                             style={{
                               ...styles.primaryButton,
                               display: "inline-flex",
-                              minHeight: 36,
-                              padding: "7px 12px",
-                              fontSize: 12,
+                              minHeight: 44,
+                              padding: "10px 14px",
+                              fontSize: 13,
                               justifyContent: "center",
                             }}
                           >
@@ -9794,9 +10022,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                           borderTop: "3px solid #f59e0b",
                           background: "#ffffff",
                           boxShadow: "0 8px 18px rgba(15, 23, 42, 0.08)",
-                          alignItems: "flex-start",
-                          gap: 10,
-                          padding: "14px 14px 12px",
+                          alignItems: "stretch",
+                          gap: 14,
+                          padding: "16px 14px",
                         }}
                       >
                         <div>
@@ -9814,8 +10042,8 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                             style={{
                               display: "flex",
                               flexWrap: "wrap",
-                              gap: 8,
-                              marginTop: 10,
+                              gap: 10,
+                              marginTop: 12,
                             }}
                           >
                             {!!match.url && (
@@ -9827,9 +10055,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                                   ...styles.portalTabButton,
                                   ...styles.portalTabButtonActive,
                                   display: "inline-flex",
-                                  minHeight: 34,
-                                  padding: "6px 12px",
-                                  fontSize: 12,
+                                  minHeight: 44,
+                                  padding: "10px 14px",
+                                  fontSize: 13,
                                   textDecoration: "none",
                                   justifyContent: "center",
                                   borderColor: "#1e3a8a",
@@ -9846,9 +10074,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                               style={{
                                 ...styles.primaryButton,
                                 display: "inline-flex",
-                                minHeight: 34,
-                                padding: "6px 12px",
-                                fontSize: 12,
+                                minHeight: 44,
+                                padding: "10px 14px",
+                                fontSize: 13,
                                 justifyContent: "center",
                               }}
                             >
