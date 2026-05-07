@@ -4907,12 +4907,6 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       () => extractOcrSpecSignals(scannedLabelExtractedText),
       [scannedLabelExtractedText]
     );
-    const scannedLabelMatchedProductName = React.useMemo(() => {
-      const selectedName = String(selectedProduct?.name || "").trim();
-      if (selectedName) return selectedName;
-      const klondikeName = String(klondike || "").trim();
-      return klondikeName;
-    }, [selectedProduct?.name, klondike]);
     React.useEffect(() => {
       return () => {
         if (scannedLabelBlobRef.current) {
@@ -5062,6 +5056,12 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
     const [packageSize, setPackageSize] = React.useState("");
     const [quoteSearchResults, setQuoteSearchResults] = React.useState([]);
     const [selectedProduct, setSelectedProduct] = React.useState(null);
+    const scannedLabelMatchedProductName = React.useMemo(() => {
+      const selectedName = String(selectedProduct?.name || "").trim();
+      if (selectedName) return selectedName;
+      const klondikeName = String(klondike || "").trim();
+      return klondikeName;
+    }, [selectedProduct?.name, klondike]);
     const [advisorQuestion, setAdvisorQuestion] = React.useState("");
     const [advisorResult, setAdvisorResult] = React.useState(null);
 
@@ -6466,14 +6466,24 @@ return (
               <p style={{ margin: "0 0 12px", fontSize: 13, color: "#cbd5e1", lineHeight: 1.5 }}>
                 {scannedLabelMessage}
               </p>
-              <div className="kd-label-scan-actions" style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <div
+                className="kd-label-scan-actions"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+                  gap: 10,
+                  width: "100%",
+                }}
+              >
                 <button
                   type="button"
                   style={{
                     ...styles.secondaryButton,
                     fontSize: 14,
-                    padding: "10px 16px",
-                    minHeight: 44,
+                    padding: "11px 16px",
+                    minHeight: 46,
+                    width: "100%",
+                    justifyContent: "center",
                   }}
                   onClick={clearScannedLabel}
                   disabled={scannedLabelOcrLoading}
@@ -6485,8 +6495,10 @@ return (
                   style={{
                     ...styles.primaryButton,
                     fontSize: 14,
-                    padding: "10px 16px",
-                    minHeight: 44,
+                    padding: "11px 16px",
+                    minHeight: 46,
+                    width: "100%",
+                    justifyContent: "center",
                   }}
                   onClick={() => handleOpenLabelScan("step2")}
                   disabled={scannedLabelOcrLoading}
@@ -6498,8 +6510,10 @@ return (
                   style={{
                     ...styles.secondaryButton,
                     fontSize: 14,
-                    padding: "10px 16px",
-                    minHeight: 44,
+                    padding: "11px 16px",
+                    minHeight: 46,
+                    width: "100%",
+                    justifyContent: "center",
                   }}
                   onClick={() => scannedLabelTextAreaRef.current?.focus()}
                   disabled={scannedLabelOcrLoading}
@@ -6511,8 +6525,10 @@ return (
                   style={{
                     ...styles.primaryButton,
                     fontSize: 14,
-                    padding: "10px 16px",
-                    minHeight: 44,
+                    padding: "11px 16px",
+                    minHeight: 46,
+                    width: "100%",
+                    justifyContent: "center",
                     opacity: scannedLabelOcrLoading ? 0.65 : 1,
                   }}
                   onClick={handleExtractLabelText}
@@ -6524,7 +6540,7 @@ return (
               {scannedLabelOcrLoading && (
                 <div
                   style={{
-                    marginTop: 10,
+                    marginTop: 12,
                     fontSize: 12,
                     fontWeight: 700,
                     color: "#fbbf24",
@@ -6536,7 +6552,7 @@ return (
               {!!scannedLabelConfidence && (
                 <div
                   style={{
-                    marginTop: 10,
+                    marginTop: 12,
                     marginBottom: 6,
                     padding: "8px 10px",
                     borderRadius: 10,
@@ -6608,7 +6624,7 @@ return (
                 scannedLabelSpecSignals.length > 0 && (
                   <div
                     style={{
-                      marginTop: 10,
+                      marginTop: 12,
                       padding: "10px 12px",
                       borderRadius: 12,
                       border: "1px solid rgba(148, 163, 184, 0.26)",
@@ -6641,7 +6657,7 @@ return (
               {!!scannedLabelMatchedProductName && (
                 <div
                   style={{
-                    marginTop: 10,
+                    marginTop: 12,
                     padding: "10px 12px",
                     borderRadius: 12,
                     border: "1px solid rgba(34, 197, 94, 0.3)",
@@ -6662,7 +6678,7 @@ return (
               {!!scannedLabelMatchedProductName && (
                 <div
                   style={{
-                    marginTop: 10,
+                    marginTop: 12,
                     padding: "10px 12px",
                     borderRadius: 12,
                     border: "1px solid rgba(148, 163, 184, 0.26)",
@@ -6728,7 +6744,7 @@ return (
                   type="button"
                   style={{
                     ...styles.secondaryButton,
-                    marginTop: 10,
+                    marginTop: 12,
                     fontSize: 14,
                     padding: "10px 16px",
                     minHeight: 44,
@@ -7481,7 +7497,20 @@ return (
 
     {/* ADD BUTTON */}
     <div style={{ marginTop: 12 }}>
-      <button style={styles.primaryButton} onClick={handleAddProduct}>
+      <button
+        style={{
+          ...styles.primaryButton,
+          minHeight: 46,
+          padding: "11px 18px",
+          width: "min(260px, 100%)",
+          justifyContent: "center",
+          boxShadow:
+            scannedLabelPreview && scannedLabelImage
+              ? "0 0 0 2px rgba(246,165,49,0.22), 0 10px 22px rgba(15,23,42,0.2)"
+              : styles.primaryButton?.boxShadow,
+        }}
+        onClick={handleAddProduct}
+      >
         Add Product
       </button>
     </div>
