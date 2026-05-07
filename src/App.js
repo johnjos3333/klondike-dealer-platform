@@ -4187,6 +4187,7 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
     const [scannedLabelImage, setScannedLabelImage] = React.useState(null);
     const [scannedLabelPreview, setScannedLabelPreview] = React.useState(null);
     const [scannedLabelMessage, setScannedLabelMessage] = React.useState("");
+    const [scannedLabelSource, setScannedLabelSource] = React.useState("generic");
     const [scannedLabelOcrLoading, setScannedLabelOcrLoading] =
       React.useState(false);
     const [scannedLabelExtractedText, setScannedLabelExtractedText] =
@@ -4208,11 +4209,13 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       setScannedLabelPreview(null);
       setScannedLabelImage(null);
       setScannedLabelMessage("");
+      setScannedLabelSource("generic");
       setScannedLabelOcrLoading(false);
       setScannedLabelExtractedText("");
     }, []);
 
-    const handleOpenLabelScan = React.useCallback(() => {
+    const handleOpenLabelScan = React.useCallback((source = "generic") => {
+      setScannedLabelSource(source);
       labelScanInputRef.current?.click();
     }, []);
 
@@ -4226,6 +4229,7 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
         URL.revokeObjectURL(scannedLabelBlobRef.current);
       }
       const url = URL.createObjectURL(file);
+      const scanSource = scannedLabelSource;
       scannedLabelBlobRef.current = url;
       setScannedLabelPreview(url);
       setScannedLabelImage(file);
@@ -4234,7 +4238,31 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       setScannedLabelMessage(
         "Image captured. AI label recognition will be connected next."
       );
-    }, []);
+      if (scanSource === "step2") {
+        setScannedLabelOcrLoading(true);
+        setScannedLabelMessage("Analyzing product label...");
+        void (async () => {
+          try {
+            const { text } = await extractLabelTextFromImage(file);
+            const detectedText = String(text || "").trim();
+            setScannedLabelExtractedText(detectedText);
+            if (detectedText) {
+              setCompetitor(detectedText);
+              setCrossSearch(detectedText);
+              setKlondike("");
+              setPackageSize("");
+              setSelectedProduct(null);
+              setQuoteMessage("");
+            }
+            setScannedLabelMessage(
+              "Image captured. AI label recognition will be connected next."
+            );
+          } finally {
+            setScannedLabelOcrLoading(false);
+          }
+        })();
+      }
+    }, [scannedLabelSource]);
 
     const [companyName, setCompanyName] = React.useState("");
     const [contactName, setContactName] = React.useState("");
@@ -4283,7 +4311,7 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       setPackageSize("");
       setSelectedProduct(null);
       setQuoteMessage("");
-      setDealerActiveTab("cross");
+      setQuoteStep(2);
     }, [scannedLabelExtractedText]);
 
     const [proposalDecisions, setProposalDecisions] = React.useState({});
@@ -5463,6 +5491,8 @@ return (
         )}
 
         {isRep &&
+          dealerActiveTab === "quote" &&
+          quoteStep === 2 &&
           scannedLabelPreview &&
           scannedLabelImage && (
           <div
@@ -5551,7 +5581,7 @@ return (
                     fontSize: 13,
                     padding: "8px 14px",
                   }}
-                  onClick={handleOpenLabelScan}
+                  onClick={() => handleOpenLabelScan("step2")}
                   disabled={scannedLabelOcrLoading}
                 >
                   Replace image
@@ -5579,10 +5609,13 @@ return (
                     color: "#fbbf24",
                   }}
                 >
-                  Processing image for text…
+                  Analyzing product label...
                 </div>
               )}
               <div style={{ marginTop: 14, width: "100%" }}>
+                <p style={{ margin: "0 0 10px", fontSize: 12, color: "#94a3b8" }}>
+                  Review the detected product and confirm the Klondike match before adding to quote.
+                </p>
                 <div
                   style={{
                     fontSize: 11,
@@ -6266,7 +6299,7 @@ return (
         fontSize: 13,
         padding: "8px 14px",
       }}
-      onClick={handleOpenLabelScan}
+      onClick={() => handleOpenLabelScan("step2")}
     >
       📷 Scan Product Label
     </button>
@@ -7880,7 +7913,7 @@ We look forward to partnering with you on implementation and delivering measurab
           whiteSpace: "nowrap",
           minHeight: 44,
         }}
-        onClick={handleOpenLabelScan}
+        onClick={() => handleOpenLabelScan("cross")}
       >
         📷 Scan Label
       </button>
