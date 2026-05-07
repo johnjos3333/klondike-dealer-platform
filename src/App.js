@@ -103,6 +103,82 @@ function shortIdLabel(prefix, value) {
   return `${prefix} ${raw.slice(0, 4)}...`;
 }
 
+function normalizeAdvisorText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[®™]/g, "")
+    .replace(/[^a-z0-9\-/. ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractAdvisorSpecTerms(question) {
+  const raw = String(question || "");
+  const terms = new Set();
+  const patterns = [
+    /\b(?:api\s+)?(c[fgjklnops]-\d)\b/gi,
+    /\b(ces\s*\d{5})\b/gi,
+    /\b(denison\s*hf-\d)\b/gi,
+    /\b(hf-\d)\b/gi,
+    /\b(acea\s+[a-z]\d(?:\/[a-z]\d)*)\b/gi,
+    /\b(vds-\d(?:\.\d)?)\b/gi,
+    /\b(eos-\d(?:\.\d)?)\b/gi,
+    /\b(gl-\d)\b/gi,
+    /\b(mt-\d)\b/gi,
+    /\b(jdm\s*j\d{2}[a-z]?)\b/gi,
+    /\b(mat\s*\d{4})\b/gi,
+  ];
+  patterns.forEach((pattern) => {
+    let match;
+    while ((match = pattern.exec(raw)) !== null) {
+      const term = normalizeAdvisorText(match[1]);
+      if (term) terms.add(term);
+    }
+  });
+  return Array.from(terms);
+}
+
+function lookupLubricantAdvisor(question) {
+  const normalizedQuestion = normalizeAdvisorText(question);
+  if (!normalizedQuestion) {
+    return { terms: [], matches: [] };
+  }
+
+  const terms = extractAdvisorSpecTerms(question);
+  const fallbackTerms = terms.length
+    ? terms
+    : normalizedQuestion.split(" ").filter((part) => part.length >= 3).slice(0, 6);
+
+  const matches = Object.entries(PDS_MAP)
+    .map(([productName, entry]) => {
+      const specs = Array.isArray(entry?.specs) ? entry.specs : [];
+      const aliases = Array.isArray(entry?.aliases) ? entry.aliases : [];
+      const searchText = normalizeAdvisorText(
+        [productName, ...specs, ...aliases].join(" ")
+      );
+      const matchedTerms = fallbackTerms.filter((term) =>
+        searchText.includes(normalizeAdvisorText(term))
+      );
+      const matchedSpec = specs.find((spec) =>
+        fallbackTerms.some((term) =>
+          normalizeAdvisorText(spec).includes(normalizeAdvisorText(term))
+        )
+      );
+      return {
+        productName,
+        why: entry?.why || "",
+        specs,
+        matchedTerms,
+        matchedSpec: matchedSpec || "",
+      };
+    })
+    .filter((row) => row.matchedTerms.length > 0)
+    .sort((a, b) => b.matchedTerms.length - a.matchedTerms.length)
+    .slice(0, 5);
+
+  return { terms: fallbackTerms, matches };
+}
+
 const OCR_FAILURE_RECOVERY_MESSAGE =
   "Could not confidently identify the product label.";
 const OCR_FAILURE_RECOVERY_GUIDANCE =
@@ -4757,6 +4833,31 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
     const [packageSize, setPackageSize] = React.useState("");
     const [quoteSearchResults, setQuoteSearchResults] = React.useState([]);
     const [selectedProduct, setSelectedProduct] = React.useState(null);
+    const [advisorQuestion, setAdvisorQuestion] = React.useState("");
+    const [advisorResult, setAdvisorResult] = React.useState(null);
+
+    const handleAskLubricantAdvisor = React.useCallback(() => {
+      const question = String(advisorQuestion || "").trim();
+      if (!question) {
+        setAdvisorResult({
+          question: "",
+          terms: [],
+          matches: [],
+          message: "Enter a spec or requirement to search the PDS/spec library.",
+        });
+        return;
+      }
+      const result = lookupLubricantAdvisor(question);
+      setAdvisorResult({
+        question,
+        terms: result.terms,
+        matches: result.matches,
+        message:
+          result.matches.length > 0
+            ? ""
+            : "No matching Klondike products were found in the current PDS/spec library.",
+      });
+    }, [advisorQuestion]);
 
     const handleExtractLabelText = React.useCallback(async () => {
       if (!scannedLabelImage || scannedLabelOcrLoading) return;
@@ -6961,6 +7062,60 @@ return (
     </div>
 
     {/* TIER + PACKAGE */}
+    <div style={{ ...styles.card, marginTop: 14 }}>
+      <div style={styles.eyebrow}>LUBRICANT ADVISOR</div>
+      <h4 style={{ ...styles.cardTitle, marginBottom: 8 }}>PDS-backed Spec Search</h4>
+      <p style={{ ...styles.cardBody, marginBottom: 12 }}>
+        Ask for a specification and review matching Klondike products from the current
+        PDS/spec library.
+      </p>
+      <div style={{ ...styles.grid2, alignItems: "center" }}>
+        <input
+          style={styles.input}
+          placeholder="e.g. What oil meets Cummins CES 20086?"
+          value={advisorQuestion}
+          onChange={(e) => setAdvisorQuestion(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleAskLubricantAdvisor();
+            }
+          }}
+        />
+        <button
+          type="button"
+          style={{ ...styles.secondaryButton, minHeight: 46 }}
+          onClick={handleAskLubricantAdvisor}
+        >
+          Ask
+        </button>
+      </div>
+      {advisorResult && (
+        <div style={{ marginTop: 12 }}>
+          {!!advisorResult.message && (
+            <p style={styles.muted}>{advisorResult.message}</p>
+          )}
+          {advisorResult.matches?.length > 0 && (
+            <div style={{ display: "grid", gap: 10 }}>
+              {advisorResult.matches.map((match, idx) => (
+                <div key={`${match.productName}-${idx}`} style={styles.listRow}>
+                  <div>
+                    <div style={styles.listTitle}>{match.productName}</div>
+                    <div style={styles.listMeta}>
+                      Why:{" "}
+                      {match.matchedSpec
+                        ? `Matches ${match.matchedSpec}.`
+                        : "Matches requested specification terms."}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+
     <div style={{ ...styles.grid3, marginTop: 14 }}>
       <select
         style={styles.input}
