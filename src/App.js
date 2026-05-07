@@ -43,13 +43,44 @@ Your representative will follow up to review next steps and ensure a smooth impl
  * @returns {Promise<{ text: string }>}
  */
 async function extractLabelTextFromImage(imageFile) {
+  const fallbackText = "Detected label text will appear here once OCR is connected.";
   if (!imageFile) {
     return { text: "" };
   }
-  await new Promise((resolve) => setTimeout(resolve, 700));
-  return {
-    text: "Detected label text will appear here once OCR is connected.",
-  };
+  try {
+    const base64Image = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || "");
+        const payload = result.includes(",") ? result.split(",")[1] : result;
+        resolve(payload);
+      };
+      reader.onerror = () => reject(reader.error || new Error("File read failed"));
+      reader.readAsDataURL(imageFile);
+    });
+
+    const { data, error } = await supabase.functions.invoke("analyze-label-image", {
+      body: {
+        imageBase64: base64Image,
+        filename: imageFile.name || null,
+        contentType: imageFile.type || null,
+      },
+    });
+
+    if (error) {
+      console.error("OCR function invoke failed:", error);
+      return { text: fallbackText };
+    }
+
+    return {
+      text: String(data?.text || fallbackText),
+      confidence: data?.confidence,
+      source: data?.source,
+    };
+  } catch (err) {
+    console.error("OCR extraction failed:", err);
+    return { text: fallbackText };
+  }
 }
 
 function LeaderboardBadgeTray({
