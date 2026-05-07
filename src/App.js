@@ -65,13 +65,10 @@ async function extractLabelTextFromImage(imageFile) {
         contentType: imageFile.type || null,
       },
     });
-    console.log("OCR invoke full response:", { data, error });
-
     if (error) {
       console.error("OCR function invoke failed:", error);
       return { text: "", error: error.message || "OCR function failed" };
     }
-    console.log("OCR invoke data.text:", data?.text);
 
     const detectedText = String(data?.text || "").trim();
     if (!detectedText) {
@@ -179,12 +176,6 @@ function normalizeOcrCrossoverText(text) {
   if (viscosity && !new RegExp(`\\b${viscosity}\\b`, "i").test(normalized)) {
     normalized = `${normalized} ${viscosity}`.trim();
   }
-
-  console.log(
-    "OCR normalization matched rule:",
-    matchedRule ? matchedRule.name : "generic-fallback"
-  );
-  console.log("OCR normalized crossover text:", normalized);
 
   return normalized;
 }
@@ -4373,7 +4364,7 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
       setScannedLabelExtractedText("");
       setScannedLabelOcrLoading(false);
       setScannedLabelMessage(
-        "Image captured. AI label recognition will be connected next."
+        "Image captured. Review the detected label text and confirm the Klondike match."
       );
       if (scanSource === "step2") {
         setScannedLabelOcrLoading(true);
@@ -4381,9 +4372,7 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
         void (async () => {
           try {
             const { text, error } = await extractLabelTextFromImage(file);
-            console.log("OCR extracted text (step2):", text);
             const detectedText = String(text || "").trim();
-            console.log("OCR state assignment scannedLabelExtractedText (step2):", detectedText);
             setScannedLabelExtractedText(detectedText);
             if (detectedText) {
               setCompetitor(detectedText);
@@ -4394,15 +4383,6 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
               setQuoteMessage("");
               const normalizedCrossoverText =
                 normalizeOcrCrossoverText(detectedText);
-              console.log(
-                "OCR auto path -> detected text passed into quickCrossToQuote:",
-                detectedText
-              );
-              console.log("OCR raw text:", detectedText);
-              console.log(
-                "OCR normalized crossover text:",
-                normalizedCrossoverText
-              );
               await quickCrossToQuote(
                 normalizedCrossoverText || detectedText,
                 "No confident match found. Please refine the detected product text or search manually."
@@ -4416,7 +4396,7 @@ const [selectedPackage, setSelectedPackage] = React.useState("");
             }
             if (detectedText) {
               setScannedLabelMessage(
-                "Image captured. AI label recognition will be connected next."
+                "Image captured. Review the detected label text and confirm the Klondike match."
               );
             }
           } finally {
@@ -4455,12 +4435,7 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       setScannedLabelOcrLoading(true);
       try {
         const { text, error } = await extractLabelTextFromImage(scannedLabelImage);
-        console.log("OCR extracted text (manual):", text);
         const detectedText = String(text || "").trim();
-        console.log(
-          "OCR state assignment scannedLabelExtractedText (manual):",
-          detectedText
-        );
         setScannedLabelExtractedText(detectedText);
         if (!detectedText) {
           setScannedLabelMessage(
@@ -4469,7 +4444,7 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
           );
         } else {
           setScannedLabelMessage(
-            "Image captured. AI label recognition will be connected next."
+            "Image captured. Review the detected label text and confirm the Klondike match."
           );
         }
       } finally {
@@ -4481,13 +4456,6 @@ const [quickCrossLoading, setQuickCrossLoading] = React.useState(false);
       const value = String(scannedLabelExtractedText || "").trim();
       if (!value) return;
       const normalizedCrossoverText = normalizeOcrCrossoverText(value);
-      console.log("Use Text for Cross Reference value:", value);
-      console.log("Use Text for Cross Reference calling quickCrossToQuote.");
-      console.log("OCR raw text:", value);
-      console.log(
-        "OCR normalized crossover text:",
-        normalizedCrossoverText
-      );
       setCompetitor(value);
       setCrossSearch(value);
       setSelectedPackage("");
@@ -5043,9 +5011,6 @@ const quickCrossToQuote = async (
   noMatchMessage = "No Klondike match found."
 ) => {
   const searchValue = String((searchOverride ?? competitor) || "").trim();
-  console.log("quickCrossToQuote searchOverride value:", searchOverride);
-  console.log("quickCrossToQuote computed searchValue:", searchValue);
-
   if (!searchValue) return;
 
   try {
@@ -5064,7 +5029,6 @@ const quickCrossToQuote = async (
     }
 
     const row = data?.[0];
-    console.log("quickCrossToQuote Klondike match found:", Boolean(row?.klondike_product));
 
     if (!row?.klondike_product) {
       setKlondike("");

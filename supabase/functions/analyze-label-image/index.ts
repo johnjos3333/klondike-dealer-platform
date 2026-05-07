@@ -79,12 +79,6 @@ serve(async (req) => {
     const body = await req.json();
     const imageBase64 = String(body?.imageBase64 || "");
     const contentType = String(body?.contentType || "image/jpeg");
-    console.log("OCR request payload:", {
-      hasImage: imageBase64.length > 0,
-      imageBase64Length: imageBase64.length,
-      contentType,
-      filename: body?.filename || null,
-    });
 
     if (!imageBase64) {
       return new Response(
@@ -124,7 +118,6 @@ serve(async (req) => {
       "The `text` field should be a clean searchable phrase combining the extracted values.\n" +
       "Output strict JSON with keys: text, brand, productName, viscosity, application, specs, confidence.";
 
-    console.log("About to call OpenAI Vision");
     const visionResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -156,17 +149,12 @@ serve(async (req) => {
         ],
       }),
     });
-    console.log("OpenAI response status:", visionResponse.status);
-    console.log("OpenAI response ok:", visionResponse.ok);
-
     if (!visionResponse.ok) {
-      const errorText = await visionResponse.text();
-      console.log("OpenAI error body:", errorText);
+      await visionResponse.text();
       throw new Error(`OpenAI request failed: ${visionResponse.status}`);
     }
 
     const visionJson = await visionResponse.json();
-    console.log("OpenAI raw response:", visionJson);
     const rawContent = visionJson?.choices?.[0]?.message?.content;
     if (!rawContent) {
       throw new Error("OpenAI response missing content");
@@ -178,10 +166,7 @@ serve(async (req) => {
     } catch {
       throw new Error("OpenAI returned non-JSON content");
     }
-    console.log("OpenAI parsed JSON:", parsed);
-
     const normalizedResponse = normalizeVisionPayload(parsed);
-    console.log("OCR final payload:", normalizedResponse);
 
     return new Response(
       JSON.stringify(normalizedResponse),
@@ -190,8 +175,7 @@ serve(async (req) => {
         headers: { "Content-Type": "application/json", ...corsHeaders },
       }
     );
-  } catch (err) {
-    console.error("OCR Edge Function caught error:", err);
+  } catch (_err) {
     return new Response(
       JSON.stringify(errorResponse),
       {
