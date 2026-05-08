@@ -80,7 +80,7 @@ serve(async (req) => {
     const dealerNameRaw = String(body.dealerName ?? "").trim();
     const dealerNameSafe = sanitizeHeaderName(dealerNameRaw);
     const dealerDisplayName = dealerNameSafe
-      ? `${dealerNameSafe} Proposal Center`
+      ? `${dealerNameSafe} via Klondike`
       : "";
 
     const fromEmail = (
@@ -104,11 +104,17 @@ serve(async (req) => {
     const replyToEmail =
       isValidEmail(replyToCandidateRaw) ? replyToCandidateRaw : "";
 
-    const dealerBrandTitle = dealerNameSafe ? escapeHtml(dealerNameSafe) : escapeHtml("Klondike");
+    const dealerBrandTitle = dealerNameSafe
+      ? escapeHtml(dealerNameSafe)
+      : escapeHtml("Klondike");
+    const repEmailSafe = isValidEmail(repEmail) ? escapeHtml(repEmail) : "";
 
+    const subjectCustomer = String(
+      body.customerName ?? body.companyName ?? "",
+    ).trim() || "Customer";
     const subject = dealerNameSafe
-      ? `${dealerNameSafe} Proposal Center — Proposal ready for review`
-      : "Klondike Proposal Center — Proposal ready for review";
+      ? `${dealerNameSafe} proposal for ${subjectCustomer}`
+      : `Klondike proposal for ${subjectCustomer}`;
 
     const html = `
 <!DOCTYPE html>
@@ -119,13 +125,13 @@ serve(async (req) => {
       ${dealerDisplayName || "Klondike Proposal Center"}
     </div>
     <div style="font-size: 12px; color: #64748b;">
-      ${dealerBrandTitle} • WE GROW INDEPENDENT BUSINESS • Klondike Lubricants
+      ${dealerBrandTitle} • Klondike Dealer Growth Platform
     </div>
   </div>
 
   <p>Hi <strong>${customerName}</strong>,</p>
 
-  <p><strong>${repName}</strong> has prepared a lubrication proposal for you.</p>
+  <p><strong>${repName}</strong> from <strong>${dealerBrandTitle}</strong> prepared a lubrication proposal for your review using the Klondike Dealer Growth Platform.</p>
 
   ${
     reviewLink
@@ -140,8 +146,17 @@ serve(async (req) => {
          </p>`
   }
 
-  <p style="margin-top: 18px; color: #64748b; font-size: 13px;">
-    This is an automated notification. If you have questions, please contact your representative.
+  <p style="margin-top: 18px; margin-bottom: 0;">
+    Thank you,
+  </p>
+  <p style="margin-top: 6px; margin-bottom: 0;">
+    <strong>${repName}</strong><br />
+    ${dealerBrandTitle}${repEmailSafe ? `<br />${repEmailSafe}` : ""}
+  </p>
+
+  <p style="margin-top: 20px; color: #64748b; font-size: 13px;">
+    Sent by Klondike on behalf of ${dealerBrandTitle}.<br />
+    WE GROW INDEPENDENT BUSINESS
   </p>
 </body>
 </html>

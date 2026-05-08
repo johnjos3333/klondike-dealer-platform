@@ -58,7 +58,7 @@ serve(async (req) => {
     const dealerNameRaw = String(body.dealerName ?? "").trim();
     const dealerNameSafe = sanitizeHeaderName(dealerNameRaw);
     const dealerDisplayName = dealerNameSafe
-      ? `${dealerNameSafe} Proposal Center`
+      ? `${dealerNameSafe} via Klondike`
       : "";
 
     const replyToEmailRaw = cleanEmail(body.replyToEmail ?? body.replyTo);
@@ -144,7 +144,9 @@ serve(async (req) => {
     }
 
     const subjectCustomer = String(body.customerName ?? "").trim() || "A customer";
-    const subject = `Proposal response: ${subjectCustomer}`;
+    const subject = dealerNameSafe
+      ? `${dealerNameSafe} proposal for ${subjectCustomer}`
+      : `Klondike proposal for ${subjectCustomer}`;
 
     const refLine = quoteReference
       ? `<p><strong>Reference:</strong> ${quoteReference}</p>`
@@ -171,7 +173,7 @@ serve(async (req) => {
   </div>
 
   <p>Hi ${repName},</p>
-  <p><strong>${dealerNameLine}</strong> customer <strong>${customerName}</strong> submitted decisions on a lubrication proposal.</p>
+  <p><strong>${customerName}</strong> submitted decisions on a proposal from <strong>${dealerNameLine}</strong>.</p>
   ${customerEmail ? `<p><strong>Contact email:</strong> ${customerEmail}</p>` : ""}
   <p><strong>Approved:</strong> ${approvedCount} &nbsp;|&nbsp; <strong>Declined:</strong> ${declinedCount}</p>
   ${refLine}
