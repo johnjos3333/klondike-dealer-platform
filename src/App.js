@@ -928,6 +928,337 @@ function ProposalConversionIntelligenceSection({ styles, intel, scopeLabel }) {
   );
 }
 
+const PROPOSAL_DELIVERY_EMPTY =
+  "Proposal delivery intelligence will populate as customers open proposal links and submit responses.";
+
+function formatResponseTimeMs(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return null;
+  const minutes = Math.round(ms / (1000 * 60));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.round(ms / (1000 * 60 * 60));
+  if (hours < 24) return `${hours} hrs`;
+  const days = Math.round(ms / (1000 * 60 * 60 * 24));
+  return `${days} days`;
+}
+
+function buildProposalDeliveryIntelligence({
+  quotes,
+  proposalResponses,
+  viewEvents,
+  mode,
+}) {
+  const proposalsSent = countOutboundProposalQuotes(quotes, mode);
+
+  const responses = proposalResponses || [];
+  const respondedQuoteIds = new Set(
+    responses.map((r) => r?.quote_id).filter(Boolean)
+  );
+
+  const views = viewEvents || [];
+  const firstViewByQuoteId = new Map();
+  views.forEach((ev) => {
+    const qid = ev?.quote_id;
+    if (!qid) return;
+    const viewedMs = parseTimelineMs(ev?.viewed_at);
+    if (viewedMs == null) return;
+    const existing = firstViewByQuoteId.get(qid);
+    if (existing == null || viewedMs < existing) firstViewByQuoteId.set(qid, viewedMs);
+  });
+
+  const proposalsViewed = firstViewByQuoteId.size;
+  const viewedQuoteIds = new Set(firstViewByQuoteId.keys());
+  const respondedViewedQuoteIds = new Set(
+    [...viewedQuoteIds].filter((qid) => respondedQuoteIds.has(qid))
+  );
+  const viewedButNotResponded = Math.max(
+    0,
+    proposalsViewed - respondedViewedQuoteIds.size
+  );
+
+  const customerResponsesReceived = respondedQuoteIds.size;
+
+  // Avg response time: first view -> first response per quote.
+  const firstResponseByQuoteId = new Map();
+  responses.forEach((r) => {
+    const qid = r?.quote_id;
+    if (!qid) return;
+    const createdMs = parseTimelineMs(r?.created_at);
+    if (createdMs == null) return;
+    const existing = firstResponseByQuoteId.get(qid);
+    if (existing == null || createdMs < existing)
+      firstResponseByQuoteId.set(qid, createdMs);
+  });
+
+  const deltas = [];
+  respondedViewedQuoteIds.forEach((qid) => {
+    const v = firstViewByQuoteId.get(qid);
+    const r = firstResponseByQuoteId.get(qid);
+    if (v == null || r == null) return;
+    const delta = r - v;
+    if (Number.isFinite(delta) && delta >= 0) deltas.push(delta);
+  });
+
+  const avgResponseTimeMs =
+    deltas.length > 0 ? deltas.reduce((s, d) => s + d, 0) / deltas.length : null;
+  const avgResponseTimeLabel =
+    avgResponseTimeMs == null ? null : formatResponseTimeMs(avgResponseTimeMs);
+
+  const insights = [];
+  if (proposalsViewed > 0) {
+    if (viewedButNotResponded > 0) {
+      const n = viewedButNotResponded;
+      insights.push(
+        `${n} proposal${n === 1 ? "" : "s"} have been viewed but not yet responded to.`
+      );
+    }
+    if (respondedViewedQuoteIds.size > 0) {
+      insights.push(
+        `Of ${proposalsViewed} viewed proposals, ${respondedViewedQuoteIds.size} have received customer responses.`
+      );
+    }
+    if (avgResponseTimeLabel) {
+      insights.push(`Average response time after viewing: ${avgResponseTimeLabel}.`);
+    }
+  }
+
+  const hasViewData = proposalsViewed > 0;
+
+  return {
+    proposalsSent,
+    proposalsViewed,
+    viewedButNotResponded,
+    customerResponsesReceived,
+    avgResponseTimeLabel,
+    insights,
+    hasViewData,
+  };
+}
+
+function ProposalDeliveryIntelligenceSection({ styles, intel }) {
+  const safeIntel = intel || {};
+
+  const {
+    proposalsSent,
+    proposalsViewed,
+    viewedButNotResponded,
+    customerResponsesReceived,
+    avgResponseTimeLabel,
+    insights,
+    hasViewData,
+  } = safeIntel;
+
+  return (
+    <div
+      style={{
+        marginBottom: 24,
+        borderRadius: 20,
+        padding: "22px 22px 24px",
+        background: "linear-gradient(160deg, #071a2e 0%, #0a2540 42%, #0f3460 100%)",
+        border: "1px solid rgba(30, 58, 138, 0.22)",
+        boxShadow: "0 18px 45px rgba(7, 26, 46, 0.45)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 900,
+          letterSpacing: "0.12em",
+          color: "rgba(148, 196, 255, 0.95)",
+          marginBottom: 8,
+          textTransform: "uppercase",
+        }}
+      >
+        PROPOSAL DELIVERY
+      </div>
+
+      <h3
+        style={{
+          margin: "0 0 6px",
+          fontSize: 22,
+          fontWeight: 900,
+          color: "#ffffff",
+          letterSpacing: "-0.02em",
+        }}
+      >
+        Proposal delivery intelligence
+      </h3>
+
+      <p
+        style={{
+          margin: "0 0 18px",
+          fontSize: 14,
+          lineHeight: 1.55,
+          color: "rgba(226, 232, 240, 0.9)",
+          maxWidth: 720,
+        }}
+      >
+        Public proposal views (link openings) translated into operational engagement
+        metrics—no CRM tasks, notes, or messages.
+      </p>
+
+      {!hasViewData ? (
+        <div
+          style={{
+            padding: "18px 16px",
+            borderRadius: 14,
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            color: "rgba(226, 232, 240, 0.88)",
+            fontSize: 14,
+            lineHeight: 1.65,
+          }}
+        >
+          {PROPOSAL_DELIVERY_EMPTY}
+        </div>
+      ) : (
+        <>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+              gap: 12,
+              marginBottom: 16,
+            }}
+          >
+            {[
+              {
+                label: "Proposals sent",
+                value: proposalsSent,
+                accent: "orange",
+              },
+              {
+                label: "Proposals viewed",
+                value: proposalsViewed,
+                accent: "blue",
+              },
+              {
+                label: "Viewed, not responded",
+                value: viewedButNotResponded,
+                accent: "orange",
+              },
+              {
+                label: "Customer responses received",
+                value: customerResponsesReceived,
+                accent: "blue",
+              },
+            ].map((cell) => (
+              <div
+                key={cell.label}
+                style={{
+                  background: "#ffffff",
+                  borderRadius: 12,
+                  padding: "14px 14px 12px",
+                  border:
+                    cell.accent === "orange"
+                      ? "1px solid rgba(246, 165, 49, 0.45)"
+                      : "1px solid rgba(30, 58, 138, 0.18)",
+                  boxShadow: "0 6px 20px rgba(15, 23, 42, 0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.07em",
+                    textTransform: "uppercase",
+                    color: cell.accent === "orange" ? "#c2410c" : "#1e3a8a",
+                    marginBottom: 8,
+                  }}
+                >
+                  {cell.label}
+                </div>
+                <div
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 900,
+                    color: "#0f172a",
+                    lineHeight: 1,
+                  }}
+                >
+                  {cell.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: 12,
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: 12,
+                padding: "14px 16px",
+                border: "1px solid rgba(30, 58, 138, 0.15)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.07em",
+                  textTransform: "uppercase",
+                  color: "#1e40af",
+                  marginBottom: 6,
+                }}
+              >
+                Average response time after first view
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#0f172a" }}>
+                {avgResponseTimeLabel || "—"}
+              </div>
+              <div style={{ ...styles.listMeta, marginTop: 6, lineHeight: 1.45 }}>
+                Computed from timestamps when both a public view and a response exist.
+              </div>
+            </div>
+          </div>
+
+          {insights.length > 0 && (
+            <div
+              style={{
+                padding: "14px 16px",
+                borderRadius: 12,
+                background: "linear-gradient(90deg, #fffbeb 0%, #eff6ff 100%)",
+                border: "1px solid rgba(30, 58, 138, 0.25)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  color: "#0f172a",
+                  marginBottom: 8,
+                }}
+              >
+                INSIGHTS
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  color: "#0f172a",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                }}
+              >
+                {insights.map((line, idx) => (
+                  <li key={`pdi-insight-${idx}`}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function summarizeApprovedDemandFromProposalRows(responseRows, quoteItemByIdMap) {
   const lines = [];
   (responseRows || []).forEach((row) => {
@@ -2684,6 +3015,8 @@ const [dealerTimelineBundle, setDealerTimelineBundle] = useState({
   responses: [],
   ocrEvents: [],
 });
+const [dealerAdminProposalDeliveryIntel, setDealerAdminProposalDeliveryIntel] =
+  useState(null);
 const [dealerNetworkPerformance, setDealerNetworkPerformance] = useState([]);
 const [selectedDealerPerformance, setSelectedDealerPerformance] = useState(null);
   const [dealerSaving, setDealerSaving] = useState(false);
@@ -6943,6 +7276,30 @@ const handleFinishDealerEnrollment = async () => {
     ocrEvents: ocrTimelineRows,
   });
 
+  // Proposal delivery/view intelligence (proposal link opens).
+  try {
+    let dealerViewEvents = [];
+    if (quoteIds && quoteIds.length > 0) {
+      const { data: viewRows, error: viewError } = await supabase
+        .from("proposal_view_events")
+        .select("quote_id, viewed_at")
+        .in("quote_id", quoteIds);
+      if (!viewError) dealerViewEvents = viewRows || [];
+      else console.warn("Proposal view events load failed:", viewError);
+    }
+
+    const dealerDeliveryIntel = buildProposalDeliveryIntelligence({
+      quotes: dealerQuotes,
+      proposalResponses: responseRows,
+      viewEvents: dealerViewEvents,
+      mode: "dealer",
+    });
+    setDealerAdminProposalDeliveryIntel(dealerDeliveryIntel);
+  } catch (e) {
+    console.warn("Proposal delivery intelligence compute skipped:", e);
+    setDealerAdminProposalDeliveryIntel(null);
+  }
+
   setDealerPerformance({
     quotesCreated: dealerQuotes.length,
     proposalsSent: dealerQuotes.filter((q) => q.status === "sent").length,
@@ -7287,6 +7644,12 @@ const renderDealerAdminView = () => (
             <ProposalConversionIntelligenceSection
               styles={styles}
               intel={dealerAdminProposalConversionIntel}
+              scopeLabel="organization-wide proposals"
+            />
+
+            <ProposalDeliveryIntelligenceSection
+              styles={styles}
+              intel={dealerAdminProposalDeliveryIntel}
               scopeLabel="organization-wide proposals"
             />
 
@@ -8233,6 +8596,8 @@ const renderDealerAdminView = () => (
     const [dashboardScopedResponses, setDashboardScopedResponses] =
       React.useState([]);
     const [timelineOcrEvents, setTimelineOcrEvents] = React.useState([]);
+    const [portalProposalDeliveryIntel, setPortalProposalDeliveryIntel] =
+      React.useState(null);
     const [repSnapshot, setRepSnapshot] = React.useState({
   quotes: 0,
   proposalsSent: 0,
@@ -8636,6 +9001,36 @@ const loadDashboardMetrics = async () => {
 
   setDashboardScopedQuotes(myQuotesForMetrics);
   setDashboardScopedResponses(myResponses);
+
+  let viewEvents = [];
+  try {
+    const quoteIdsForView = (myQuotesForMetrics || [])
+      .map((q) => q?.id)
+      .filter(Boolean);
+    if (quoteIdsForView.length > 0) {
+      const { data: viewRows, error: viewError } = await supabase
+        .from("proposal_view_events")
+        .select("quote_id, viewed_at")
+        .in("quote_id", quoteIdsForView);
+      if (!viewError) viewEvents = viewRows || [];
+      else console.warn("Proposal view events load failed:", viewError);
+    }
+  } catch (err) {
+    console.warn("Proposal view events load failed:", err);
+  }
+
+  try {
+    const portalIntel = buildProposalDeliveryIntelligence({
+      quotes: myQuotesForMetrics,
+      proposalResponses: myResponses,
+      viewEvents,
+      mode: "portal",
+    });
+    setPortalProposalDeliveryIntel(portalIntel);
+  } catch (e) {
+    console.warn("Proposal delivery intelligence compute skipped:", e);
+    setPortalProposalDeliveryIntel(null);
+  }
 
   let ocrRows = [];
   if (activeMembership?.organization_id && (isRep || isManager)) {
@@ -11385,6 +11780,12 @@ return (
       <ProposalConversionIntelligenceSection
         styles={styles}
         intel={portalProposalConversionIntel}
+        scopeLabel="your outbound proposals"
+      />
+
+      <ProposalDeliveryIntelligenceSection
+        styles={styles}
+        intel={portalProposalDeliveryIntel}
         scopeLabel="your outbound proposals"
       />
 
@@ -14724,6 +15125,12 @@ setTier(rec.tier || "Good");
               scopeLabel="assigned team proposals"
             />
 
+            <ProposalDeliveryIntelligenceSection
+              styles={styles}
+              intel={portalProposalDeliveryIntel}
+              scopeLabel="assigned team proposals"
+            />
+
             <div style={{ marginBottom: 24 }}>
               <CrmTimelineCard
                 styles={styles}
@@ -15397,6 +15804,56 @@ const [equipmentFeedback, setEquipmentFeedback] = React.useState({});
       }
 
       if (!quoteData) return;
+
+      // Track public proposal link engagement (proposal link open).
+      // Non-blocking + defensive: proposal responses and page load must not be affected.
+      try {
+        const quoteId = quoteData?.id;
+        const viewKey = quoteId ? `kd_public_proposal_view_${quoteId}` : "";
+        let alreadyTracked = false;
+        try {
+          alreadyTracked =
+            viewKey &&
+            typeof window !== "undefined" &&
+            window.localStorage?.getItem(viewKey);
+        } catch {
+          alreadyTracked = false;
+        }
+
+        if (!alreadyTracked && quoteId) {
+          const userAgent =
+            typeof navigator !== "undefined" ? navigator.userAgent : null;
+          void (async () => {
+            try {
+              const payload = {
+                quote_id: quoteId,
+                organization_id: quoteData?.organization_id || null,
+                user_agent: userAgent,
+                source: "public_proposal",
+              };
+              const { error } = await supabase
+                .from("proposal_view_events")
+                .insert(payload);
+              if (!error) {
+                try {
+                  window.localStorage?.setItem(viewKey, "1");
+                } catch {
+                  // ignore
+                }
+              } else {
+                console.warn(
+                  "Public proposal view tracking insert failed:",
+                  error
+                );
+              }
+            } catch (err) {
+              console.warn("Public proposal view tracking skipped:", err);
+            }
+          })();
+        }
+      } catch {
+        // ignore tracking failures
+      }
 
       const { data: itemData, error: itemError } = await supabase
         .from("quote_items")
