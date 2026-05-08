@@ -444,6 +444,490 @@ function getDashboardDemandCategoryFromProductName(productName) {
   return "Other";
 }
 
+/** Aligns outbound proposal counts with existing dashboard semantics (portal vs dealer admin). */
+function countOutboundProposalQuotes(quotes, mode) {
+  const qs = quotes || [];
+  if (mode === "dealer") {
+    return qs.filter((q) => String(q?.status || "").toLowerCase() === "sent")
+      .length;
+  }
+  return qs.filter(
+    (q) => Boolean(q?.rep_signature) || Boolean(String(q?.rep_email || "").trim())
+  ).length;
+}
+
+function incrementCount(map, rawKey, labelFallback) {
+  const keyRaw = String(rawKey || "").trim();
+  const key = keyRaw || labelFallback;
+  if (!map[key]) map[key] = 0;
+  map[key] += 1;
+  return map;
+}
+
+function pickTopDemandLabel(counts, minCount = 1) {
+  const entries = Object.entries(counts || {}).filter(
+    ([, n]) => n >= minCount
+  );
+  if (!entries.length) return null;
+  entries.sort(
+    (a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]))
+  );
+  return { label: entries[0][0], count: entries[0][1] };
+}
+
+function buildProposalConversionIntelligence(quotes, proposalResponses, mode) {
+  const proposalsSent = countOutboundProposalQuotes(quotes, mode);
+  const responses = proposalResponses || [];
+  const responsesReceived = responses.length;
+
+  let approvedLines = 0;
+  let declinedLines = 0;
+  const approvedProductCounts = {};
+  const declinedProductCounts = {};
+  const approvedCategoryCounts = {};
+  const declinedCategoryCounts = {};
+
+  responses.forEach((res) => {
+    collectProposalDecisionLines(res).forEach((ln) => {
+      const productLabel = String(ln.product || "").trim() || "—";
+      if (ln.decision === "approved") {
+        approvedLines += 1;
+        incrementCount(approvedProductCounts, ln.product, "—");
+        const cat = getDashboardDemandCategoryFromProductName(productLabel);
+        incrementCount(approvedCategoryCounts, cat, "Other");
+      } else if (ln.decision === "declined") {
+        declinedLines += 1;
+        incrementCount(declinedProductCounts, ln.product, "—");
+        const cat = getDashboardDemandCategoryFromProductName(productLabel);
+        incrementCount(declinedCategoryCounts, cat, "Other");
+      }
+    });
+  });
+
+  const decisionsTotal = approvedLines + declinedLines;
+  const approvalRatioPercent =
+    decisionsTotal > 0
+      ? Math.round((approvedLines / decisionsTotal) * 100)
+      : null;
+
+  const topApprovedProductRow = pickTopDemandLabel(approvedProductCounts);
+  const topDeclinedProductRow = pickTopDemandLabel(declinedProductCounts);
+  const topApprovedCategoryRow = pickTopDemandLabel(approvedCategoryCounts);
+  const topDeclinedCategoryRow = pickTopDemandLabel(declinedCategoryCounts);
+
+  const topApprovedProductLabel =
+    topApprovedProductRow && topApprovedProductRow.label !== "—"
+      ? topApprovedProductRow.label
+      : null;
+  const topDeclinedProductLabel =
+    topDeclinedProductRow && topDeclinedProductRow.label !== "—"
+      ? topDeclinedProductRow.label
+      : null;
+  const topApprovedCategoryLabel = topApprovedCategoryRow?.label || null;
+  const topDeclinedCategoryLabel = topDeclinedCategoryRow?.label || null;
+
+  const insights = [];
+  if (approvedLines > 0 && responsesReceived > 0) {
+    insights.push(
+      "Customer responses are beginning to convert into approved demand."
+    );
+  }
+  if (declinedLines > 0) {
+    insights.push(
+      "Declined lines may need follow-up before the next proposal revision."
+    );
+  }
+  if (
+    topApprovedCategoryLabel &&
+    approvedLines >= 2 &&
+    topApprovedCategoryRow
+  ) {
+    const catShareApproved =
+      approvedLines > 0
+        ? topApprovedCategoryRow.count / approvedLines
+        : 0;
+    if (
+      catShareApproved >= 0.45 &&
+      topApprovedCategoryLabel !== "Other"
+    ) {
+      insights.push(
+        `Approved demand is concentrated in ${topApprovedCategoryLabel}.`
+      );
+    }
+  }
+  if (
+    topDeclinedCategoryLabel &&
+    declinedLines >= 2 &&
+    topDeclinedCategoryRow
+  ) {
+    const catShareDeclined =
+      declinedLines > 0
+        ? topDeclinedCategoryRow.count / declinedLines
+        : 0;
+    if (catShareDeclined >= 0.45 && topDeclinedCategoryLabel !== "Other") {
+      insights.push(
+        `Most declined rows group under ${topDeclinedCategoryLabel}—review competitiveness on the next recommendation pass.`
+      );
+    }
+  }
+  if (proposalsSent > 0 && responsesReceived === 0) {
+    insights.push(
+      "Outbound proposals recorded—customer decision submissions will appear once responses arrive."
+    );
+  }
+
+  const hasProposalMotion = proposalsSent > 0 || responsesReceived > 0;
+
+  return {
+    proposalsSent,
+    responsesReceived,
+    approvedLines,
+    declinedLines,
+    decisionsTotal,
+    approvalRatioPercent,
+    topApprovedProductLabel,
+    topDeclinedProductLabel,
+    topApprovedCategoryLabel,
+    topDeclinedCategoryLabel,
+    insights,
+    hasProposalMotion,
+  };
+}
+
+const PROPOSAL_CONVERSION_EMPTY =
+  "Proposal conversion intelligence will populate as customers review and respond to proposals.";
+
+function ProposalConversionIntelligenceSection({ styles, intel, scopeLabel }) {
+  const {
+    proposalsSent,
+    responsesReceived,
+    approvedLines,
+    declinedLines,
+    decisionsTotal,
+    approvalRatioPercent,
+    topApprovedProductLabel,
+    topDeclinedProductLabel,
+    topApprovedCategoryLabel,
+    topDeclinedCategoryLabel,
+    insights,
+    hasProposalMotion,
+  } = intel;
+
+  return (
+    <div
+      style={{
+        marginBottom: 24,
+        borderRadius: 20,
+        padding: "22px 22px 24px",
+        background:
+          "linear-gradient(160deg, #071a2e 0%, #0a2540 42%, #0f3460 100%)",
+        border: "1px solid rgba(246, 165, 49, 0.22)",
+        boxShadow: "0 18px 45px rgba(7, 26, 46, 0.45)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 900,
+          letterSpacing: "0.12em",
+          color: "rgba(148, 196, 255, 0.95)",
+          marginBottom: 8,
+          textTransform: "uppercase",
+        }}
+      >
+        PROPOSAL CONVERSION
+      </div>
+      <h3
+        style={{
+          margin: "0 0 6px",
+          fontSize: 22,
+          fontWeight: 900,
+          color: "#ffffff",
+          letterSpacing: "-0.02em",
+        }}
+      >
+        Proposal conversion intelligence
+      </h3>
+      <p
+        style={{
+          margin: "0 0 18px",
+          fontSize: 14,
+          lineHeight: 1.55,
+          color: "rgba(226, 232, 240, 0.9)",
+          maxWidth: 720,
+        }}
+      >
+        Quote and proposal acceptance signals from customer decision rows on your
+        lubricant recommendations
+        {scopeLabel ? ` (${scopeLabel})` : ""}. Execution-focused visibility—not a
+        CRM workspace.
+      </p>
+
+      {!hasProposalMotion ? (
+        <div
+          style={{
+            padding: "18px 16px",
+            borderRadius: 14,
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            color: "rgba(226, 232, 240, 0.88)",
+            fontSize: 14,
+            lineHeight: 1.65,
+          }}
+        >
+          {PROPOSAL_CONVERSION_EMPTY}
+        </div>
+      ) : (
+        <>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+              gap: 12,
+              marginBottom: 16,
+            }}
+          >
+            {[
+              {
+                k: "sent",
+                label: "Proposals sent",
+                value: proposalsSent,
+                accent: "orange",
+              },
+              {
+                k: "resp",
+                label: "Customer responses",
+                value: responsesReceived,
+                accent: "blue",
+              },
+              {
+                k: "ok",
+                label: "Approved line items",
+                value: approvedLines,
+                accent: "blue",
+              },
+              {
+                k: "no",
+                label: "Declined line items",
+                value: declinedLines,
+                accent: "orange",
+              },
+            ].map((cell) => (
+              <div
+                key={cell.k}
+                style={{
+                  background: "#ffffff",
+                  borderRadius: 12,
+                  padding: "14px 14px 12px",
+                  border:
+                    cell.accent === "orange"
+                      ? "1px solid rgba(246, 165, 49, 0.45)"
+                      : "1px solid rgba(30, 58, 138, 0.18)",
+                  boxShadow: "0 6px 20px rgba(15, 23, 42, 0.08)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.07em",
+                    textTransform: "uppercase",
+                    color: cell.accent === "orange" ? "#c2410c" : "#1e3a8a",
+                    marginBottom: 8,
+                  }}
+                >
+                  {cell.label}
+                </div>
+                <div
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 900,
+                    color: "#0f172a",
+                    lineHeight: 1,
+                  }}
+                >
+                  {cell.value}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: 12,
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: 12,
+                padding: "14px 16px",
+                border: "1px solid rgba(30, 58, 138, 0.15)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.07em",
+                  textTransform: "uppercase",
+                  color: "#1e3a8a",
+                  marginBottom: 6,
+                }}
+              >
+                Approval ratio (line decisions)
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: "#0f172a" }}>
+                {decisionsTotal > 0 && approvalRatioPercent != null ? (
+                  `${approvalRatioPercent}%`
+                ) : (
+                  <span style={{ fontWeight: 600, fontSize: 16, color: "#64748b" }}>
+                    Needs approve/decline rows
+                  </span>
+                )}
+              </div>
+              <div style={{ ...styles.listMeta, marginTop: 6, lineHeight: 1.45 }}>
+                {decisionsTotal > 0 ? (
+                  <>
+                    {approvedLines} approved • {declinedLines} declined of{" "}
+                    {decisionsTotal} counted rows
+                  </>
+                ) : (
+                  <>No approve/decline product or equipment rows in loaded responses.</>
+                )}
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: 12,
+                padding: "14px 16px",
+                border: "1px solid rgba(246, 165, 49, 0.28)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.07em",
+                  textTransform: "uppercase",
+                  color: "#c2410c",
+                  marginBottom: 6,
+                }}
+              >
+                Top movers (products)
+              </div>
+              <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.55 }}>
+                <strong style={{ color: "#1e40af" }}>Approved:</strong>{" "}
+                {topApprovedProductLabel ||
+                  (approvedLines === 0 ? "—" : "(product labels vary)")}
+              </div>
+              <div
+                style={{ fontSize: 13, color: "#334155", marginTop: 6, lineHeight: 1.55 }}
+              >
+                <strong style={{ color: "#c2410c" }}>Declined:</strong>{" "}
+                {topDeclinedProductLabel ||
+                  (declinedLines === 0 ? "—" : "(product labels vary)")}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#64748b",
+                  marginTop: 8,
+                  fontStyle: "italic",
+                  lineHeight: 1.45,
+                }}
+              >
+                Derived from lubricant recommendation text captured on proposal rows.
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: 12,
+                padding: "14px 16px",
+                border: "1px solid rgba(30, 58, 138, 0.12)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.07em",
+                  textTransform: "uppercase",
+                  color: "#1e40af",
+                  marginBottom: 6,
+                }}
+              >
+                Top categories (inferred mix)
+              </div>
+              <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.55 }}>
+                <strong style={{ color: "#1e40af" }}>Approved:</strong>{" "}
+                {topApprovedCategoryLabel && approvedLines > 0
+                  ? topApprovedCategoryLabel
+                  : "—"}
+              </div>
+              <div
+                style={{ fontSize: 13, color: "#334155", marginTop: 6, lineHeight: 1.55 }}
+              >
+                <strong style={{ color: "#c2410c" }}>Declined:</strong>{" "}
+                {topDeclinedCategoryLabel && declinedLines > 0
+                  ? topDeclinedCategoryLabel
+                  : "—"}
+              </div>
+              <div style={{ ...styles.listMeta, marginTop: 6, lineHeight: 1.45 }}>
+                Grouping uses lubricant-program heuristics on product names—not catalog
+                truth.
+              </div>
+            </div>
+          </div>
+
+          {insights.length > 0 && (
+            <div
+              style={{
+                padding: "14px 16px",
+                borderRadius: 12,
+                background: "linear-gradient(90deg, #fffbeb 0%, #eff6ff 100%)",
+                border: "1px solid rgba(246, 165, 49, 0.35)",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  color: "#b45309",
+                  marginBottom: 8,
+                }}
+              >
+                INSIGHTS
+              </div>
+              <ul
+                style={{
+                  margin: 0,
+                  paddingLeft: 18,
+                  color: "#0f172a",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                }}
+              >
+                {insights.map((line, idx) => (
+                  <li key={`pci-insight-${idx}`}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function summarizeApprovedDemandFromProposalRows(responseRows, quoteItemByIdMap) {
   const lines = [];
   (responseRows || []).forEach((row) => {
@@ -6548,13 +7032,23 @@ const dealerAdminFollowUpIntelligenceRows = React.useMemo(
 );
 
 const dealerAdminCrmTimelineEntries = React.useMemo(
+    () =>
+      buildCrmTimelineEntries({
+        quotes: dealerTimelineBundle.quotes,
+        proposalResponses: dealerTimelineBundle.responses,
+        ocrEvents: dealerTimelineBundle.ocrEvents,
+        limit: 10,
+      }),
+    [dealerTimelineBundle]
+  );
+
+const dealerAdminProposalConversionIntel = React.useMemo(
   () =>
-    buildCrmTimelineEntries({
-      quotes: dealerTimelineBundle.quotes,
-      proposalResponses: dealerTimelineBundle.responses,
-      ocrEvents: dealerTimelineBundle.ocrEvents,
-      limit: 10,
-    }),
+    buildProposalConversionIntelligence(
+      dealerTimelineBundle.quotes,
+      dealerTimelineBundle.responses,
+      "dealer"
+    ),
   [dealerTimelineBundle]
 );
 
@@ -6788,6 +7282,12 @@ const renderDealerAdminView = () => (
             <DashboardFollowUpIntelligenceCard
               styles={styles}
               rows={dealerAdminFollowUpIntelligenceRows}
+            />
+
+            <ProposalConversionIntelligenceSection
+              styles={styles}
+              intel={dealerAdminProposalConversionIntel}
+              scopeLabel="organization-wide proposals"
             />
 
             <div style={{ marginBottom: 24 }}>
@@ -7876,14 +8376,24 @@ const managerFollowUpIntelligenceRows = React.useMemo(() => {
 ]);
 
 const portalCrmTimelineEntries = React.useMemo(
+    () =>
+      buildCrmTimelineEntries({
+        quotes: dashboardScopedQuotes,
+        proposalResponses: dashboardScopedResponses,
+        ocrEvents: timelineOcrEvents,
+        limit: 10,
+      }),
+    [dashboardScopedQuotes, dashboardScopedResponses, timelineOcrEvents]
+  );
+
+const portalProposalConversionIntel = React.useMemo(
   () =>
-    buildCrmTimelineEntries({
-      quotes: dashboardScopedQuotes,
-      proposalResponses: dashboardScopedResponses,
-      ocrEvents: timelineOcrEvents,
-      limit: 10,
-    }),
-  [dashboardScopedQuotes, dashboardScopedResponses, timelineOcrEvents]
+    buildProposalConversionIntelligence(
+      dashboardScopedQuotes,
+      dashboardScopedResponses,
+      "portal"
+    ),
+  [dashboardScopedQuotes, dashboardScopedResponses]
 );
 
   React.useEffect(() => {
@@ -10866,6 +11376,12 @@ return (
       <DashboardFollowUpIntelligenceCard
         styles={styles}
         rows={repFollowUpIntelligenceRows}
+      />
+
+      <ProposalConversionIntelligenceSection
+        styles={styles}
+        intel={portalProposalConversionIntel}
+        scopeLabel="your outbound proposals"
       />
 
       <div style={{ marginBottom: 24 }}>
@@ -14196,6 +14712,12 @@ setTier(rec.tier || "Good");
             <DashboardFollowUpIntelligenceCard
               styles={styles}
               rows={managerFollowUpIntelligenceRows}
+            />
+
+            <ProposalConversionIntelligenceSection
+              styles={styles}
+              intel={portalProposalConversionIntel}
+              scopeLabel="assigned team proposals"
             />
 
             <div style={{ marginBottom: 24 }}>
