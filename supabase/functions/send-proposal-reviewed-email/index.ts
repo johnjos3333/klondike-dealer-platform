@@ -33,6 +33,10 @@ function pickCount(body: Record<string, unknown>, key: string, fallbackLen: numb
   return fallbackLen;
 }
 
+function sanitizeHeaderName(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").trim().slice(0, 120);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(JSON.stringify({ ok: true }), {
@@ -51,6 +55,16 @@ serve(async (req) => {
   try {
     const body = (await req.json()) as Record<string, unknown>;
     const repEmail = cleanEmail(body.repEmail);
+    const dealerNameRaw = String(body.dealerName ?? "").trim();
+    const dealerNameSafe = sanitizeHeaderName(dealerNameRaw);
+    const dealerDisplayName = dealerNameSafe
+      ? `${dealerNameSafe} Proposal Center`
+      : "";
+
+    const replyToEmailRaw = cleanEmail(body.replyToEmail ?? body.replyTo);
+    const replyToEmail = isValidEmail(replyToEmailRaw)
+      ? replyToEmailRaw
+      : "";
 
     if (!isValidEmail(repEmail)) {
       console.warn(
@@ -109,7 +123,7 @@ serve(async (req) => {
 
     const resendKey = Deno.env.get("RESEND_API_KEY") ?? "";
     const fromEmail = (
-      Deno.env.get("RESEND_FROM_EMAIL") ?? "onboarding@resend.dev"
+      Deno.env.get("RESEND_FROM_EMAIL") ?? "proposals@klondikelubricants.com"
     ).trim();
 
     if (!resendKey) {
@@ -140,12 +154,24 @@ serve(async (req) => {
       ? `<p>Review details in the dealer platform: <a href="${platformHref.replace(/"/g, "&quot;")}">${platformLabel}</a></p>`
       : `<p>Sign in to the Klondike Dealer Growth Platform to review full details.</p>`;
 
+    const dealerBrandTitle = dealerNameSafe
+      ? escapeHtml(dealerDisplayName)
+      : escapeHtml("Klondike Proposal Center");
+    const dealerNameLine = dealerNameSafe
+      ? escapeHtml(dealerNameSafe)
+      : escapeHtml("Klondike");
+
     const html = `
 <!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; line-height: 1.5; color: #0f172a;">
+  <div style="margin: 0 0 18px; padding: 14px 16px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 12px;">
+    <div style="font-size: 20px; font-weight: 900; color: #0a2540; margin-bottom: 4px;">${dealerBrandTitle}</div>
+    <div style="font-size: 12px; color: #64748b;">Klondike Lubricants • WE GROW INDEPENDENT BUSINESS</div>
+  </div>
+
   <p>Hi ${repName},</p>
-  <p><strong>${customerName}</strong> submitted decisions on a lubrication proposal.</p>
+  <p><strong>${dealerNameLine}</strong> customer <strong>${customerName}</strong> submitted decisions on a lubrication proposal.</p>
   ${customerEmail ? `<p><strong>Contact email:</strong> ${customerEmail}</p>` : ""}
   <p><strong>Approved:</strong> ${approvedCount} &nbsp;|&nbsp; <strong>Declined:</strong> ${declinedCount}</p>
   ${refLine}
@@ -155,18 +181,24 @@ serve(async (req) => {
 </html>
 `.trim();
 
+    const emailBody: Record<string, unknown> = {
+      from: dealerDisplayName ? `${dealerDisplayName} <${fromEmail}>` : fromEmail,
+      to: [repEmail],
+      subject,
+      html,
+    };
+
+    if (replyToEmail) {
+      emailBody.reply_to = replyToEmail;
+    }
+
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${resendKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: [repEmail],
-        subject,
-        html,
-      }),
+      body: JSON.stringify(emailBody),
     });
 
     const resText = await res.text();

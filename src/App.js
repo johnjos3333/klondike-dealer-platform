@@ -10684,6 +10684,7 @@ await supabase
     "send-proposal-to-customer",
     {
       body: {
+        dealerName: activeMembership?.organization?.name || "",
         customerEmail: quoteContactEmail,
         customerName: contactName || companyName,
         companyName,
@@ -10691,6 +10692,7 @@ await supabase
           `${repFirstName || ""} ${repLastName || ""}`.trim() ||
           "Sales Representative",
         repEmail: repEmailAddress || session?.user?.email,
+        replyToEmail: repEmailAddress || session?.user?.email,
         reviewLink,
       },
     }
@@ -10747,12 +10749,14 @@ const handleSubmitProposalDecisions = async () => {
   "send-proposal-reviewed-email",
   {
     body: {
+      dealerName: activeMembership?.organization?.name || "",
       repEmail: repEmailAddress || session?.user?.email,
       repName:
         `${repFirstName || ""} ${repLastName || ""}`.trim() ||
         "Sales Representative",
       customerName: companyName,
       customerEmail: quoteContactEmail,
+      replyToEmail: repEmailAddress || session?.user?.email,
       approved: approved.map((row) => ({
         product: row.item.klondike,
         packageSize: row.item.packageSize,
@@ -15526,11 +15530,13 @@ const declined = allResponses.filter((row) => row.decision === "declined");
           body: {
             repEmail: repEmailRaw,
             repName: quote.rep_name || "Sales Representative",
+            dealerName: quote.dealer_name || "",
             customerName: quote.customer_name,
             customerEmail: quote.customer_email,
             approvedCount: approved.length,
             declinedCount: declined.length,
             quoteId: quote.id,
+            replyToEmail: repEmailRaw,
             platformOrigin:
               typeof window !== "undefined" ? window.location.origin : "",
           },
