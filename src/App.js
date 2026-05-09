@@ -264,6 +264,46 @@ function formatTimelineDateLabel(iso) {
   }
 }
 
+/** Library row badge — deterministic labels from quote fields only. */
+function quoteLibraryStatusMeta(quote) {
+  const status = String(quote?.status || "").trim().toLowerCase();
+  const review = String(quote?.review_status || "").trim().toLowerCase();
+  if (status === "sent") {
+    if (review === "submitted") {
+      return {
+        label: "Responded",
+        hint: "Customer submitted decisions",
+        pillBg: "#dbeafe",
+        pillFg: "#1e40af",
+        pillBorder: "#93c5fd",
+      };
+    }
+    return {
+      label: "Awaiting customer",
+      hint: "Proposal sent",
+      pillBg: "#fff7ed",
+      pillFg: "#c2410c",
+      pillBorder: "#fdba74",
+    };
+  }
+  if (status === "draft" || status === "") {
+    return {
+      label: "Draft",
+      hint: "Not sent yet",
+      pillBg: "#f1f5f9",
+      pillFg: "#475569",
+      pillBorder: "#cbd5e1",
+    };
+  }
+  return {
+    label: String(quote?.status || "Saved").trim() || "Saved",
+    hint: review || "",
+    pillBg: "#f8fafc",
+    pillFg: "#0f172a",
+    pillBorder: "#e2e8f0",
+  };
+}
+
 const CRM_TIMELINE_KIND_ORDER = {
   ocr: 0,
   quote_created: 1,
@@ -9890,9 +9930,9 @@ setPricingMap(map);
           { id: "quote", label: "Start New Quote" },
           { id: "advisor", label: "Lubricant Advisor" },
           { id: "cross", label: "Cross Reference" },
-          { id: "library", label: "Quote / Proposal Library" },
+          { id: "library", label: "Quotes & Proposals" },
           { id: "pds", label: "PDS Library" },
-          { id: "proposal_view", label: "Proposal Viewer" },
+          { id: "proposal_view", label: "Proposal" },
         ]
             : isManager
       ? [
@@ -11996,9 +12036,9 @@ return (
 
 {dealerActiveTab === "dashboard" && isRep && (
   <>
-    <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 24 }}>
+    <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 20 }}>
       <div style={styles.eyebrow}>REP DASHBOARD</div>
-      <h3 style={{ ...styles.cardTitle, marginBottom: 14 }}>Performance Snapshot</h3>
+      <h3 style={{ ...styles.cardTitle, marginBottom: 12 }}>Performance Snapshot</h3>
 
       <div
         style={{
@@ -12041,13 +12081,13 @@ return (
     </div>
 
 {leaderboard.length > 0 && (
-  <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 24 }}>
+  <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 20 }}>
     <div style={styles.eyebrow}>Dealer Leaderboard</div>
-    <h3 style={{ ...styles.cardTitle, marginBottom: 14 }}>
+    <h3 style={{ ...styles.cardTitle, marginBottom: 12 }}>
       Rep Performance Rankings
     </h3>
 
-    <div style={{ ...styles.stack, gap: 18 }}>
+    <div style={{ ...styles.stack, gap: 14 }}>
       {leaderboard.map((rep, index) => (
         <div
           key={rep.name}
@@ -12119,7 +12159,7 @@ return (
         scopeLabel="your outbound proposals"
       />
 
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <CrmTimelineCard
           styles={styles}
           eyebrow="PROPOSAL ENGAGEMENT"
@@ -12132,9 +12172,9 @@ return (
       </div>
 <div style={{ ...styles.card, ...styles.dashboardCard }}>
   <div style={styles.eyebrow}>Pipeline</div>
-  <h3 style={{ ...styles.cardTitle, marginBottom: 14 }}>Your Active Deals</h3>
+  <h3 style={{ ...styles.cardTitle, marginBottom: 12 }}>Your Active Deals</h3>
 
-  <div style={{ ...styles.grid2, gap: 18 }}>
+  <div style={{ ...styles.grid2, gap: 14 }}>
 
     {/* Awaiting */}
     <div
@@ -12786,7 +12826,8 @@ return (
           style={{
             width: "100%",
             textAlign: "left",
-            padding: "12px 14px",
+            padding: "14px 16px",
+            minHeight: 48,
             border: "none",
             borderBottom: "1px solid #eef2f7",
             background: "#fff",
@@ -12815,17 +12856,29 @@ return (
     </div>
 
     {/* TIER + PACKAGE */}
+    <div style={{ marginTop: 16 }}>
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: "0.08em",
+          color: "#64748b",
+          marginBottom: 8,
+          textTransform: "uppercase",
+        }}
+      >
+        Tier & package
+      </div>
     <div
       style={{
         ...styles.grid3,
-        marginTop: 16,
         gap: 12,
         gridTemplateColumns:
           "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
       }}
     >
       <select
-        style={styles.input}
+        style={{ ...styles.input, minHeight: 48 }}
         value={tier}
         onChange={(e) => {
           const nextTier = e.target.value;
@@ -12846,7 +12899,7 @@ return (
       </select>
 
       <select
-        style={styles.input}
+        style={{ ...styles.input, minHeight: 48 }}
         value={packageSize}
         onChange={(e) => setPackageSize(e.target.value)}
         disabled={!klondike}
@@ -12860,6 +12913,7 @@ return (
           )
         )}
       </select>
+    </div>
     </div>
 
     {/* ADD BUTTON */}
@@ -13722,6 +13776,63 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
         {dealerActiveTab === "proposal_view" && isRep && (
   <div className="proposal-print-area kd-dealer-proposal-root" style={{ background: "#f8fafc", minHeight: "100vh", paddingBottom: 40 }}>
     <style dangerouslySetInnerHTML={{ __html: KD_PROPOSAL_MOBILE_CSS }} />
+    <div
+      className="no-print"
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 25,
+        marginBottom: 16,
+        padding: "12px 14px",
+        background: "rgba(248, 250, 252, 0.94)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        borderBottom: "1px solid #e2e8f0",
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 12,
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}
+    >
+      <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.45, minWidth: 0 }}>
+        <span style={{ fontWeight: 900, color: "#0a2540" }}>Proposal</span>
+        {" · "}
+        <span>{companyName || contactName || "Customer"}</span>
+        {quoteContactEmail ? (
+          <span
+            style={{
+              display: "block",
+              fontSize: 13,
+              color: "#64748b",
+              marginTop: 4,
+              wordBreak: "break-word",
+            }}
+          >
+            {quoteContactEmail}
+          </span>
+        ) : null}
+      </div>
+      {!repProposalReadOnlyCustomerDecisions && (
+        <button
+          type="button"
+          onClick={() =>
+            document.getElementById("kd-send-proposal-cta")?.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            })
+          }
+          style={{
+            ...styles.secondaryButton,
+            minHeight: 46,
+            padding: "10px 18px",
+            flexShrink: 0,
+          }}
+        >
+          Go to send email
+        </button>
+      )}
+    </div>
     {/* DEALER BRANDED HEADER */}
 <div
   style={{
@@ -14379,8 +14490,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
             }))
           }
           style={{
-            padding: "8px 12px",
-            borderRadius: 8,
+            padding: "11px 18px",
+            minHeight: 46,
+            borderRadius: 10,
             border:
               proposalDecisions[index] === "approved"
                 ? "2px solid #16a34a"
@@ -14404,8 +14516,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
             }))
           }
           style={{
-            padding: "8px 12px",
-            borderRadius: 8,
+            padding: "11px 18px",
+            minHeight: 46,
+            borderRadius: 10,
             border:
               proposalDecisions[index] === "declined"
                 ? "2px solid #dc2626"
@@ -14949,7 +15062,7 @@ We look forward to partnering with you on implementation and delivering measurab
       )}
 {/* SEND PROPOSAL TO CUSTOMER */}
 {!repProposalReadOnlyCustomerDecisions && (
-<div className="no-print" style={{ marginBottom: 20 }}>
+<div id="kd-send-proposal-cta" className="no-print" style={{ marginBottom: 20 }}>
   <button
     type="button"
     style={{
@@ -15081,7 +15194,7 @@ const packages = crossCatalogMap[rec.product] || [];
                   </p>
   {rec.product && (
   <button
-    style={styles.primaryButton}
+    style={{ ...styles.primaryButton, minHeight: 48 }}
     onClick={() => {
       setQuoteItems((prev) => [
         ...prev,
@@ -15103,7 +15216,7 @@ const packages = crossCatalogMap[rec.product] || [];
                   {packages.length > 0 && (
   <div style={{ marginTop: 12 }}>
     <select
-      style={styles.input}
+      style={{ ...styles.input, minHeight: 48 }}
       value={selectedPackage}
       onChange={(e) => setSelectedPackage(e.target.value)}
     >
@@ -15118,7 +15231,7 @@ const packages = crossCatalogMap[rec.product] || [];
 )}
                 </div>
 <button
-  style={styles.primaryButton}
+  style={{ ...styles.primaryButton, minHeight: 48 }}
  onClick={() => {
   if (!selectedPackage) {
     alert("Select a package first");
@@ -15143,9 +15256,7 @@ const packages = crossCatalogMap[rec.product] || [];
 
   setCompetitor(`${rec.competitorBrand} ${rec.competitorProduct}`);
   setKlondike(rec.product);
-setTier(rec.tier || "Good");
-  setKlondike(rec.product);
-setTier(rec.tier || "Good");
+  setTier(rec.tier || "Good");
 
   setDealerActiveTab("quote");
   setQuoteStep(2);
@@ -15194,72 +15305,120 @@ setTier(rec.tier || "Good");
 
         {dealerActiveTab === "library" && isRep && (
           <div style={styles.card}>
-            <div style={styles.eyebrow}>QUOTE / PROPOSAL LIBRARY</div>
+            <div style={styles.eyebrow}>QUOTES & PROPOSALS</div>
             <h3 style={styles.cardTitle}>Saved Quotes & Proposals</h3>
             <p style={styles.cardBody}>
               Draft quotes appear here now. Sent proposals will appear here once
               proposal generation is added.
             </p>
 
-            <div style={{ marginBottom: 22 }}>
+            <div style={{ marginBottom: 18 }}>
               <CrmTimelineCard
                 styles={styles}
                 eyebrow="LIBRARY SNAPSHOT"
                 title="Recent proposal engagement"
-                subtitle="Latest proposal-stage signals from your quotes (same scope as your dashboard). Scroll the dashboard for the full engagement timeline."
+                subtitle="Latest proposal-stage signals from your quotes (same scope as your dashboard). Open the dashboard for the full timeline."
                 entries={portalLibraryEngagementEntries}
                 insights={portalProposalEngagementInsights}
                 emptyStateText={PROPOSAL_ENGAGEMENT_TIMELINE_EMPTY}
               />
             </div>
 
-            <div style={styles.stack}>
+            <div style={{ ...styles.stack, gap: 12 }}>
               {myQuotes.length === 0 && (
                 <p style={styles.muted}>No quotes or proposals yet.</p>
               )}
 
-              {myQuotes.map((quote) => (
-                <div key={quote.id} style={styles.listRow}>
-                  <div>
+              {myQuotes.map((quote) => {
+                const sm = quoteLibraryStatusMeta(quote);
+                return (
+                <div
+                  key={quote.id}
+                  style={{
+                    ...styles.listRow,
+                    flexWrap: "wrap",
+                    gap: 14,
+                    alignItems: "flex-start",
+                    padding: "14px 16px",
+                  }}
+                >
+                  <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                     <div style={styles.listTitle}>{quote.customer_name}</div>
                     <div style={styles.listMeta}>
                       {quote.competitor_product} → {quote.klondike_product}
                     </div>
-                    <div style={styles.listMeta}>
-                      {quote.status} •{" "}
+                    <div style={{ ...styles.listMeta, marginTop: 6 }}>
                       {quote.customer_email || "No customer email"}
                     </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        gap: 8,
+                        marginTop: 10,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          padding: "5px 11px",
+                          borderRadius: 999,
+                          background: sm.pillBg,
+                          color: sm.pillFg,
+                          border: `1px solid ${sm.pillBorder}`,
+                        }}
+                      >
+                        {sm.label}
+                      </span>
+                      {sm.hint ? (
+                        <span style={{ ...styles.listMeta, fontSize: 12 }}>
+                          {sm.hint}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-  <span style={styles.statusPill}>{quote.status}</span>
-
-  <button
-    type="button"
-    style={styles.secondaryButton}
-    onClick={() => handleOpenSavedQuote(quote)}
-  >
-    Resume
-  </button>
-  <button
-  type="button"
-  style={{ ...styles.rejectButton }}
-  onClick={() => handleDeleteQuote(quote.id)}
->
-  Delete
-</button>
-  <button
-  type="button"
-  style={styles.primaryButton}
-  onClick={async () => {
-    await handleOpenSavedQuote(quote);
-    setDealerActiveTab("proposal_view");
-  }}
->
-  View Proposal
-</button>
-</div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 8,
+                      alignItems: "stretch",
+                      justifyContent: "flex-end",
+                      flex: "1 1 200px",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      style={{ ...styles.secondaryButton, minHeight: 46 }}
+                      onClick={() => handleOpenSavedQuote(quote)}
+                    >
+                      Resume
+                    </button>
+                    <button
+                      type="button"
+                      style={{ ...styles.rejectButton, minHeight: 46 }}
+                      onClick={() => handleDeleteQuote(quote.id)}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      style={{ ...styles.primaryButton, minHeight: 46 }}
+                      onClick={async () => {
+                        await handleOpenSavedQuote(quote);
+                        setDealerActiveTab("proposal_view");
+                      }}
+                    >
+                      View proposal
+                    </button>
+                  </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           </div>
         )}
@@ -17441,7 +17600,8 @@ const styles = {
 
   dashboardPipelineCard: {
     borderRadius: 20,
-    padding: "22px 22px 20px",
+    padding: "20px 18px 22px",
+    minHeight: 100,
     background: "#fff",
     border: "var(--kd-dashboard-pipeline-border)",
     boxShadow: "var(--kd-dashboard-pipeline-shadow)",
