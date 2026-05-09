@@ -268,20 +268,113 @@ const CRM_TIMELINE_KIND_ORDER = {
   ocr: 0,
   quote_created: 1,
   proposal_sent: 2,
-  customer_response: 3,
-  approved_demand: 4,
-  declined_followup: 5,
+  proposal_viewed: 3,
+  awaiting_response: 4,
+  customer_response: 5,
+  approved_demand: 6,
+  declined_followup: 7,
 };
+
+/** Lightweight insights from tracked proposal views + responses only (no fabricated metrics). */
+function buildProposalEngagementInsights(quotes, proposalResponses, viewEvents) {
+  const insights = [];
+  const now = Date.now();
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+
+  const viewsLast7 = (viewEvents || []).filter((ev) => {
+    const ms = parseTimelineMs(ev.viewed_at);
+    return ms != null && ms >= now - weekMs;
+  }).length;
+
+  const viewsPrev7 = (viewEvents || []).filter((ev) => {
+    const ms = parseTimelineMs(ev.viewed_at);
+    return ms != null && ms >= now - 2 * weekMs && ms < now - weekMs;
+  }).length;
+
+  if (viewsLast7 >= 2 && viewsLast7 > viewsPrev7) {
+    insights.push("Proposal engagement activity increased this week.");
+  }
+
+  const viewedQuoteIds = new Set(
+    (viewEvents || []).map((ev) => ev.quote_id).filter(Boolean)
+  );
+  let viewedWithApprovedDemand = 0;
+  (proposalResponses || []).forEach((res) => {
+    if (!res.quote_id || !viewedQuoteIds.has(res.quote_id)) return;
+    const hasApproved = collectProposalDecisionLines(res).some(
+      (ln) => ln.decision === "approved"
+    );
+    if (hasApproved) viewedWithApprovedDemand += 1;
+  });
+  if (viewedWithApprovedDemand >= 2) {
+    insights.push("Viewed proposals are converting into approved demand.");
+  }
+
+  const firstViewByQuote = {};
+  (viewEvents || []).forEach((ev) => {
+    const qid = ev.quote_id;
+    if (!qid || !ev.viewed_at) return;
+    const ms = parseTimelineMs(ev.viewed_at);
+    if (ms == null) return;
+    const cur = firstViewByQuote[qid];
+    if (!cur || ms < cur.ms) firstViewByQuote[qid] = { ms, at: ev.viewed_at };
+  });
+
+  const deltasRecent = [];
+  const deltasPrior = [];
+  (quotes || []).forEach((q) => {
+    const sentMs =
+      parseTimelineMs(q.updated_at) ?? parseTimelineMs(q.created_at);
+    const fv = firstViewByQuote[q.id];
+    if (!sentMs || !fv) return;
+    const hours = (fv.ms - sentMs) / 3600000;
+    if (!Number.isFinite(hours) || hours < 0 || hours > 720) return;
+    if (fv.ms >= now - weekMs) deltasRecent.push(hours);
+    else if (fv.ms >= now - 2 * weekMs && fv.ms < now - weekMs)
+      deltasPrior.push(hours);
+  });
+
+  const avg = (arr) =>
+    arr.length ? arr.reduce((s, x) => s + x, 0) / arr.length : null;
+  const avgRecent = avg(deltasRecent);
+  const avgOlder = avg(deltasPrior);
+  if (
+    avgRecent != null &&
+    avgOlder != null &&
+    deltasRecent.length >= 2 &&
+    deltasPrior.length >= 2 &&
+    avgRecent < avgOlder * 0.85
+  ) {
+    insights.push("Customers are reviewing proposals more quickly.");
+  }
+
+  return insights.slice(0, 4);
+}
 
 function buildCrmTimelineEntries({
   quotes,
   proposalResponses,
   ocrEvents,
+  viewEvents = [],
   limit = 10,
 }) {
   const quoteMap = {};
   (quotes || []).forEach((q) => {
     if (q?.id) quoteMap[q.id] = q;
+  });
+
+  const respondedQuoteIds = new Set(
+    (proposalResponses || []).map((r) => r.quote_id).filter(Boolean)
+  );
+
+  const firstViewByQuote = {};
+  (viewEvents || []).forEach((ev) => {
+    const qid = ev.quote_id;
+    if (!qid || !ev.viewed_at) return;
+    const ms = parseTimelineMs(ev.viewed_at);
+    if (ms == null) return;
+    const cur = firstViewByQuote[qid];
+    if (!cur || ms < cur.ms) firstViewByQuote[qid] = { ms, at: ev.viewed_at };
   });
 
   const rows = [];
@@ -299,9 +392,9 @@ function buildCrmTimelineEntries({
       kind: "quote_created",
       sortMs: cms ?? 0,
       dateLabel: formatTimelineDateLabel(q.created_at),
-      badge: "Quote",
+      badge: "Created",
       accent: "blue",
-      title: "Quote created",
+      title: "Proposal created",
       detail: `${cust}${refSuffix}`,
     });
 
@@ -320,11 +413,44 @@ function buildCrmTimelineEntries({
         dateLabel:
           formatTimelineDateLabel(q.updated_at) ||
           formatTimelineDateLabel(q.created_at),
-        badge: "Proposal",
+        badge: "Sent",
         accent: "orange",
         title: "Proposal sent",
         detail: `${cust}${refSuffix}`,
       });
+
+      const fv = firstViewByQuote[q.id];
+      if (fv) {
+        rows.push({
+          id: `pv-${q.id}`,
+          kind: "proposal_viewed",
+          sortMs: fv.ms,
+          dateLabel: formatTimelineDateLabel(fv.at),
+          badge: "Viewed",
+          accent: "green",
+          title: "Proposal viewed",
+          detail: `${cust}${refSuffix}`,
+        });
+      }
+
+      if (!respondedQuoteIds.has(q.id)) {
+        const arMs =
+          parseTimelineMs(q.updated_at) ??
+          parseTimelineMs(q.created_at) ??
+          0;
+        rows.push({
+          id: `ar-${q.id}`,
+          kind: "awaiting_response",
+          sortMs: arMs,
+          dateLabel:
+            formatTimelineDateLabel(q.updated_at) ||
+            formatTimelineDateLabel(q.created_at),
+          badge: "Waiting",
+          accent: "orange",
+          title: "Awaiting response",
+          detail: `No customer submission yet · ${cust}${refSuffix}`,
+        });
+      }
     }
   });
 
@@ -350,9 +476,9 @@ function buildCrmTimelineEntries({
       kind: "customer_response",
       sortMs: rms,
       dateLabel: formatTimelineDateLabel(res.created_at),
-      badge: "Response",
+      badge: "Responded",
       accent: "blue",
-      title: "Customer response received",
+      title: "Customer responded",
       detail: `${cust}${refSuffix} · Approved ${approved} · Declined ${declined}`,
     });
 
@@ -363,8 +489,8 @@ function buildCrmTimelineEntries({
         sortMs: rms,
         dateLabel: formatTimelineDateLabel(res.created_at),
         badge: "Demand",
-        accent: "orange",
-        title: "Approved lubricant demand captured",
+        accent: "green",
+        title: "Approved demand generated",
         detail: `${approved} approved line(s) · ${cust}${refSuffix}`,
       });
     }
@@ -377,7 +503,7 @@ function buildCrmTimelineEntries({
         dateLabel: formatTimelineDateLabel(res.created_at),
         badge: "Follow-up",
         accent: "orange",
-        title: "Declined items require follow-up",
+        title: "Declined lines requiring follow-up",
         detail: `${declined} declined line(s) · ${cust}${refSuffix}`,
       });
     }
@@ -1601,8 +1727,58 @@ function DashboardFollowUpIntelligenceCard({ styles, rows }) {
 const CRM_TIMELINE_EMPTY =
   "Timeline activity will populate as quotes, proposals, OCR scans, and customer responses occur.";
 
-function CrmTimelineCard({ styles, eyebrow, title, subtitle, entries }) {
+const PROPOSAL_ENGAGEMENT_TIMELINE_EMPTY =
+  "Proposal engagement activity will populate as customers open proposals and submit responses.";
+
+function CrmTimelineCard({
+  styles,
+  eyebrow,
+  title,
+  subtitle,
+  entries,
+  insights = [],
+  emptyStateText,
+}) {
   const empty = !entries?.length;
+  const emptyCopy = emptyStateText || CRM_TIMELINE_EMPTY;
+  const insightRows = Array.isArray(insights) ? insights.filter(Boolean) : [];
+
+  const timelineAccentStyles = (accent) => {
+    if (accent === "orange") {
+      return {
+        borderColor: "#f6a531",
+        iconBg:
+          "linear-gradient(145deg, #fff7ed 0%, #fffbeb 100%)",
+        iconFg: "#c2410c",
+        pillBg: "#fff7ed",
+        pillFg: "#c2410c",
+        pillBorder: "1px solid rgba(246, 165, 49, 0.35)",
+        glyph: "◎",
+      };
+    }
+    if (accent === "green") {
+      return {
+        borderColor: "#22c55e",
+        iconBg:
+          "linear-gradient(145deg, #ecfdf5 0%, #f0fdf4 100%)",
+        iconFg: "#15803d",
+        pillBg: "#ecfdf5",
+        pillFg: "#15803d",
+        pillBorder: "1px solid rgba(34, 197, 94, 0.35)",
+        glyph: "●",
+      };
+    }
+    return {
+      borderColor: "#1e3a8a",
+      iconBg: "linear-gradient(145deg, #eff6ff 0%, #f8fafc 100%)",
+      iconFg: "#1e40af",
+      pillBg: "#eff6ff",
+      pillFg: "#1e40af",
+      pillBorder: "1px solid rgba(30, 58, 138, 0.2)",
+      glyph: "◆",
+    };
+  };
+
   return (
     <div
       style={{
@@ -1619,6 +1795,44 @@ function CrmTimelineCard({ styles, eyebrow, title, subtitle, entries }) {
           {subtitle}
         </p>
       ) : null}
+      {!empty && insightRows.length > 0 ? (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: "12px 14px",
+            borderRadius: 12,
+            background:
+              "linear-gradient(135deg, rgba(239,246,255,0.95) 0%, rgba(255,247,237,0.85) 100%)",
+            border: "1px solid #e2e8f0",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.1em",
+              color: "#c2410c",
+              marginBottom: 8,
+              textTransform: "uppercase",
+            }}
+          >
+            Responsiveness signals
+          </div>
+          <ul
+            style={{
+              margin: 0,
+              paddingLeft: 18,
+              color: "#0f172a",
+              fontSize: 13,
+              lineHeight: 1.55,
+            }}
+          >
+            {insightRows.map((line, idx) => (
+              <li key={`pei-${idx}`}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
       {empty ? (
         <p
           style={{
@@ -1628,12 +1842,12 @@ function CrmTimelineCard({ styles, eyebrow, title, subtitle, entries }) {
             lineHeight: 1.65,
           }}
         >
-          {CRM_TIMELINE_EMPTY}
+          {emptyCopy}
         </p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {entries.map((e) => {
-            const borderColor = e.accent === "orange" ? "#f6a531" : "#1e3a8a";
+            const a = timelineAccentStyles(e.accent);
             return (
               <div
                 key={e.id}
@@ -1645,7 +1859,7 @@ function CrmTimelineCard({ styles, eyebrow, title, subtitle, entries }) {
                   borderRadius: 12,
                   background: "#ffffff",
                   border: "1px solid #e7edf3",
-                  borderLeft: `4px solid ${borderColor}`,
+                  borderLeft: `4px solid ${a.borderColor}`,
                   boxShadow: "0 1px 0 rgba(15, 23, 42, 0.04)",
                 }}
               >
@@ -1658,16 +1872,13 @@ function CrmTimelineCard({ styles, eyebrow, title, subtitle, entries }) {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background:
-                      e.accent === "orange"
-                        ? "linear-gradient(145deg, #fff7ed 0%, #fffbeb 100%)"
-                        : "linear-gradient(145deg, #eff6ff 0%, #f8fafc 100%)",
-                    color: e.accent === "orange" ? "#c2410c" : "#1e40af",
+                    background: a.iconBg,
+                    color: a.iconFg,
                     fontSize: 16,
                   }}
                   aria-hidden
                 >
-                  {e.accent === "orange" ? "◎" : "◆"}
+                  {a.glyph}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
@@ -1679,12 +1890,9 @@ function CrmTimelineCard({ styles, eyebrow, title, subtitle, entries }) {
                         textTransform: "uppercase",
                         padding: "3px 8px",
                         borderRadius: 999,
-                        background: e.accent === "orange" ? "#fff7ed" : "#eff6ff",
-                        color: e.accent === "orange" ? "#c2410c" : "#1e40af",
-                        border:
-                          e.accent === "orange"
-                            ? "1px solid rgba(246, 165, 49, 0.35)"
-                            : "1px solid rgba(30, 58, 138, 0.2)",
+                        background: a.pillBg,
+                        color: a.pillFg,
+                        border: a.pillBorder,
                       }}
                     >
                       {e.badge}
@@ -1693,7 +1901,7 @@ function CrmTimelineCard({ styles, eyebrow, title, subtitle, entries }) {
                       <span style={{ ...styles.listMeta, fontSize: 12 }}>{e.dateLabel}</span>
                     ) : (
                       <span style={{ ...styles.listMeta, fontSize: 12, fontStyle: "italic" }}>
-                        Date unavailable
+                        Timing unavailable · operational status shown
                       </span>
                     )}
                   </div>
@@ -3014,6 +3222,7 @@ const [dealerTimelineBundle, setDealerTimelineBundle] = useState({
   quotes: [],
   responses: [],
   ocrEvents: [],
+  viewEvents: [],
 });
 const [dealerAdminProposalDeliveryIntel, setDealerAdminProposalDeliveryIntel] =
   useState(null);
@@ -7272,15 +7481,8 @@ const handleFinishDealerEnrollment = async () => {
     console.error("Dealer timeline OCR load error:", err);
   }
 
-  setDealerTimelineBundle({
-    quotes: dealerQuotes,
-    responses: responseRows,
-    ocrEvents: ocrTimelineRows,
-  });
-
-  // Proposal delivery/view intelligence (proposal link opens).
+  let dealerViewEvents = [];
   try {
-    let dealerViewEvents = [];
     if (quoteIds && quoteIds.length > 0) {
       const { data: viewRows, error: viewError } = await supabase
         .from("proposal_view_events")
@@ -7289,7 +7491,19 @@ const handleFinishDealerEnrollment = async () => {
       if (!viewError) dealerViewEvents = viewRows || [];
       else console.warn("Proposal view events load failed:", viewError);
     }
+  } catch (ve) {
+    console.warn("Proposal view events load failed:", ve);
+  }
 
+  setDealerTimelineBundle({
+    quotes: dealerQuotes,
+    responses: responseRows,
+    ocrEvents: ocrTimelineRows,
+    viewEvents: dealerViewEvents,
+  });
+
+  // Proposal delivery/view intelligence (proposal link opens).
+  try {
     const dealerDeliveryIntel = buildProposalDeliveryIntelligence({
       quotes: dealerQuotes,
       proposalResponses: responseRows,
@@ -7396,10 +7610,21 @@ const dealerAdminCrmTimelineEntries = React.useMemo(
         quotes: dealerTimelineBundle.quotes,
         proposalResponses: dealerTimelineBundle.responses,
         ocrEvents: dealerTimelineBundle.ocrEvents,
-        limit: 10,
+        viewEvents: dealerTimelineBundle.viewEvents || [],
+        limit: 12,
       }),
     [dealerTimelineBundle]
   );
+
+const dealerAdminProposalEngagementInsights = React.useMemo(
+  () =>
+    buildProposalEngagementInsights(
+      dealerTimelineBundle.quotes,
+      dealerTimelineBundle.responses,
+      dealerTimelineBundle.viewEvents || []
+    ),
+  [dealerTimelineBundle]
+);
 
 const dealerAdminProposalConversionIntel = React.useMemo(
   () =>
@@ -7658,10 +7883,12 @@ const renderDealerAdminView = () => (
             <div style={{ marginBottom: 24 }}>
               <CrmTimelineCard
                 styles={styles}
-                eyebrow="CRM TIMELINE"
-                title="Recent activity"
-                subtitle="Operational visibility from quotes, proposals, customer responses, approved demand signals, follow-ups, and label scans already recorded for your organization."
+                eyebrow="PROPOSAL ENGAGEMENT"
+                title="Proposal engagement timeline"
+                subtitle="Organization-wide proposal execution events—including tracked proposal link opens—from quotes, responses, demand signals, follow-ups, and label scans already recorded for your dealer."
                 entries={dealerAdminCrmTimelineEntries}
+                insights={dealerAdminProposalEngagementInsights}
+                emptyStateText={PROPOSAL_ENGAGEMENT_TIMELINE_EMPTY}
               />
             </div>
 
@@ -8613,6 +8840,8 @@ const renderDealerAdminView = () => (
     const [timelineOcrEvents, setTimelineOcrEvents] = React.useState([]);
     const [portalProposalDeliveryIntel, setPortalProposalDeliveryIntel] =
       React.useState(null);
+    const [portalProposalViewEvents, setPortalProposalViewEvents] =
+      React.useState([]);
     const [repSnapshot, setRepSnapshot] = React.useState({
   quotes: 0,
   proposalsSent: 0,
@@ -8761,10 +8990,31 @@ const portalCrmTimelineEntries = React.useMemo(
         quotes: dashboardScopedQuotes,
         proposalResponses: dashboardScopedResponses,
         ocrEvents: timelineOcrEvents,
-        limit: 10,
+        viewEvents: portalProposalViewEvents,
+        limit: 12,
       }),
-    [dashboardScopedQuotes, dashboardScopedResponses, timelineOcrEvents]
+    [
+      dashboardScopedQuotes,
+      dashboardScopedResponses,
+      timelineOcrEvents,
+      portalProposalViewEvents,
+    ]
   );
+
+const portalProposalEngagementInsights = React.useMemo(
+  () =>
+    buildProposalEngagementInsights(
+      dashboardScopedQuotes,
+      dashboardScopedResponses,
+      portalProposalViewEvents
+    ),
+  [dashboardScopedQuotes, dashboardScopedResponses, portalProposalViewEvents]
+);
+
+const portalLibraryEngagementEntries = React.useMemo(
+  () => portalCrmTimelineEntries.slice(0, 6),
+  [portalCrmTimelineEntries]
+);
 
 const portalProposalConversionIntel = React.useMemo(
   () =>
@@ -9033,6 +9283,8 @@ const loadDashboardMetrics = async () => {
   } catch (err) {
     console.warn("Proposal view events load failed:", err);
   }
+
+  setPortalProposalViewEvents(viewEvents || []);
 
   try {
     const portalIntel = buildProposalDeliveryIntelligence({
@@ -11786,33 +12038,7 @@ return (
           <div style={styles.summaryValue}>{myQuotes.length}</div>
         </div>
       </div>
-
-      <DashboardFollowUpIntelligenceCard
-        styles={styles}
-        rows={repFollowUpIntelligenceRows}
-      />
-
-      <ProposalConversionIntelligenceSection
-        styles={styles}
-        intel={portalProposalConversionIntel}
-        scopeLabel="your outbound proposals"
-      />
-
-      <ProposalDeliveryIntelligenceSection
-        styles={styles}
-        intel={portalProposalDeliveryIntel}
-        scopeLabel="your outbound proposals"
-      />
-
-      <div style={{ marginBottom: 24 }}>
-        <CrmTimelineCard
-          styles={styles}
-          eyebrow="CRM TIMELINE"
-          title="Recent activity"
-          subtitle="Operational visibility from your quotes, outbound proposals, customer responses, demand signals, follow-ups, and label scans already recorded on this account."
-          entries={portalCrmTimelineEntries}
-        />
-      </div>
+    </div>
 
 {leaderboard.length > 0 && (
   <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 24 }}>
@@ -11875,6 +12101,35 @@ return (
     </div>
   </div>
 )}
+
+      <DashboardFollowUpIntelligenceCard
+        styles={styles}
+        rows={repFollowUpIntelligenceRows}
+      />
+
+      <ProposalConversionIntelligenceSection
+        styles={styles}
+        intel={portalProposalConversionIntel}
+        scopeLabel="your outbound proposals"
+      />
+
+      <ProposalDeliveryIntelligenceSection
+        styles={styles}
+        intel={portalProposalDeliveryIntel}
+        scopeLabel="your outbound proposals"
+      />
+
+      <div style={{ marginBottom: 24 }}>
+        <CrmTimelineCard
+          styles={styles}
+          eyebrow="PROPOSAL ENGAGEMENT"
+          title="Proposal engagement timeline"
+          subtitle="Live progression from proposal creation through sends, customer opens (tracked links), responses, approved demand, follow-ups, and label scans—using timestamps already stored on quotes, proposal responses, and OCR events in your scope."
+          entries={portalCrmTimelineEntries}
+          insights={portalProposalEngagementInsights}
+          emptyStateText={PROPOSAL_ENGAGEMENT_TIMELINE_EMPTY}
+        />
+      </div>
 <div style={{ ...styles.card, ...styles.dashboardCard }}>
   <div style={styles.eyebrow}>Pipeline</div>
   <h3 style={{ ...styles.cardTitle, marginBottom: 14 }}>Your Active Deals</h3>
@@ -11964,7 +12219,6 @@ return (
           Resume Saved Quote
         </button>
       )}
-    </div>
 
 { (activePipelineStage === "awaiting" || activePipelineStage === "followUp") && (
   <div style={styles.card}>
@@ -14947,6 +15201,18 @@ setTier(rec.tier || "Good");
               proposal generation is added.
             </p>
 
+            <div style={{ marginBottom: 22 }}>
+              <CrmTimelineCard
+                styles={styles}
+                eyebrow="LIBRARY SNAPSHOT"
+                title="Recent proposal engagement"
+                subtitle="Latest proposal-stage signals from your quotes (same scope as your dashboard). Scroll the dashboard for the full engagement timeline."
+                entries={portalLibraryEngagementEntries}
+                insights={portalProposalEngagementInsights}
+                emptyStateText={PROPOSAL_ENGAGEMENT_TIMELINE_EMPTY}
+              />
+            </div>
+
             <div style={styles.stack}>
               {myQuotes.length === 0 && (
                 <p style={styles.muted}>No quotes or proposals yet.</p>
@@ -15149,10 +15415,12 @@ setTier(rec.tier || "Good");
             <div style={{ marginBottom: 24 }}>
               <CrmTimelineCard
                 styles={styles}
-                eyebrow="CRM TIMELINE"
-                title="Recent activity"
-                subtitle="Operational visibility across assigned reps—quotes, proposals, customer responses, demand signals, follow-ups, and label scans derived from data already loaded for your team."
+                eyebrow="PROPOSAL ENGAGEMENT"
+                title="Proposal engagement timeline"
+                subtitle="Team-scoped proposal execution activity across assigned reps—quotes, sends, tracked opens, customer responses, approved demand, follow-ups, and label scans from data already loaded for your team."
                 entries={portalCrmTimelineEntries}
+                insights={portalProposalEngagementInsights}
+                emptyStateText={PROPOSAL_ENGAGEMENT_TIMELINE_EMPTY}
               />
             </div>
 
