@@ -3,6 +3,41 @@ import React, { useEffect, useMemo, useState } from "react";
 import { PDS_MAP } from "./data/pdsMap";
 import { PDS_LIBRARY_INDEX } from "./data/pdsLibraryIndex";
 import { supabase } from "./supabase";
+import { CATEGORY_SPOTLIGHTS } from "./data/salesEnablement/categorySpotlights";
+import { PRODUCT_SPOTLIGHTS } from "./data/salesEnablement/productSpotlights";
+import {
+  SPOTLIGHT_CATEGORIES,
+  SPOTLIGHT_CATEGORY_ALL,
+} from "./data/salesEnablement/spotlightCategories";
+
+const SALES_ENABLEMENT_BODY_STYLE = {
+  margin: 0,
+  fontSize: 14,
+  color: "#334155",
+  lineHeight: 1.55,
+};
+const SALES_ENABLEMENT_LIST_STYLE = {
+  margin: "6px 0 0",
+  paddingLeft: 18,
+  color: "#0f172a",
+  fontSize: 14,
+  lineHeight: 1.55,
+};
+function SalesEnablementPreviewLabel({ children }) {
+  return (
+    <div
+      style={{
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: "0.07em",
+        color: "#64748b",
+        marginTop: 8,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 /** Phase 51B — proposal mobile/print layout (injected where proposal UI renders) */
 const KD_PROPOSAL_MOBILE_CSS = `
@@ -3682,6 +3717,11 @@ useEffect(() => {
   const [newUserEmail, setNewUserEmail] = React.useState("");
   const [newUserRole, setNewUserRole] = React.useState("rep");
   const [klondikeAdminTab, setKlondikeAdminTab] = useState("dashboard");
+  const [salesEnablementSpotlightMode, setSalesEnablementSpotlightMode] =
+    useState("product");
+  const [salesEnablementCategoryFilter, setSalesEnablementCategoryFilter] =
+    useState(SPOTLIGHT_CATEGORY_ALL);
+  const [salesEnablementSelectedId, setSalesEnablementSelectedId] = useState(null);
   const [inventoryWeeklyReminderEmailStatus, setInventoryWeeklyReminderEmailStatus] =
     useState(null);
   const [dealerActivationOrgId, setDealerActivationOrgId] = useState("");
@@ -5874,6 +5914,60 @@ const handleFinishDealerEnrollment = async () => {
     adminProductOpportunityIntelligence,
     adminRepLeaderboardFoundation,
   ]);
+
+  const filteredSalesProductSpotlights = React.useMemo(() => {
+    if (salesEnablementCategoryFilter === SPOTLIGHT_CATEGORY_ALL) {
+      return PRODUCT_SPOTLIGHTS;
+    }
+    return PRODUCT_SPOTLIGHTS.filter((p) => p.category === salesEnablementCategoryFilter);
+  }, [salesEnablementCategoryFilter]);
+
+  const filteredSalesCategorySpotlights = React.useMemo(() => {
+    if (salesEnablementCategoryFilter === SPOTLIGHT_CATEGORY_ALL) {
+      return CATEGORY_SPOTLIGHTS;
+    }
+    return CATEGORY_SPOTLIGHTS.filter((c) => c.category === salesEnablementCategoryFilter);
+  }, [salesEnablementCategoryFilter]);
+
+  const selectedSalesEnablementSpotlight = React.useMemo(() => {
+    if (salesEnablementSpotlightMode === "product") {
+      return (
+        filteredSalesProductSpotlights.find((p) => p.id === salesEnablementSelectedId) ||
+        null
+      );
+    }
+    return (
+      filteredSalesCategorySpotlights.find((c) => c.id === salesEnablementSelectedId) ||
+      null
+    );
+  }, [
+    salesEnablementSpotlightMode,
+    salesEnablementSelectedId,
+    filteredSalesProductSpotlights,
+    filteredSalesCategorySpotlights,
+  ]);
+
+  useEffect(() => {
+    const list =
+      salesEnablementSpotlightMode === "product"
+        ? filteredSalesProductSpotlights
+        : filteredSalesCategorySpotlights;
+    if (!Array.isArray(list) || list.length === 0) {
+      if (salesEnablementSelectedId !== null) setSalesEnablementSelectedId(null);
+      return;
+    }
+    const ok = list.some((row) => row.id === salesEnablementSelectedId);
+    if (!ok) {
+      setSalesEnablementSelectedId(list[0].id);
+    }
+  }, [
+    salesEnablementSpotlightMode,
+    salesEnablementCategoryFilter,
+    filteredSalesProductSpotlights,
+    filteredSalesCategorySpotlights,
+    salesEnablementSelectedId,
+  ]);
+
   const sendWeeklyInventoryReminderEmail = async () => {
     setInventoryWeeklyReminderEmailStatus("sending");
     try {
@@ -5921,6 +6015,7 @@ const handleFinishDealerEnrollment = async () => {
           { id: "dealers", label: "DEALERS" },
           { id: "dealer_activation", label: "DEALER ACTIVATION" },
           { id: "inventory_intelligence", label: "INVENTORY INTEL" },
+          { id: "sales_enablement", label: "SALES ENABLEMENT" },
           { id: "create_dealer", label: "CREATE DEALER" },
           { id: "create_dealer_user", label: "CREATE USERS" },
           { id: "approvals", label: "APPROVALS" },
@@ -6818,6 +6913,375 @@ const handleFinishDealerEnrollment = async () => {
               ) : null}
             </>
           )}
+        </div>
+      )}
+
+      {klondikeAdminTab === "sales_enablement" && (
+        <div style={{ display: "grid", gap: 16 }}>
+          <div
+            style={{
+              ...styles.card,
+              background: "#ffffff",
+              border: "1px solid rgba(96, 165, 250, 0.32)",
+              boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+              padding: "22px 24px",
+            }}
+          >
+            <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
+              SALES ENABLEMENT CENTER
+            </div>
+            <p
+              style={{
+                ...styles.cardBody,
+                color: "#334155",
+                marginTop: 12,
+                marginBottom: 10,
+                lineHeight: 1.55,
+              }}
+            >
+              Browse structured product and category spotlights to prepare dealer and rep
+              conversations. Materials are organized for operational consistency—not campaign
+              blasting.
+            </p>
+            <p
+              style={{
+                fontSize: 12,
+                color: "#64748b",
+                margin: 0,
+                lineHeight: 1.5,
+                padding: "10px 12px",
+                borderRadius: 10,
+                background: "#f8fafc",
+                border: "1px solid rgba(148, 163, 184, 0.35)",
+              }}
+            >
+              Spotlights are reviewed sales enablement materials intended to support dealer and
+              rep sales conversations. Automated communication delivery will be added in a later
+              phase.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 10,
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#94a3b8", letterSpacing: "0.06em" }}>
+                VIEW
+              </span>
+              {[
+                { id: "product", label: "Product Spotlights" },
+                { id: "category", label: "Category Spotlights" },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setSalesEnablementSpotlightMode(opt.id)}
+                  style={{
+                    ...styles.workflowTab,
+                    ...(salesEnablementSpotlightMode === opt.id ? styles.workflowTabActive : {}),
+                    textTransform: "none",
+                    padding: "8px 14px",
+                    fontSize: 12,
+                    borderRadius: 10,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#334155",
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#94a3b8", letterSpacing: "0.06em" }}>
+                CATEGORY
+              </span>
+              <select
+                value={salesEnablementCategoryFilter}
+                onChange={(e) => setSalesEnablementCategoryFilter(e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(59, 130, 246, 0.45)",
+                  background: "#ffffff",
+                  color: "#0f172a",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  minWidth: 200,
+                  cursor: "pointer",
+                }}
+              >
+                <option value={SPOTLIGHT_CATEGORY_ALL}>All categories</option>
+                {SPOTLIGHT_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
+              gap: 16,
+              alignItems: "start",
+            }}
+          >
+            <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
+              <div style={{ ...styles.summaryLabel, color: "#1e40af", letterSpacing: "0.06em" }}>
+                LIBRARY
+              </div>
+              <div style={{ display: "grid", gap: 10 }}>
+                {(salesEnablementSpotlightMode === "product"
+                  ? filteredSalesProductSpotlights
+                  : filteredSalesCategorySpotlights
+                ).map((row) => {
+                  const active = row.id === salesEnablementSelectedId;
+                  const subtitle =
+                    salesEnablementSpotlightMode === "product"
+                      ? `${row.productLine} · ${row.category}`
+                      : row.category;
+                  return (
+                    <button
+                      key={row.id}
+                      type="button"
+                      onClick={() => setSalesEnablementSelectedId(row.id)}
+                      style={{
+                        textAlign: "left",
+                        cursor: "pointer",
+                        borderRadius: 12,
+                        padding: "14px 16px",
+                        border: active
+                          ? "2px solid rgba(245, 158, 11, 0.85)"
+                          : "1px solid rgba(148, 163, 184, 0.45)",
+                        background: "#ffffff",
+                        boxShadow: active
+                          ? "0 10px 24px rgba(15, 23, 42, 0.12)"
+                          : "0 6px 14px rgba(15, 23, 42, 0.06)",
+                        transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          letterSpacing: "0.06em",
+                          color: active ? "#c2410c" : "#64748b",
+                          marginBottom: 6,
+                        }}
+                      >
+                        {String(row.status || "").toUpperCase()}
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.3 }}>
+                        {row.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#475569", marginTop: 6 }}>{subtitle}</div>
+                      {(row.tags || []).length > 0 ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                          {(row.tags || []).slice(0, 4).map((tag) => (
+                            <span
+                              key={tag}
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: "0.04em",
+                                textTransform: "uppercase",
+                                padding: "4px 8px",
+                                borderRadius: 999,
+                                background: "rgba(59, 130, 246, 0.12)",
+                                color: "#1d4ed8",
+                              }}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div
+              style={{
+                ...styles.card,
+                background: "#ffffff",
+                border: "1px solid rgba(245, 158, 11, 0.35)",
+                boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+                padding: "20px 22px",
+                minHeight: 280,
+                minWidth: 0,
+              }}
+            >
+              <div style={{ ...styles.summaryLabel, color: "#c2410c", letterSpacing: "0.06em" }}>
+                SPOTLIGHT PREVIEW
+              </div>
+              {!selectedSalesEnablementSpotlight ? (
+                <p style={{ ...styles.cardBody, color: "#64748b", marginTop: 12 }}>
+                  Select a spotlight from the library.
+                </p>
+              ) : salesEnablementSpotlightMode === "product" ? (
+                <div style={{ display: "grid", gap: 14, marginTop: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a", lineHeight: 1.25 }}>
+                      {selectedSalesEnablementSpotlight.title}
+                    </div>
+                    <div style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+                      {selectedSalesEnablementSpotlight.productLine} ·{" "}
+                      {selectedSalesEnablementSpotlight.category}
+                    </div>
+                  </div>
+                  <SalesEnablementPreviewLabel>Market reality</SalesEnablementPreviewLabel>
+                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                    {(selectedSalesEnablementSpotlight.targetMarkets || []).map((line, idx) => (
+                      <li key={`tm-${idx}`}>{line}</li>
+                    ))}
+                  </ul>
+                  <SalesEnablementPreviewLabel>Use when</SalesEnablementPreviewLabel>
+                  <p style={SALES_ENABLEMENT_BODY_STYLE}>{selectedSalesEnablementSpotlight.useWhen}</p>
+                  <SalesEnablementPreviewLabel>Talking points</SalesEnablementPreviewLabel>
+                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                    <li>
+                      <strong>Feature:</strong> {selectedSalesEnablementSpotlight.feature}
+                    </li>
+                    <li>
+                      <strong>Bridge:</strong> {selectedSalesEnablementSpotlight.bridge}
+                    </li>
+                    <li>
+                      <strong>Benefit:</strong> {selectedSalesEnablementSpotlight.benefit}
+                    </li>
+                  </ul>
+                  <SalesEnablementPreviewLabel>Suggested actions</SalesEnablementPreviewLabel>
+                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                    <li>{selectedSalesEnablementSpotlight.expandedOpportunity}</li>
+                    {(selectedSalesEnablementSpotlight.relatedProducts || []).map((line, idx) => (
+                      <li key={`rp-${idx}`}>{line}</li>
+                    ))}
+                  </ul>
+                  <SalesEnablementPreviewLabel>Sales angle</SalesEnablementPreviewLabel>
+                  <p style={SALES_ENABLEMENT_BODY_STYLE}>{selectedSalesEnablementSpotlight.salesAngle}</p>
+                  <SalesEnablementPreviewLabel>Closing lines</SalesEnablementPreviewLabel>
+                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                    {(selectedSalesEnablementSpotlight.closingLines || []).map((line, idx) => (
+                      <li key={`cl-${idx}`}>{line}</li>
+                    ))}
+                  </ul>
+                  <SalesEnablementPreviewLabel>Operational notes</SalesEnablementPreviewLabel>
+                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                    {(selectedSalesEnablementSpotlight.relatedSpecs || []).map((line, idx) => (
+                      <li key={`rs-${idx}`}>{line}</li>
+                    ))}
+                    {(selectedSalesEnablementSpotlight.competitors || []).map((line, idx) => (
+                      <li key={`co-${idx}`}>
+                        <strong>Competitive framing:</strong> {line}
+                      </li>
+                    ))}
+                    <li>
+                      <strong>Status:</strong> {selectedSalesEnablementSpotlight.status}
+                    </li>
+                    {(selectedSalesEnablementSpotlight.tags || []).length > 0 ? (
+                      <li>
+                        <strong>Tags:</strong> {(selectedSalesEnablementSpotlight.tags || []).join(", ")}
+                      </li>
+                    ) : null}
+                  </ul>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: 14, marginTop: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a", lineHeight: 1.25 }}>
+                      {selectedSalesEnablementSpotlight.title}
+                    </div>
+                    <div style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
+                      {selectedSalesEnablementSpotlight.category}
+                    </div>
+                  </div>
+                  <SalesEnablementPreviewLabel>Focus</SalesEnablementPreviewLabel>
+                  <p style={SALES_ENABLEMENT_BODY_STYLE}>{selectedSalesEnablementSpotlight.focus}</p>
+                  <SalesEnablementPreviewLabel>Use when</SalesEnablementPreviewLabel>
+                  <p style={SALES_ENABLEMENT_BODY_STYLE}>{selectedSalesEnablementSpotlight.useWhen}</p>
+                  <SalesEnablementPreviewLabel>Talking points</SalesEnablementPreviewLabel>
+                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                    {(selectedSalesEnablementSpotlight.talkingPoints || []).map((line, idx) => (
+                      <li key={`tp-${idx}`}>{line}</li>
+                    ))}
+                  </ul>
+                  <SalesEnablementPreviewLabel>Suggested actions</SalesEnablementPreviewLabel>
+                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                    {(selectedSalesEnablementSpotlight.suggestedActions || []).map((line, idx) => (
+                      <li key={`sa-${idx}`}>{line}</li>
+                    ))}
+                  </ul>
+                  <SalesEnablementPreviewLabel>Territory signals</SalesEnablementPreviewLabel>
+                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                    {(selectedSalesEnablementSpotlight.territorySignals || []).map((line, idx) => (
+                      <li key={`ts-${idx}`}>{line}</li>
+                    ))}
+                  </ul>
+                  <SalesEnablementPreviewLabel>Sales angle</SalesEnablementPreviewLabel>
+                  <p style={SALES_ENABLEMENT_BODY_STYLE}>
+                    {selectedSalesEnablementSpotlight.salesAngle ||
+                      "Lead with evidence-backed OEM/PDS alignment and documented maintenance rhythm."}
+                  </p>
+                  <SalesEnablementPreviewLabel>Closing lines</SalesEnablementPreviewLabel>
+                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                    {(selectedSalesEnablementSpotlight.closingLines || []).length > 0
+                      ? (selectedSalesEnablementSpotlight.closingLines || []).map((line, idx) => (
+                          <li key={`cc-${idx}`}>{line}</li>
+                        ))
+                      : (
+                          <li key="cc-fallback">
+                            Offer a documented next step (site walk, spec matrix, pilot list).
+                          </li>
+                        )}
+                  </ul>
+                  <SalesEnablementPreviewLabel>Operational notes</SalesEnablementPreviewLabel>
+                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                    <li>
+                      <strong>Status:</strong> {selectedSalesEnablementSpotlight.status}
+                    </li>
+                    {(selectedSalesEnablementSpotlight.tags || []).length > 0 ? (
+                      <li>
+                        <strong>Tags:</strong> {(selectedSalesEnablementSpotlight.tags || []).join(", ")}
+                      </li>
+                    ) : null}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div
+            style={{
+              ...styles.card,
+              background: "linear-gradient(135deg, #f8fafc 0%, #fff7ed 100%)",
+              border: "1px dashed rgba(100, 116, 139, 0.55)",
+              padding: "18px 20px",
+            }}
+          >
+            <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
+              SUGGESTED SPOTLIGHTS
+            </div>
+            <p style={{ ...styles.cardBody, color: "#64748b", marginTop: 10, marginBottom: 0 }}>
+              Reserved for future recommendation surfacing (e.g., territory fit scoring). No
+              auto-suggestion logic in this phase.
+            </p>
+          </div>
         </div>
       )}
 
