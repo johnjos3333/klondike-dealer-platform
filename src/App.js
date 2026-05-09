@@ -4186,7 +4186,9 @@ if (dealerLogoFile) {
     });
 
   if (uploadError) {
-    setDealerSaveMessage(uploadError.message);
+    setDealerSaveMessage(
+      `Logo upload failed. Please try a PNG or JPG image and save again. ${uploadError.message || ""}`.trim()
+    );
     setDealerSaving(false);
     return;
   }
@@ -8293,9 +8295,22 @@ const renderDealerAdminView = () => (
                 justifyContent: "center",
                 color: "#64748b",
                 background: "#f8fafc",
+                overflow: "hidden",
               }}
             >
-              Logo Preview
+              {dealerLogoPreview || currentDealerLogoUrl ? (
+                <img
+                  src={dealerLogoPreview || currentDealerLogoUrl}
+                  alt="Dealer Logo Preview"
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: 100,
+                    objectFit: "contain",
+                  }}
+                />
+              ) : (
+                "Logo Preview"
+              )}
             </div>
           </div>
 
