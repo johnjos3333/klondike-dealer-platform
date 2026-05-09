@@ -1485,6 +1485,238 @@ function summarizeApprovedDemandFromProposalRows(responseRows, quoteItemByIdMap)
   };
 }
 
+/** Package-style rollup from proposal line text only (demand visibility, not ERP). */
+function classifyDemandPackageBucket(pkgRaw, productRaw) {
+  const p = `${String(pkgRaw || "").trim()} ${String(productRaw || "").trim()}`.toLowerCase();
+  if (/\btote\b|ibc|bulk\s*tote/.test(p)) return "Tote / bulk";
+  if (/\bdrum\b/.test(p)) return "Drum";
+  if (/\bpail\b|\bcube\b/.test(p)) return "Pail / cube";
+  if (/\bcase\b|\bbox\b|\bcarton\b/.test(p)) return "Case / carton";
+  if (/qt|quart|liter|litre|gallon|\bjug\b/.test(p)) return "Jug / quart / liter";
+  return "Other package";
+}
+
+function approvedDemandLineQty(item, quoteItemById) {
+  let qty = 1;
+  const qid = item.quote_item_id;
+  if (qid && quoteItemById?.[qid]) {
+    const qi = quoteItemById[qid];
+    qty =
+      qi.quantity != null && Number.isFinite(Number(qi.quantity))
+        ? Number(qi.quantity)
+        : 1;
+  }
+  return qty;
+}
+
+/**
+ * Territory-wide approved-demand rollup for Klondike Admin inventory intelligence.
+ * Uses proposal responses + quote_items only—no warehouse or stock data.
+ */
+function buildKlondikeTerritoryInventoryModel({
+  responseRows,
+  quoteItems,
+  quotes,
+  dealerOrgs,
+}) {
+  const quoteItemById = buildQuoteItemLookupById(quoteItems);
+  const quoteById = {};
+  (quotes || []).forEach((q) => {
+    if (q?.id) quoteById[q.id] = q;
+  });
+  const orgNameById = {};
+  (dealerOrgs || []).forEach((o) => {
+    if (o?.id) orgNameById[o.id] = o.name || "Dealer";
+  });
+
+  const approvedLines = [];
+  (responseRows || []).forEach((row) => {
+    const ms = parseTimelineMs(row.created_at) ?? 0;
+    const quote = quoteById[row.quote_id];
+    const orgId = quote?.organization_id || null;
+    getProposalProductResponseArray(row).forEach((item) => {
+      if (item.decision !== "approved") return;
+      if (item.type === "equipment") return;
+      if (String(item.package || "").toLowerCase() === "equipment") return;
+      approvedLines.push({
+        item,
+        quote_id: row.quote_id,
+        org_id: orgId,
+        created_ms: ms,
+      });
+    });
+  });
+
+  const skuMap = {};
+  const categoryUnitTotals = {};
+  const dealerUnits = {};
+  const packageBuckets = {};
+  let totalUnits = 0;
+  let syntheticUnits = 0;
+
+  const now = Date.now();
+  const windowMs = 14 * 24 * 60 * 60 * 1000;
+  const catRecent = {};
+  const catPrior = {};
+  let toteRecent = 0;
+  let totePrior = 0;
+
+  approvedLines.forEach(({ item, org_id, created_ms }) => {
+    const qty = approvedDemandLineQty(item, quoteItemById);
+    totalUnits += qty;
+    if (/synthetic/i.test(String(item.product || ""))) {
+      syntheticUnits += qty;
+    }
+
+    const pk = `${String(item.product || "")
+      .trim()
+      .toLowerCase()}__${String(item.package || "").trim().toLowerCase()}`;
+    if (!skuMap[pk]) {
+      skuMap[pk] = {
+        product: String(item.product || "").trim() || "—",
+        package: String(item.package || "").trim() || "—",
+        totalUnits: 0,
+        lineCount: 0,
+      };
+    }
+    skuMap[pk].totalUnits += qty;
+    skuMap[pk].lineCount += 1;
+
+    const cat = getDashboardDemandCategoryFromProductName(item.product);
+    categoryUnitTotals[cat] = (categoryUnitTotals[cat] || 0) + qty;
+
+    if (org_id) {
+      dealerUnits[org_id] = (dealerUnits[org_id] || 0) + qty;
+    }
+
+    const bucket = classifyDemandPackageBucket(item.package, item.product);
+    packageBuckets[bucket] = (packageBuckets[bucket] || 0) + qty;
+
+    if (created_ms > 0) {
+      if (created_ms >= now - windowMs) {
+        catRecent[cat] = (catRecent[cat] || 0) + qty;
+        if (/\btote\b|ibc|bulk/i.test(String(item.package || ""))) {
+          toteRecent += qty;
+        }
+      } else if (
+        created_ms >= now - 2 * windowMs &&
+        created_ms < now - windowMs
+      ) {
+        catPrior[cat] = (catPrior[cat] || 0) + qty;
+        if (/\btote\b|ibc|bulk/i.test(String(item.package || ""))) {
+          totePrior += qty;
+        }
+      }
+    }
+  });
+
+  const lineCount = approvedLines.length;
+  const distinctSkuCount = Object.keys(skuMap).length;
+
+  const topSkus = Object.values(skuMap)
+    .slice()
+    .sort((a, b) => b.totalUnits - a.totalUnits)
+    .slice(0, 15);
+
+  const categoryRows = Object.entries(categoryUnitTotals)
+    .map(([name, units]) => ({
+      name,
+      units,
+      sharePct:
+        totalUnits > 0 ? Math.round((units / totalUnits) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.units - a.units);
+
+  const dealerConcentration = Object.entries(dealerUnits)
+    .map(([id, units]) => ({
+      organization_id: id,
+      name: orgNameById[id] || "Dealer",
+      units,
+      sharePct:
+        totalUnits > 0 ? Math.round((units / totalUnits) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.units - a.units);
+
+  const packageRows = Object.entries(packageBuckets)
+    .map(([name, units]) => ({
+      name,
+      units,
+      sharePct:
+        totalUnits > 0 ? Math.round((units / totalUnits) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.units - a.units);
+
+  const insights = [];
+  const topCat = categoryRows[0];
+  if (
+    topCat &&
+    totalUnits > 0 &&
+    topCat.units / totalUnits >= 0.35 &&
+    topCat.name !== "Other"
+  ) {
+    insights.push(
+      `${topCat.name} demand remains the strongest category by approved unit volume across active dealers.`
+    );
+  }
+
+  if (totalUnits > 0 && syntheticUnits / totalUnits >= 0.2) {
+    insights.push(
+      "Synthetic product approvals represent a significant share of current approved unit volume."
+    );
+  }
+
+  const catNames = new Set([
+    ...Object.keys(catRecent),
+    ...Object.keys(catPrior),
+  ]);
+  catNames.forEach((cat) => {
+    const r = catRecent[cat] || 0;
+    const p = catPrior[cat] || 0;
+    if (r >= 5 && p >= 1 && r > p * 1.25) {
+      insights.push(
+        `${cat} approvals increased versus the prior 14-day window (approved units only).`
+      );
+    }
+  });
+
+  if (toteRecent >= 3 && toteRecent > totePrior && totePrior >= 0) {
+    insights.push(
+      "Tote or bulk-style package approvals are elevated in the most recent 14 days compared with the prior period."
+    );
+  }
+
+  const topDealer = dealerConcentration[0];
+  if (
+    topDealer &&
+    totalUnits > 0 &&
+    topDealer.sharePct >= 40 &&
+    dealerConcentration.length >= 2
+  ) {
+    insights.push(
+      `Approved demand is concentrated among dealers—${topDealer.name} accounts for a leading share of approved units in this rollup.`
+    );
+  }
+
+  return {
+    hasData: lineCount > 0,
+    totalApprovedLines: lineCount,
+    totalApprovedUnits: totalUnits,
+    distinctSkus: distinctSkuCount,
+    syntheticUnits,
+    syntheticSharePct:
+      totalUnits > 0
+        ? Math.round((syntheticUnits / totalUnits) * 1000) / 10
+        : 0,
+    topSkus,
+    categoryRows,
+    dealerConcentration,
+    packageRows,
+    toteRecent,
+    totePrior,
+    insights: insights.slice(0, 8),
+  };
+}
+
 function buildDealerAdminDashboardInsights(perf) {
   const insights = [];
   if ((perf?.approvedDemandLineCount || 0) === 0) {
@@ -3267,8 +3499,9 @@ const [dealerTimelineBundle, setDealerTimelineBundle] = useState({
 const [dealerAdminProposalDeliveryIntel, setDealerAdminProposalDeliveryIntel] =
   useState(null);
 const [dealerNetworkPerformance, setDealerNetworkPerformance] = useState([]);
-/** Territory-level signals for Klondike Admin pilot readiness (real queries only). */
-const [klondikePilotSignals, setKlondikePilotSignals] = useState(null);
+/** Approved-demand rollup for Klondike Admin Inventory Intelligence (proposal data only). */
+const [klondikeTerritoryInventoryModel, setKlondikeTerritoryInventoryModel] =
+  useState(null);
 const [selectedDealerPerformance, setSelectedDealerPerformance] = useState(null);
   const [dealerSaving, setDealerSaving] = useState(false);
   const [dealerSaveMessage, setDealerSaveMessage] = useState("");
@@ -3315,6 +3548,8 @@ useEffect(() => {
   const [newUserEmail, setNewUserEmail] = React.useState("");
   const [newUserRole, setNewUserRole] = React.useState("rep");
   const [klondikeAdminTab, setKlondikeAdminTab] = useState("dashboard");
+  const [inventoryWeeklyReminderEmailStatus, setInventoryWeeklyReminderEmailStatus] =
+    useState(null);
   const [dealerActivationOrgId, setDealerActivationOrgId] = useState("");
   const [ocrSnapshotLoading, setOcrSnapshotLoading] = React.useState(false);
   const [ocrSnapshot, setOcrSnapshot] = React.useState({
@@ -3582,7 +3817,7 @@ useEffect(() => {
     if (orgError) {
       console.error("Dealer network org load error:", orgError);
       setDealerNetworkPerformance([]);
-      setKlondikePilotSignals(null);
+      setKlondikeTerritoryInventoryModel(null);
       return;
     }
 
@@ -3590,7 +3825,7 @@ useEffect(() => {
 
     if (orgIds.length === 0) {
       setDealerNetworkPerformance([]);
-      setKlondikePilotSignals(null);
+      setKlondikeTerritoryInventoryModel(null);
       return;
     }
 
@@ -3639,13 +3874,10 @@ useEffect(() => {
       .eq("is_active", true)
       .limit(500);
 
-    let proposalViewEventCount = 0;
     let proposalViewEventsUnavailable = false;
     const proposalViewCountByOrg = {};
     try {
-      if (quoteIds.length === 0) {
-        proposalViewEventCount = 0;
-      } else {
+      if (quoteIds.length > 0) {
         const pv = await supabase
           .from("proposal_view_events")
           .select("quote_id")
@@ -3654,7 +3886,6 @@ useEffect(() => {
           proposalViewEventsUnavailable = true;
         } else {
           const pvRows = pv.data || [];
-          proposalViewEventCount = pvRows.length;
           const quoteIdToOrgId = {};
           quotes.forEach((q) => {
             if (q?.id) quoteIdToOrgId[q.id] = q.organization_id;
@@ -3696,13 +3927,6 @@ useEffect(() => {
     );
 
     const profileRows = dealerProfRows || [];
-    const anyProfileSetup = profileRows.some((p) => Boolean(p?.setup_completed));
-    const anyDealerLogo = profileRows.some(
-      (p) => Boolean(String(p?.logo_url || "").trim() || String(p?.dealer_logo_url || "").trim())
-    );
-    const hasDealerAdminMember = (memberRows || []).some(
-      (m) => String(m?.role || "").toLowerCase() === "dealer_admin"
-    );
 
     const orgRoleStats = {};
     orgIds.forEach((id) => {
@@ -3714,21 +3938,6 @@ useEffect(() => {
       const role = String(m.role || "").toLowerCase();
       if (role === "manager") orgRoleStats[oid].manager = true;
       if (role === "rep") orgRoleStats[oid].rep = true;
-    });
-    const hasManagerRepPair = Object.values(orgRoleStats).some(
-      (s) => s.manager && s.rep
-    );
-    const hasTeamAssignments = (assignmentRows || []).length > 0;
-
-    setKlondikePilotSignals({
-      profilesQueryOk: !dealerProfError,
-      anyProfileSetup,
-      anyDealerLogo,
-      hasDealerAdminMember,
-      hasManagerRepPair,
-      hasTeamAssignments,
-      proposalViewEventCount,
-      proposalViewEventsUnavailable,
     });
 
     const orgPerformance = (dealerOrgs || []).map((org) => {
@@ -3914,6 +4123,14 @@ useEffect(() => {
     });
 
     setDealerNetworkPerformance(orgPerformance);
+    setKlondikeTerritoryInventoryModel(
+      buildKlondikeTerritoryInventoryModel({
+        responseRows,
+        quoteItems: itemRows,
+        quotes,
+        dealerOrgs,
+      })
+    );
   };
   const refreshRecentInvites = async () => {
     const { data, error } = await supabase
@@ -5201,109 +5418,6 @@ const handleFinishDealerEnrollment = async () => {
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.totalScans, adminRepLeaderboardFoundation]);
 
-  const klondikePilotReadinessChecklist = React.useMemo(() => {
-    const rollup = adminTerritoryPerformanceRollup;
-    const sig = klondikePilotSignals;
-    const dealers = Array.isArray(dealerNetworkPerformance)
-      ? dealerNetworkPerformance
-      : [];
-    const noDealers = Number(rollup?.totalDealers || 0) === 0;
-    const profilesUnavailable =
-      Boolean(sig && sig.profilesQueryOk === false) || noDealers;
-
-    const pillFrom = (ready, unavailable) => {
-      if (unavailable) return "na";
-      if (ready) return "ready";
-      return "needs";
-    };
-
-    const hasApprovedDemand = dealers.some(
-      (d) => Number(d?.approvedLineCount || 0) > 0
-    );
-
-    const mgrRepReady =
-      Boolean(sig?.hasManagerRepPair) || Boolean(sig?.hasTeamAssignments);
-
-    const engagementUnavailable = Boolean(sig?.proposalViewEventsUnavailable);
-    const engagementReady =
-      !engagementUnavailable && Number(sig?.proposalViewEventCount || 0) > 0;
-
-    return [
-      {
-        id: "profile",
-        title: "Dealer profile configured",
-        detail: "At least one dealer completed dealer profile setup.",
-        pill: pillFrom(Boolean(sig?.anyProfileSetup), profilesUnavailable),
-      },
-      {
-        id: "logo",
-        title: "Dealer logo uploaded",
-        detail: "At least one dealer profile includes a logo image.",
-        pill: pillFrom(Boolean(sig?.anyDealerLogo), profilesUnavailable),
-      },
-      {
-        id: "admin",
-        title: "Dealer admin user exists",
-        detail: "At least one active dealer admin organization member.",
-        pill: pillFrom(Boolean(sig?.hasDealerAdminMember), noDealers),
-      },
-      {
-        id: "mgr_rep",
-        title: "Manager / reps assigned",
-        detail: "Team assignments exist or a dealer org has both manager and rep roles.",
-        pill: pillFrom(mgrRepReady, noDealers),
-      },
-      {
-        id: "quotes",
-        title: "Quote activity exists",
-        detail: "Territory-wide quotes created count is greater than zero.",
-        pill: pillFrom(Number(rollup?.totalQuotesCreated || 0) > 0, noDealers),
-      },
-      {
-        id: "sent",
-        title: "Proposal sent activity exists",
-        detail: "Outbound proposal activity recorded on dealer quotes.",
-        pill: pillFrom(Number(rollup?.totalProposalsSent || 0) > 0, noDealers),
-      },
-      {
-        id: "response",
-        title: "Customer response activity exists",
-        detail: "Customer proposal responses recorded in the territory.",
-        pill: pillFrom(Number(rollup?.totalCustomerResponses || 0) > 0, noDealers),
-      },
-      {
-        id: "demand",
-        title: "Approved demand exists",
-        detail: "Approved decision lines recorded on proposal responses.",
-        pill: pillFrom(hasApprovedDemand, noDealers),
-      },
-      {
-        id: "inventory",
-        title: "Inventory Alerts have data",
-        detail:
-          "Approved lubricant lines exist—the same signal Inventory Alerts rely on for demand.",
-        pill: pillFrom(hasApprovedDemand, noDealers),
-      },
-      {
-        id: "ocr",
-        title: "OCR scan activity exists",
-        detail: "Label scan events recorded for the territory OCR snapshot.",
-        pill: pillFrom(Number(ocrSnapshot?.totalScans || 0) > 0, false),
-      },
-      {
-        id: "views",
-        title: "Proposal engagement tracking active",
-        detail: "Tracked proposal link opens (proposal view events).",
-        pill: pillFrom(engagementReady, engagementUnavailable),
-      },
-    ];
-  }, [
-    adminTerritoryPerformanceRollup,
-    klondikePilotSignals,
-    dealerNetworkPerformance,
-    ocrSnapshot?.totalScans,
-  ]);
-
   const dealerActivationChecklistRows = React.useMemo(() => {
     const dealers = Array.isArray(dealerNetworkPerformance)
       ? dealerNetworkPerformance
@@ -5626,6 +5740,26 @@ const handleFinishDealerEnrollment = async () => {
     adminProductOpportunityIntelligence,
     adminRepLeaderboardFoundation,
   ]);
+  const sendWeeklyInventoryReminderEmail = async () => {
+    setInventoryWeeklyReminderEmailStatus("sending");
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "send-weekly-inventory-reminder",
+        { body: {} }
+      );
+      if (error) throw error;
+      if (data?.skipped && String(data?.reason || "").includes("missing_resend")) {
+        setInventoryWeeklyReminderEmailStatus("skipped_config");
+      } else if (data?.skipped) {
+        setInventoryWeeklyReminderEmailStatus(`skipped:${String(data.reason || "")}`);
+      } else {
+        setInventoryWeeklyReminderEmailStatus("sent");
+      }
+    } catch (e) {
+      console.warn("Weekly inventory reminder email failed:", e);
+      setInventoryWeeklyReminderEmailStatus("error");
+    }
+  };
   const renderPlatformAdminView = () => (
     <div style={styles.grid24}>
       <div style={styles.heroCard}>
@@ -5637,13 +5771,24 @@ const handleFinishDealerEnrollment = async () => {
         </p>
       </div>
 
-      <div style={styles.workflowTabBar}>
+      <div
+        style={{
+          ...styles.workflowTabBar,
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          rowGap: 10,
+          alignItems: "stretch",
+          marginBottom: 18,
+        }}
+      >
         {[
           { id: "dashboard", label: "DASHBOARD" },
-          { id: "dealer_activation", label: "DEALER ACTIVATION" },
           { id: "dealers", label: "DEALERS" },
+          { id: "dealer_activation", label: "DEALER ACTIVATION" },
+          { id: "inventory_intelligence", label: "INVENTORY INTEL" },
           { id: "create_dealer", label: "CREATE DEALER" },
-          { id: "create_dealer_user", label: "CREATE DEALER USER" },
+          { id: "create_dealer_user", label: "CREATE USERS" },
           { id: "approvals", label: "APPROVALS" },
         ].map((tab) => (
           <button
@@ -5654,6 +5799,16 @@ const handleFinishDealerEnrollment = async () => {
               ...styles.workflowTab,
               ...(klondikeAdminTab === tab.id ? styles.workflowTabActive : {}),
               textTransform: "none",
+              flex: "1 1 auto",
+              minWidth: "min(160px, 100%)",
+              maxWidth: "100%",
+              padding: "10px 14px",
+              fontSize: 12,
+              letterSpacing: "0.05em",
+              lineHeight: 1.25,
+              whiteSpace: "normal",
+              textAlign: "center",
+              hyphens: "none",
             }}
           >
             {tab.label}
@@ -5905,6 +6060,471 @@ const handleFinishDealerEnrollment = async () => {
         </div>
       )}
 
+      {klondikeAdminTab === "inventory_intelligence" && (
+        <div style={{ display: "grid", gap: 14 }}>
+          {new Date().getDay() === 5 ? (
+            <div
+              style={{
+                ...styles.card,
+                background: "linear-gradient(135deg, #fff7ed 0%, #eff6ff 100%)",
+                border: "1px solid rgba(245, 158, 11, 0.45)",
+                boxShadow: "0 12px 28px rgba(15, 23, 42, 0.1)",
+                padding: "14px 18px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  color: "#c2410c",
+                  marginBottom: 6,
+                }}
+              >
+                FRIDAY OPERATIONS NOTE
+              </div>
+              <p style={{ ...styles.cardBody, margin: 0, color: "#334155", lineHeight: 1.5 }}>
+                Weekly rhythm: review approved proposal demand with Supply Chain today. Use the
+                Supply Chain Readiness card below or send yourself the email reminder.
+              </p>
+            </div>
+          ) : null}
+
+          <div
+            style={{
+              ...styles.card,
+              background: "#ffffff",
+              border: "1px solid rgba(96, 165, 250, 0.32)",
+              boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+              padding: "22px 24px",
+            }}
+          >
+            <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
+              INVENTORY INTELLIGENCE
+            </div>
+            <p
+              style={{
+                ...styles.cardBody,
+                color: "#334155",
+                marginTop: 12,
+                marginBottom: 8,
+                lineHeight: 1.55,
+              }}
+            >
+              Approved proposal demand only—forecasting and operational visibility for Supply
+              Chain alignment. Not warehouse inventory, stock levels, or purchasing automation.
+            </p>
+          </div>
+
+          <div
+            style={{
+              ...styles.card,
+              background: "#ffffff",
+              border: "1px solid rgba(96, 165, 250, 0.32)",
+              boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+              padding: "20px 22px",
+            }}
+          >
+            <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
+              SUPPLY CHAIN READINESS REMINDER
+            </div>
+            <p style={{ ...styles.cardBody, color: "#334155", marginTop: 12, lineHeight: 1.55 }}>
+              Customer-approved lines on proposals represent forward-looking lubricant demand.
+              Klondike leadership should review this demand weekly with Supply Chain so packaging
+              and SKU acceleration signals are visible operationally—not as ERP inventory.
+            </p>
+            <div
+              style={{
+                marginTop: 14,
+                padding: "14px 16px",
+                borderRadius: 12,
+                background: "#f8fafc",
+                border: "1px solid rgba(34, 197, 94, 0.35)",
+                borderLeft: "4px solid rgba(34, 197, 94, 0.85)",
+              }}
+            >
+              <div style={{ fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>
+                Operational reminder
+              </div>
+              <p style={{ ...styles.listMeta, color: "#475569", margin: 0, lineHeight: 1.5 }}>
+                Block time each week to walk through approved units, top SKUs, and dealer
+                concentration with Supply Chain. Escalate tote or bulk-heavy approvals when the
+                recent 14-day window exceeds the prior period.
+              </p>
+            </div>
+            <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => void sendWeeklyInventoryReminderEmail()}
+                disabled={inventoryWeeklyReminderEmailStatus === "sending"}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 10,
+                  fontWeight: 800,
+                  fontSize: 13,
+                  cursor:
+                    inventoryWeeklyReminderEmailStatus === "sending" ? "wait" : "pointer",
+                  border: "1px solid rgba(30, 64, 175, 0.45)",
+                  background: "linear-gradient(180deg, #2563eb 0%, #1e40af 100%)",
+                  color: "#ffffff",
+                  boxShadow: "0 8px 18px rgba(30, 58, 138, 0.28)",
+                }}
+              >
+                {inventoryWeeklyReminderEmailStatus === "sending"
+                  ? "Sending…"
+                  : "Email me: Weekly Inventory Demand Review Reminder"}
+              </button>
+              <span style={{ ...styles.listMeta, color: "#64748b", alignSelf: "center" }}>
+                {inventoryWeeklyReminderEmailStatus === "sent"
+                  ? "Reminder sent to your login email."
+                  : inventoryWeeklyReminderEmailStatus === "skipped_config"
+                    ? "Email not configured (RESEND_API_KEY) — use in-app review only."
+                    : inventoryWeeklyReminderEmailStatus === "error"
+                      ? "Email could not be sent; check function logs."
+                      : inventoryWeeklyReminderEmailStatus?.startsWith?.("skipped:")
+                        ? `Skipped: ${inventoryWeeklyReminderEmailStatus.replace("skipped:", "")}`
+                        : ""}
+              </span>
+            </div>
+            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 12, marginBottom: 0 }}>
+              Recurring automation: use Supabase Scheduled Functions, pg_cron, or an external
+              scheduler calling this Edge Function with a service secret—no cron is deployed in
+              this phase.
+            </p>
+          </div>
+
+          {!klondikeTerritoryInventoryModel?.hasData ? (
+            <div
+              style={{
+                ...styles.card,
+                background: "#ffffff",
+                border: "1px solid rgba(96, 165, 250, 0.32)",
+                padding: 20,
+              }}
+            >
+              <p style={{ ...styles.cardBody, color: "#64748b", margin: 0 }}>
+                No approved proposal demand in the current dealer network rollup yet. Inventory
+                Intelligence populates from customer-approved lines on submitted proposal
+                responses.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                }}
+              >
+                {[
+                  {
+                    label: "Approved units (qty)",
+                    value: klondikeTerritoryInventoryModel.totalApprovedUnits.toLocaleString(),
+                    accent: "orange",
+                  },
+                  {
+                    label: "Approved lines",
+                    value: String(klondikeTerritoryInventoryModel.totalApprovedLines),
+                    accent: "blue",
+                  },
+                  {
+                    label: "Distinct SKU keys",
+                    value: String(klondikeTerritoryInventoryModel.distinctSkus),
+                    accent: "blue",
+                  },
+                  {
+                    label: "Synthetic share (units)",
+                    value: `${klondikeTerritoryInventoryModel.syntheticSharePct}%`,
+                    accent: "green",
+                  },
+                ].map((cell) => (
+                  <div
+                    key={cell.label}
+                    style={{
+                      ...styles.card,
+                      background: "#ffffff",
+                      border:
+                        cell.accent === "orange"
+                          ? "1px solid rgba(245, 158, 11, 0.42)"
+                          : cell.accent === "green"
+                            ? "1px solid rgba(34, 197, 94, 0.4)"
+                            : "1px solid rgba(96, 165, 250, 0.35)",
+                      padding: "14px 14px 12px",
+                      boxShadow: "0 8px 20px rgba(15, 23, 42, 0.06)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color:
+                          cell.accent === "orange"
+                            ? "#c2410c"
+                            : cell.accent === "green"
+                              ? "#15803d"
+                              : "#1e40af",
+                        marginBottom: 8,
+                      }}
+                    >
+                      {cell.label}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 900, color: "#0f172a" }}>
+                      {cell.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  ...styles.card,
+                  background: "#ffffff",
+                  border: "1px solid rgba(96, 165, 250, 0.32)",
+                  padding: "20px 22px",
+                }}
+              >
+                <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
+                  TOP APPROVED PRODUCTS (SKU KEY)
+                </div>
+                <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                  {klondikeTerritoryInventoryModel.topSkus.slice(0, 10).map((row, idx) => (
+                    <div
+                      key={`${row.product}-${row.package}-${idx}`}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        alignItems: "baseline",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        background: idx % 2 === 0 ? "#f8fafc" : "#fff7ed",
+                        border: "1px solid rgba(148, 163, 184, 0.22)",
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 13 }}>
+                          {row.product}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#64748b" }}>{row.package}</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 900, color: "#1e40af" }}>
+                          {row.totalUnits.toLocaleString()} units
+                        </div>
+                        <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                          {row.lineCount} line(s)
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                }}
+              >
+                <div
+                  style={{
+                    ...styles.card,
+                    background: "#ffffff",
+                    border: "1px solid rgba(96, 165, 250, 0.32)",
+                    padding: "18px 20px",
+                  }}
+                >
+                  <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
+                    DEMAND BY CATEGORY (UNITS)
+                  </div>
+                  <p style={{ fontSize: 12, color: "#64748b", marginTop: 8, marginBottom: 10 }}>
+                    Territory demand mix—share of approved units across the dealer network.
+                  </p>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {klondikeTerritoryInventoryModel.categoryRows.map((row) => (
+                      <div key={row.name}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#0f172a",
+                          }}
+                        >
+                          <span>{row.name}</span>
+                          <span>
+                            {row.units.toLocaleString()} ({row.sharePct}%)
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            height: 8,
+                            borderRadius: 999,
+                            background: "#e2e8f0",
+                            marginTop: 4,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${Math.min(100, row.sharePct)}%`,
+                              height: "100%",
+                              borderRadius: 999,
+                              background:
+                                "linear-gradient(90deg, rgba(245,158,11,0.95), rgba(59,130,246,0.9))",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    ...styles.card,
+                    background: "#ffffff",
+                    border: "1px solid rgba(96, 165, 250, 0.32)",
+                    padding: "18px 20px",
+                  }}
+                >
+                  <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
+                    PACKAGE PROFILE (UNITS)
+                  </div>
+                  <p style={{ fontSize: 12, color: "#64748b", marginTop: 8, marginBottom: 10 }}>
+                    Derived from proposal line package labels—operational signal only.
+                  </p>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    {klondikeTerritoryInventoryModel.packageRows.map((row) => (
+                      <div key={row.name}>
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "#0f172a",
+                          }}
+                        >
+                          <span>{row.name}</span>
+                          <span>
+                            {row.units.toLocaleString()} ({row.sharePct}%)
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            height: 8,
+                            borderRadius: 999,
+                            background: "#e2e8f0",
+                            marginTop: 4,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: `${Math.min(100, row.sharePct)}%`,
+                              height: "100%",
+                              borderRadius: 999,
+                              background: "linear-gradient(90deg, #22c55e, #1e40af)",
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 12,
+                      fontSize: 11,
+                      color: "#64748b",
+                      padding: "8px 10px",
+                      background: "#f8fafc",
+                      borderRadius: 8,
+                    }}
+                  >
+                    Tote/bulk (recent 14d):{" "}
+                    <strong>{klondikeTerritoryInventoryModel.toteRecent.toLocaleString()}</strong>{" "}
+                    units · Prior 14d:{" "}
+                    <strong>{klondikeTerritoryInventoryModel.totePrior.toLocaleString()}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  ...styles.card,
+                  background: "#ffffff",
+                  border: "1px solid rgba(96, 165, 250, 0.32)",
+                  padding: "18px 20px",
+                }}
+              >
+                <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
+                  DEALER DEMAND CONCENTRATION
+                </div>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 8, marginBottom: 10 }}>
+                  Approved units attributed by dealer organization (quotes tied to each dealer).
+                </p>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {klondikeTerritoryInventoryModel.dealerConcentration.slice(0, 12).map((d, i) => (
+                    <div
+                      key={d.organization_id}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        background: i % 2 === 0 ? "#f8fafc" : "#ffffff",
+                        border: "1px solid rgba(148, 163, 184, 0.2)",
+                      }}
+                    >
+                      <span style={{ fontWeight: 700, color: "#0f172a" }}>{d.name}</span>
+                      <span style={{ fontWeight: 800, color: "#1e40af" }}>
+                        {d.units.toLocaleString()} units ({d.sharePct}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {klondikeTerritoryInventoryModel.insights.length > 0 ? (
+                <div
+                  style={{
+                    ...styles.card,
+                    background: "linear-gradient(145deg, #fffbeb 0%, #eff6ff 100%)",
+                    border: "1px solid rgba(96, 165, 250, 0.35)",
+                    padding: "18px 20px",
+                  }}
+                >
+                  <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
+                    OPERATIONAL INSIGHTS
+                  </div>
+                  <ul
+                    style={{
+                      margin: "12px 0 0",
+                      paddingLeft: 18,
+                      color: "#0f172a",
+                      fontSize: 14,
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    {klondikeTerritoryInventoryModel.insights.map((line, idx) => (
+                      <li key={`inv-ins-${idx}`} style={{ marginBottom: 6 }}>
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </>
+          )}
+        </div>
+      )}
+
       {klondikeAdminTab === "dashboard" && (
         <div
           style={{
@@ -5963,176 +6583,6 @@ const handleFinishDealerEnrollment = async () => {
               logged.
             </div>
           )}
-        </div>
-      )}
-
-      {klondikeAdminTab === "dashboard" && (
-        <div
-          style={{
-            ...styles.card,
-            background: "#ffffff",
-            border: "1px solid rgba(96, 165, 250, 0.32)",
-            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
-            marginBottom: 12,
-            padding: "20px 22px",
-          }}
-        >
-          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
-            PILOT READINESS
-          </div>
-          <p
-            style={{
-              ...styles.cardBody,
-              color: "#334155",
-              marginTop: 10,
-              marginBottom: 8,
-              lineHeight: 1.45,
-            }}
-          >
-            Pilot readiness is based on existing platform activity and helps validate
-            dealer workflow before broader rollout.
-          </p>
-          <p
-            style={{
-              fontSize: 11,
-              color: "#64748b",
-              marginTop: 0,
-              marginBottom: 14,
-              lineHeight: 1.45,
-              fontStyle: "italic",
-            }}
-          >
-            This checklist does not create test data or change production workflows.
-          </p>
-          <div style={{ display: "grid", gap: 8 }}>
-            {klondikePilotReadinessChecklist.map((row, idx) => {
-              const pill = row.pill;
-              const pillLabel =
-                pill === "ready"
-                  ? "Ready"
-                  : pill === "needs"
-                    ? "Needs Activity"
-                    : "Not Available";
-              const pillStyle =
-                pill === "ready"
-                  ? {
-                      padding: "5px 11px",
-                      borderRadius: 999,
-                      fontSize: 10,
-                      fontWeight: 800,
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      whiteSpace: "nowrap",
-                      background: "rgba(34, 197, 94, 0.12)",
-                      color: "#15803d",
-                      border: "1px solid rgba(34, 197, 94, 0.42)",
-                      boxShadow: "0 2px 6px rgba(34, 197, 94, 0.12)",
-                    }
-                  : pill === "needs"
-                    ? {
-                        padding: "5px 11px",
-                        borderRadius: 999,
-                        fontSize: 10,
-                        fontWeight: 800,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                        whiteSpace: "nowrap",
-                        background: "rgba(245, 158, 11, 0.14)",
-                        color: "#c2410c",
-                        border: "1px solid rgba(245, 158, 11, 0.45)",
-                        boxShadow: "0 2px 6px rgba(245, 158, 11, 0.15)",
-                      }
-                    : {
-                        padding: "5px 11px",
-                        borderRadius: 999,
-                        fontSize: 10,
-                        fontWeight: 800,
-                        letterSpacing: "0.06em",
-                        textTransform: "uppercase",
-                        whiteSpace: "nowrap",
-                        background: "rgba(59, 130, 246, 0.12)",
-                        color: "#1e40af",
-                        border: "1px solid rgba(59, 130, 246, 0.38)",
-                        boxShadow: "0 2px 6px rgba(30, 64, 175, 0.1)",
-                      };
-              return (
-                <div
-                  key={row.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    justifyContent: "space-between",
-                    gap: 12,
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid rgba(148, 163, 184, 0.28)",
-                    background: idx % 2 === 0 ? "#f8fafc" : "#fff7ed",
-                    borderLeft:
-                      pill === "ready"
-                        ? "3px solid rgba(34, 197, 94, 0.85)"
-                        : pill === "needs"
-                          ? "3px solid rgba(245, 158, 11, 0.85)"
-                          : "3px solid rgba(59, 130, 246, 0.82)",
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 800,
-                        color: "#0f172a",
-                        letterSpacing: "0.01em",
-                      }}
-                    >
-                      {row.title}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 3, lineHeight: 1.4 }}>
-                      {row.detail}
-                    </div>
-                  </div>
-                  <span style={pillStyle}>{pillLabel}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div
-            style={{
-              marginTop: 18,
-              paddingTop: 14,
-              borderTop: "1px solid rgba(148, 163, 184, 0.28)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                color: "#1e3a8a",
-                marginBottom: 8,
-              }}
-            >
-              Recommended pilot walkthrough order
-            </div>
-            <ol
-              style={{
-                margin: 0,
-                paddingLeft: 18,
-                color: "#334155",
-                fontSize: 12.5,
-                lineHeight: 1.55,
-              }}
-            >
-              <li>Dealer setup</li>
-              <li>Rep quote flow</li>
-              <li>OCR scan</li>
-              <li>Proposal send</li>
-              <li>Customer review</li>
-              <li>Inventory Alerts</li>
-              <li>Manager dashboard</li>
-              <li>Klondike Admin intelligence</li>
-            </ol>
-          </div>
         </div>
       )}
 
