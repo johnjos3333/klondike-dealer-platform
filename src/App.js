@@ -3267,6 +3267,8 @@ const [dealerTimelineBundle, setDealerTimelineBundle] = useState({
 const [dealerAdminProposalDeliveryIntel, setDealerAdminProposalDeliveryIntel] =
   useState(null);
 const [dealerNetworkPerformance, setDealerNetworkPerformance] = useState([]);
+/** Territory-level signals for Klondike Admin pilot readiness (real queries only). */
+const [klondikePilotSignals, setKlondikePilotSignals] = useState(null);
 const [selectedDealerPerformance, setSelectedDealerPerformance] = useState(null);
   const [dealerSaving, setDealerSaving] = useState(false);
   const [dealerSaveMessage, setDealerSaveMessage] = useState("");
@@ -3579,6 +3581,7 @@ useEffect(() => {
     if (orgError) {
       console.error("Dealer network org load error:", orgError);
       setDealerNetworkPerformance([]);
+      setKlondikePilotSignals(null);
       return;
     }
 
@@ -3586,6 +3589,7 @@ useEffect(() => {
 
     if (orgIds.length === 0) {
       setDealerNetworkPerformance([]);
+      setKlondikePilotSignals(null);
       return;
     }
 
@@ -3621,6 +3625,71 @@ useEffect(() => {
       .select("id, organization_id, role, is_active")
       .in("organization_id", orgIds)
       .eq("is_active", true);
+
+    const { data: dealerProfRows, error: dealerProfError } = await supabase
+      .from("dealer_profiles")
+      .select("organization_id, setup_completed, logo_url, dealer_logo_url")
+      .in("organization_id", orgIds);
+
+    const { data: assignmentRows } = await supabase
+      .from("rep_team_assignments")
+      .select("id")
+      .in("organization_id", orgIds)
+      .eq("is_active", true)
+      .limit(25);
+
+    let proposalViewEventCount = 0;
+    let proposalViewEventsUnavailable = false;
+    try {
+      if (quoteIds.length === 0) {
+        proposalViewEventCount = 0;
+      } else {
+        const pv = await supabase
+          .from("proposal_view_events")
+          .select("id", { count: "exact", head: true })
+          .in("quote_id", quoteIds);
+        if (pv.error) proposalViewEventsUnavailable = true;
+        else proposalViewEventCount = Number(pv.count || 0);
+      }
+    } catch {
+      proposalViewEventsUnavailable = true;
+    }
+
+    const profileRows = dealerProfRows || [];
+    const anyProfileSetup = profileRows.some((p) => Boolean(p?.setup_completed));
+    const anyDealerLogo = profileRows.some(
+      (p) => Boolean(String(p?.logo_url || "").trim() || String(p?.dealer_logo_url || "").trim())
+    );
+    const hasDealerAdminMember = (memberRows || []).some(
+      (m) => String(m?.role || "").toLowerCase() === "dealer_admin"
+    );
+
+    const orgRoleStats = {};
+    orgIds.forEach((id) => {
+      orgRoleStats[id] = { manager: false, rep: false };
+    });
+    (memberRows || []).forEach((m) => {
+      const oid = m.organization_id;
+      if (!oid || !orgRoleStats[oid]) return;
+      const role = String(m.role || "").toLowerCase();
+      if (role === "manager") orgRoleStats[oid].manager = true;
+      if (role === "rep") orgRoleStats[oid].rep = true;
+    });
+    const hasManagerRepPair = Object.values(orgRoleStats).some(
+      (s) => s.manager && s.rep
+    );
+    const hasTeamAssignments = (assignmentRows || []).length > 0;
+
+    setKlondikePilotSignals({
+      profilesQueryOk: !dealerProfError,
+      anyProfileSetup,
+      anyDealerLogo,
+      hasDealerAdminMember,
+      hasManagerRepPair,
+      hasTeamAssignments,
+      proposalViewEventCount,
+      proposalViewEventsUnavailable,
+    });
 
     const orgPerformance = (dealerOrgs || []).map((org) => {
       const orgQuotes = quotes.filter((q) => q.organization_id === org.id);
@@ -3745,6 +3814,7 @@ useEffect(() => {
         name: org.name,
         slug: org.slug,
         quotesCreated: orgQuotes.length,
+        approvedLineCount: approvedItems.length,
         proposalsSent: orgQuotes.filter(
           (q) => q.status === "sent" || q.rep_signature || q.rep_email
         ).length,
@@ -5042,6 +5112,110 @@ const handleFinishDealerEnrollment = async () => {
       executiveSummary,
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.totalScans, adminRepLeaderboardFoundation]);
+
+  const klondikePilotReadinessChecklist = React.useMemo(() => {
+    const rollup = adminTerritoryPerformanceRollup;
+    const sig = klondikePilotSignals;
+    const dealers = Array.isArray(dealerNetworkPerformance)
+      ? dealerNetworkPerformance
+      : [];
+    const noDealers = Number(rollup?.totalDealers || 0) === 0;
+    const profilesUnavailable =
+      Boolean(sig && sig.profilesQueryOk === false) || noDealers;
+
+    const pillFrom = (ready, unavailable) => {
+      if (unavailable) return "na";
+      if (ready) return "ready";
+      return "needs";
+    };
+
+    const hasApprovedDemand = dealers.some(
+      (d) => Number(d?.approvedLineCount || 0) > 0
+    );
+
+    const mgrRepReady =
+      Boolean(sig?.hasManagerRepPair) || Boolean(sig?.hasTeamAssignments);
+
+    const engagementUnavailable = Boolean(sig?.proposalViewEventsUnavailable);
+    const engagementReady =
+      !engagementUnavailable && Number(sig?.proposalViewEventCount || 0) > 0;
+
+    return [
+      {
+        id: "profile",
+        title: "Dealer profile configured",
+        detail: "At least one dealer completed dealer profile setup.",
+        pill: pillFrom(Boolean(sig?.anyProfileSetup), profilesUnavailable),
+      },
+      {
+        id: "logo",
+        title: "Dealer logo uploaded",
+        detail: "At least one dealer profile includes a logo image.",
+        pill: pillFrom(Boolean(sig?.anyDealerLogo), profilesUnavailable),
+      },
+      {
+        id: "admin",
+        title: "Dealer admin user exists",
+        detail: "At least one active dealer admin organization member.",
+        pill: pillFrom(Boolean(sig?.hasDealerAdminMember), noDealers),
+      },
+      {
+        id: "mgr_rep",
+        title: "Manager / reps assigned",
+        detail: "Team assignments exist or a dealer org has both manager and rep roles.",
+        pill: pillFrom(mgrRepReady, noDealers),
+      },
+      {
+        id: "quotes",
+        title: "Quote activity exists",
+        detail: "Territory-wide quotes created count is greater than zero.",
+        pill: pillFrom(Number(rollup?.totalQuotesCreated || 0) > 0, noDealers),
+      },
+      {
+        id: "sent",
+        title: "Proposal sent activity exists",
+        detail: "Outbound proposal activity recorded on dealer quotes.",
+        pill: pillFrom(Number(rollup?.totalProposalsSent || 0) > 0, noDealers),
+      },
+      {
+        id: "response",
+        title: "Customer response activity exists",
+        detail: "Customer proposal responses recorded in the territory.",
+        pill: pillFrom(Number(rollup?.totalCustomerResponses || 0) > 0, noDealers),
+      },
+      {
+        id: "demand",
+        title: "Approved demand exists",
+        detail: "Approved decision lines recorded on proposal responses.",
+        pill: pillFrom(hasApprovedDemand, noDealers),
+      },
+      {
+        id: "inventory",
+        title: "Inventory Alerts have data",
+        detail:
+          "Approved lubricant lines exist—the same signal Inventory Alerts rely on for demand.",
+        pill: pillFrom(hasApprovedDemand, noDealers),
+      },
+      {
+        id: "ocr",
+        title: "OCR scan activity exists",
+        detail: "Label scan events recorded for the territory OCR snapshot.",
+        pill: pillFrom(Number(ocrSnapshot?.totalScans || 0) > 0, false),
+      },
+      {
+        id: "views",
+        title: "Proposal engagement tracking active",
+        detail: "Tracked proposal link opens (proposal view events).",
+        pill: pillFrom(engagementReady, engagementUnavailable),
+      },
+    ];
+  }, [
+    adminTerritoryPerformanceRollup,
+    klondikePilotSignals,
+    dealerNetworkPerformance,
+    ocrSnapshot?.totalScans,
+  ]);
+
   const adminDealerDrilldownRows = React.useMemo(() => {
     const dealers = Array.isArray(dealerNetworkPerformance)
       ? dealerNetworkPerformance
@@ -5356,6 +5530,176 @@ const handleFinishDealerEnrollment = async () => {
               logged.
             </div>
           )}
+        </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <div
+          style={{
+            ...styles.card,
+            background: "#ffffff",
+            border: "1px solid rgba(96, 165, 250, 0.32)",
+            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+            marginBottom: 12,
+            padding: "20px 22px",
+          }}
+        >
+          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
+            PILOT READINESS
+          </div>
+          <p
+            style={{
+              ...styles.cardBody,
+              color: "#334155",
+              marginTop: 10,
+              marginBottom: 8,
+              lineHeight: 1.45,
+            }}
+          >
+            Pilot readiness is based on existing platform activity and helps validate
+            dealer workflow before broader rollout.
+          </p>
+          <p
+            style={{
+              fontSize: 11,
+              color: "#64748b",
+              marginTop: 0,
+              marginBottom: 14,
+              lineHeight: 1.45,
+              fontStyle: "italic",
+            }}
+          >
+            This checklist does not create test data or change production workflows.
+          </p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {klondikePilotReadinessChecklist.map((row, idx) => {
+              const pill = row.pill;
+              const pillLabel =
+                pill === "ready"
+                  ? "Ready"
+                  : pill === "needs"
+                    ? "Needs Activity"
+                    : "Not Available";
+              const pillStyle =
+                pill === "ready"
+                  ? {
+                      padding: "5px 11px",
+                      borderRadius: 999,
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      whiteSpace: "nowrap",
+                      background: "rgba(34, 197, 94, 0.12)",
+                      color: "#15803d",
+                      border: "1px solid rgba(34, 197, 94, 0.42)",
+                      boxShadow: "0 2px 6px rgba(34, 197, 94, 0.12)",
+                    }
+                  : pill === "needs"
+                    ? {
+                        padding: "5px 11px",
+                        borderRadius: 999,
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        whiteSpace: "nowrap",
+                        background: "rgba(245, 158, 11, 0.14)",
+                        color: "#c2410c",
+                        border: "1px solid rgba(245, 158, 11, 0.45)",
+                        boxShadow: "0 2px 6px rgba(245, 158, 11, 0.15)",
+                      }
+                    : {
+                        padding: "5px 11px",
+                        borderRadius: 999,
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        whiteSpace: "nowrap",
+                        background: "rgba(59, 130, 246, 0.12)",
+                        color: "#1e40af",
+                        border: "1px solid rgba(59, 130, 246, 0.38)",
+                        boxShadow: "0 2px 6px rgba(30, 64, 175, 0.1)",
+                      };
+              return (
+                <div
+                  key={row.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(148, 163, 184, 0.28)",
+                    background: idx % 2 === 0 ? "#f8fafc" : "#fff7ed",
+                    borderLeft:
+                      pill === "ready"
+                        ? "3px solid rgba(34, 197, 94, 0.85)"
+                        : pill === "needs"
+                          ? "3px solid rgba(245, 158, 11, 0.85)"
+                          : "3px solid rgba(59, 130, 246, 0.82)",
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 800,
+                        color: "#0f172a",
+                        letterSpacing: "0.01em",
+                      }}
+                    >
+                      {row.title}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 3, lineHeight: 1.4 }}>
+                      {row.detail}
+                    </div>
+                  </div>
+                  <span style={pillStyle}>{pillLabel}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div
+            style={{
+              marginTop: 18,
+              paddingTop: 14,
+              borderTop: "1px solid rgba(148, 163, 184, 0.28)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                color: "#1e3a8a",
+                marginBottom: 8,
+              }}
+            >
+              Recommended pilot walkthrough order
+            </div>
+            <ol
+              style={{
+                margin: 0,
+                paddingLeft: 18,
+                color: "#334155",
+                fontSize: 12.5,
+                lineHeight: 1.55,
+              }}
+            >
+              <li>Dealer setup</li>
+              <li>Rep quote flow</li>
+              <li>OCR scan</li>
+              <li>Proposal send</li>
+              <li>Customer review</li>
+              <li>Inventory Alerts</li>
+              <li>Manager dashboard</li>
+              <li>Klondike Admin intelligence</li>
+            </ol>
+          </div>
         </div>
       )}
 
