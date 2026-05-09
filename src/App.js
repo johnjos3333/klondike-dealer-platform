@@ -1555,22 +1555,37 @@ function buildKlondikeTerritoryInventoryModel({
   let syntheticUnits = 0;
 
   const now = Date.now();
-  const windowMs = 14 * 24 * 60 * 60 * 1000;
+  const dayMs = 24 * 60 * 60 * 1000;
+  const sevenMs = 7 * dayMs;
+  const windowMs = 14 * dayMs;
   const catRecent = {};
   const catPrior = {};
-  let toteRecent = 0;
-  let totePrior = 0;
+  const skuRecent = {};
+  const skuPrior = {};
+  const packageBucketsRecent = {};
+  const packageBucketsPrior = {};
+  let syntheticRecent = 0;
+  let syntheticPrior = 0;
+  let hydraulicToteRecent = 0;
+  let hydraulicTotePrior = 0;
+  let unitsLast7d = 0;
+  let unitsLast14d = 0;
+  let unitsPrior14d = 0;
 
   approvedLines.forEach(({ item, org_id, created_ms }) => {
     const qty = approvedDemandLineQty(item, quoteItemById);
-    totalUnits += qty;
-    if (/synthetic/i.test(String(item.product || ""))) {
-      syntheticUnits += qty;
-    }
-
     const pk = `${String(item.product || "")
       .trim()
       .toLowerCase()}__${String(item.package || "").trim().toLowerCase()}`;
+    const cat = getDashboardDemandCategoryFromProductName(item.product);
+    const bucket = classifyDemandPackageBucket(item.package, item.product);
+    const isSyntheticLine = /synthetic/i.test(String(item.product || ""));
+
+    totalUnits += qty;
+    if (isSyntheticLine) {
+      syntheticUnits += qty;
+    }
+
     if (!skuMap[pk]) {
       skuMap[pk] = {
         product: String(item.product || "").trim() || "—",
@@ -1582,33 +1597,45 @@ function buildKlondikeTerritoryInventoryModel({
     skuMap[pk].totalUnits += qty;
     skuMap[pk].lineCount += 1;
 
-    const cat = getDashboardDemandCategoryFromProductName(item.product);
     categoryUnitTotals[cat] = (categoryUnitTotals[cat] || 0) + qty;
 
     if (org_id) {
       dealerUnits[org_id] = (dealerUnits[org_id] || 0) + qty;
     }
 
-    const bucket = classifyDemandPackageBucket(item.package, item.product);
     packageBuckets[bucket] = (packageBuckets[bucket] || 0) + qty;
 
     if (created_ms > 0) {
+      if (created_ms >= now - sevenMs) {
+        unitsLast7d += qty;
+      }
       if (created_ms >= now - windowMs) {
+        unitsLast14d += qty;
         catRecent[cat] = (catRecent[cat] || 0) + qty;
-        if (/\btote\b|ibc|bulk/i.test(String(item.package || ""))) {
-          toteRecent += qty;
+        skuRecent[pk] = (skuRecent[pk] || 0) + qty;
+        packageBucketsRecent[bucket] = (packageBucketsRecent[bucket] || 0) + qty;
+        if (isSyntheticLine) syntheticRecent += qty;
+        if (cat === "Hydraulic Fluids" && bucket === "Tote / bulk") {
+          hydraulicToteRecent += qty;
         }
       } else if (
         created_ms >= now - 2 * windowMs &&
         created_ms < now - windowMs
       ) {
+        unitsPrior14d += qty;
         catPrior[cat] = (catPrior[cat] || 0) + qty;
-        if (/\btote\b|ibc|bulk/i.test(String(item.package || ""))) {
-          totePrior += qty;
+        skuPrior[pk] = (skuPrior[pk] || 0) + qty;
+        packageBucketsPrior[bucket] = (packageBucketsPrior[bucket] || 0) + qty;
+        if (isSyntheticLine) syntheticPrior += qty;
+        if (cat === "Hydraulic Fluids" && bucket === "Tote / bulk") {
+          hydraulicTotePrior += qty;
         }
       }
     }
   });
+
+  const toteRecent = Number(packageBucketsRecent["Tote / bulk"] || 0);
+  const totePrior = Number(packageBucketsPrior["Tote / bulk"] || 0);
 
   const lineCount = approvedLines.length;
   const distinctSkuCount = Object.keys(skuMap).length;
@@ -1646,22 +1673,95 @@ function buildKlondikeTerritoryInventoryModel({
     }))
     .sort((a, b) => b.units - a.units);
 
+  const acceleratingSkus = [];
+  const skuKeysAll = new Set([...Object.keys(skuRecent), ...Object.keys(skuPrior)]);
+  skuKeysAll.forEach((pk) => {
+    const r = skuRecent[pk] || 0;
+    const p = skuPrior[pk] || 0;
+    const meta = skuMap[pk];
+    if (!meta) return;
+    if (p >= 1 && r > p * 1.2 && r >= 4) {
+      acceleratingSkus.push({
+        product: meta.product,
+        package: meta.package,
+        recentUnits: r,
+        priorUnits: p,
+      });
+    } else if (p === 0 && r >= 6) {
+      acceleratingSkus.push({
+        product: meta.product,
+        package: meta.package,
+        recentUnits: r,
+        priorUnits: 0,
+      });
+    }
+  });
+  acceleratingSkus.sort((a, b) => b.recentUnits - a.recentUnits);
+
+  const packageTrendRows = Object.keys({
+    ...packageBucketsRecent,
+    ...packageBucketsPrior,
+  })
+    .map((name) => {
+      const ru = packageBucketsRecent[name] || 0;
+      const pu = packageBucketsPrior[name] || 0;
+      const delta =
+        pu > 0 ? Math.round(((ru - pu) / pu) * 1000) / 10 : ru > 0 ? null : 0;
+      return {
+        name,
+        recentUnits: ru,
+        priorUnits: pu,
+        deltaPct: delta,
+      };
+    })
+    .sort((a, b) => b.recentUnits - a.recentUnits);
+
+  const velocityPerDay7d =
+    Math.round((unitsLast7d / 7) * 100) / 100;
+  const velocityPerDay14d =
+    Math.round((unitsLast14d / 14) * 100) / 100;
+
+  const largePackRecent =
+    Number(packageBucketsRecent["Tote / bulk"] || 0) +
+    Number(packageBucketsRecent["Drum"] || 0) +
+    Number(packageBucketsRecent["Pail / cube"] || 0);
+  const largePackShareRecent =
+    unitsLast14d > 0 ? largePackRecent / unitsLast14d : 0;
+
+  const activeDealersWithDemand = dealerConcentration.length;
+
   const insights = [];
   const topCat = categoryRows[0];
   if (
     topCat &&
     totalUnits > 0 &&
-    topCat.units / totalUnits >= 0.35 &&
+    topCat.units / totalUnits >= 0.32 &&
     topCat.name !== "Other"
   ) {
-    insights.push(
-      `${topCat.name} demand remains the strongest category by approved unit volume across active dealers.`
-    );
+    if (topCat.name === "HD Engine Oils") {
+      insights.push(
+        "HD Engine Oils remain the dominant approved category in this network rollup."
+      );
+    } else {
+      insights.push(
+        `${topCat.name} demand remains the strongest category by approved unit volume across active dealers.`
+      );
+    }
   }
 
   if (totalUnits > 0 && syntheticUnits / totalUnits >= 0.2) {
     insights.push(
-      "Synthetic product approvals represent a significant share of current approved unit volume."
+      "Synthetic product approvals represent a significant share of cumulative approved unit volume."
+    );
+  }
+
+  if (
+    syntheticRecent >= 4 &&
+    syntheticPrior >= 1 &&
+    syntheticRecent > syntheticPrior * 1.2
+  ) {
+    insights.push(
+      "Synthetic approvals are increasing across active territories (recent vs prior 14 days)."
     );
   }
 
@@ -1679,9 +1779,27 @@ function buildKlondikeTerritoryInventoryModel({
     }
   });
 
-  if (toteRecent >= 3 && toteRecent > totePrior && totePrior >= 0) {
+  if (
+    hydraulicToteRecent >= 4 &&
+    hydraulicToteRecent > Math.max(1, hydraulicTotePrior) * 1.2
+  ) {
+    insights.push(
+      "Hydraulic tote demand is accelerating (approved units in the recent 14-day window)."
+    );
+  }
+
+  if (toteRecent >= 3 && toteRecent > totePrior) {
     insights.push(
       "Tote or bulk-style package approvals are elevated in the most recent 14 days compared with the prior period."
+    );
+  }
+
+  if (
+    unitsLast14d >= 12 &&
+    largePackShareRecent >= 0.38
+  ) {
+    insights.push(
+      "Proposal approvals are concentrating around larger package sizes in the recent 14-day window."
     );
   }
 
@@ -1693,9 +1811,13 @@ function buildKlondikeTerritoryInventoryModel({
     dealerConcentration.length >= 2
   ) {
     insights.push(
-      `Approved demand is concentrated among dealers—${topDealer.name} accounts for a leading share of approved units in this rollup.`
+      `Territory demand is concentrated among dealers—${topDealer.name} accounts for a leading share of approved units in this rollup.`
     );
   }
+
+  const uniqueInsights = Array.from(
+    new Map(insights.map((s) => [s.toLowerCase(), s])).values()
+  );
 
   return {
     hasData: lineCount > 0,
@@ -1708,12 +1830,24 @@ function buildKlondikeTerritoryInventoryModel({
         ? Math.round((syntheticUnits / totalUnits) * 1000) / 10
         : 0,
     topSkus,
+    acceleratingSkus: acceleratingSkus.slice(0, 12),
     categoryRows,
     dealerConcentration,
     packageRows,
+    packageTrendRows,
     toteRecent,
     totePrior,
-    insights: insights.slice(0, 8),
+    unitsLast7d,
+    unitsLast14d,
+    unitsPrior14d,
+    velocityPerDay7d,
+    velocityPerDay14d,
+    largePackShareRecent:
+      unitsLast14d > 0
+        ? Math.round(largePackShareRecent * 1000) / 10
+        : 0,
+    activeDealersWithDemand,
+    insights: uniqueInsights.slice(0, 12),
   };
 }
 
@@ -6102,17 +6236,29 @@ const handleFinishDealerEnrollment = async () => {
             <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
               INVENTORY INTELLIGENCE
             </div>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 800,
+                color: "#0f172a",
+                marginTop: 10,
+                letterSpacing: "0.02em",
+              }}
+            >
+              Territory demand forecasting
+            </div>
             <p
               style={{
                 ...styles.cardBody,
                 color: "#334155",
-                marginTop: 12,
+                marginTop: 8,
                 marginBottom: 8,
                 lineHeight: 1.55,
               }}
             >
-              Approved proposal demand only—forecasting and operational visibility for Supply
-              Chain alignment. Not warehouse inventory, stock levels, or purchasing automation.
+              Forward-looking operational demand from customer-approved proposal lines only—built
+              for Supply Chain visibility. Not ERP inventory, warehouse stock, or purchasing
+              automation.
             </p>
           </div>
 
@@ -6126,13 +6272,31 @@ const handleFinishDealerEnrollment = async () => {
             }}
           >
             <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
-              SUPPLY CHAIN READINESS REMINDER
+              SUPPLY CHAIN READINESS
             </div>
             <p style={{ ...styles.cardBody, color: "#334155", marginTop: 12, lineHeight: 1.55 }}>
-              Customer-approved lines on proposals represent forward-looking lubricant demand.
-              Klondike leadership should review this demand weekly with Supply Chain so packaging
-              and SKU acceleration signals are visible operationally—not as ERP inventory.
+              Approved proposal demand signals what customers intend to buy—it is a planning input
+              for operations, not a substitute for warehouse systems or on-hand counts.
             </p>
+            <div
+              style={{
+                marginTop: 14,
+                padding: "14px 16px",
+                borderRadius: 12,
+                background: "linear-gradient(90deg, #fffbeb 0%, #eff6ff 100%)",
+                border: "1px solid rgba(96, 165, 250, 0.35)",
+                borderLeft: "4px solid rgba(245, 158, 11, 0.9)",
+              }}
+            >
+              <div style={{ fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>
+                Weekly supply review (operational)
+              </div>
+              <p style={{ ...styles.listMeta, color: "#475569", margin: 0, lineHeight: 1.5 }}>
+                Review category mix, accelerating SKUs, and package trends below on a weekly
+                cadence with Supply Chain—no scheduling infrastructure required; use the optional
+                email reminder when helpful.
+              </p>
+            </div>
             <div
               style={{
                 marginTop: 14,
@@ -6144,12 +6308,11 @@ const handleFinishDealerEnrollment = async () => {
               }}
             >
               <div style={{ fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>
-                Operational reminder
+                Visibility reminder
               </div>
               <p style={{ ...styles.listMeta, color: "#475569", margin: 0, lineHeight: 1.5 }}>
-                Block time each week to walk through approved units, top SKUs, and dealer
-                concentration with Supply Chain. Escalate tote or bulk-heavy approvals when the
-                recent 14-day window exceeds the prior period.
+                Escalate tote, bulk, or drum-heavy approval patterns when the recent 14-day window
+                materially exceeds the prior period.
               </p>
             </div>
             <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -6214,14 +6377,39 @@ const handleFinishDealerEnrollment = async () => {
                 style={{
                   display: "grid",
                   gap: 10,
-                  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(148px, 1fr))",
                 }}
               >
                 {[
                   {
-                    label: "Approved units (qty)",
+                    label: "Approved units (all time)",
                     value: klondikeTerritoryInventoryModel.totalApprovedUnits.toLocaleString(),
                     accent: "orange",
+                  },
+                  {
+                    label: "Approved units (last 14d)",
+                    value: klondikeTerritoryInventoryModel.unitsLast14d.toLocaleString(),
+                    accent: "orange",
+                  },
+                  {
+                    label: "Prior 14d units",
+                    value: klondikeTerritoryInventoryModel.unitsPrior14d.toLocaleString(),
+                    accent: "blue",
+                  },
+                  {
+                    label: "Velocity (units / day, 7d)",
+                    value: String(klondikeTerritoryInventoryModel.velocityPerDay7d),
+                    accent: "blue",
+                  },
+                  {
+                    label: "Velocity (units / day, 14d)",
+                    value: String(klondikeTerritoryInventoryModel.velocityPerDay14d),
+                    accent: "blue",
+                  },
+                  {
+                    label: "Large pack share (recent 14d)",
+                    value: `${klondikeTerritoryInventoryModel.largePackShareRecent}%`,
+                    accent: "green",
                   },
                   {
                     label: "Approved lines",
@@ -6234,7 +6422,12 @@ const handleFinishDealerEnrollment = async () => {
                     accent: "blue",
                   },
                   {
-                    label: "Synthetic share (units)",
+                    label: "Dealers w/ demand",
+                    value: String(klondikeTerritoryInventoryModel.activeDealersWithDemand),
+                    accent: "green",
+                  },
+                  {
+                    label: "Synthetic share (cumulative)",
                     value: `${klondikeTerritoryInventoryModel.syntheticSharePct}%`,
                     accent: "green",
                   },
@@ -6323,6 +6516,109 @@ const handleFinishDealerEnrollment = async () => {
                 </div>
               </div>
 
+              {klondikeTerritoryInventoryModel.acceleratingSkus.length > 0 ? (
+                <div
+                  style={{
+                    ...styles.card,
+                    background: "#ffffff",
+                    border: "1px solid rgba(245, 158, 11, 0.42)",
+                    boxShadow: "0 10px 26px rgba(15, 23, 42, 0.08)",
+                    padding: "20px 22px",
+                  }}
+                >
+                  <div style={{ ...styles.summaryLabel, color: "#c2410c", letterSpacing: "0.06em" }}>
+                    ACCELERATING SKUS (RECENT VS PRIOR 14D)
+                  </div>
+                  <p style={{ fontSize: 12, color: "#64748b", marginTop: 8, marginBottom: 12 }}>
+                    Higher recent approved-unit volume versus the prior 14-day window—same SKU key
+                    (product + package).
+                  </p>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {klondikeTerritoryInventoryModel.acceleratingSkus.map((row, idx) => (
+                      <div
+                        key={`${row.product}-${row.package}-${idx}`}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          alignItems: "flex-start",
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          background: idx % 2 === 0 ? "#fffbeb" : "#f8fafc",
+                          border: "1px solid rgba(148, 163, 184, 0.24)",
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 13 }}>
+                            {row.product}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#64748b" }}>{row.package}</div>
+                        </div>
+                        <div style={{ textAlign: "right", fontSize: 12 }}>
+                          <div style={{ fontWeight: 900, color: "#c2410c" }}>
+                            Recent: {row.recentUnits.toLocaleString()} units
+                          </div>
+                          <div style={{ color: "#64748b" }}>
+                            Prior: {row.priorUnits.toLocaleString()} units
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div
+                style={{
+                  ...styles.card,
+                  background: "#ffffff",
+                  border: "1px solid rgba(96, 165, 250, 0.32)",
+                  padding: "20px 22px",
+                }}
+              >
+                <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
+                  PACKAGE TREND (14D VS PRIOR)
+                </div>
+                <p style={{ fontSize: 12, color: "#64748b", marginTop: 8, marginBottom: 12 }}>
+                  Approved-unit totals by package band—recent window compared with the prior 14 days.
+                </p>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {klondikeTerritoryInventoryModel.packageTrendRows
+                    .filter((r) => r.recentUnits > 0 || r.priorUnits > 0)
+                    .slice(0, 10)
+                    .map((row, idx) => (
+                      <div
+                        key={row.name}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          flexWrap: "wrap",
+                          padding: "8px 10px",
+                          borderRadius: 8,
+                          background: idx % 2 === 0 ? "#f8fafc" : "#eff6ff",
+                          border: "1px solid rgba(148, 163, 184, 0.22)",
+                        }}
+                      >
+                        <span style={{ fontWeight: 800, color: "#0f172a" }}>{row.name}</span>
+                        <span style={{ fontSize: 12, color: "#334155" }}>
+                          Recent: <strong>{row.recentUnits.toLocaleString()}</strong>
+                          {" · "}
+                          Prior: <strong>{row.priorUnits.toLocaleString()}</strong>
+                          {row.deltaPct != null ? (
+                            <span style={{ color: "#c2410c", marginLeft: 8 }}>
+                              ({row.deltaPct > 0 ? "+" : ""}
+                              {row.deltaPct}%)
+                            </span>
+                          ) : row.recentUnits > 0 ? (
+                            <span style={{ color: "#15803d", marginLeft: 8 }}>(new)</span>
+                          ) : null}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
               <div
                 style={{
                   display: "grid",
@@ -6339,10 +6635,10 @@ const handleFinishDealerEnrollment = async () => {
                   }}
                 >
                   <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
-                    DEMAND BY CATEGORY (UNITS)
+                    CATEGORY CONCENTRATION (CUMULATIVE UNITS)
                   </div>
                   <p style={{ fontSize: 12, color: "#64748b", marginTop: 8, marginBottom: 10 }}>
-                    Territory demand mix—share of approved units across the dealer network.
+                    Share of approved units by lubricant category across the territory network.
                   </p>
                   <div style={{ display: "grid", gap: 6 }}>
                     {klondikeTerritoryInventoryModel.categoryRows.map((row) => (
@@ -6394,10 +6690,10 @@ const handleFinishDealerEnrollment = async () => {
                   }}
                 >
                   <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
-                    PACKAGE PROFILE (UNITS)
+                    TOP PACKAGE TYPES (CUMULATIVE UNITS)
                   </div>
                   <p style={{ fontSize: 12, color: "#64748b", marginTop: 8, marginBottom: 10 }}>
-                    Derived from proposal line package labels—operational signal only.
+                    Overall approved-unit mix by inferred package band from proposal lines.
                   </p>
                   <div style={{ display: "grid", gap: 6 }}>
                     {klondikeTerritoryInventoryModel.packageRows.map((row) => (
@@ -6464,10 +6760,10 @@ const handleFinishDealerEnrollment = async () => {
                 }}
               >
                 <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
-                  DEALER DEMAND CONCENTRATION
+                  TERRITORY / DEALER DEMAND CONCENTRATION
                 </div>
                 <p style={{ fontSize: 12, color: "#64748b", marginTop: 8, marginBottom: 10 }}>
-                  Approved units attributed by dealer organization (quotes tied to each dealer).
+                  Where approved units concentrate by dealer organization (quotes scoped per dealer).
                 </p>
                 <div style={{ display: "grid", gap: 8 }}>
                   {klondikeTerritoryInventoryModel.dealerConcentration.slice(0, 12).map((d, i) => (
@@ -6501,7 +6797,7 @@ const handleFinishDealerEnrollment = async () => {
                   }}
                 >
                   <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
-                    OPERATIONAL INSIGHTS
+                    TERRITORY FORECASTING INSIGHTS
                   </div>
                   <ul
                     style={{
