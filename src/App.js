@@ -11006,8 +11006,11 @@ const handleFinishDealerEnrollment = async () => {
                 maxWidth: 760,
               }}
             >
-              Klondike surfaces why each item matters and the next move—prioritized up to{" "}
-              {KL_ADMIN_ACTION_CENTER_LIMIT} rows, then deeper intelligence below.
+              <span style={{ color: "#f8fafc", fontWeight: 800 }}>
+                System-prioritized BDM actions for today.
+              </span>{" "}
+              Scan ranked rows first—deeper territory intelligence follows below (up to{" "}
+              {KL_ADMIN_ACTION_CENTER_LIMIT} queued).
             </p>
           </div>
 
@@ -11021,60 +11024,167 @@ const handleFinishDealerEnrollment = async () => {
               else if (st === "handled") handledCount += 1;
             });
             const remainingCount = Math.max(0, totalShown - preparedCount - handledCount);
+            const dealerRisksFlagged = klondikeActionCenterActions.filter(
+              (a) =>
+                a.kind === "dealer_activation" ||
+                (a.kind === "spotlight" &&
+                  typeof a.severityRank === "number" &&
+                  a.severityRank === 0)
+            ).length;
+            const tileBase = {
+              padding: "8px 12px",
+              borderRadius: 11,
+              background: "rgba(248, 250, 252, 0.98)",
+              border: "1px solid rgba(226, 232, 240, 0.9)",
+              boxShadow: "0 2px 10px rgba(15, 23, 42, 0.05)",
+              minWidth: 0,
+            };
             return (
-              <div
-                style={{
-                  marginBottom: 12,
-                  padding: "10px 14px",
-                  borderRadius: 12,
-                  background: "rgba(248, 250, 252, 0.98)",
-                  border: "1px solid rgba(226, 232, 240, 0.92)",
-                  boxShadow: "0 4px 14px rgba(15, 23, 42, 0.07)",
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: "10px 16px",
-                  justifyContent: "space-between",
-                }}
-              >
+              <>
                 <div
                   style={{
-                    fontSize: 10,
-                    fontWeight: 900,
-                    letterSpacing: "0.11em",
-                    color: "#64748b",
+                    marginBottom: 10,
+                    display: "grid",
+                    gap: 8,
+                    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 108px), 1fr))",
                   }}
                 >
-                  DAILY ACTION SUMMARY · SESSION
+                  <div style={{ ...tileBase, borderLeft: "3px solid #ea580c" }}>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 900,
+                        letterSpacing: "0.1em",
+                        color: "#64748b",
+                      }}
+                    >
+                      ACTIONS READY
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 2,
+                        fontSize: 20,
+                        fontWeight: 900,
+                        color: "#0f172a",
+                        letterSpacing: "-0.02em",
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      {remainingCount}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
+                      Open queue · awaiting click
+                    </div>
+                  </div>
+                  <div style={{ ...tileBase, borderLeft: "3px solid #2563eb" }}>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 900,
+                        letterSpacing: "0.1em",
+                        color: "#64748b",
+                      }}
+                    >
+                      FOLLOW-UPS STAGED
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 2,
+                        fontSize: 20,
+                        fontWeight: 900,
+                        color: "#0f172a",
+                        letterSpacing: "-0.02em",
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      {preparedCount}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
+                      Mock banners · this session
+                    </div>
+                  </div>
+                  <div style={{ ...tileBase, borderLeft: "3px solid #64748b" }}>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 900,
+                        letterSpacing: "0.1em",
+                        color: "#64748b",
+                      }}
+                    >
+                      DEALER RISKS FLAGGED
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 2,
+                        fontSize: 20,
+                        fontWeight: 900,
+                        color: "#0f172a",
+                        letterSpacing: "-0.02em",
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      {dealerRisksFlagged}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
+                      Activation / critical spotlight signals
+                    </div>
+                  </div>
                 </div>
                 <div
                   style={{
+                    marginBottom: 12,
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    background: "rgba(248, 250, 252, 0.98)",
+                    border: "1px solid rgba(226, 232, 240, 0.92)",
+                    boxShadow: "0 4px 14px rgba(15, 23, 42, 0.07)",
                     display: "flex",
                     flexWrap: "wrap",
-                    gap: "12px 18px",
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: "#334155",
+                    alignItems: "center",
+                    gap: "10px 16px",
+                    justifyContent: "space-between",
                   }}
                 >
-                  <span>
-                    <span style={{ color: "#94a3b8", fontWeight: 800 }}>Total </span>
-                    {totalShown}
-                  </span>
-                  <span style={{ color: "#047857" }}>
-                    <span style={{ color: "#94a3b8", fontWeight: 800 }}>Prepared </span>
-                    {preparedCount}
-                  </span>
-                  <span style={{ color: "#2563eb" }}>
-                    <span style={{ color: "#94a3b8", fontWeight: 800 }}>Handled </span>
-                    {handledCount}
-                  </span>
-                  <span style={{ color: "#ea580c" }}>
-                    <span style={{ color: "#94a3b8", fontWeight: 800 }}>Remaining </span>
-                    {remainingCount}
-                  </span>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 900,
+                      letterSpacing: "0.11em",
+                      color: "#64748b",
+                    }}
+                  >
+                    SESSION PROGRESS · COMPLETION
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "12px 18px",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      color: "#334155",
+                    }}
+                  >
+                    <span>
+                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Total </span>
+                      {totalShown}
+                    </span>
+                    <span style={{ color: "#047857" }}>
+                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Prepared </span>
+                      {preparedCount}
+                    </span>
+                    <span style={{ color: "#2563eb" }}>
+                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Handled </span>
+                      {handledCount}
+                    </span>
+                    <span style={{ color: "#ea580c" }}>
+                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Remaining </span>
+                      {remainingCount}
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </>
             );
           })()}
 
