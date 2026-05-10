@@ -11140,66 +11140,120 @@ const handleFinishDealerEnrollment = async () => {
               fontWeight: 900,
               letterSpacing: "0.12em",
               color: "#64748b",
-              marginBottom: 12,
+              marginBottom: 6,
             }}
           >
             ACTIVE INCENTIVES · SNAPSHOT
           </div>
+          <p
+            style={{
+              margin: "0 0 14px",
+              fontSize: 13,
+              color: "#64748b",
+              lineHeight: 1.45,
+              maxWidth: 720,
+            }}
+          >
+            Executive pulse on live Product Strategy incentives—full contest management stays in that tab.
+          </p>
           {liveActiveTerritoryContests.length === 0 ? (
             <div
               style={{
-                borderRadius: 14,
+                borderRadius: 12,
                 padding: "14px 16px",
                 background: "#ffffff",
-                border: "1px solid rgba(226, 232, 240, 0.98)",
+                border: "1px solid rgba(251, 146, 60, 0.28)",
+                borderLeft: "3px solid rgba(234, 88, 12, 0.88)",
                 fontSize: 14,
                 color: "#64748b",
-                boxShadow: "0 8px 22px rgba(15, 23, 42, 0.06)",
+                boxShadow: "0 6px 20px rgba(15, 23, 42, 0.06)",
               }}
             >
               No live incentives in the current window.
             </div>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gap: 12,
-                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
-              }}
-            >
-              {liveActiveTerritoryContests.map((c) => {
-                const metricLabel =
-                  CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label || c.metricKey;
-                const ld = resolveTerritoryContestLeaderDisplay(c);
-                const showPh = ld.line === "—" && !ld.footnote;
-                return (
-                  <div
-                    key={`dash-inc-${c.id}`}
-                    style={{
-                      background: "#ffffff",
-                      borderRadius: 14,
-                      border: "1px solid rgba(226, 232, 240, 0.98)",
-                      boxShadow: "0 10px 26px rgba(15, 23, 42, 0.07)",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <TerritoryIncentiveReadOnlyCard
-                      title={c.title}
-                      metricLabel={metricLabel}
-                      prize={c.prize}
-                      qualificationText={formatContestQualificationSummary(c)}
-                      timeRemainingLabel={formatContestTimeRemaining(c)}
-                      scopeDescription={contestScopeDescription(c)}
-                      leaderLine={ld.line}
-                      leaderFootnote={ld.footnote}
-                      showProgressTrackingPlaceholder={showPh}
-                      compact
-                      accentBorder="#ea580c"
-                    />
-                  </div>
-                );
-              })}
-            </div>
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
+                }}
+              >
+                {liveActiveTerritoryContests.slice(0, 3).map((c) => {
+                  const metricLabel =
+                    CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label ||
+                    String(c.metricKey || "Contest");
+                  const ld = resolveTerritoryContestLeaderDisplay(c);
+                  const windowLabel = formatContestTimeRemaining(c);
+                  let pulse =
+                    ld.line === "Qualification pending" && ld.footnote
+                      ? String(ld.footnote).trim()
+                      : ld.line !== "—"
+                        ? String(ld.line).trim()
+                        : "Standings pending territory signals.";
+                  if (pulse.length > 118) pulse = `${pulse.slice(0, 115)}…`;
+                  let nextAction =
+                    "Review pacing and coaching hooks in Product Strategy while the window is open.";
+                  if (ld.line === "Qualification pending") {
+                    nextAction =
+                      "Unblock qualification gates with reps—adjust targets in Product Strategy if needed.";
+                  } else if (ld.line === "—" && !ld.footnote) {
+                    nextAction =
+                      "Confirm proposal and inventory signals loaded so standings can populate.";
+                  } else if (ld.qualified) {
+                    nextAction =
+                      "Protect leaderboard momentum—pair prizes with targeted Sales Enablement sends.";
+                  }
+                  return (
+                    <div
+                      key={`dash-inc-${c.id}`}
+                      style={{
+                        borderRadius: 12,
+                        padding: "12px 14px",
+                        background: "#ffffff",
+                        border: "1px solid rgba(251, 146, 60, 0.32)",
+                        borderLeft: "3px solid rgba(234, 88, 12, 0.92)",
+                        boxShadow: "0 6px 20px rgba(15, 23, 42, 0.06)",
+                        minWidth: 0,
+                      }}
+                    >
+                      <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", lineHeight: 1.3 }}>
+                        {c.title}
+                      </div>
+                      <div style={{ marginTop: 8, fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
+                        <span style={{ color: "#94a3b8", fontWeight: 800 }}>Category</span> {metricLabel}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 10,
+                          display: "grid",
+                          gap: 4,
+                          fontSize: 12,
+                          color: "#334155",
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        <div>
+                          <span style={{ color: "#94a3b8", fontWeight: 800 }}>Window</span> {windowLabel}
+                        </div>
+                        <div>
+                          <span style={{ color: "#94a3b8", fontWeight: 800 }}>Progress</span> {pulse}
+                        </div>
+                      </div>
+                      <p style={{ margin: "10px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
+                        <span style={{ color: "#94a3b8", fontWeight: 800 }}>Next step:</span> {nextAction}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+              {liveActiveTerritoryContests.length > 3 ? (
+                <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
+                  +{liveActiveTerritoryContests.length - 3} more live in Product Strategy.
+                </p>
+              ) : null}
+            </>
           )}
         </div>
       )}
