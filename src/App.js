@@ -22,6 +22,7 @@ import {
 } from "./utils/buildDashboardEnablementAlerts";
 import { buildKlondikeActionCenterActions } from "./utils/buildKlondikeActionCenterActions";
 import { computeTerritoryProposalSignals } from "./utils/territoryProposalSignals";
+import { buildSalesEnablementSpotlightEmailPayload } from "./utils/buildSalesEnablementSpotlightEmailPayload";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -36,6 +37,8 @@ const SALES_ENABLEMENT_LIST_STYLE = {
   fontSize: 14,
   lineHeight: 1.55,
 };
+/** Local-only sent log for Sales Enablement spotlight delivery (Phase 70). */
+const KL_SPOTLIGHT_SENT_HISTORY_KEY = "kl_sales_enablement_sent_v1";
 function SalesEnablementPreviewLabel({ children }) {
   return (
     <div
@@ -3801,6 +3804,18 @@ useEffect(() => {
   const [salesEnablementPreparedIntro, setSalesEnablementPreparedIntro] = useState("");
   /** Enablement Library subsection: product/category browsers, customer profile placeholders, training catalog. */
   const [salesEnablementLibraryTab, setSalesEnablementLibraryTab] = useState("product");
+  const [salesEnablementRecipientPreview, setSalesEnablementRecipientPreview] = useState(null);
+  const [salesEnablementSendBusy, setSalesEnablementSendBusy] = useState(false);
+  const [salesEnablementSendNotice, setSalesEnablementSendNotice] = useState(null);
+  const [salesEnablementSentHistory, setSalesEnablementSentHistory] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(KL_SPOTLIGHT_SENT_HISTORY_KEY);
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.slice(0, 12) : [];
+    } catch {
+      return [];
+    }
+  });
   const [inventoryWeeklyReminderEmailStatus, setInventoryWeeklyReminderEmailStatus] =
     useState(null);
   const [dealerActivationOrgId, setDealerActivationOrgId] = useState("");
@@ -5959,6 +5974,60 @@ const handleFinishDealerEnrollment = async () => {
     }
   }, [salesEnablementSelectedId, salesEnablementSendPanelOpen]);
 
+  useEffect(() => {
+    setSalesEnablementSendNotice(null);
+  }, [salesEnablementDealerOrgId, salesEnablementSelectedId]);
+
+  useEffect(() => {
+    if (!isPlatformAdmin || !salesEnablementSendPanelOpen || !salesEnablementDealerOrgId) {
+      setSalesEnablementRecipientPreview(null);
+      return;
+    }
+    let cancelled = false;
+    setSalesEnablementRecipientPreview({ loading: true });
+    supabase
+      .from("organization_members_with_emails")
+      .select("role, email")
+      .eq("organization_id", salesEnablementDealerOrgId)
+      .eq("is_active", true)
+      .in("role", ["dealer_admin", "manager", "rep"])
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.warn("Sales enablement recipient preview:", error);
+          setSalesEnablementRecipientPreview({
+            loading: false,
+            error: true,
+            total: 0,
+            counts: { dealer_admin: 0, manager: 0, rep: 0 },
+          });
+          return;
+        }
+        const emails = new Set();
+        const counts = { dealer_admin: 0, manager: 0, rep: 0 };
+        (data || []).forEach((row) => {
+          const em = String(row.email || "")
+            .trim()
+            .toLowerCase();
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return;
+          if (emails.has(em)) return;
+          emails.add(em);
+          const r = String(row.role || "").toLowerCase();
+          if (r === "dealer_admin") counts.dealer_admin += 1;
+          else if (r === "manager") counts.manager += 1;
+          else if (r === "rep") counts.rep += 1;
+        });
+        setSalesEnablementRecipientPreview({
+          loading: false,
+          total: emails.size,
+          counts,
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPlatformAdmin, salesEnablementSendPanelOpen, salesEnablementDealerOrgId]);
+
   const adminTerritoryTrendIntelligence = React.useMemo(() => {
     const insights = [];
     const productLeader =
@@ -6161,6 +6230,109 @@ const handleFinishDealerEnrollment = async () => {
     salesEnablementSelectedId,
     filteredSalesProductSpotlights,
     filteredSalesCategorySpotlights,
+  ]);
+
+  const spotlightEmailSendPayload = React.useMemo(() => {
+    if (!selectedSalesEnablementSpotlight) {
+      return { title: "Klondike Spotlight", sections: [] };
+    }
+    const mode = salesEnablementSpotlightMode === "product" ? "product" : "category";
+    return buildSalesEnablementSpotlightEmailPayload(selectedSalesEnablementSpotlight, mode);
+  }, [selectedSalesEnablementSpotlight, salesEnablementSpotlightMode]);
+
+  const handleSendSalesEnablementSpotlight = useCallback(async () => {
+    if (!salesEnablementDealerOrgId || !spotlightEmailSendPayload?.sections?.length) return;
+    const dealerName =
+      (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : []).find(
+        (d) => String(d.organization_id) === String(salesEnablementDealerOrgId)
+      )?.name || "";
+    setSalesEnablementSendBusy(true);
+    setSalesEnablementSendNotice(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-spotlight-email", {
+        body: {
+          organizationId: salesEnablementDealerOrgId,
+          spotlightTitle: spotlightEmailSendPayload.title,
+          dealerName,
+          introText: String(salesEnablementPreparedIntro || "").trim(),
+          sections: spotlightEmailSendPayload.sections,
+        },
+      });
+      if (error) {
+        console.warn("send-spotlight-email invoke:", error);
+        setSalesEnablementSendNotice({
+          kind: "error",
+          text: "Delivery failed. You can retry in a moment.",
+        });
+        return;
+      }
+      if (data?.ok === false) {
+        const code = String(data?.error || "");
+        if (code === "no_recipients") {
+          setSalesEnablementSendNotice({
+            kind: "info",
+            text:
+              "No valid recipients — ensure this dealer has active dealer admins, managers, or reps with email addresses.",
+          });
+        } else if (code === "missing_resend" || data?.skipped) {
+          setSalesEnablementSendNotice({
+            kind: "error",
+            text: "Email delivery is not configured (Resend). Contact platform support.",
+          });
+        } else if (code === "missing_sections") {
+          setSalesEnablementSendNotice({
+            kind: "error",
+            text: "This spotlight could not be formatted for email.",
+          });
+        } else if (code === "forbidden" || code === "invalid_session") {
+          setSalesEnablementSendNotice({
+            kind: "error",
+            text: "You do not have permission to send enablement email.",
+          });
+        } else {
+          setSalesEnablementSendNotice({
+            kind: "error",
+            text: String(data?.message || data?.error || "Could not send spotlight."),
+          });
+        }
+        return;
+      }
+      const rc = Number(data?.recipientCount || 0);
+      setSalesEnablementSendNotice({
+        kind: "success",
+        text: `Spotlight sent successfully to ${rc} dealer user${rc === 1 ? "" : "s"}.`,
+      });
+      const title = spotlightEmailSendPayload.title;
+      setSalesEnablementSentHistory((prev) => {
+        const entry = {
+          id: `${Date.now()}`,
+          dealerName: dealerName || "Dealer",
+          spotlightTitle: title,
+          sentAt: new Date().toISOString(),
+          recipientCount: rc,
+        };
+        const next = [entry, ...(Array.isArray(prev) ? prev : [])].slice(0, 12);
+        try {
+          window.localStorage.setItem(KL_SPOTLIGHT_SENT_HISTORY_KEY, JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+    } catch (e) {
+      console.warn("send-spotlight-email failed:", e);
+      setSalesEnablementSendNotice({
+        kind: "error",
+        text: "Delivery failed. You can retry in a moment.",
+      });
+    } finally {
+      setSalesEnablementSendBusy(false);
+    }
+  }, [
+    salesEnablementDealerOrgId,
+    dealerNetworkPerformance,
+    spotlightEmailSendPayload,
+    salesEnablementPreparedIntro,
   ]);
 
   useEffect(() => {
@@ -7273,9 +7445,9 @@ const handleFinishDealerEnrollment = async () => {
                 }}
               >
                 <strong style={{ color: "#0f172a" }}>Workflow:</strong> signal detected → recommended
-                action → prepare send → review below → future delivery. Spotlights and training live
-                in the <strong style={{ color: "#1d4ed8" }}>Enablement Library</strong> section—browse
-                there when you are exploring materials outside a specific dealer workflow.
+                spotlight → optional intro → send → done. Spotlights and training live in the{" "}
+                <strong style={{ color: "#1d4ed8" }}>Enablement Library</strong> section—browse there
+                when you are exploring materials outside a specific dealer workflow.
               </p>
               <p
                 style={{
@@ -7289,8 +7461,8 @@ const handleFinishDealerEnrollment = async () => {
                   border: "1px solid rgba(52, 211, 153, 0.38)",
                 }}
               >
-                Prepared sends are preview-only—no outbound email from this screen in the current
-                phase.
+                Manual delivery only: KL admins send branded spotlight email to dealer admins,
+                managers, and reps—no campaigns or automated schedules.
               </p>
             </div>
 
@@ -7811,7 +7983,7 @@ const handleFinishDealerEnrollment = async () => {
                       color: "#1e40af",
                     }}
                   >
-                    SEND PREPARATION (PREVIEW)
+                    SEND SPOTLIGHT
                   </div>
                   <p
                     style={{
@@ -7821,7 +7993,8 @@ const handleFinishDealerEnrollment = async () => {
                       lineHeight: 1.5,
                     }}
                   >
-                    Review audience scope and message framing. No messages are sent in this phase.
+                    One operational send to active dealer admins, managers, and reps for this
+                    organization. No scheduling or campaigns.
                   </p>
                 </div>
                 <button
@@ -7915,7 +8088,7 @@ const handleFinishDealerEnrollment = async () => {
                     marginBottom: 8,
                   }}
                 >
-                  RECIPIENT SCOPE (PREVIEW)
+                  RECIPIENTS
                 </div>
                 <ul
                   style={{
@@ -7926,13 +8099,43 @@ const handleFinishDealerEnrollment = async () => {
                     lineHeight: 1.55,
                   }}
                 >
-                  <li>Dealer administrators for this organization</li>
-                  <li>Managers assigned under this dealer</li>
-                  <li>Active sales reps with memberships tied to this dealer</li>
+                  <li>Dealer administrators</li>
+                  <li>Managers</li>
+                  <li>Active sales reps</li>
                 </ul>
-                <p style={{ margin: "8px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
-                  Exact routing lists will resolve when email delivery is enabled.
-                </p>
+                {salesEnablementRecipientPreview?.loading ? (
+                  <p style={{ margin: "10px 0 0", fontSize: 13, color: "#64748b" }}>
+                    Loading recipient summary…
+                  </p>
+                ) : salesEnablementRecipientPreview?.error ? (
+                  <p style={{ margin: "10px 0 0", fontSize: 13, color: "#b45309", fontWeight: 700 }}>
+                    Could not load recipient counts. You can still send; routing is verified
+                    server-side.
+                  </p>
+                ) : salesEnablementRecipientPreview ? (
+                  <p
+                    style={{
+                      margin: "10px 0 0",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      color: "#0f172a",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {(() => {
+                      const p = salesEnablementRecipientPreview;
+                      const c = p.counts || {};
+                      const parts = [];
+                      if (c.rep) parts.push(`${c.rep} rep${c.rep === 1 ? "" : "s"}`);
+                      if (c.manager) parts.push(`${c.manager} manager${c.manager === 1 ? "" : "s"}`);
+                      if (c.dealer_admin) {
+                        parts.push(`${c.dealer_admin} dealer admin${c.dealer_admin === 1 ? "" : "s"}`);
+                      }
+                      const breakdown = parts.length ? ` — ${parts.join(", ")}` : "";
+                      return `Sending to ${p.total} dealer user${p.total === 1 ? "" : "s"}${breakdown}`;
+                    })()}
+                  </p>
+                ) : null}
               </div>
 
               <label style={{ display: "grid", gap: 6 }}>
@@ -7942,7 +8145,7 @@ const handleFinishDealerEnrollment = async () => {
                 <textarea
                   value={salesEnablementPreparedIntro}
                   onChange={(e) => setSalesEnablementPreparedIntro(e.target.value)}
-                  placeholder="Add context for your future send—e.g. urgency, pilot scope, or meeting follow-up."
+                  placeholder="Optional intro—urgency, pilot scope, meeting follow-up. Shown at the top of the dealer email."
                   rows={3}
                   style={{
                     width: "100%",
@@ -7958,6 +8161,38 @@ const handleFinishDealerEnrollment = async () => {
                   }}
                 />
               </label>
+
+              {salesEnablementSendNotice ? (
+                <div
+                  style={{
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    fontSize: 13,
+                    lineHeight: 1.45,
+                    fontWeight: 700,
+                    background:
+                      salesEnablementSendNotice.kind === "success"
+                        ? "#ecfdf5"
+                        : salesEnablementSendNotice.kind === "info"
+                          ? "#fffbeb"
+                          : "#fef2f2",
+                    color:
+                      salesEnablementSendNotice.kind === "success"
+                        ? "#065f46"
+                        : salesEnablementSendNotice.kind === "info"
+                          ? "#92400e"
+                          : "#991b1b",
+                    border:
+                      salesEnablementSendNotice.kind === "success"
+                        ? "1px solid rgba(52, 211, 153, 0.45)"
+                        : salesEnablementSendNotice.kind === "info"
+                          ? "1px solid rgba(251, 191, 36, 0.5)"
+                          : "1px solid rgba(248, 113, 113, 0.45)",
+                  }}
+                >
+                  {salesEnablementSendNotice.text}
+                </div>
+              ) : null}
 
               <div
                 style={{
@@ -7987,9 +8222,9 @@ const handleFinishDealerEnrollment = async () => {
                     `Organization: ${dname}`,
                     `Spotlight: ${stitle}`,
                     "",
-                    "Audience (planned): dealer admins, managers, active reps.",
+                    "Audience: dealer admins, managers, active reps (same routing as the email).",
                     "",
-                    "— Prepared in Klondike Sales Enablement (preview only)",
+                    "— Klondike Sales Enablement",
                   ].join("\n");
                 })()}
               </div>
@@ -7997,7 +8232,15 @@ const handleFinishDealerEnrollment = async () => {
               <div style={{ display: "grid", gap: 8 }}>
                 <button
                   type="button"
-                  disabled
+                  disabled={
+                    salesEnablementSendBusy || !spotlightEmailSendPayload?.sections?.length
+                  }
+                  onClick={handleSendSalesEnablementSpotlight}
+                  title={
+                    !spotlightEmailSendPayload?.sections?.length
+                      ? "This spotlight has no sendable sections."
+                      : undefined
+                  }
                   style={{
                     ...styles.workflowTab,
                     textTransform: "none",
@@ -8005,18 +8248,82 @@ const handleFinishDealerEnrollment = async () => {
                     fontSize: 13,
                     fontWeight: 900,
                     borderRadius: 10,
-                    opacity: 0.45,
-                    cursor: "not-allowed",
-                    border: "1px solid rgba(148, 163, 184, 0.5)",
-                    background: "#e2e8f0",
-                    color: "#475569",
+                    opacity:
+                      salesEnablementSendBusy || !spotlightEmailSendPayload?.sections?.length ? 0.55 : 1,
+                    cursor:
+                      salesEnablementSendBusy || !spotlightEmailSendPayload?.sections?.length
+                        ? "not-allowed"
+                        : "pointer",
+                    border: "1px solid rgba(37, 99, 235, 0.45)",
+                    background:
+                      salesEnablementSendBusy || !spotlightEmailSendPayload?.sections?.length
+                        ? "#e2e8f0"
+                        : "linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%)",
+                    color:
+                      salesEnablementSendBusy || !spotlightEmailSendPayload?.sections?.length
+                        ? "#475569"
+                        : "#ffffff",
                   }}
                 >
-                  Send Spotlight
+                  {salesEnablementSendBusy ? "Sending…" : "Send Spotlight"}
                 </button>
                 <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
-                  Email delivery will be enabled in a later phase.
+                  Delivered via Resend from the Klondike platform. Each send is manual—there is no
+                  automation or bulk scheduling.
                 </p>
+              </div>
+            </div>
+          ) : null}
+
+          {Array.isArray(salesEnablementSentHistory) && salesEnablementSentHistory.length > 0 ? (
+            <div
+              style={{
+                ...styles.card,
+                background: "#ffffff",
+                border: "1px solid rgba(148, 163, 184, 0.38)",
+                boxShadow: "0 10px 28px rgba(15, 23, 42, 0.08)",
+                padding: "16px 18px",
+                display: "grid",
+                gap: 10,
+              }}
+            >
+              <div style={{ ...styles.summaryLabel, color: "#475569", letterSpacing: "0.06em" }}>
+                RECENT SPOTLIGHT SENDS (THIS BROWSER)
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {salesEnablementSentHistory.slice(0, 6).map((row) => (
+                  <div
+                    key={row.id || row.sentAt}
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "8px 14px",
+                      justifyContent: "space-between",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      background: "#f8fafc",
+                      border: "1px solid rgba(226, 232, 240, 0.95)",
+                      fontSize: 13,
+                      color: "#334155",
+                    }}
+                  >
+                    <span style={{ fontWeight: 800, color: "#0f172a" }}>{row.dealerName}</span>
+                    <span style={{ fontWeight: 700 }}>{row.spotlightTitle}</span>
+                    <span style={{ fontSize: 12, color: "#64748b" }}>
+                      {row.sentAt
+                        ? new Date(row.sentAt).toLocaleString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                          })
+                        : ""}
+                      {typeof row.recipientCount === "number"
+                        ? ` · ${row.recipientCount} recipient${row.recipientCount === 1 ? "" : "s"}`
+                        : ""}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           ) : null}
