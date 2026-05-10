@@ -3798,6 +3798,8 @@ useEffect(() => {
   const [salesEnablementSelectedId, setSalesEnablementSelectedId] = useState(null);
   const [salesEnablementSendPanelOpen, setSalesEnablementSendPanelOpen] = useState(false);
   const [salesEnablementPreparedIntro, setSalesEnablementPreparedIntro] = useState("");
+  /** Enablement Library subsection: product/category browsers, customer profile placeholders, training catalog. */
+  const [salesEnablementLibraryTab, setSalesEnablementLibraryTab] = useState("product");
   const [inventoryWeeklyReminderEmailStatus, setInventoryWeeklyReminderEmailStatus] =
     useState(null);
   const [dealerActivationOrgId, setDealerActivationOrgId] = useState("");
@@ -5919,6 +5921,7 @@ const handleFinishDealerEnrollment = async () => {
       setKlondikeAdminTab("sales_enablement");
       setSalesEnablementDealerOrgId(String(dealerOrgId || ""));
       setSalesEnablementSpotlightMode(spotlightType === "product" ? "product" : "category");
+      setSalesEnablementLibraryTab(spotlightType === "product" ? "product" : "category");
       setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
       setSalesEnablementSelectedId(spotlightId);
       setSalesEnablementSendPanelOpen(Boolean(openPanel));
@@ -6143,6 +6146,9 @@ const handleFinishDealerEnrollment = async () => {
   ]);
 
   useEffect(() => {
+    if (salesEnablementLibraryTab !== "product" && salesEnablementLibraryTab !== "category") {
+      return;
+    }
     const list =
       salesEnablementSpotlightMode === "product"
         ? filteredSalesProductSpotlights
@@ -6156,6 +6162,7 @@ const handleFinishDealerEnrollment = async () => {
       setSalesEnablementSelectedId(list[0].id);
     }
   }, [
+    salesEnablementLibraryTab,
     salesEnablementSpotlightMode,
     salesEnablementCategoryFilter,
     filteredSalesProductSpotlights,
@@ -7214,49 +7221,168 @@ const handleFinishDealerEnrollment = async () => {
       )}
 
       {klondikeAdminTab === "sales_enablement" && (
-        <div style={{ display: "grid", gap: 16 }}>
+        <div style={{ display: "grid", gap: 18 }}>
           <div
             style={{
-              ...styles.card,
-              background: "#ffffff",
-              border: "1px solid rgba(96, 165, 250, 0.32)",
-              boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
-              padding: "22px 24px",
+              background: "linear-gradient(165deg, #0f172a 0%, #1e3a8a 42%, #0f172a 100%)",
+              borderRadius: 16,
+              padding: "18px 16px 20px",
+              border: "1px solid rgba(59, 130, 246, 0.32)",
+              boxShadow: "0 28px 56px rgba(15, 23, 42, 0.28)",
+              display: "grid",
+              gap: 14,
             }}
           >
-            <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
-              SALES ENABLEMENT CENTER
+            <div
+              style={{
+                ...styles.card,
+                background: "#ffffff",
+                border: "1px solid rgba(96, 165, 250, 0.28)",
+                boxShadow: "0 14px 32px rgba(15, 23, 42, 0.12)",
+                padding: "20px 22px",
+              }}
+            >
+              <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
+                SALES ENABLEMENT
+              </div>
+              <p
+                style={{
+                  ...styles.cardBody,
+                  color: "#334155",
+                  marginTop: 12,
+                  marginBottom: 10,
+                  lineHeight: 1.55,
+                }}
+              >
+                <strong style={{ color: "#0f172a" }}>Workflow:</strong> signal detected → recommended
+                action → prepare send → review below → future delivery. Spotlights and training live
+                in the <strong style={{ color: "#1d4ed8" }}>Enablement Library</strong> section—browse
+                there when you are exploring materials outside a specific dealer workflow.
+              </p>
+              <p
+                style={{
+                  fontSize: 12,
+                  color: "#475569",
+                  margin: 0,
+                  lineHeight: 1.5,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "#f0fdf4",
+                  border: "1px solid rgba(52, 211, 153, 0.38)",
+                }}
+              >
+                Prepared sends are preview-only—no outbound email from this screen in the current
+                phase.
+              </p>
             </div>
-            <p
-              style={{
-                ...styles.cardBody,
-                color: "#334155",
-                marginTop: 12,
-                marginBottom: 10,
-                lineHeight: 1.55,
-              }}
-            >
-              Browse structured product and category spotlights to prepare dealer and rep
-              conversations. Materials are organized for operational consistency—not campaign
-              blasting.
-            </p>
-            <p
-              style={{
-                fontSize: 12,
-                color: "#64748b",
-                margin: 0,
-                lineHeight: 1.5,
-                padding: "10px 12px",
-                borderRadius: 10,
-                background: "#f8fafc",
-                border: "1px solid rgba(148, 163, 184, 0.35)",
-              }}
-            >
-              Spotlights are reviewed sales enablement materials intended to support dealer and
-              rep sales conversations. Automated communication delivery will be added in a later
-              phase.
-            </p>
-          </div>
+
+            {salesEnablementDealerOrgId && salesEnablementPrimarySpotlightAction ? (
+              <div
+                style={{
+                  ...styles.card,
+                  background: "#ffffff",
+                  border: "1px solid rgba(59, 130, 246, 0.42)",
+                  boxShadow: "0 14px 32px rgba(30, 64, 175, 0.12)",
+                  padding: "18px 20px",
+                  display: "grid",
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: "0.08em",
+                    color: "#1d4ed8",
+                  }}
+                >
+                  RECOMMENDED ACTIONS
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 900, color: "#0f172a", lineHeight: 1.3 }}>
+                  {salesEnablementPrimarySpotlightAction.issueTitle}
+                </div>
+                <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.55 }}>
+                  <strong style={{ color: "#0f172a" }}>Primary spotlight:</strong>{" "}
+                  {salesEnablementPrimarySpotlightAction.spotlightTitle}
+                </p>
+                <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                  {salesEnablementPrimarySpotlightAction.whyItMatters}
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openSalesEnablementSpotlightFlow(
+                        salesEnablementDealerOrgId,
+                        salesEnablementPrimarySpotlightAction.spotlightId,
+                        salesEnablementPrimarySpotlightAction.spotlightType,
+                        { openPanel: true }
+                      )
+                    }
+                    style={{
+                      ...styles.workflowTab,
+                      ...styles.workflowTabActive,
+                      textTransform: "none",
+                      padding: "10px 18px",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                      border: "1px solid #1e3a8a",
+                      color: "#ffffff",
+                      boxShadow: "0 8px 18px rgba(37, 99, 235, 0.28)",
+                    }}
+                  >
+                    Prepare Send to Dealer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openSalesEnablementSpotlightFlow(
+                        salesEnablementDealerOrgId,
+                        salesEnablementPrimarySpotlightAction.spotlightId,
+                        salesEnablementPrimarySpotlightAction.spotlightType,
+                        { openPanel: false }
+                      )
+                    }
+                    style={{
+                      ...styles.workflowTab,
+                      textTransform: "none",
+                      padding: "10px 16px",
+                      fontSize: 12,
+                      fontWeight: 800,
+                      borderRadius: 10,
+                      cursor: "pointer",
+                      border: "1px solid rgba(245, 158, 11, 0.55)",
+                      background: "#ffffff",
+                      color: "#c2410c",
+                    }}
+                  >
+                    Preview spotlight only
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {!salesEnablementDealerOrgId ? (
+              <div
+                style={{
+                  ...styles.card,
+                  background: "rgba(255, 255, 255, 0.96)",
+                  border: "1px dashed rgba(148, 163, 184, 0.55)",
+                  padding: "14px 18px",
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#64748b", letterSpacing: "0.05em" }}>
+                  RECOMMENDED ACTIONS
+                </div>
+                <p style={{ margin: "8px 0 0", fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
+                  Select a dealer in <strong style={{ color: "#0f172a" }}>Dealer Enablement Intelligence</strong>{" "}
+                  to surface a primary spotlight recommendation when signals qualify.
+                </p>
+              </div>
+            ) : null}
 
           <div
             style={{
@@ -7269,65 +7395,23 @@ const handleFinishDealerEnrollment = async () => {
               gap: 18,
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 14,
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-              }}
-            >
-              <div style={{ minWidth: 0, flex: "1 1 280px" }}>
-                <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
-                  DEALER ENABLEMENT INTELLIGENCE
-                </div>
-                <p
-                  style={{
-                    ...styles.cardBody,
-                    color: "#475569",
-                    marginTop: 10,
-                    marginBottom: 0,
-                    lineHeight: 1.55,
-                  }}
-                >
-                  Dealer-scoped signals from quotes, proposal responses, approved-demand capture,
-                  and OCR counts already loaded for Klondike Admin. Recommendations are rule-based
-                  and auditable—no scoring fabrications.
-                </p>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
+                DEALER ENABLEMENT INTELLIGENCE
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, flex: "1 1 240px" }}>
-                {[
-                  { key: "hero", label: "Hero imagery", sub: "Roadmap slot" },
-                  { key: "product", label: "Product imagery", sub: "SKU visuals" },
-                  { key: "pdf", label: "PDF export pack", sub: "Future packet" },
-                  { key: "gfx", label: "Spotlight graphic", sub: "Campaign shell" },
-                ].map((slot) => (
-                  <div
-                    key={slot.key}
-                    style={{
-                      flex: "1 1 110px",
-                      minHeight: 72,
-                      borderRadius: 12,
-                      border: "2px dashed rgba(148, 163, 184, 0.65)",
-                      background:
-                        "linear-gradient(145deg, rgba(248,250,252,0.98) 0%, rgba(239,246,255,0.85) 100%)",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 4,
-                      padding: "10px 8px",
-                      textAlign: "center",
-                    }}
-                  >
-                    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "#475569" }}>
-                      {slot.label.toUpperCase()}
-                    </span>
-                    <span style={{ fontSize: 10, color: "#94a3b8", lineHeight: 1.35 }}>{slot.sub}</span>
-                  </div>
-                ))}
-              </div>
+              <p
+                style={{
+                  ...styles.cardBody,
+                  color: "#475569",
+                  marginTop: 10,
+                  marginBottom: 0,
+                  lineHeight: 1.55,
+                }}
+              >
+                Dealer-scoped signals from quotes, proposal responses, approved-demand capture,
+                and OCR counts already loaded for Klondike Admin. Recommendations are rule-based
+                and auditable—no scoring fabrications.
+              </p>
             </div>
 
             <div
@@ -7397,339 +7481,6 @@ const handleFinishDealerEnrollment = async () => {
               </div>
             ) : (
               <>
-                {salesEnablementPrimarySpotlightAction ? (
-                  <div
-                    style={{
-                      borderRadius: 16,
-                      padding: "18px 20px",
-                      border: "1px solid rgba(59, 130, 246, 0.42)",
-                      background:
-                        "linear-gradient(125deg, rgba(239,246,255,0.98) 0%, rgba(255,247,237,0.92) 100%)",
-                      boxShadow: "0 12px 28px rgba(30, 58, 138, 0.1)",
-                      display: "grid",
-                      gap: 12,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 900,
-                        letterSpacing: "0.08em",
-                        color: "#1d4ed8",
-                      }}
-                    >
-                      RECOMMENDED ACTION
-                    </div>
-                    <div style={{ fontSize: 17, fontWeight: 900, color: "#0f172a", lineHeight: 1.3 }}>
-                      {salesEnablementPrimarySpotlightAction.issueTitle}
-                    </div>
-                    <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.55 }}>
-                      <strong style={{ color: "#0f172a" }}>Primary spotlight:</strong>{" "}
-                      {salesEnablementPrimarySpotlightAction.spotlightTitle}
-                    </p>
-                    <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-                      {salesEnablementPrimarySpotlightAction.whyItMatters}
-                    </p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openSalesEnablementSpotlightFlow(
-                            salesEnablementDealerOrgId,
-                            salesEnablementPrimarySpotlightAction.spotlightId,
-                            salesEnablementPrimarySpotlightAction.spotlightType,
-                            { openPanel: true }
-                          )
-                        }
-                        style={{
-                          ...styles.workflowTab,
-                          ...styles.workflowTabActive,
-                          textTransform: "none",
-                          padding: "10px 18px",
-                          fontSize: 13,
-                          fontWeight: 800,
-                          borderRadius: 10,
-                          cursor: "pointer",
-                          background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                          border: "1px solid #1e3a8a",
-                          color: "#ffffff",
-                          boxShadow: "0 8px 18px rgba(37, 99, 235, 0.28)",
-                        }}
-                      >
-                        Prepare Send to Dealer
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openSalesEnablementSpotlightFlow(
-                            salesEnablementDealerOrgId,
-                            salesEnablementPrimarySpotlightAction.spotlightId,
-                            salesEnablementPrimarySpotlightAction.spotlightType,
-                            { openPanel: false }
-                          )
-                        }
-                        style={{
-                          ...styles.workflowTab,
-                          textTransform: "none",
-                          padding: "10px 16px",
-                          fontSize: 12,
-                          fontWeight: 800,
-                          borderRadius: 10,
-                          cursor: "pointer",
-                          border: "1px solid rgba(245, 158, 11, 0.55)",
-                          background: "#ffffff",
-                          color: "#c2410c",
-                        }}
-                      >
-                        Preview spotlight only
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {salesEnablementSendPanelOpen &&
-                salesEnablementDealerOrgId &&
-                salesEnablementSelectedId ? (
-                  <div
-                    style={{
-                      borderRadius: 16,
-                      padding: "20px 22px",
-                      border: "2px solid rgba(59, 130, 246, 0.45)",
-                      background: "#ffffff",
-                      boxShadow: "0 16px 36px rgba(15, 23, 42, 0.12)",
-                      display: "grid",
-                      gap: 14,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 12,
-                        alignItems: "flex-start",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 900,
-                            letterSpacing: "0.08em",
-                            color: "#1e40af",
-                          }}
-                        >
-                          SEND PREPARATION (PREVIEW)
-                        </div>
-                        <p
-                          style={{
-                            margin: "8px 0 0",
-                            fontSize: 13,
-                            color: "#64748b",
-                            lineHeight: 1.5,
-                          }}
-                        >
-                          Review audience scope and message framing. No messages are sent in this
-                          phase.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSalesEnablementSendPanelOpen(false)}
-                        style={{
-                          ...styles.workflowTab,
-                          textTransform: "none",
-                          padding: "6px 12px",
-                          fontSize: 11,
-                          fontWeight: 800,
-                          borderRadius: 8,
-                          cursor: "pointer",
-                          border: "1px solid rgba(148, 163, 184, 0.45)",
-                          background: "#f8fafc",
-                          color: "#475569",
-                        }}
-                      >
-                        Close panel
-                      </button>
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 10,
-                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
-                      }}
-                    >
-                      <div
-                        style={{
-                          borderRadius: 12,
-                          padding: "12px 14px",
-                          background: "#f8fafc",
-                          border: "1px solid rgba(148, 163, 184, 0.35)",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 900,
-                            letterSpacing: "0.07em",
-                            color: "#64748b",
-                            marginBottom: 6,
-                          }}
-                        >
-                          SELECTED DEALER
-                        </div>
-                        <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>
-                          {(Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [])
-                            .find((d) => String(d.organization_id) === String(salesEnablementDealerOrgId))
-                            ?.name || "Dealer"}
-                        </div>
-                      </div>
-                      <div
-                        style={{
-                          borderRadius: 12,
-                          padding: "12px 14px",
-                          background: "rgba(255, 247, 237, 0.85)",
-                          border: "1px solid rgba(251, 146, 60, 0.42)",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 900,
-                            letterSpacing: "0.07em",
-                            color: "#c2410c",
-                            marginBottom: 6,
-                          }}
-                        >
-                          SELECTED SPOTLIGHT
-                        </div>
-                        <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>
-                          {salesEnablementSpotlightMode === "product"
-                            ? PRODUCT_SPOTLIGHTS.find((x) => x.id === salesEnablementSelectedId)
-                                ?.title || salesEnablementSelectedId
-                            : CATEGORY_SPOTLIGHTS.find((x) => x.id === salesEnablementSelectedId)
-                                ?.title || salesEnablementSelectedId}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 900,
-                          letterSpacing: "0.06em",
-                          color: "#475569",
-                          marginBottom: 8,
-                        }}
-                      >
-                        RECIPIENT SCOPE (PREVIEW)
-                      </div>
-                      <ul
-                        style={{
-                          margin: 0,
-                          paddingLeft: 18,
-                          fontSize: 13,
-                          color: "#334155",
-                          lineHeight: 1.55,
-                        }}
-                      >
-                        <li>Dealer administrators for this organization</li>
-                        <li>Managers assigned under this dealer</li>
-                        <li>Active sales reps with memberships tied to this dealer</li>
-                      </ul>
-                      <p style={{ margin: "8px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
-                        Exact routing lists will resolve when email delivery is enabled.
-                      </p>
-                    </div>
-
-                    <label style={{ display: "grid", gap: 6 }}>
-                      <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#64748b" }}>
-                        OPTIONAL KL ADMIN INTRO (CUSTOM MESSAGE)
-                      </span>
-                      <textarea
-                        value={salesEnablementPreparedIntro}
-                        onChange={(e) => setSalesEnablementPreparedIntro(e.target.value)}
-                        placeholder="Add context for your future send—e.g. urgency, pilot scope, or meeting follow-up."
-                        rows={3}
-                        style={{
-                          width: "100%",
-                          boxSizing: "border-box",
-                          padding: "12px 14px",
-                          borderRadius: 12,
-                          border: "1px solid rgba(59, 130, 246, 0.35)",
-                          fontSize: 13,
-                          fontFamily: "inherit",
-                          color: "#0f172a",
-                          resize: "vertical",
-                          minHeight: 72,
-                        }}
-                      />
-                    </label>
-
-                    <div
-                      style={{
-                        borderRadius: 12,
-                        padding: "14px 16px",
-                        background: "#0f172a",
-                        color: "#e2e8f0",
-                        fontSize: 13,
-                        lineHeight: 1.55,
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {(() => {
-                        const dname =
-                          (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : []).find(
-                            (row) => String(row.organization_id) === String(salesEnablementDealerOrgId)
-                          )?.name || "Dealer";
-                        const stitle =
-                          salesEnablementSpotlightMode === "product"
-                            ? PRODUCT_SPOTLIGHTS.find((x) => x.id === salesEnablementSelectedId)?.title ||
-                              salesEnablementSelectedId
-                            : CATEGORY_SPOTLIGHTS.find((x) => x.id === salesEnablementSelectedId)?.title ||
-                              salesEnablementSelectedId;
-                        const intro = String(salesEnablementPreparedIntro || "").trim();
-                        return [
-                          intro ? `${intro}\n\n` : "",
-                          `Organization: ${dname}`,
-                          `Spotlight: ${stitle}`,
-                          "",
-                          "Audience (planned): dealer admins, managers, active reps.",
-                          "",
-                          "— Prepared in Klondike Sales Enablement (preview only)",
-                        ].join("\n");
-                      })()}
-                    </div>
-
-                    <div style={{ display: "grid", gap: 8 }}>
-                      <button
-                        type="button"
-                        disabled
-                        style={{
-                          ...styles.workflowTab,
-                          textTransform: "none",
-                          padding: "12px 18px",
-                          fontSize: 13,
-                          fontWeight: 900,
-                          borderRadius: 10,
-                          opacity: 0.45,
-                          cursor: "not-allowed",
-                          border: "1px solid rgba(148, 163, 184, 0.5)",
-                          background: "#e2e8f0",
-                          color: "#475569",
-                        }}
-                      >
-                        Send Spotlight
-                      </button>
-                      <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
-                        Email delivery will be enabled in a later phase.
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                   {(salesEnablementDealerIntel.statusTags || []).length === 0 ? (
                     <span style={{ fontSize: 13, color: "#64748b" }}>
@@ -7898,9 +7649,9 @@ const handleFinishDealerEnrollment = async () => {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setSalesEnablementSpotlightMode(
-                                    rec.spotlightType === "product" ? "product" : "category"
-                                  );
+                                  const mode = rec.spotlightType === "product" ? "product" : "category";
+                                  setSalesEnablementSpotlightMode(mode);
+                                  setSalesEnablementLibraryTab(mode);
                                   setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
                                   setSalesEnablementSelectedId(rec.spotlightId);
                                 }}
@@ -8009,6 +7760,354 @@ const handleFinishDealerEnrollment = async () => {
             )}
           </div>
 
+          {salesEnablementSendPanelOpen &&
+          salesEnablementDealerOrgId &&
+          salesEnablementSelectedId ? (
+            <div
+              style={{
+                ...styles.card,
+                borderRadius: 16,
+                padding: "20px 22px",
+                border: "2px solid rgba(59, 130, 246, 0.45)",
+                background: "#ffffff",
+                boxShadow: "0 16px 36px rgba(15, 23, 42, 0.12)",
+                display: "grid",
+                gap: 14,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 12,
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 900,
+                      letterSpacing: "0.08em",
+                      color: "#1e40af",
+                    }}
+                  >
+                    SEND PREPARATION (PREVIEW)
+                  </div>
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: 13,
+                      color: "#64748b",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Review audience scope and message framing. No messages are sent in this phase.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSalesEnablementSendPanelOpen(false)}
+                  style={{
+                    ...styles.workflowTab,
+                    textTransform: "none",
+                    padding: "6px 12px",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    border: "1px solid rgba(148, 163, 184, 0.45)",
+                    background: "#f8fafc",
+                    color: "#475569",
+                  }}
+                >
+                  Close panel
+                </button>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: 10,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
+                }}
+              >
+                <div
+                  style={{
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(148, 163, 184, 0.35)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 900,
+                      letterSpacing: "0.07em",
+                      color: "#64748b",
+                      marginBottom: 6,
+                    }}
+                  >
+                    SELECTED DEALER
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>
+                    {(Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [])
+                      .find((d) => String(d.organization_id) === String(salesEnablementDealerOrgId))
+                      ?.name || "Dealer"}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    background: "rgba(255, 247, 237, 0.85)",
+                    border: "1px solid rgba(251, 146, 60, 0.42)",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 900,
+                      letterSpacing: "0.07em",
+                      color: "#c2410c",
+                      marginBottom: 6,
+                    }}
+                  >
+                    SELECTED SPOTLIGHT
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>
+                    {salesEnablementSpotlightMode === "product"
+                      ? PRODUCT_SPOTLIGHTS.find((x) => x.id === salesEnablementSelectedId)?.title ||
+                        salesEnablementSelectedId
+                      : CATEGORY_SPOTLIGHTS.find((x) => x.id === salesEnablementSelectedId)?.title ||
+                        salesEnablementSelectedId}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: "0.06em",
+                    color: "#475569",
+                    marginBottom: 8,
+                  }}
+                >
+                  RECIPIENT SCOPE (PREVIEW)
+                </div>
+                <ul
+                  style={{
+                    margin: 0,
+                    paddingLeft: 18,
+                    fontSize: 13,
+                    color: "#334155",
+                    lineHeight: 1.55,
+                  }}
+                >
+                  <li>Dealer administrators for this organization</li>
+                  <li>Managers assigned under this dealer</li>
+                  <li>Active sales reps with memberships tied to this dealer</li>
+                </ul>
+                <p style={{ margin: "8px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
+                  Exact routing lists will resolve when email delivery is enabled.
+                </p>
+              </div>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#64748b" }}>
+                  OPTIONAL KL ADMIN INTRO (CUSTOM MESSAGE)
+                </span>
+                <textarea
+                  value={salesEnablementPreparedIntro}
+                  onChange={(e) => setSalesEnablementPreparedIntro(e.target.value)}
+                  placeholder="Add context for your future send—e.g. urgency, pilot scope, or meeting follow-up."
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(59, 130, 246, 0.35)",
+                    fontSize: 13,
+                    fontFamily: "inherit",
+                    color: "#0f172a",
+                    resize: "vertical",
+                    minHeight: 72,
+                  }}
+                />
+              </label>
+
+              <div
+                style={{
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                  background: "#0f172a",
+                  color: "#e2e8f0",
+                  fontSize: 13,
+                  lineHeight: 1.55,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {(() => {
+                  const dname =
+                    (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : []).find(
+                      (row) => String(row.organization_id) === String(salesEnablementDealerOrgId)
+                    )?.name || "Dealer";
+                  const stitle =
+                    salesEnablementSpotlightMode === "product"
+                      ? PRODUCT_SPOTLIGHTS.find((x) => x.id === salesEnablementSelectedId)?.title ||
+                        salesEnablementSelectedId
+                      : CATEGORY_SPOTLIGHTS.find((x) => x.id === salesEnablementSelectedId)?.title ||
+                        salesEnablementSelectedId;
+                  const intro = String(salesEnablementPreparedIntro || "").trim();
+                  return [
+                    intro ? `${intro}\n\n` : "",
+                    `Organization: ${dname}`,
+                    `Spotlight: ${stitle}`,
+                    "",
+                    "Audience (planned): dealer admins, managers, active reps.",
+                    "",
+                    "— Prepared in Klondike Sales Enablement (preview only)",
+                  ].join("\n");
+                })()}
+              </div>
+
+              <div style={{ display: "grid", gap: 8 }}>
+                <button
+                  type="button"
+                  disabled
+                  style={{
+                    ...styles.workflowTab,
+                    textTransform: "none",
+                    padding: "12px 18px",
+                    fontSize: 13,
+                    fontWeight: 900,
+                    borderRadius: 10,
+                    opacity: 0.45,
+                    cursor: "not-allowed",
+                    border: "1px solid rgba(148, 163, 184, 0.5)",
+                    background: "#e2e8f0",
+                    color: "#475569",
+                  }}
+                >
+                  Send Spotlight
+                </button>
+                <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
+                  Email delivery will be enabled in a later phase.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          <div
+            style={{
+              ...styles.card,
+              background: "#ffffff",
+              border: "1px solid rgba(59, 130, 246, 0.28)",
+              boxShadow: "0 18px 40px rgba(15, 23, 42, 0.14)",
+              padding: "22px 24px",
+              display: "grid",
+              gap: 16,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
+                ENABLEMENT LIBRARY
+              </div>
+              <p
+                style={{
+                  ...styles.cardBody,
+                  color: "#475569",
+                  marginTop: 10,
+                  marginBottom: 0,
+                  lineHeight: 1.55,
+                }}
+              >
+                Use the library to browse reviewed product spotlights, category plays, customer profile
+                guides, and training resources.
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
+              }}
+            >
+              {[
+                {
+                  id: "product",
+                  label: "Product Spotlights",
+                  sub: "SKU-level guidance",
+                  accent: "#2563eb",
+                  bg: "rgba(239, 246, 255, 0.95)",
+                },
+                {
+                  id: "category",
+                  label: "Category Spotlights",
+                  sub: "Vertical positioning plays",
+                  accent: "#ea580c",
+                  bg: "rgba(255, 247, 237, 0.92)",
+                },
+                {
+                  id: "customer_profiles",
+                  label: "Customer Profiles",
+                  sub: "Industry education (preview)",
+                  accent: "#059669",
+                  bg: "rgba(236, 253, 245, 0.95)",
+                },
+                {
+                  id: "training",
+                  label: "Training Modules",
+                  sub: "KL University readiness",
+                  accent: "#1d4ed8",
+                  bg: "rgba(239, 246, 255, 0.88)",
+                },
+              ].map((tile) => (
+                <button
+                  key={tile.id}
+                  type="button"
+                  onClick={() => {
+                    setSalesEnablementLibraryTab(tile.id);
+                    if (tile.id === "product" || tile.id === "category") {
+                      setSalesEnablementSpotlightMode(tile.id);
+                    }
+                  }}
+                  style={{
+                    textAlign: "left",
+                    cursor: "pointer",
+                    borderRadius: 14,
+                    padding: "14px 16px",
+                    border:
+                      salesEnablementLibraryTab === tile.id
+                        ? `2px solid ${tile.accent}`
+                        : "1px solid rgba(148, 163, 184, 0.45)",
+                    background: tile.bg,
+                    boxShadow:
+                      salesEnablementLibraryTab === tile.id
+                        ? "0 12px 26px rgba(15, 23, 42, 0.12)"
+                        : "0 6px 14px rgba(15, 23, 42, 0.06)",
+                    display: "grid",
+                    gap: 6,
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.07em", color: tile.accent }}>
+                    {tile.label.toUpperCase()}
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", lineHeight: 1.35 }}>
+                    {tile.sub}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+          {(salesEnablementLibraryTab === "product" || salesEnablementLibraryTab === "category") ? (
+            <>
           <div
             style={{
               display: "flex",
@@ -8029,10 +8128,13 @@ const handleFinishDealerEnrollment = async () => {
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => setSalesEnablementSpotlightMode(opt.id)}
+                  onClick={() => {
+                    setSalesEnablementLibraryTab(opt.id);
+                    setSalesEnablementSpotlightMode(opt.id);
+                  }}
                   style={{
                     ...styles.workflowTab,
-                    ...(salesEnablementSpotlightMode === opt.id ? styles.workflowTabActive : {}),
+                    ...(salesEnablementLibraryTab === opt.id ? styles.workflowTabActive : {}),
                     textTransform: "none",
                     padding: "8px 14px",
                     fontSize: 12,
@@ -8376,6 +8478,122 @@ const handleFinishDealerEnrollment = async () => {
               )}
             </div>
           </div>
+            </>
+          ) : null}
+
+          {salesEnablementLibraryTab === "customer_profiles" ? (
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
+              }}
+            >
+              {[
+                {
+                  title: "Construction accounts",
+                  detail:
+                    "Heavy equipment lubrication rhythms, uptime framing, and documented PM loops.",
+                },
+                {
+                  title: "Agriculture accounts",
+                  detail: "Seasonal fluid programs, harvest-window reliability, and fleet uptime narratives.",
+                },
+                {
+                  title: "Fleet accounts",
+                  detail: "Centralized purchasing, spec governance, and fleet-wide consistency messaging.",
+                },
+                {
+                  title: "Mining / aggregate accounts",
+                  detail: "Extreme-duty cycles, contamination control, and component protection coaching.",
+                },
+                {
+                  title: "Municipal fleets",
+                  detail: "Compliance-forward procurement and transparent maintenance cadence positioning.",
+                },
+              ].map((pf) => (
+                <div
+                  key={pf.title}
+                  style={{
+                    borderRadius: 14,
+                    padding: "16px 18px",
+                    border: "1px solid rgba(52, 211, 153, 0.42)",
+                    background: "linear-gradient(145deg, #ffffff 0%, #ecfdf5 100%)",
+                    boxShadow: "0 10px 22px rgba(15, 23, 42, 0.07)",
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.07em", color: "#059669" }}>
+                    CUSTOMER PROFILE (PREVIEW)
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", marginTop: 8 }}>
+                    {pf.title}
+                  </div>
+                  <p style={{ margin: "10px 0 0", fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
+                    {pf.detail}
+                  </p>
+                  <p style={{ margin: "10px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.4 }}>
+                    Future industry education packs—no outbound delivery in this phase.
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {salesEnablementLibraryTab === "training" ? (
+            <div style={{ display: "grid", gap: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#64748b", letterSpacing: "0.05em" }}>
+                REFERENCE TRAINING MODULES
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+                  gap: 14,
+                }}
+              >
+                {DEALER_TRAINING_OPPORTUNITIES.map((train) => (
+                  <div
+                    key={`lib-train-${train.id}`}
+                    style={{
+                      borderRadius: 16,
+                      border: "1px solid rgba(148, 163, 184, 0.45)",
+                      background: "#ffffff",
+                      boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+                      padding: "18px 20px",
+                      display: "grid",
+                      gap: 10,
+                      minHeight: 160,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#64748b" }}>
+                      MODULE
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>{train.title}</div>
+                    <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{train.summary}</div>
+                    <button
+                      type="button"
+                      disabled
+                      title="Assign LMS tracks when KL University integration lands."
+                      style={{
+                        ...styles.workflowTab,
+                        justifySelf: "start",
+                        textTransform: "none",
+                        padding: "7px 12px",
+                        fontSize: 11,
+                        borderRadius: 10,
+                        opacity: 0.52,
+                        cursor: "not-allowed",
+                      }}
+                    >
+                      Queue training (placeholder)
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          </div>
 
           <div
             style={{
@@ -8522,9 +8740,9 @@ const handleFinishDealerEnrollment = async () => {
                         <button
                           type="button"
                           onClick={() => {
-                            setSalesEnablementSpotlightMode(
-                              sug.spotlightType === "product" ? "product" : "category"
-                            );
+                            const mode = sug.spotlightType === "product" ? "product" : "category";
+                            setSalesEnablementSpotlightMode(mode);
+                            setSalesEnablementLibraryTab(mode);
                             setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
                             setSalesEnablementSelectedId(sug.spotlightId);
                           }}
@@ -8547,6 +8765,7 @@ const handleFinishDealerEnrollment = async () => {
               </div>
             )}
           </div>
+        </div>
         </div>
       )}
 
