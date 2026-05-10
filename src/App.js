@@ -4055,6 +4055,8 @@ useEffect(() => {
     goLiveOnSave: false,
   });
   const [productStrategyWorkflowNotice, setProductStrategyWorkflowNotice] = useState(null);
+  /** KL Admin Action Center per-card completion (session-local only — Phase 72B.9). */
+  const [klAdminActionCenterCompletionById, setKlAdminActionCenterCompletionById] = useState({});
   useEffect(() => {
     try {
       window.localStorage.setItem(KL_TERRITORY_CONTESTS_KEY, JSON.stringify(territoryContests));
@@ -11132,6 +11134,23 @@ const handleFinishDealerEnrollment = async () => {
                   followAffects = "Territory enablement programs";
                 }
                 const followHeadline = `${followStatus}${followPrepared ? ` · ${followPrepared}` : ""}`;
+                const completion = klAdminActionCenterCompletionById[ac.id];
+                const markActionPrepared = () =>
+                  setKlAdminActionCenterCompletionById((prev) => ({
+                    ...prev,
+                    [ac.id]: "prepared",
+                  }));
+                const markActionHandled = () =>
+                  setKlAdminActionCenterCompletionById((prev) => ({
+                    ...prev,
+                    [ac.id]: "handled",
+                  }));
+                const completionBtnLabel =
+                  completion === "prepared"
+                    ? "Staged (mock)"
+                    : completion === "handled"
+                      ? "Opened"
+                      : ac.buttonLabel;
                 return (
                   <div
                     key={ac.id}
@@ -11148,6 +11167,7 @@ const handleFinishDealerEnrollment = async () => {
                       background: "#ffffff",
                       boxShadow: "0 6px 18px rgba(15, 23, 42, 0.06)",
                       minWidth: 0,
+                      opacity: completion ? 0.94 : 1,
                     }}
                   >
                     <div style={{ flex: "1 1 240px", minWidth: 0 }}>
@@ -11166,6 +11186,27 @@ const handleFinishDealerEnrollment = async () => {
                         >
                           {surf.tag}
                         </span>
+                        {completion ? (
+                          <span
+                            style={{
+                              flex: "0 0 auto",
+                              fontSize: 9,
+                              fontWeight: 900,
+                              letterSpacing: "0.1em",
+                              padding: "4px 9px",
+                              borderRadius: 999,
+                              background:
+                                completion === "prepared" ? "#ecfdf5" : "#f1f5f9",
+                              color: completion === "prepared" ? "#047857" : "#64748b",
+                              border:
+                                completion === "prepared"
+                                  ? "1px solid rgba(52, 211, 153, 0.45)"
+                                  : "1px solid rgba(148, 163, 184, 0.45)",
+                            }}
+                          >
+                            {completion === "prepared" ? "PREPARED" : "HANDLED"}
+                          </span>
+                        ) : null}
                         <div
                           style={{
                             fontSize: 13,
@@ -11248,6 +11289,7 @@ const handleFinishDealerEnrollment = async () => {
                                 .join(" · "),
                             })
                           );
+                          markActionPrepared();
                           return;
                         }
                         if (ac.kind === "spotlight") {
@@ -11257,24 +11299,29 @@ const handleFinishDealerEnrollment = async () => {
                             ac.spotlightType,
                             { openPanel: true }
                           );
+                          markActionHandled();
                           return;
                         }
                         if (ac.kind === "dealer_activation") {
                           setKlondikeAdminTab("dealer_activation");
                           setDealerActivationOrgId(String(ac.dealerOrgId || ""));
+                          markActionHandled();
                           return;
                         }
                         if (ac.kind === "inventory_intel") {
                           setKlondikeAdminTab("inventory_intelligence");
+                          markActionHandled();
                           return;
                         }
                         if (ac.kind === "dealers_tab") {
                           setKlondikeAdminTab("dealers");
+                          markActionHandled();
                           return;
                         }
                         if (ac.kind === "dealers_select") {
                           setKlondikeAdminTab("dealers");
                           if (ac.dealerRow) setSelectedDealerPerformance(ac.dealerRow);
+                          markActionHandled();
                           return;
                         }
                         if (ac.kind === "sales_enablement") {
@@ -11291,6 +11338,9 @@ const handleFinishDealerEnrollment = async () => {
                                     : "Request Training · mock hold · Sales Enablement opens next",
                               })
                             );
+                            markActionPrepared();
+                          } else {
+                            markActionHandled();
                           }
                           setKlondikeAdminTab("sales_enablement");
                         }
@@ -11303,14 +11353,19 @@ const handleFinishDealerEnrollment = async () => {
                         fontSize: 12,
                         fontWeight: 900,
                         letterSpacing: "0.02em",
-                        color: "#ffffff",
+                        color: completion ? "rgba(255,255,255,0.92)" : "#ffffff",
                         border: "1px solid #9a3412",
-                        background: "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
-                        boxShadow: "0 6px 14px rgba(15, 23, 42, 0.12)",
+                        background: completion
+                          ? "linear-gradient(135deg, #fdba74 0%, #ea580c 100%)"
+                          : "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
+                        boxShadow: completion
+                          ? "0 4px 10px rgba(15, 23, 42, 0.08)"
+                          : "0 6px 14px rgba(15, 23, 42, 0.12)",
                         alignSelf: "flex-start",
+                        opacity: completion ? 0.88 : 1,
                       }}
                     >
-                      {ac.buttonLabel}
+                      {completionBtnLabel}
                     </button>
                   </div>
                 );
