@@ -135,6 +135,23 @@ function formatKlAdminTrainingSchedulerMockNotice({ topic, audience, nextStep, d
   return lines.join("\n");
 }
 
+/** Phase 72B.8 — mock message composer (draft only; no Resend/outbound). */
+function formatKlAdminMessageComposerMockNotice({ recipient, subject, purpose, nextSuggestedAction, detail }) {
+  const lines = [
+    "Message composer · MOCK outbound (draft staged, not sent)",
+    `To / audience: ${String(recipient || "Territory stakeholders").trim()}`,
+    `Subject / topic: ${String(subject || "Klondike BDM update").trim()}`,
+    `Purpose: ${String(purpose || "Operational alignment").trim()}`,
+    "Draft status: Prepared · not sent · no email send pipeline",
+    `Next suggested action: ${String(
+      nextSuggestedAction || "Edit tone with BD, then hold for real delivery later."
+    ).trim()}`,
+  ];
+  const d = String(detail || "").trim();
+  if (d) lines.push(`Internal notes: ${d}`);
+  return lines.join("\n");
+}
+
 function TerritoryIncentiveReadOnlyCard({
   title,
   metricLabel,
@@ -7339,7 +7356,13 @@ const handleFinishDealerEnrollment = async () => {
                       type="button"
                       onClick={() =>
                         setProductStrategyWorkflowNotice(
-                          `Reminder queued (mock UI only): ${inc.name} — email wiring comes later.`
+                          formatKlAdminMessageComposerMockNotice({
+                            recipient: "Dealer & rep distribution (mock list) · incentive participants",
+                            subject: `Territory nudge · ${inc.name} (${inc.category})`,
+                            purpose: `Reinforce ${inc.category} progress during ${inc.period} — status: ${inc.status}.`,
+                            nextSuggestedAction: String(inc.recommendedAction || "").trim(),
+                            detail: "Send Reminder · Incentive Center foundation · mock composer only",
+                          })
                         )
                       }
                       style={{
@@ -11210,12 +11233,15 @@ const handleFinishDealerEnrollment = async () => {
                       onClick={() => {
                         if (ac.kind === "workflow_notice") {
                           setProductStrategyWorkflowNotice(
-                            formatKlAdminTrainingSchedulerMockNotice({
-                              topic: String(ac.issue || "Stakeholder coordination").trim(),
-                              audience: String(ac.scope || "Territory").trim(),
-                              nextStep: String(ac.recommended || "Confirm ownership on the next touch.").trim(),
+                            formatKlAdminMessageComposerMockNotice({
+                              recipient: `Manager & field leadership · ${String(ac.scope || "Territory").trim()}`,
+                              subject: String(ac.issue || "BDM coordination").trim(),
+                              purpose: String(ac.why || "Outbound visibility without live delivery yet.").trim(),
+                              nextSuggestedAction: String(
+                                ac.recommended || "Confirm recipients when email routing is enabled."
+                              ).trim(),
                               detail: [
-                                "Manager / visit-style ping · banner only",
+                                "Notify Manager pathway · mock composer",
                                 String(ac.noticeText || "").trim(),
                               ]
                                 .filter(Boolean)
