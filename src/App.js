@@ -11020,6 +11020,63 @@ const handleFinishDealerEnrollment = async () => {
                   };
                 }
                 const whyText = String(ac.why || "").trim();
+                const oid = String(ac.dealerOrgId || "");
+                const dealerRowMatch = (dealerNetworkPerformance || []).find(
+                  (d) => String(d.organization_id) === oid
+                );
+                const dealerDisplayName = String(dealerRowMatch?.name || "").trim();
+                let followStatus = "Action ready";
+                let followPrepared = "";
+                let followClick = "";
+                let followAffects = dealerDisplayName
+                  ? `Dealer · ${dealerDisplayName}`
+                  : oid
+                    ? `Dealer org · ${oid}`
+                    : String(ac.scope || "Territory").trim();
+                if (ac.kind === "workflow_notice") {
+                  followStatus = "Next step prepared (mock)";
+                  followPrepared = "Internal banner only — no outbound send.";
+                  followClick =
+                    "Stores a Kl Admin workflow notice; confirms follow-up is staged (mock).";
+                  followAffects = `${String(ac.scope || "Territory").trim()} · leadership preview`;
+                } else if (ac.kind === "spotlight") {
+                  const st = ac.spotlightType === "product" ? "product" : "category";
+                  followPrepared = `Ready to send enablement · ${st} · ${String(ac.spotlightId || "library")}`;
+                  followClick =
+                    "Opens Sales Enablement with spotlight selected and send panel ready.";
+                  followAffects = dealerDisplayName
+                    ? `Enablement routing · ${dealerDisplayName}`
+                    : oid
+                      ? `Enablement routing · org ${oid}`
+                      : "Enablement routing · territory context";
+                } else if (ac.kind === "dealer_activation") {
+                  followPrepared = "Activation checklist queued for this org.";
+                  followClick = "Opens Dealer Activation with this dealer pre-selected.";
+                  followAffects = dealerDisplayName || followAffects;
+                } else if (ac.kind === "inventory_intel") {
+                  followPrepared = "Territory demand rollup ready to inspect.";
+                  followClick = "Opens Inventory Intelligence.";
+                  followAffects = "Territory inventory & demand signals";
+                } else if (ac.kind === "dealers_tab") {
+                  followPrepared = "Dealer review workspace ready.";
+                  followClick = "Opens dealer review workspace (Dealers tab).";
+                  followAffects = "Territory dealer roster";
+                } else if (ac.kind === "dealers_select") {
+                  followPrepared = "Dealer row targeted in roster.";
+                  followClick = "Opens Dealers tab and focuses this dealer record.";
+                  followAffects = dealerDisplayName || String(ac.scope || "Selected dealer").trim();
+                } else if (ac.kind === "sales_enablement") {
+                  followPrepared =
+                    ac.id === "cmd-open-sales-enablement"
+                      ? "Library preview staged."
+                      : "Coaching collateral workspace ready.";
+                  followClick =
+                    ac.id === "cmd-open-sales-enablement"
+                      ? "Opens Sales Enablement library for review."
+                      : "Opens Sales Enablement for training follow-up (mock scheduling later).";
+                  followAffects = "Territory enablement programs";
+                }
+                const followHeadline = `${followStatus}${followPrepared ? ` · ${followPrepared}` : ""}`;
                 return (
                   <div
                     key={ac.id}
@@ -11094,6 +11151,26 @@ const handleFinishDealerEnrollment = async () => {
                       >
                         <span style={{ fontWeight: 800, color: "#94a3b8" }}>Recommended:</span>{" "}
                         {ac.recommended}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 8,
+                          paddingTop: 8,
+                          borderTop: "1px solid rgba(241, 245, 249, 0.95)",
+                          fontSize: 11,
+                          color: "#64748b",
+                          lineHeight: 1.38,
+                        }}
+                      >
+                        <div style={{ color: "#2563eb", fontWeight: 800 }}>{followHeadline}</div>
+                        <div style={{ marginTop: 3 }}>
+                          <span style={{ fontWeight: 800, color: "#94a3b8" }}>On click:</span>{" "}
+                          {followClick}
+                        </div>
+                        <div style={{ marginTop: 2 }}>
+                          <span style={{ fontWeight: 800, color: "#94a3b8" }}>Affects:</span>{" "}
+                          {followAffects}
+                        </div>
                       </div>
                     </div>
                     <button

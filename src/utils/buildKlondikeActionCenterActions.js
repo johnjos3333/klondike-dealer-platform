@@ -48,7 +48,7 @@ export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
       buttonLabel: "Notify Manager",
       accent: "blue",
       noticeText:
-        "Notify manager (mock): prioritize OCR scans on competitive bids — automation comes later.",
+        "Follow-up prepared (mock): manager OCR reminder staged as banner only — no email sent; scheduling later.",
       severityRank: 2,
     },
     {
