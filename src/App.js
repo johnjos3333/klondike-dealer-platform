@@ -7174,6 +7174,170 @@ const handleFinishDealerEnrollment = async () => {
             }}
           >
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
+              INCENTIVE CENTER · FOUNDATION
+            </div>
+            <h4 style={{ margin: "8px 0 6px", fontSize: 17, fontWeight: 900, color: "#0f172a" }}>
+              Territory incentives hub
+            </h4>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: "#64748b", lineHeight: 1.45, maxWidth: 720 }}>
+              Display-only preview—where KL Admin will steer contests, category pushes, and rep motivation.
+              Live schedules still surface below in Active incentives.
+            </p>
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
+              }}
+            >
+              {[
+                {
+                  key: "grease-sprint",
+                  name: "Grease Growth Sprint",
+                  category: "Grease",
+                  period: "Jun 1–Jun 30, 2026",
+                  threshold: "≥ $12K booked grease lines / rep",
+                  rewardType: "Territory bonus pool + leaderboard spotlight",
+                  status: "Live · Week 2 pacing",
+                  recommendedAction:
+                    "Spot-check dealers below 40% of threshold—pair grease PM messaging with filters.",
+                },
+                {
+                  key: "synthetic-push",
+                  name: "Synthetic Conversion Push",
+                  category: "Synthetic products",
+                  period: "May 15–Jul 15, 2026",
+                  threshold: "≥ 18% synthetic share of approved demand (territory)",
+                  rewardType: "Tiered SPIFF + executive shout-out",
+                  status: "Live · Conversion runway",
+                  recommendedAction:
+                    "Prioritize fleets with OEM allowances—lead coaching with warranty positioning, not price.",
+                },
+                {
+                  key: "hydraulic-challenge",
+                  name: "Hydraulic Opportunity Challenge",
+                  category: "Hydraulic fluids",
+                  period: "Jun 10–Aug 10, 2026",
+                  threshold: "Top 3 reps by incremental hydraulic revenue",
+                  rewardType: "Experience prize + customer dinner budget",
+                  status: "Warm-up · Kickoff week",
+                  recommendedAction:
+                    "Send contamination downtime stories before competitors match stocking SKUs.",
+                },
+              ].map((inc) => (
+                <div
+                  key={inc.key}
+                  style={{
+                    borderRadius: 12,
+                    padding: "12px 14px",
+                    background: "#ffffff",
+                    border: "1px solid rgba(251, 146, 60, 0.32)",
+                    borderLeft: "3px solid rgba(234, 88, 12, 0.92)",
+                    boxShadow: "0 6px 20px rgba(15, 23, 42, 0.06)",
+                    minWidth: 0,
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", lineHeight: 1.3 }}>
+                    {inc.name}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      display: "grid",
+                      gap: 6,
+                      fontSize: 12,
+                      color: "#475569",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    <div>
+                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Target category</span>{" "}
+                      {inc.category}
+                    </div>
+                    <div>
+                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Time period</span> {inc.period}
+                    </div>
+                    <div>
+                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Qualification</span>{" "}
+                      {inc.threshold}
+                    </div>
+                    <div>
+                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Reward</span> {inc.rewardType}
+                    </div>
+                    <div>
+                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Status</span>{" "}
+                      <span style={{ color: "#0f172a", fontWeight: 700 }}>{inc.status}</span>
+                    </div>
+                  </div>
+                  <p style={{ margin: "10px 0 0", fontSize: 12, color: "#334155", lineHeight: 1.45 }}>
+                    <span style={{ color: "#94a3b8", fontWeight: 800 }}>Recommended:</span>{" "}
+                    {inc.recommendedAction}
+                  </p>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 10,
+                      alignItems: "center",
+                      marginTop: 12,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProductStrategyWorkflowNotice(
+                          `Review incentive (mock): ${inc.name} — editor flows arrive in a later phase.`
+                        )
+                      }
+                      style={{
+                        cursor: "pointer",
+                        borderRadius: 10,
+                        padding: "8px 14px",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        border: "1px solid #ea580c",
+                        background: "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
+                        color: "#fff",
+                      }}
+                    >
+                      Review Incentive
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProductStrategyWorkflowNotice(
+                          `Reminder queued (mock UI only): ${inc.name} — email wiring comes later.`
+                        )
+                      }
+                      style={{
+                        cursor: "pointer",
+                        borderRadius: 10,
+                        padding: "8px 14px",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        border: "1px solid rgba(37, 99, 235, 0.45)",
+                        background: "#fff",
+                        color: "#1d4ed8",
+                      }}
+                    >
+                      Send Reminder
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div
+            style={{
+              borderRadius: 16,
+              padding: "18px 20px",
+              background: "#ffffff",
+              border: "1px solid rgba(226, 232, 240, 0.98)",
+              boxShadow: "0 10px 28px rgba(15, 23, 42, 0.07)",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
               INCENTIVE CENTER · ACTIVE
             </div>
             <h4 style={{ margin: "8px 0 6px", fontSize: 17, fontWeight: 900, color: "#0f172a" }}>
