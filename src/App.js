@@ -5662,143 +5662,64 @@ const handleFinishDealerEnrollment = async () => {
     };
   }, [dealerNetworkPerformance]);
 
-  /** Dashboard Product Performance cards — booked mix vs quoted fallback (Phase 72B). */
-  const adminDashboardProductPerformanceCards = React.useMemo(() => {
-    const categoryAliases = {
-      "HD Engine Oils": ["Heavy Duty", "HD Engine Oils"],
-      "Hydraulic Fluids": ["Hydraulic Fluids"],
-      Grease: ["Grease"],
-      "Transmission Fluids": ["Transmission Fluids"],
-      "Coolants / Chemicals": ["Coolants", "Chemicals", "Coolants / Chemicals"],
-    };
-    const mixRows = Array.isArray(adminProductMixIntelligence?.rows)
-      ? adminProductMixIntelligence.rows
-      : [];
-    const mixByName = Object.fromEntries(mixRows.map((r) => [r.name, r]));
-    const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
-
-    const countForMixCategory = (dealer, mixCategoryName) => {
-      const aliases = categoryAliases[mixCategoryName];
-      if (!aliases) return 0;
-      const rows = Array.isArray(dealer?.productMix) ? dealer.productMix : [];
-      let sum = 0;
-      rows.forEach((row) => {
-        const n = String(row?.name || "").trim();
-        if (aliases.includes(n)) sum += Number(row?.count || 0);
-      });
-      return sum;
-    };
-
-    const bookedSharePercent = (mixCategoryName) => {
-      let allocated = 0;
-      let revenueSum = 0;
-      dealers.forEach((d) => {
-        const rev = Number(d?.revenueWon || 0);
-        if (!Number.isFinite(rev) || rev <= 0) return;
-        revenueSum += rev;
-        const mix = Array.isArray(d?.productMix) ? d.productMix : [];
-        const mixTot = mix.reduce((s, r) => s + Number(r?.count || 0), 0);
-        if (mixTot <= 0) return;
-        const cat = countForMixCategory(d, mixCategoryName);
-        if (cat <= 0) return;
-        allocated += rev * (cat / mixTot);
-      });
-      if (revenueSum > 0 && allocated > 0) {
-        return {
-          pct: Math.min(100, Math.round((allocated / revenueSum) * 100)),
-          basis: "booked",
-        };
-      }
-      const row = mixByName[mixCategoryName];
-      const ti = Number(adminProductMixIntelligence?.totalItems || 0);
-      const pct =
-        row && ti > 0 ? Math.round((Number(row.count || 0) / ti) * 100) : Number(row?.percent || 0);
-      return { pct, basis: "quoted" };
-    };
-
-    const inv = klondikeTerritoryInventoryModel;
-    const synPct = inv?.hasData ? Math.round(Number(inv.syntheticSharePct || 0)) : 0;
-
-    const buildCard = (title, mixName, isSynthetic) => {
-      if (isSynthetic) {
-        let signal = "steady";
-        let insight = "Synthetic-related approved demand share across the territory rollup.";
-        let action = "Pair synthetic wins with upgrade spotlights where OEM specs allow.";
-        if (!inv?.hasData) {
-          signal = "gap";
-          insight = "Approved-demand rollup not available yet—synthetic share will populate with approvals.";
-          action = "Confirm approved lines are flowing into inventory intelligence.";
-        } else if (synPct >= 28) {
-          signal = "strength";
-          insight = "Synthetic share is elevated in approved demand—keep premium positioning tight.";
-        } else if (synPct > 0 && synPct < 12) {
-          signal = "watch";
-          insight = "Synthetic share is modest versus total approved demand.";
-          action = "Coach premium conversations where fleets allow synthetic upgrades.";
-        }
-        return {
-          key: "synthetic",
-          title,
-          pct: synPct,
-          pctCaption: inv?.hasData ? "% of approved demand (synthetic-related)" : "—",
-          signal,
-          insight,
-          recommendedAction: action,
-          spotlightId: "cs-synthetic-upgrade",
-          spotlightType: "category",
-        };
-      }
-      const { pct, basis } = bookedSharePercent(mixName);
-      const row = mixByName[mixName];
-      const cnt = Number(row?.count || 0);
-      let signal = "steady";
-      if (cnt === 0 || pct === 0) {
-        signal = "gap";
-      } else if (pct < 10) {
-        signal = "watch";
-      } else if (pct >= 22) {
-        signal = "strength";
-      } else {
-        signal = "steady";
-      }
-
-      let insight = `${pct}% ${basis === "booked" ? "of booked revenue mix" : "of quoted line activity"} in this category.`;
-      if (basis === "quoted") {
-        insight += " Revenue-based mix appears when dealer revenue totals load.";
-      }
-      let recommendedAction = null;
-      if (signal === "gap") {
-        recommendedAction = "Open Product Strategy to prioritize coaching and spotlights for this category.";
-      } else if (signal === "watch") {
-        recommendedAction = "Use Sales Enablement to reinforce discovery conversations in this bucket.";
-      } else if (signal === "strength") {
-        recommendedAction = "Protect margin—keep attach plays (coolant, filters) visible in proposals.";
-      }
-
-      const spotlightId = CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY[mixName] || "cs-hd-conversion";
-
-      return {
-        key: mixName,
-        title,
-        pct,
-        pctCaption: basis === "booked" ? "% of booked revenue (allocated)" : "% of quoted lines (activity)",
-        signal,
-        insight,
-        recommendedAction,
-        spotlightId,
+  /** KL Admin dashboard — compact product coaching cards (placeholder intelligence, Phase 72B.2). */
+  const adminDashboardProductPerformanceCards = React.useMemo(
+    () => [
+      {
+        key: "hd_engine_oils",
+        title: "HD Engine Oils",
+        pct: 34,
+        pctCaption: "Territory share (mock)",
+        trend: { dir: "up", label: "Momentum", detail: "+1.6 pp vs prior snapshot" },
+        operationalStatus:
+          "Fleet-heavy routes are holding HD pull-through—watch for price-only battles on bulk bids.",
+        recommendedAction:
+          "Reinforce OEM spec stories before discount talk; keep HD conversion spotlights in rotation.",
+        spotlightId: CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY["HD Engine Oils"],
         spotlightType: "category",
-      };
-    };
-
-    return [
-      buildCard("HD Engine Oils", "HD Engine Oils", false),
-      buildCard("Hydraulic Fluids", "Hydraulic Fluids", false),
-      buildCard("Grease", "Grease", false),
-      buildCard("Synthetic Products", null, true),
-      buildCard("Transmission Fluids", "Transmission Fluids", false),
-      buildCard("Coolants / Chemicals", "Coolants / Chemicals", false),
-    ];
-  }, [dealerNetworkPerformance, adminProductMixIntelligence, klondikeTerritoryInventoryModel]);
+      },
+      {
+        key: "grease",
+        title: "Grease",
+        pct: 12,
+        pctCaption: "Territory share (mock)",
+        trend: { dir: "flat", label: "Steady", detail: "±0.3 pp vs prior snapshot" },
+        operationalStatus:
+          "Attach is consistent—construction seasonality can swing weekly volumes without warning.",
+        recommendedAction:
+          "Bundle PM-interval grease messaging with filters and fluids on joint dealer calls.",
+        spotlightId: CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY.Grease,
+        spotlightType: "category",
+      },
+      {
+        key: "hydraulic_fluids",
+        title: "Hydraulic Fluids",
+        pct: 19,
+        pctCaption: "Territory share (mock)",
+        trend: { dir: "down", label: "Pressure", detail: "−0.9 pp vs prior snapshot" },
+        operationalStatus:
+          "Competitive stocking is loud—teams may be skipping contamination discovery on repairs.",
+        recommendedAction:
+          "Lead coaching with downtime and particle stories before matching competitor price cards.",
+        spotlightId: CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY["Hydraulic Fluids"],
+        spotlightType: "category",
+      },
+      {
+        key: "synthetic_products",
+        title: "Synthetic Products",
+        pct: 27,
+        pctCaption: "Territory share (mock)",
+        trend: { dir: "up", label: "Lift", detail: "+2.1 pp vs prior snapshot" },
+        operationalStatus:
+          "Premium positioning is winning where fleets allow upgrades—margin narrative still fragile.",
+        recommendedAction:
+          "Tie synthetic upgrades to OEM allowances and warranty language in enablement sends.",
+        spotlightId: "cs-synthetic-upgrade",
+        spotlightType: "category",
+      },
+    ],
+    []
+  );
 
   const adminDealerHealthFoundation = React.useMemo(() => {
     const rows = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
@@ -11127,76 +11048,140 @@ const handleFinishDealerEnrollment = async () => {
               fontWeight: 900,
               letterSpacing: "0.12em",
               color: "#64748b",
-              marginBottom: 12,
+              marginBottom: 6,
             }}
           >
             PRODUCT PERFORMANCE
           </div>
+          <p
+            style={{
+              margin: "0 0 14px",
+              fontSize: 13,
+              color: "#64748b",
+              lineHeight: 1.45,
+              maxWidth: 720,
+            }}
+          >
+            Operational coaching snapshot—placeholder category signals until live mix scoring lands.
+          </p>
           <div
             style={{
               display: "grid",
               gap: 12,
-              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
             }}
           >
             {adminDashboardProductPerformanceCards.map((card) => {
-              const sig =
-                card.signal === "gap"
-                  ? { bg: "#fef2f2", bd: "#dc2626", lab: "Gap" }
-                  : card.signal === "watch"
-                    ? { bg: "#fff7ed", bd: "#ea580c", lab: "Watch" }
-                    : card.signal === "strength"
-                      ? { bg: "#ecfdf5", bd: "#059669", lab: "Strength" }
-                      : { bg: "#eff6ff", bd: "#2563eb", lab: "Steady" };
               const defaultOrg = String((dealerNetworkPerformance || [])[0]?.organization_id || "");
+              const tr = card.trend;
+              const arrow = tr.dir === "up" ? "↑" : tr.dir === "down" ? "↓" : "→";
+              const trendColor =
+                tr.dir === "up" ? "#c2410c" : tr.dir === "down" ? "#b45309" : "#64748b";
               return (
                 <div
                   key={card.key}
                   style={{
-                    borderRadius: 14,
-                    padding: "14px 16px",
+                    borderRadius: 12,
+                    padding: "12px 14px",
                     background: "#ffffff",
-                    border: "1px solid rgba(226, 232, 240, 0.98)",
-                    borderLeft: `4px solid ${sig.bd}`,
-                    boxShadow: "0 8px 22px rgba(15, 23, 42, 0.06)",
+                    border: "1px solid rgba(251, 146, 60, 0.32)",
+                    borderLeft: "3px solid rgba(234, 88, 12, 0.92)",
+                    boxShadow: "0 6px 20px rgba(15, 23, 42, 0.06)",
+                    minWidth: 0,
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a" }}>{card.title}</div>
-                    <span
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 10,
+                    }}
+                  >
+                    <div
                       style={{
-                        fontSize: 9,
+                        fontSize: 14,
                         fontWeight: 900,
-                        letterSpacing: "0.08em",
-                        padding: "4px 8px",
-                        borderRadius: 999,
-                        background: sig.bg,
-                        color: sig.bd,
+                        color: "#0f172a",
+                        lineHeight: 1.3,
+                        minWidth: 0,
                       }}
                     >
-                      {sig.lab}
+                      {card.title}
+                    </div>
+                    <div
+                      title={tr.detail}
+                      style={{
+                        flex: "0 0 auto",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "4px 9px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(251, 146, 60, 0.38)",
+                        background: "#fffbeb",
+                        fontSize: 10,
+                        fontWeight: 900,
+                        letterSpacing: "0.06em",
+                        color: trendColor,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      <span style={{ fontSize: 11 }} aria-hidden>
+                        {arrow}
+                      </span>
+                      {tr.label}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "baseline",
+                      gap: 8,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 26,
+                        fontWeight: 900,
+                        color: "#0f172a",
+                        letterSpacing: "-0.03em",
+                        lineHeight: 1,
+                      }}
+                    >
+                      {card.pct}%
+                    </span>
+                    <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 700 }}>
+                      {card.pctCaption}
                     </span>
                   </div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>
-                    {card.key === "synthetic" && !klondikeTerritoryInventoryModel?.hasData
-                      ? "—"
-                      : `${card.pct}%`}
+                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 6, fontWeight: 600 }}>
+                    {tr.detail}
                   </div>
-                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{card.pctCaption}</div>
-                  <p style={{ margin: "10px 0 8px", fontSize: 13, color: "#475569", lineHeight: 1.45 }}>
-                    {card.insight}
+                  <p style={{ margin: "8px 0 0", fontSize: 12.5, color: "#475569", lineHeight: 1.45 }}>
+                    {card.operationalStatus}
                   </p>
-                  {card.recommendedAction ? (
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 10 }}>
-                      Action: {card.recommendedAction}
-                    </div>
-                  ) : null}
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "#334155",
+                      marginTop: 10,
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <span style={{ color: "#94a3b8", fontWeight: 800 }}>Recommended:</span>{" "}
+                    {card.recommendedAction}
+                  </div>
                   <div
                     style={{
                       display: "flex",
                       flexWrap: "wrap",
                       gap: 10,
                       alignItems: "center",
+                      marginTop: 12,
                     }}
                   >
                     <button
@@ -11226,7 +11211,7 @@ const handleFinishDealerEnrollment = async () => {
                       type="button"
                       onClick={() =>
                         setProductStrategyWorkflowNotice(
-                          "Training request noted for territory ops (placeholder)."
+                          `Training request logged for ${card.title} (territory coaching — placeholder).`
                         )
                       }
                       style={{
