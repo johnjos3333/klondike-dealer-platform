@@ -119,6 +119,22 @@ function contestVisibleToPortalMembership(contest, membership) {
   return false;
 }
 
+/** Phase 72B.7 — mock training / visit scheduler banner copy (no invites, APIs, or email). */
+function formatKlAdminTrainingSchedulerMockNotice({ topic, audience, nextStep, detail }) {
+  const lines = [
+    "Training & field touch · MOCK scheduler (prepared, not sent)",
+    `Topic: ${String(topic || "Territory coaching").trim()}`,
+    `Audience / scope: ${String(audience || "Territory").trim()}`,
+    `Suggested next step: ${String(
+      nextStep || "Align with dealer leadership on timing and attendees."
+    ).trim()}`,
+    "Status: Prepared · invites disabled · no calendar sync or outbound sends",
+  ];
+  const d = String(detail || "").trim();
+  if (d) lines.push(`Notes: ${d}`);
+  return lines.join("\n");
+}
+
 function TerritoryIncentiveReadOnlyCard({
   title,
   metricLabel,
@@ -7119,6 +7135,8 @@ const handleFinishDealerEnrollment = async () => {
                 color: "#92400e",
                 fontSize: 14,
                 fontWeight: 600,
+                whiteSpace: "pre-line",
+                lineHeight: 1.45,
               }}
             >
               {productStrategyWorkflowNotice}
@@ -8126,7 +8144,15 @@ const handleFinishDealerEnrollment = async () => {
                         type="button"
                         onClick={() => {
                           setProductStrategyWorkflowNotice(
-                            "Training request logged for ops follow-up (placeholder workflow)."
+                            formatKlAdminTrainingSchedulerMockNotice({
+                              topic: `${sug.title} · coaching reinforcement`,
+                              audience: `${String(sug.spotlightType || "category").toUpperCase()} · ${
+                                sug.category || "Territory enablement"
+                              }`,
+                              nextStep:
+                                "Review spotlight copy with the dealer team, then slot a joint enablement session.",
+                              detail: String(sug.reason || "").trim().slice(0, 140),
+                            })
                           );
                         }}
                         style={{
@@ -8146,7 +8172,13 @@ const handleFinishDealerEnrollment = async () => {
                         type="button"
                         onClick={() => {
                           setProductStrategyWorkflowNotice(
-                            "KL University assignment queued for curriculum team (placeholder)."
+                            formatKlAdminTrainingSchedulerMockNotice({
+                              topic: "KL University curriculum assignment",
+                              audience: "Dealer L&D stakeholders · territory program desk (preview)",
+                              nextStep:
+                                "Curriculum owners pick modules; dealer admins get a mock itinerary only.",
+                              detail: "Assign KL University · mock queue · no LMS enrollment",
+                            })
                           );
                         }}
                         style={{
@@ -11178,7 +11210,17 @@ const handleFinishDealerEnrollment = async () => {
                       onClick={() => {
                         if (ac.kind === "workflow_notice") {
                           setProductStrategyWorkflowNotice(
-                            String(ac.noticeText || "").trim() || "Notification logged (mock)."
+                            formatKlAdminTrainingSchedulerMockNotice({
+                              topic: String(ac.issue || "Stakeholder coordination").trim(),
+                              audience: String(ac.scope || "Territory").trim(),
+                              nextStep: String(ac.recommended || "Confirm ownership on the next touch.").trim(),
+                              detail: [
+                                "Manager / visit-style ping · banner only",
+                                String(ac.noticeText || "").trim(),
+                              ]
+                                .filter(Boolean)
+                                .join(" · "),
+                            })
                           );
                           return;
                         }
@@ -11210,6 +11252,20 @@ const handleFinishDealerEnrollment = async () => {
                           return;
                         }
                         if (ac.kind === "sales_enablement") {
+                          const bl = String(ac.buttonLabel || "");
+                          if (/request training|schedule visit/i.test(bl)) {
+                            setProductStrategyWorkflowNotice(
+                              formatKlAdminTrainingSchedulerMockNotice({
+                                topic: String(ac.issue || "Enablement session").trim(),
+                                audience: String(ac.scope || "Territory").trim(),
+                                nextStep: String(ac.recommended || "").trim(),
+                                detail:
+                                  bl.toLowerCase().includes("visit")
+                                    ? "Schedule visit · mock hold · Sales Enablement opens next"
+                                    : "Request Training · mock hold · Sales Enablement opens next",
+                              })
+                            );
+                          }
                           setKlondikeAdminTab("sales_enablement");
                         }
                       }}
@@ -11535,7 +11591,12 @@ const handleFinishDealerEnrollment = async () => {
                       type="button"
                       onClick={() =>
                         setProductStrategyWorkflowNotice(
-                          `Training request logged for ${card.title} (territory coaching — placeholder).`
+                          formatKlAdminTrainingSchedulerMockNotice({
+                            topic: `${card.title} · territory coaching`,
+                            audience: `BDM focus · ${card.title} (${String(card.pctCaption || "share mock").trim()})`,
+                            nextStep: String(card.recommendedAction || "").trim(),
+                            detail: `Product Performance · ${card.title}`,
+                          })
                         )
                       }
                       style={{
@@ -11566,6 +11627,9 @@ const handleFinishDealerEnrollment = async () => {
                 border: "1px solid rgba(251, 191, 36, 0.45)",
                 fontSize: 13,
                 color: "#92400e",
+                whiteSpace: "pre-line",
+                lineHeight: 1.45,
+                fontWeight: 600,
               }}
             >
               {productStrategyWorkflowNotice}
