@@ -20,6 +20,7 @@ import {
   buildDashboardEnablementAlerts,
   resolvePrimarySpotlightForDealerIntel,
 } from "./utils/buildDashboardEnablementAlerts";
+import { buildKlondikeActionCenterActions } from "./utils/buildKlondikeActionCenterActions";
 import { computeTerritoryProposalSignals } from "./utils/territoryProposalSignals";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
@@ -5874,6 +5875,23 @@ const handleFinishDealerEnrollment = async () => {
     ]
   );
 
+  const klondikeActionCenterActions = React.useMemo(
+    () =>
+      buildKlondikeActionCenterActions({
+        enablementAlerts: klondikeDashboardEnablementAlerts,
+        dealerNetworkPerformance,
+        territoryProposalSignals: klondikeTerritoryProposalSignals,
+        territoryInventoryModel: klondikeTerritoryInventoryModel,
+        maxActions: 5,
+      }),
+    [
+      klondikeDashboardEnablementAlerts,
+      dealerNetworkPerformance,
+      klondikeTerritoryProposalSignals,
+      klondikeTerritoryInventoryModel,
+    ]
+  );
+
   const salesEnablementDealerIntel = React.useMemo(() => {
     if (!salesEnablementDealerOrgId) {
       return buildDealerEnablementIntelligence({
@@ -8766,6 +8784,172 @@ const handleFinishDealerEnrollment = async () => {
             )}
           </div>
         </div>
+        </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <div
+          style={{
+            ...styles.card,
+            background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+            border: "1px solid rgba(59, 130, 246, 0.35)",
+            boxShadow: "0 16px 34px rgba(15, 23, 42, 0.12)",
+            marginBottom: 14,
+            padding: "22px 24px",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 12,
+              alignItems: "baseline",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
+                TODAY&apos;S ACTIONS
+              </div>
+              <p
+                style={{
+                  ...styles.cardBody,
+                  color: "#475569",
+                  marginTop: 8,
+                  marginBottom: 0,
+                  lineHeight: 1.5,
+                  maxWidth: 720,
+                }}
+              >
+                Highest-priority territory moves from live dealer, activation, proposal, and inventory
+                signals already loaded for this session—pick one action and execute.
+              </p>
+            </div>
+          </div>
+
+          {klondikeActionCenterActions.length === 0 ? (
+            <div
+              style={{
+                marginTop: 16,
+                padding: "18px 20px",
+                borderRadius: 12,
+                border: "1px dashed rgba(52, 211, 153, 0.45)",
+                background: "rgba(236, 253, 245, 0.65)",
+                fontSize: 14,
+                color: "#047857",
+                fontWeight: 600,
+                lineHeight: 1.5,
+              }}
+            >
+              All clear. No high-priority territory actions detected right now.
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gap: 14,
+                marginTop: 16,
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+              }}
+            >
+              {klondikeActionCenterActions.map((ac) => {
+                const accent =
+                  ac.accent === "orange"
+                    ? {
+                        bd: "rgba(251, 146, 60, 0.55)",
+                        bg: "linear-gradient(145deg, #ffffff 0%, #fff7ed 100%)",
+                        btn: "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
+                        btnBd: "#c2410c",
+                      }
+                    : ac.accent === "green"
+                      ? {
+                          bd: "rgba(52, 211, 153, 0.5)",
+                          bg: "linear-gradient(145deg, #ffffff 0%, #ecfdf5 100%)",
+                          btn: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                          btnBd: "#065f46",
+                        }
+                      : {
+                          bd: "rgba(59, 130, 246, 0.45)",
+                          bg: "linear-gradient(145deg, #ffffff 0%, #eff6ff 100%)",
+                          btn: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                          btnBd: "#1e3a8a",
+                        };
+                return (
+                  <div
+                    key={ac.id}
+                    style={{
+                      borderRadius: 14,
+                      border: `1px solid ${accent.bd}`,
+                      background: accent.bg,
+                      padding: "18px 18px 16px",
+                      display: "grid",
+                      gap: 10,
+                      boxShadow: "0 10px 22px rgba(15, 23, 42, 0.07)",
+                      minHeight: 200,
+                    }}
+                  >
+                    <div style={{ fontSize: 13, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
+                      {ac.issue}
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#64748b", letterSpacing: "0.04em" }}>
+                      {ac.scope}
+                    </div>
+                    <p style={{ margin: 0, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>{ac.why}</p>
+                    <p style={{ margin: 0, fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
+                      <strong style={{ color: "#0f172a" }}>Next step:</strong> {ac.recommended}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (ac.kind === "spotlight") {
+                          openSalesEnablementSpotlightFlow(
+                            ac.dealerOrgId,
+                            ac.spotlightId,
+                            ac.spotlightType,
+                            { openPanel: true }
+                          );
+                          return;
+                        }
+                        if (ac.kind === "dealer_activation") {
+                          setKlondikeAdminTab("dealer_activation");
+                          setDealerActivationOrgId(String(ac.dealerOrgId || ""));
+                          return;
+                        }
+                        if (ac.kind === "inventory_intel") {
+                          setKlondikeAdminTab("inventory_intelligence");
+                          return;
+                        }
+                        if (ac.kind === "dealers_tab") {
+                          setKlondikeAdminTab("dealers");
+                          return;
+                        }
+                        if (ac.kind === "dealers_select") {
+                          setKlondikeAdminTab("dealers");
+                          if (ac.dealerRow) setSelectedDealerPerformance(ac.dealerRow);
+                        }
+                      }}
+                      style={{
+                        marginTop: 4,
+                        justifySelf: "stretch",
+                        cursor: "pointer",
+                        borderRadius: 12,
+                        padding: "12px 16px",
+                        fontSize: 14,
+                        fontWeight: 900,
+                        letterSpacing: "0.03em",
+                        color: "#ffffff",
+                        border: `1px solid ${accent.btnBd}`,
+                        background: accent.btn,
+                        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.18)",
+                      }}
+                    >
+                      {ac.buttonLabel}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
