@@ -23,6 +23,7 @@ import {
 import { buildKlondikeActionCenterActions } from "./utils/buildKlondikeActionCenterActions";
 import { computeTerritoryProposalSignals } from "./utils/territoryProposalSignals";
 import { buildSalesEnablementSpotlightEmailPayload } from "./utils/buildSalesEnablementSpotlightEmailPayload";
+import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "./data/salesEnablement/spotlightSuggestionRules";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -39,6 +40,170 @@ const SALES_ENABLEMENT_LIST_STYLE = {
 };
 /** Local-only sent log for Sales Enablement spotlight delivery (Phase 70). */
 const KL_SPOTLIGHT_SENT_HISTORY_KEY = "kl_sales_enablement_sent_v1";
+/** KL Admin dashboard Action Center daily list cap (Phase 71D). */
+const KL_ADMIN_ACTION_CENTER_LIMIT = 18;
+/** Local-only territory incentive / contest definitions (Phase 72 — no backend schema). */
+const KL_TERRITORY_CONTESTS_KEY = "kl_territory_contests_v1";
+
+const CONTEST_METRIC_OPTIONS = [
+  { value: "revenue_booked", label: "Revenue booked" },
+  { value: "grease_sales", label: "Grease sales (quoted mix)" },
+  { value: "synthetic_conversions", label: "Synthetic conversions" },
+  { value: "proposal_activity", label: "Proposal activity" },
+  { value: "ocr_activity", label: "OCR activity" },
+  { value: "approved_demand", label: "Approved demand" },
+  { value: "category_growth", label: "Category growth (quoted breadth)" },
+];
+
+/** Saved contests without `status` are treated as live (backward compatible). */
+function isTerritoryContestLive(c) {
+  return c?.status !== "draft";
+}
+
+function formatContestTimeRemaining(contest) {
+  const endMs = Date.parse(String(contest?.endDate || ""));
+  if (!Number.isFinite(endMs)) return "—";
+  const ms = endMs - Date.now();
+  if (ms <= 0) return "Ended";
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  return d >= 1 ? `${d}d ${h}h left` : `${h}h left`;
+}
+
+function formatContestQualificationSummary(c) {
+  const parts = [];
+  if (Number(c?.qualMinRevenue || 0) > 0) {
+    parts.push(`Book ≥ $${Number(c.qualMinRevenue).toLocaleString()} revenue`);
+  }
+  if (Number(c?.qualMinUnits || 0) > 0) {
+    parts.push(`≥ ${Number(c.qualMinUnits).toLocaleString()} units / lines / scans (as configured)`);
+  }
+  if (Number(c?.qualMinProposals || 0) > 0) {
+    parts.push(`≥ ${Number(c.qualMinProposals).toLocaleString()} proposals`);
+  }
+  if (Number(c?.qualMinApprovedDemand || 0) > 0) {
+    parts.push(`≥ ${Number(c.qualMinApprovedDemand).toLocaleString()} approved demand units`);
+  }
+  return parts.length ? parts.join(" · ") : "No minimum qualification thresholds set.";
+}
+
+function contestScopeDescription(c) {
+  const st = String(c?.scopeType || "territory");
+  if (st === "territory") return "Territory incentive";
+  if (st === "dealer") return "Dealer incentive";
+  if (st === "all_reps") return "All reps incentive";
+  return "Incentive";
+}
+
+/** Whether the contest should surface on dealer admin / manager / rep dashboards (read-only). */
+function contestVisibleToPortalMembership(contest, membership) {
+  const role = membership?.role;
+  const orgId = membership?.organization_id;
+  if (!role || orgId == null || orgId === "") return false;
+  const scope = String(contest?.scopeType || "territory");
+  if (scope === "territory") {
+    return ["dealer_admin", "manager", "rep"].includes(role);
+  }
+  if (scope === "dealer") {
+    return (
+      ["dealer_admin", "manager", "rep"].includes(role) &&
+      String(contest?.scopeDealerOrgId || "") === String(orgId)
+    );
+  }
+  if (scope === "all_reps") {
+    return role === "rep" || role === "manager";
+  }
+  return false;
+}
+
+function TerritoryIncentiveReadOnlyCard({
+  title,
+  metricLabel,
+  prize,
+  qualificationText,
+  timeRemainingLabel,
+  scopeDescription,
+  leaderLine,
+  leaderFootnote,
+  showProgressTrackingPlaceholder,
+  compact,
+  accentBorder = "#2563eb",
+}) {
+  return (
+    <div
+      style={{
+        borderRadius: compact ? 12 : 14,
+        padding: compact ? "12px 14px" : "14px 16px",
+        border: "1px solid rgba(226, 232, 240, 0.98)",
+        background: compact ? "#fcfcfd" : "#fafafa",
+        borderLeft: compact ? `3px solid ${accentBorder}` : `4px solid ${accentBorder}`,
+        boxShadow: compact ? "none" : "0 8px 22px rgba(15, 23, 42, 0.06)",
+      }}
+    >
+      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+        {scopeDescription}
+      </div>
+      <div
+        style={{
+          fontSize: compact ? 14 : 15,
+          fontWeight: 900,
+          color: "#0f172a",
+          marginTop: 4,
+        }}
+      >
+        {title}
+      </div>
+      <div style={{ fontSize: compact ? 11 : 12, color: "#64748b", marginTop: 6 }}>
+        <strong style={{ color: "#475569" }}>Tracked metric:</strong> {metricLabel}
+      </div>
+      <div style={{ fontSize: compact ? 11 : 12, color: "#64748b", marginTop: 4 }}>
+        <strong style={{ color: "#475569" }}>Qualification:</strong> {qualificationText}
+      </div>
+      <div style={{ fontSize: compact ? 11 : 12, color: "#64748b", marginTop: 4 }}>
+        <strong style={{ color: "#475569" }}>Time remaining:</strong> {timeRemainingLabel}
+      </div>
+      {prize ? (
+        <div
+          style={{
+            fontSize: compact ? 12 : 13,
+            color: "#334155",
+            marginTop: 8,
+            fontWeight: 600,
+            lineHeight: 1.45,
+          }}
+        >
+          <strong style={{ color: "#475569" }}>Prize:</strong> {prize}
+        </div>
+      ) : null}
+      {leaderLine !== "—" || leaderFootnote ? (
+        <div style={{ fontSize: compact ? 11 : 12, color: "#64748b", marginTop: 8 }}>
+          <strong style={{ color: "#475569" }}>Standing / leader:</strong> {leaderLine}
+          {leaderFootnote ? (
+            <div style={{ fontSize: 11, color: "#b45309", marginTop: 6, lineHeight: 1.4 }}>
+              {leaderFootnote}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {showProgressTrackingPlaceholder ? (
+        <div
+          style={{
+            fontSize: 11,
+            color: "#64748b",
+            marginTop: 10,
+            padding: "8px 10px",
+            borderRadius: 8,
+            background: "rgba(248, 250, 252, 0.95)",
+            border: "1px solid rgba(226, 232, 240, 0.9)",
+            lineHeight: 1.45,
+          }}
+        >
+          Progress tracking will populate as qualifying activity is recorded.
+        </div>
+      ) : null}
+    </div>
+  );
+}
 function SalesEnablementPreviewLabel({ children }) {
   return (
     <div
@@ -3816,6 +3981,51 @@ useEffect(() => {
       return [];
     }
   });
+  /** KL Admin dashboard: intelligence panels expanded by default (Phase 71C command center). */
+  const [klDashboardIntelPanels, setKlDashboardIntelPanels] = useState({
+    executiveSummary: true,
+    territoryTrend: true,
+    productOpportunity: true,
+    territoryPerformance: true,
+    teamMixLeaderboards: true,
+    networkTotals: true,
+    ocrTerritory: true,
+    mockSampleDashboards: false,
+  });
+  const toggleKlDashboardIntelPanel = useCallback((key) => {
+    setKlDashboardIntelPanels((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+  const [territoryContests, setTerritoryContests] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(KL_TERRITORY_CONTESTS_KEY);
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [contestDraft, setContestDraft] = useState({
+    title: "",
+    metricKey: "proposal_activity",
+    startDate: "",
+    endDate: "",
+    prize: "",
+    scopeType: "territory",
+    scopeDealerOrgId: "",
+    qualMinRevenue: "",
+    qualMinUnits: "",
+    qualMinProposals: "",
+    qualMinApprovedDemand: "",
+    goLiveOnSave: false,
+  });
+  const [productStrategyWorkflowNotice, setProductStrategyWorkflowNotice] = useState(null);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(KL_TERRITORY_CONTESTS_KEY, JSON.stringify(territoryContests));
+    } catch {
+      /* ignore */
+    }
+  }, [territoryContests]);
   const [inventoryWeeklyReminderEmailStatus, setInventoryWeeklyReminderEmailStatus] =
     useState(null);
   const [dealerActivationOrgId, setDealerActivationOrgId] = useState("");
@@ -5262,7 +5472,11 @@ const handleFinishDealerEnrollment = async () => {
   );
 
   useEffect(() => {
-    if (!isPlatformAdmin || klondikeAdminTab !== "dashboard") return;
+    if (
+      !isPlatformAdmin ||
+      (klondikeAdminTab !== "dashboard" && klondikeAdminTab !== "product_strategy")
+    )
+      return;
     let cancelled = false;
 
     const loadOcrSnapshot = async () => {
@@ -5447,6 +5661,145 @@ const handleFinishDealerEnrollment = async () => {
       rows: rows.sort((a, b) => b.count - a.count),
     };
   }, [dealerNetworkPerformance]);
+
+  /** Dashboard Product Performance cards — booked mix vs quoted fallback (Phase 72B). */
+  const adminDashboardProductPerformanceCards = React.useMemo(() => {
+    const categoryAliases = {
+      "HD Engine Oils": ["Heavy Duty", "HD Engine Oils"],
+      "Hydraulic Fluids": ["Hydraulic Fluids"],
+      Grease: ["Grease"],
+      "Transmission Fluids": ["Transmission Fluids"],
+      "Coolants / Chemicals": ["Coolants", "Chemicals", "Coolants / Chemicals"],
+    };
+    const mixRows = Array.isArray(adminProductMixIntelligence?.rows)
+      ? adminProductMixIntelligence.rows
+      : [];
+    const mixByName = Object.fromEntries(mixRows.map((r) => [r.name, r]));
+    const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+
+    const countForMixCategory = (dealer, mixCategoryName) => {
+      const aliases = categoryAliases[mixCategoryName];
+      if (!aliases) return 0;
+      const rows = Array.isArray(dealer?.productMix) ? dealer.productMix : [];
+      let sum = 0;
+      rows.forEach((row) => {
+        const n = String(row?.name || "").trim();
+        if (aliases.includes(n)) sum += Number(row?.count || 0);
+      });
+      return sum;
+    };
+
+    const bookedSharePercent = (mixCategoryName) => {
+      let allocated = 0;
+      let revenueSum = 0;
+      dealers.forEach((d) => {
+        const rev = Number(d?.revenueWon || 0);
+        if (!Number.isFinite(rev) || rev <= 0) return;
+        revenueSum += rev;
+        const mix = Array.isArray(d?.productMix) ? d.productMix : [];
+        const mixTot = mix.reduce((s, r) => s + Number(r?.count || 0), 0);
+        if (mixTot <= 0) return;
+        const cat = countForMixCategory(d, mixCategoryName);
+        if (cat <= 0) return;
+        allocated += rev * (cat / mixTot);
+      });
+      if (revenueSum > 0 && allocated > 0) {
+        return {
+          pct: Math.min(100, Math.round((allocated / revenueSum) * 100)),
+          basis: "booked",
+        };
+      }
+      const row = mixByName[mixCategoryName];
+      const ti = Number(adminProductMixIntelligence?.totalItems || 0);
+      const pct =
+        row && ti > 0 ? Math.round((Number(row.count || 0) / ti) * 100) : Number(row?.percent || 0);
+      return { pct, basis: "quoted" };
+    };
+
+    const inv = klondikeTerritoryInventoryModel;
+    const synPct = inv?.hasData ? Math.round(Number(inv.syntheticSharePct || 0)) : 0;
+
+    const buildCard = (title, mixName, isSynthetic) => {
+      if (isSynthetic) {
+        let signal = "steady";
+        let insight = "Synthetic-related approved demand share across the territory rollup.";
+        let action = "Pair synthetic wins with upgrade spotlights where OEM specs allow.";
+        if (!inv?.hasData) {
+          signal = "gap";
+          insight = "Approved-demand rollup not available yet—synthetic share will populate with approvals.";
+          action = "Confirm approved lines are flowing into inventory intelligence.";
+        } else if (synPct >= 28) {
+          signal = "strength";
+          insight = "Synthetic share is elevated in approved demand—keep premium positioning tight.";
+        } else if (synPct > 0 && synPct < 12) {
+          signal = "watch";
+          insight = "Synthetic share is modest versus total approved demand.";
+          action = "Coach premium conversations where fleets allow synthetic upgrades.";
+        }
+        return {
+          key: "synthetic",
+          title,
+          pct: synPct,
+          pctCaption: inv?.hasData ? "% of approved demand (synthetic-related)" : "—",
+          signal,
+          insight,
+          recommendedAction: action,
+          spotlightId: "cs-synthetic-upgrade",
+          spotlightType: "category",
+        };
+      }
+      const { pct, basis } = bookedSharePercent(mixName);
+      const row = mixByName[mixName];
+      const cnt = Number(row?.count || 0);
+      let signal = "steady";
+      if (cnt === 0 || pct === 0) {
+        signal = "gap";
+      } else if (pct < 10) {
+        signal = "watch";
+      } else if (pct >= 22) {
+        signal = "strength";
+      } else {
+        signal = "steady";
+      }
+
+      let insight = `${pct}% ${basis === "booked" ? "of booked revenue mix" : "of quoted line activity"} in this category.`;
+      if (basis === "quoted") {
+        insight += " Revenue-based mix appears when dealer revenue totals load.";
+      }
+      let recommendedAction = null;
+      if (signal === "gap") {
+        recommendedAction = "Open Product Strategy to prioritize coaching and spotlights for this category.";
+      } else if (signal === "watch") {
+        recommendedAction = "Use Sales Enablement to reinforce discovery conversations in this bucket.";
+      } else if (signal === "strength") {
+        recommendedAction = "Protect margin—keep attach plays (coolant, filters) visible in proposals.";
+      }
+
+      const spotlightId = CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY[mixName] || "cs-hd-conversion";
+
+      return {
+        key: mixName,
+        title,
+        pct,
+        pctCaption: basis === "booked" ? "% of booked revenue (allocated)" : "% of quoted lines (activity)",
+        signal,
+        insight,
+        recommendedAction,
+        spotlightId,
+        spotlightType: "category",
+      };
+    };
+
+    return [
+      buildCard("HD Engine Oils", "HD Engine Oils", false),
+      buildCard("Hydraulic Fluids", "Hydraulic Fluids", false),
+      buildCard("Grease", "Grease", false),
+      buildCard("Synthetic Products", null, true),
+      buildCard("Transmission Fluids", "Transmission Fluids", false),
+      buildCard("Coolants / Chemicals", "Coolants / Chemicals", false),
+    ];
+  }, [dealerNetworkPerformance, adminProductMixIntelligence, klondikeTerritoryInventoryModel]);
+
   const adminDealerHealthFoundation = React.useMemo(() => {
     const rows = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
     const activeDealers = rows.length;
@@ -5493,6 +5846,25 @@ const handleFinishDealerEnrollment = async () => {
       dealersBuildingMomentum,
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.topDealers]);
+  /** Operational dealer states from live quote / proposal / response activity only (Phase 72). */
+  const adminDealerOperationalBuckets = React.useMemo(() => {
+    const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+    let healthy = 0;
+    let growing = 0;
+    let needsAttention = 0;
+    let inactive = 0;
+    dealers.forEach((d) => {
+      const q = Number(d?.quotesCreated || 0);
+      const p = Number(d?.proposalsSent || 0);
+      const r = Number(d?.customerResponses || 0);
+      const sum = q + p + r;
+      if (sum === 0) inactive += 1;
+      else if (r > 0) healthy += 1;
+      else if (p > 0) growing += 1;
+      else needsAttention += 1;
+    });
+    return { healthy, growing, needsAttention, inactive, total: dealers.length };
+  }, [dealerNetworkPerformance]);
   const adminRepLeaderboardFoundation = React.useMemo(() => {
     const dealers = Array.isArray(dealerNetworkPerformance)
       ? dealerNetworkPerformance
@@ -5620,6 +5992,7 @@ const handleFinishDealerEnrollment = async () => {
       rows,
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.topReps]);
+
   const adminTerritoryPerformanceRollup = React.useMemo(() => {
     const dealers = Array.isArray(dealerNetworkPerformance)
       ? dealerNetworkPerformance
@@ -5695,6 +6068,219 @@ const handleFinishDealerEnrollment = async () => {
       executiveSummary,
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.totalScans, adminRepLeaderboardFoundation]);
+
+  const activeTerritoryContests = React.useMemo(() => {
+    const now = Date.now();
+    return (Array.isArray(territoryContests) ? territoryContests : []).filter((c) => {
+      const a = Date.parse(String(c?.startDate || ""));
+      const b = Date.parse(String(c?.endDate || ""));
+      if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+      return now >= a && now <= b;
+    });
+  }, [territoryContests]);
+
+  /** In-window contests marked live (drafts excluded). Legacy rows without `status` count as live. */
+  const liveActiveTerritoryContests = React.useMemo(
+    () => activeTerritoryContests.filter((c) => isTerritoryContestLive(c)),
+    [activeTerritoryContests]
+  );
+
+  const visibleLiveContestsForPortalUser = React.useMemo(() => {
+    return liveActiveTerritoryContests.filter((c) =>
+      contestVisibleToPortalMembership(c, activeMembership)
+    );
+  }, [liveActiveTerritoryContests, activeMembership]);
+
+  const resolveTerritoryContestLeaderDisplay = useCallback(
+    (contest) => {
+      const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+      const metric = String(contest?.metricKey || "");
+      const scope = String(contest?.scopeType || "territory");
+      const minRev = Number(contest?.qualMinRevenue || 0) || 0;
+      const minUnits = Number(contest?.qualMinUnits || 0) || 0;
+      const minProp = Number(contest?.qualMinProposals || 0) || 0;
+      const minDemand = Number(contest?.qualMinApprovedDemand || 0) || 0;
+
+      const scopedDealers =
+        scope === "dealer" && contest?.scopeDealerOrgId
+          ? dealers.filter((d) => String(d.organization_id) === String(contest.scopeDealerOrgId))
+          : dealers;
+
+      const territoryApprovedUnits = Number(klondikeTerritoryInventoryModel?.totalApprovedUnits || 0);
+      const territoryProposalTotal = Number(adminTerritoryPerformanceRollup?.totalProposalsSent || 0);
+
+      const pending = (text) => ({
+        line: "Qualification pending",
+        qualified: false,
+        footnote: text,
+      });
+
+      if (
+        minDemand > 0 &&
+        territoryApprovedUnits < minDemand &&
+        ["approved_demand", "synthetic_conversions"].includes(metric)
+      ) {
+        return pending(
+          `Territory approved demand must reach ${minDemand.toLocaleString()} units (currently ${territoryApprovedUnits.toLocaleString()}).`
+        );
+      }
+
+      if (minProp > 0 && territoryProposalTotal < minProp && metric === "proposal_activity") {
+        return pending(
+          `Territory proposals must reach ${minProp} logged sends (currently ${territoryProposalTotal}).`
+        );
+      }
+
+      const pickBestDealer = (scoreFn) => {
+        let best = null;
+        let bestScore = -Infinity;
+        scopedDealers.forEach((d) => {
+          const s = scoreFn(d);
+          if (s > bestScore) {
+            bestScore = s;
+            best = d;
+          }
+        });
+        return { dealer: best, score: bestScore };
+      };
+
+      if (scope === "all_reps") {
+        const top = adminRepLeaderboardFoundation?.rows?.[0];
+        const touches = Number(top?.activityCount || 0);
+        const proposals = Number(top?.proposals || 0);
+        if (!top || touches <= 0) {
+          return { line: "—", qualified: false, footnote: null };
+        }
+        if (minProp > 0 && proposals < minProp) {
+          return pending(`Leading rep needs ≥ ${minProp} proposals (currently ${proposals}).`);
+        }
+        return {
+          line: `${String(top.name || "Rep").trim()} · ${touches} combined touches`,
+          qualified: true,
+          footnote: null,
+        };
+      }
+
+      switch (metric) {
+        case "revenue_booked": {
+          if (!scopedDealers.some((d) => Number.isFinite(Number(d?.revenueWon)) && Number(d?.revenueWon) > 0)) {
+            return { line: "Revenue not in current load", qualified: false, footnote: null };
+          }
+          const { dealer, score } = pickBestDealer((d) => Number(d.revenueWon || 0));
+          if (!dealer || score <= 0) return { line: "—", qualified: false, footnote: null };
+          if (minRev > 0 && score < minRev) {
+            return pending(
+              `Participants must book ≥ $${minRev.toLocaleString()} (leading dealer ${Math.round(score).toLocaleString()}).`
+            );
+          }
+          return {
+            line: `${String(dealer.name || "Dealer").trim()} · $${Math.round(score).toLocaleString()}`,
+            qualified: true,
+            footnote: null,
+          };
+        }
+        case "grease_sales": {
+          const { dealer, score } = pickBestDealer((d) => {
+            const mix = Array.isArray(d?.productMix) ? d.productMix : [];
+            const g = mix.find((r) => String(r?.name || "").trim() === "Grease");
+            return Number(g?.count || 0);
+          });
+          if (!dealer || score < 0) return { line: "—", qualified: false, footnote: null };
+          if (minUnits > 0 && score < minUnits) {
+            return pending(`Leader needs ≥ ${minUnits} grease lines (top ${Math.round(score)}).`);
+          }
+          return {
+            line: `${String(dealer.name || "Dealer").trim()} · ${Math.round(score)} grease lines`,
+            qualified: true,
+            footnote: null,
+          };
+        }
+        case "synthetic_conversions": {
+          const inv = klondikeTerritoryInventoryModel;
+          if (!inv?.hasData) {
+            return { line: "—", qualified: false, footnote: null };
+          }
+          const pct = Math.round(Number(inv.syntheticSharePct || 0));
+          if (minUnits > 0 && pct < minUnits) {
+            return pending(
+              `Synthetic share must reach ${minUnits}% to qualify (currently ${pct}%).`
+            );
+          }
+          return {
+            line: `Territory synthetic share ~${pct}% (approved demand)`,
+            qualified: true,
+            footnote: null,
+          };
+        }
+        case "proposal_activity": {
+          const { dealer, score } = pickBestDealer((d) => Number(d.proposalsSent || 0));
+          if (!dealer || score <= 0) return { line: "—", qualified: false, footnote: null };
+          if (minProp > 0 && score < minProp) {
+            return pending(`Leader needs ≥ ${minProp} proposals (top ${Math.round(score)}).`);
+          }
+          return {
+            line: `${String(dealer.name || "Dealer").trim()} · ${Math.round(score)} proposals`,
+            qualified: true,
+            footnote: null,
+          };
+        }
+        case "ocr_activity": {
+          const top = ocrSnapshot?.topDealers?.[0];
+          const cnt = Number(top?.count || 0);
+          if (!top?.value) return { line: "—", qualified: false, footnote: null };
+          if (minUnits > 0 && cnt < minUnits) {
+            return pending(`Leader needs ≥ ${minUnits} scans (top dealer ${cnt}).`);
+          }
+          return {
+            line: `${shortIdLabel("Dealer", top.value)} · ${cnt} scans`,
+            qualified: true,
+            footnote: null,
+          };
+        }
+        case "approved_demand": {
+          const inv = klondikeTerritoryInventoryModel;
+          if (!inv?.hasData) return { line: "—", qualified: false, footnote: null };
+          const u = Number(inv.totalApprovedUnits || 0);
+          if (minDemand > 0 && u < minDemand) {
+            return pending(
+              `Approved units must reach ${minDemand.toLocaleString()} (currently ${u.toLocaleString()}).`
+            );
+          }
+          return {
+            line: `${u.toLocaleString()} approved units (territory)`,
+            qualified: true,
+            footnote: null,
+          };
+        }
+        case "category_growth": {
+          const { dealer, score } = pickBestDealer((d) =>
+            (Array.isArray(d?.productMix) ? d.productMix : []).reduce(
+              (s, r) => s + Number(r?.count || 0),
+              0
+            )
+          );
+          if (!dealer || score <= 0) return { line: "—", qualified: false, footnote: null };
+          if (minUnits > 0 && score < minUnits) {
+            return pending(`Leader needs ≥ ${minUnits} quoted lines (top ${Math.round(score)}).`);
+          }
+          return {
+            line: `${String(dealer.name || "Dealer").trim()} · ${Math.round(score)} quoted lines`,
+            qualified: true,
+            footnote: null,
+          };
+        }
+        default:
+          return { line: "—", qualified: false, footnote: null };
+      }
+    },
+    [
+      dealerNetworkPerformance,
+      ocrSnapshot?.topDealers,
+      klondikeTerritoryInventoryModel,
+      adminRepLeaderboardFoundation,
+      adminTerritoryPerformanceRollup,
+    ]
+  );
 
   const salesEnablementSpotlightSuggestions = React.useMemo(
     () =>
@@ -5890,22 +6476,67 @@ const handleFinishDealerEnrollment = async () => {
     ]
   );
 
-  const klondikeActionCenterActions = React.useMemo(
-    () =>
-      buildKlondikeActionCenterActions({
-        enablementAlerts: klondikeDashboardEnablementAlerts,
-        dealerNetworkPerformance,
-        territoryProposalSignals: klondikeTerritoryProposalSignals,
-        territoryInventoryModel: klondikeTerritoryInventoryModel,
-        maxActions: 5,
-      }),
-    [
-      klondikeDashboardEnablementAlerts,
+  const klondikeActionCenterActions = React.useMemo(() => {
+    const alerts = Array.isArray(klondikeDashboardEnablementAlerts)
+      ? klondikeDashboardEnablementAlerts
+      : [];
+    const base = buildKlondikeActionCenterActions({
+      enablementAlerts: klondikeDashboardEnablementAlerts,
       dealerNetworkPerformance,
-      klondikeTerritoryProposalSignals,
-      klondikeTerritoryInventoryModel,
-    ]
-  );
+      territoryProposalSignals: klondikeTerritoryProposalSignals,
+      territoryInventoryModel: klondikeTerritoryInventoryModel,
+      maxActions: 24,
+    });
+    const merged = [...base];
+    const seen = new Set(base.map((a) => a.id));
+
+    for (const al of alerts) {
+      if (merged.length >= KL_ADMIN_ACTION_CENTER_LIMIT) break;
+      const id = `alert-${al.alertKey}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      merged.push({
+        id,
+        kind: "spotlight",
+        issue: al.issueTitle || "Dealer enablement gap detected.",
+        scope: String(al.dealerName || "Dealer").trim(),
+        why:
+          al.whyItMatters || "Rule-based signals flagged this dealer for coaching.",
+        recommended: `Send the “${al.spotlightTitle}” spotlight after you review copy.`,
+        buttonLabel: "Send Spotlight",
+        accent: "blue",
+        dealerOrgId: String(al.dealerOrgId || ""),
+        spotlightId: al.spotlightId,
+        spotlightType: al.spotlightType,
+        severityRank: typeof al.severityRank === "number" ? al.severityRank : 2,
+      });
+    }
+
+    if (merged.length < KL_ADMIN_ACTION_CENTER_LIMIT && !seen.has("cmd-open-sales-enablement")) {
+      merged.push({
+        id: "cmd-open-sales-enablement",
+        kind: "sales_enablement",
+        issue: "Preview spotlights and coach outbound sends.",
+        scope: "Territory",
+        why: "Keep library copy and recipients aligned before dealers deploy.",
+        recommended: "Open Sales Enablement to review materials and delivery workflow.",
+        buttonLabel: "Open Sales Enablement",
+        accent: "blue",
+      });
+    }
+
+    return merged.slice(0, KL_ADMIN_ACTION_CENTER_LIMIT).map((ac) => {
+      if (ac.kind !== "spotlight" || typeof ac.severityRank === "number") return ac;
+      const al = alerts.find((x) => `alert-${x.alertKey}` === ac.id);
+      if (!al || typeof al.severityRank !== "number") return ac;
+      return { ...ac, severityRank: al.severityRank };
+    });
+  }, [
+    klondikeDashboardEnablementAlerts,
+    dealerNetworkPerformance,
+    klondikeTerritoryProposalSignals,
+    klondikeTerritoryInventoryModel,
+  ]);
 
   const salesEnablementDealerIntel = React.useMemo(() => {
     if (!salesEnablementDealerOrgId) {
@@ -6386,8 +7017,8 @@ const handleFinishDealerEnrollment = async () => {
         <div style={styles.eyebrow}>KLONDIKE ADMIN</div>
         <h2 style={styles.heroTitle}>Klondike Admin Command Center</h2>
         <p style={styles.heroText}>
-          Manage dealer onboarding, create users, approve access requests, and
-          monitor platform activity.
+          Start with today&apos;s recommended actions—then open deeper intelligence only when you
+          need it. Dealers, activation, inventory, and enablement stay one click away.
         </p>
       </div>
 
@@ -6405,6 +7036,7 @@ const handleFinishDealerEnrollment = async () => {
         >
           {[
             { id: "dashboard", label: "DASHBOARD" },
+            { id: "product_strategy", label: "PRODUCT STRATEGY" },
             { id: "dealers", label: "DEALERS" },
             { id: "dealer_activation", label: "DEALER ACTIVATION" },
             { id: "inventory_intelligence", label: "INVENTORY INTEL" },
@@ -6538,6 +7170,1076 @@ const handleFinishDealerEnrollment = async () => {
           </div>
         </div>
       </div>
+
+      {klondikeAdminTab === "product_strategy" && (
+        <div style={{ display: "grid", gap: 18 }}>
+          {productStrategyWorkflowNotice ? (
+            <div
+              style={{
+                borderRadius: 12,
+                padding: "12px 16px",
+                background: "rgba(254, 243, 199, 0.65)",
+                border: "1px solid rgba(251, 191, 36, 0.55)",
+                color: "#92400e",
+                fontSize: 14,
+                fontWeight: 600,
+              }}
+            >
+              {productStrategyWorkflowNotice}
+            </div>
+          ) : null}
+          <div
+            style={{
+              borderRadius: 18,
+              padding: "22px 24px 24px",
+              background: "linear-gradient(165deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)",
+              border: "1px solid rgba(148, 163, 184, 0.22)",
+              boxShadow: "0 22px 48px rgba(15, 23, 42, 0.28)",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: "#94a3b8" }}>
+              TERRITORY GROWTH · PRODUCT
+            </div>
+            <h3 style={{ margin: "10px 0 0", fontSize: 22, fontWeight: 900, color: "#f8fafc", letterSpacing: "-0.02em" }}>
+              Product Strategy &amp; Incentive Intelligence
+            </h3>
+            <p style={{ margin: "12px 0 0", fontSize: 14, color: "#cbd5e1", lineHeight: 1.55, maxWidth: 720 }}>
+              Category execution, live mix signals, and lightweight contests—anchored in tracked
+              quotes, proposals, demand, and field scans (not CRM overhead).
+            </p>
+            <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setKlondikeAdminTab("inventory_intelligence")}
+                style={{
+                  cursor: "pointer",
+                  borderRadius: 10,
+                  padding: "9px 16px",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  border: "1px solid rgba(251, 146, 60, 0.55)",
+                  background: "linear-gradient(135deg, #ea580c 0%, #c2410c 100%)",
+                  color: "#fff",
+                }}
+              >
+                Inventory &amp; demand tie-ins
+              </button>
+              <button
+                type="button"
+                onClick={() => setKlondikeAdminTab("sales_enablement")}
+                style={{
+                  cursor: "pointer",
+                  borderRadius: 10,
+                  padding: "9px 16px",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  border: "1px solid rgba(96, 165, 250, 0.55)",
+                  background: "#1e293b",
+                  color: "#e2e8f0",
+                }}
+              >
+                Open Sales Enablement
+              </button>
+            </div>
+          </div>
+
+          <div
+            style={{
+              borderRadius: 16,
+              padding: "18px 20px",
+              background: "#ffffff",
+              border: "1px solid rgba(226, 232, 240, 0.98)",
+              boxShadow: "0 10px 28px rgba(15, 23, 42, 0.07)",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
+              INCENTIVE CENTER · ACTIVE
+            </div>
+            <h4 style={{ margin: "8px 0 6px", fontSize: 17, fontWeight: 900, color: "#0f172a" }}>
+              Active incentives
+            </h4>
+            <p style={{ margin: "0 0 10px", fontSize: 13, color: "#64748b", lineHeight: 1.45 }}>
+              Draft contests stay internal until you mark them live; only live incentives within the
+              schedule appear here and on dealer dashboards.
+            </p>
+            {liveActiveTerritoryContests.length === 0 ? (
+              <p style={{ margin: 0, fontSize: 14, color: "#64748b" }}>
+                No live incentives in the current window.
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
+                  marginTop: 12,
+                }}
+              >
+                {liveActiveTerritoryContests.map((c) => {
+                  const metricLabel =
+                    CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label || c.metricKey;
+                  const ld = resolveTerritoryContestLeaderDisplay(c);
+                  const showPh = ld.line === "—" && !ld.footnote;
+                  return (
+                    <TerritoryIncentiveReadOnlyCard
+                      key={c.id}
+                      title={c.title}
+                      metricLabel={metricLabel}
+                      prize={c.prize}
+                      qualificationText={formatContestQualificationSummary(c)}
+                      timeRemainingLabel={formatContestTimeRemaining(c)}
+                      scopeDescription={contestScopeDescription(c)}
+                      leaderLine={ld.line}
+                      leaderFootnote={ld.footnote}
+                      showProgressTrackingPlaceholder={showPh}
+                      compact={false}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              borderRadius: 16,
+              padding: "18px 20px",
+              background: "#ffffff",
+              border: "1px solid rgba(226, 232, 240, 0.98)",
+              boxShadow: "0 10px 28px rgba(15, 23, 42, 0.07)",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
+              INCENTIVE CENTER · BUILDER
+            </div>
+            <h4 style={{ margin: "8px 0 10px", fontSize: 17, fontWeight: 900, color: "#0f172a" }}>
+              Contest builder
+            </h4>
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
+              }}
+            >
+              <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                Title
+                <input
+                  value={contestDraft.title}
+                  onChange={(e) => setContestDraft((p) => ({ ...p, title: e.target.value }))}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(203, 213, 225, 0.95)",
+                    fontSize: 14,
+                  }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                Metric tracked
+                <select
+                  value={contestDraft.metricKey}
+                  onChange={(e) => setContestDraft((p) => ({ ...p, metricKey: e.target.value }))}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(203, 213, 225, 0.95)",
+                    fontSize: 14,
+                  }}
+                >
+                  {CONTEST_METRIC_OPTIONS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                Start date
+                <input
+                  type="date"
+                  value={contestDraft.startDate}
+                  onChange={(e) => setContestDraft((p) => ({ ...p, startDate: e.target.value }))}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(203, 213, 225, 0.95)",
+                    fontSize: 14,
+                  }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                End date
+                <input
+                  type="date"
+                  value={contestDraft.endDate}
+                  onChange={(e) => setContestDraft((p) => ({ ...p, endDate: e.target.value }))}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(203, 213, 225, 0.95)",
+                    fontSize: 14,
+                  }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                Scope
+                <select
+                  value={contestDraft.scopeType}
+                  onChange={(e) =>
+                    setContestDraft((p) => ({ ...p, scopeType: e.target.value, scopeDealerOrgId: "" }))
+                  }
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(203, 213, 225, 0.95)",
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="territory">Territory</option>
+                  <option value="dealer">Single dealer</option>
+                  <option value="all_reps">All reps</option>
+                </select>
+              </label>
+              {contestDraft.scopeType === "dealer" ? (
+                <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                  Dealer
+                  <select
+                    value={contestDraft.scopeDealerOrgId}
+                    onChange={(e) =>
+                      setContestDraft((p) => ({ ...p, scopeDealerOrgId: e.target.value }))
+                    }
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(203, 213, 225, 0.95)",
+                      fontSize: 14,
+                    }}
+                  >
+                    <option value="">Select dealer…</option>
+                    {(dealerNetworkPerformance || []).map((d) => (
+                      <option key={d.organization_id} value={String(d.organization_id)}>
+                        {d.name || "Dealer"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              <div
+                style={{
+                  gridColumn: "1 / -1",
+                  padding: "12px 14px",
+                  borderRadius: 12,
+                  background: "#f8fafc",
+                  border: "1px solid rgba(226, 232, 240, 0.98)",
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: "#64748b" }}>
+                  MINIMUM QUALIFICATION (OPTIONAL)
+                </div>
+                <p style={{ margin: "8px 0 10px", fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
+                  Thresholds gate leaderboard recognition until live activity crosses them. Leave blank to
+                  disable a rule.
+                </p>
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 10,
+                    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))",
+                  }}
+                >
+                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 700, color: "#475569" }}>
+                    Min booked revenue ($)
+                    <input
+                      inputMode="decimal"
+                      value={contestDraft.qualMinRevenue}
+                      onChange={(e) =>
+                        setContestDraft((p) => ({ ...p, qualMinRevenue: e.target.value }))
+                      }
+                      placeholder="e.g. 25000"
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: "1px solid rgba(203, 213, 225, 0.95)",
+                        fontSize: 13,
+                      }}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 700, color: "#475569" }}>
+                    Min units / lines / scans
+                    <input
+                      inputMode="numeric"
+                      value={contestDraft.qualMinUnits}
+                      onChange={(e) =>
+                        setContestDraft((p) => ({ ...p, qualMinUnits: e.target.value }))
+                      }
+                      placeholder="e.g. 50"
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: "1px solid rgba(203, 213, 225, 0.95)",
+                        fontSize: 13,
+                      }}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 700, color: "#475569" }}>
+                    Min proposals (leader / territory)
+                    <input
+                      inputMode="numeric"
+                      value={contestDraft.qualMinProposals}
+                      onChange={(e) =>
+                        setContestDraft((p) => ({ ...p, qualMinProposals: e.target.value }))
+                      }
+                      placeholder="e.g. 10"
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: "1px solid rgba(203, 213, 225, 0.95)",
+                        fontSize: 13,
+                      }}
+                    />
+                  </label>
+                  <label style={{ display: "grid", gap: 4, fontSize: 11, fontWeight: 700, color: "#475569" }}>
+                    Min approved demand (units)
+                    <input
+                      inputMode="numeric"
+                      value={contestDraft.qualMinApprovedDemand}
+                      onChange={(e) =>
+                        setContestDraft((p) => ({ ...p, qualMinApprovedDemand: e.target.value }))
+                      }
+                      placeholder="e.g. 500"
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: "1px solid rgba(203, 213, 225, 0.95)",
+                        fontSize: 13,
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+              <label
+                style={{
+                  display: "grid",
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#475569",
+                  gridColumn: "1 / -1",
+                }}
+              >
+                Prize / recognition (text)
+                <textarea
+                  value={contestDraft.prize}
+                  onChange={(e) => setContestDraft((p) => ({ ...p, prize: e.target.value }))}
+                  rows={2}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(203, 213, 225, 0.95)",
+                    fontSize: 14,
+                    resize: "vertical",
+                  }}
+                />
+              </label>
+            </div>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 10,
+                marginTop: 6,
+                gridColumn: "1 / -1",
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#475569",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={Boolean(contestDraft.goLiveOnSave)}
+                onChange={(e) =>
+                  setContestDraft((p) => ({ ...p, goLiveOnSave: e.target.checked }))
+                }
+                style={{ marginTop: 3 }}
+              />
+              <span style={{ fontWeight: 600, lineHeight: 1.45 }}>
+                Go live on save (visible on scoped dealer dashboards when inside the schedule)
+              </span>
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                const title = String(contestDraft.title || "").trim();
+                const prize = String(contestDraft.prize || "").trim();
+                if (!title || !prize) {
+                  setProductStrategyWorkflowNotice("Add a title and prize description to save a contest.");
+                  return;
+                }
+                const a = Date.parse(contestDraft.startDate);
+                const b = Date.parse(contestDraft.endDate);
+                if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) {
+                  setProductStrategyWorkflowNotice("Choose a valid date range (end after start).");
+                  return;
+                }
+                if (contestDraft.scopeType === "dealer" && !contestDraft.scopeDealerOrgId) {
+                  setProductStrategyWorkflowNotice("Pick a dealer for dealer-scoped contests.");
+                  return;
+                }
+                const id = `ct-${Date.now()}`;
+                const parseNum = (v) => {
+                  const n = Number(String(v || "").replace(/,/g, ""));
+                  return Number.isFinite(n) && n >= 0 ? n : 0;
+                };
+                setTerritoryContests((prev) => [
+                  {
+                    id,
+                    title,
+                    metricKey: contestDraft.metricKey,
+                    prize,
+                    scopeType: contestDraft.scopeType,
+                    scopeDealerOrgId: contestDraft.scopeDealerOrgId || "",
+                    startDate: contestDraft.startDate,
+                    endDate: contestDraft.endDate,
+                    createdAt: new Date().toISOString(),
+                    qualMinRevenue: parseNum(contestDraft.qualMinRevenue),
+                    qualMinUnits: parseNum(contestDraft.qualMinUnits),
+                    qualMinProposals: parseNum(contestDraft.qualMinProposals),
+                    qualMinApprovedDemand: parseNum(contestDraft.qualMinApprovedDemand),
+                    status: contestDraft.goLiveOnSave ? "live" : "draft",
+                  },
+                  ...prev,
+                ]);
+                setContestDraft({
+                  title: "",
+                  metricKey: "proposal_activity",
+                  startDate: "",
+                  endDate: "",
+                  prize: "",
+                  scopeType: "territory",
+                  scopeDealerOrgId: "",
+                  qualMinRevenue: "",
+                  qualMinUnits: "",
+                  qualMinProposals: "",
+                  qualMinApprovedDemand: "",
+                  goLiveOnSave: false,
+                });
+                setProductStrategyWorkflowNotice(null);
+              }}
+              style={{
+                marginTop: 14,
+                cursor: "pointer",
+                borderRadius: 10,
+                padding: "10px 18px",
+                fontSize: 13,
+                fontWeight: 900,
+                border: "1px solid #c2410c",
+                background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
+                color: "#fff",
+              }}
+            >
+              Save contest definition
+            </button>
+            {territoryContests.length > 0 ? (
+              <div style={{ marginTop: 18 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#64748b", marginBottom: 8 }}>
+                  Saved definitions ({territoryContests.length})
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {territoryContests.map((c) => (
+                    <div
+                      key={c.id}
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        justifyContent: "space-between",
+                        gap: 10,
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid rgba(241, 245, 249, 0.95)",
+                        background: "#f8fafc",
+                        fontSize: 13,
+                        color: "#334155",
+                      }}
+                    >
+                      <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontWeight: 800 }}>{c.title}</span>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 900,
+                              letterSpacing: "0.06em",
+                              padding: "3px 8px",
+                              borderRadius: 999,
+                              background: isTerritoryContestLive(c) ? "#ecfdf5" : "#f1f5f9",
+                              color: isTerritoryContestLive(c) ? "#047857" : "#64748b",
+                              border: `1px solid ${isTerritoryContestLive(c) ? "#6ee7b7" : "#e2e8f0"}`,
+                            }}
+                          >
+                            {isTerritoryContestLive(c) ? "LIVE" : "DRAFT"}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, lineHeight: 1.35 }}>
+                          {[
+                            Number(c.qualMinRevenue || 0) > 0 &&
+                              `Min revenue $${Number(c.qualMinRevenue).toLocaleString()}`,
+                            Number(c.qualMinUnits || 0) > 0 && `Min units/lines ${c.qualMinUnits}`,
+                            Number(c.qualMinProposals || 0) > 0 && `Min proposals ${c.qualMinProposals}`,
+                            Number(c.qualMinApprovedDemand || 0) > 0 &&
+                              `Min approved demand ${Number(c.qualMinApprovedDemand).toLocaleString()} u`,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || "No qualification thresholds"}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                        {!isTerritoryContestLive(c) ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setTerritoryContests((prev) =>
+                                prev.map((x) =>
+                                  x.id === c.id ? { ...x, status: "live" } : x
+                                )
+                              )
+                            }
+                            style={{
+                              cursor: "pointer",
+                              fontSize: 12,
+                              fontWeight: 800,
+                              borderRadius: 8,
+                              padding: "6px 12px",
+                              border: "1px solid #059669",
+                              background: "#ecfdf5",
+                              color: "#047857",
+                            }}
+                          >
+                            Go live
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setTerritoryContests((prev) =>
+                                prev.map((x) =>
+                                  x.id === c.id ? { ...x, status: "draft" } : x
+                                )
+                              )
+                            }
+                            style={{
+                              cursor: "pointer",
+                              fontSize: 12,
+                              fontWeight: 800,
+                              borderRadius: 8,
+                              padding: "6px 12px",
+                              border: "1px solid #cbd5e1",
+                              background: "#fff",
+                              color: "#475569",
+                            }}
+                          >
+                            Mark draft
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setTerritoryContests((prev) => prev.filter((x) => x.id !== c.id))
+                          }
+                          style={{
+                            cursor: "pointer",
+                            fontSize: 12,
+                            fontWeight: 800,
+                            border: "none",
+                            background: "transparent",
+                            color: "#b91c1c",
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <div style={{ ...styles.grid3, gap: 14 }}>
+            <div
+              style={{
+                ...styles.summaryCard,
+                background: "#ffffff",
+                border: "1px solid rgba(96, 165, 250, 0.32)",
+                padding: 18,
+                boxShadow: "0 10px 26px rgba(15, 23, 42, 0.07)",
+              }}
+            >
+              <div style={{ ...styles.summaryLabel, color: "#1e40af" }}>Product mix intelligence</div>
+              {adminProductMixIntelligence.totalItems > 0 ? (
+                <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                  {adminProductMixIntelligence.rows.map((row) => (
+                    <div
+                      key={`ps-mix-${row.name}`}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        gap: 10,
+                        fontSize: 13,
+                        color: "#0f172a",
+                        background: "#f8fafc",
+                        border: "1px solid rgba(148, 163, 184, 0.2)",
+                        borderLeft: "3px solid #ea580c",
+                        borderRadius: 10,
+                        padding: "8px 10px",
+                      }}
+                    >
+                      <span>{row.name}</span>
+                      <span style={{ fontWeight: 800 }}>
+                        {row.count} ({row.percent}%)
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ ...styles.listMeta, color: "#94a3b8", marginTop: 10 }}>
+                  Mix fills in as quoted categories accumulate.
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                ...styles.summaryCard,
+                background: "#ffffff",
+                border: "1px solid rgba(96, 165, 250, 0.32)",
+                padding: 18,
+                boxShadow: "0 10px 26px rgba(15, 23, 42, 0.07)",
+              }}
+            >
+              <div style={{ ...styles.summaryLabel, color: "#1e40af" }}>Dealer operational states</div>
+              <p style={{ margin: "8px 0 10px", fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
+                Derived from quote, proposal, and customer-response counters already on each dealer row.
+              </p>
+              <div style={{ display: "grid", gap: 8 }}>
+                {[
+                  {
+                    k: "Healthy",
+                    n: adminDealerOperationalBuckets.healthy,
+                    d: "Customer responses logged — engagement is landing.",
+                    bg: "#ecfdf5",
+                    bd: "#059669",
+                  },
+                  {
+                    k: "Growing",
+                    n: adminDealerOperationalBuckets.growing,
+                    d: "Proposals moving; awaiting customer decisions.",
+                    bg: "#eff6ff",
+                    bd: "#2563eb",
+                  },
+                  {
+                    k: "Needs attention",
+                    n: adminDealerOperationalBuckets.needsAttention,
+                    d: "Quotes without proposals/responses — coach the next step.",
+                    bg: "#fff7ed",
+                    bd: "#ea580c",
+                  },
+                  {
+                    k: "Inactive",
+                    n: adminDealerOperationalBuckets.inactive,
+                    d: "No quotes, proposals, or responses in current load.",
+                    bg: "#f8fafc",
+                    bd: "#94a3b8",
+                  },
+                ].map((row) => (
+                  <div
+                    key={row.k}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: 12,
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      background: row.bg,
+                      border: `1px solid rgba(148, 163, 184, 0.25)`,
+                      borderLeft: `4px solid ${row.bd}`,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a" }}>{row.k}</div>
+                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>{row.d}</div>
+                    </div>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: "#0f172a" }}>{row.n}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 10 }}>
+                Orgs in view: {adminDealerOperationalBuckets.total}
+              </div>
+            </div>
+
+            <div
+              style={{
+                ...styles.summaryCard,
+                background: "#ffffff",
+                border: "1px solid rgba(96, 165, 250, 0.32)",
+                padding: 18,
+                boxShadow: "0 10px 26px rgba(15, 23, 42, 0.07)",
+              }}
+            >
+              <div style={{ ...styles.summaryLabel, color: "#1e40af" }}>Synthetic &amp; demand signals</div>
+              {klondikeTerritoryInventoryModel?.hasData ? (
+                <div style={{ marginTop: 10, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+                  <div>
+                    <strong>Synthetic share (approved demand):</strong>{" "}
+                    {Math.round(Number(klondikeTerritoryInventoryModel.syntheticSharePct || 0))}%
+                  </div>
+                  <div style={{ marginTop: 8 }}>
+                    <strong>Approved units tracked:</strong>{" "}
+                    {Number(klondikeTerritoryInventoryModel.totalApprovedUnits || 0).toLocaleString()}
+                  </div>
+                </div>
+              ) : (
+                <p style={{ ...styles.listMeta, color: "#94a3b8", marginTop: 10 }}>
+                  Connect approved proposal demand to see synthetic mix and stocking signals.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => setKlondikeAdminTab("inventory_intelligence")}
+                style={{
+                  marginTop: 12,
+                  cursor: "pointer",
+                  borderRadius: 10,
+                  padding: "8px 14px",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  border: "1px solid rgba(37, 99, 235, 0.45)",
+                  background: "#fff",
+                  color: "#1d4ed8",
+                }}
+              >
+                Open inventory intelligence
+              </button>
+            </div>
+          </div>
+
+          <div
+            style={{
+              borderRadius: 16,
+              padding: "18px 20px",
+              background: "#ffffff",
+              border: "1px solid rgba(226, 232, 240, 0.98)",
+              boxShadow: "0 10px 28px rgba(15, 23, 42, 0.07)",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
+              PRODUCT OPPORTUNITIES (ACTIONABLE)
+            </div>
+            <h4 style={{ margin: "8px 0 10px", fontSize: 17, fontWeight: 900, color: "#0f172a" }}>
+              Spotlight-backed opportunities
+            </h4>
+            <div style={{ display: "grid", gap: 12 }}>
+              {(salesEnablementSpotlightSuggestions || []).slice(0, 10).map((sug, sidx) => {
+                const pri =
+                  sug.priority === "high" ? "HIGH" : sug.priority === "medium" ? "MED" : "STD";
+                const defaultOrg = String((dealerNetworkPerformance || [])[0]?.organization_id || "");
+                return (
+                  <div
+                    key={`${sug.spotlightId}-${sug.signalType}-${sidx}`}
+                    style={{
+                      borderRadius: 14,
+                      padding: "14px 16px",
+                      border: "1px solid rgba(226, 232, 240, 0.98)",
+                      borderLeft: "4px solid #ea580c",
+                      background: "#fafafa",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", flex: "1 1 200px" }}>
+                        {sug.title}
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 900,
+                          letterSpacing: "0.08em",
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          background: "#fff7ed",
+                          color: "#c2410c",
+                        }}
+                      >
+                        {pri}
+                      </span>
+                    </div>
+                    <p style={{ margin: "10px 0 6px", fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
+                      <strong style={{ color: "#334155" }}>Why it matters:</strong> {sug.reason}
+                    </p>
+                    <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>
+                      <strong>Recommended:</strong> Preview the spotlight, coach the angle with the dealer team,
+                      then send when copy is approved.
+                    </p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => setKlondikeAdminTab("sales_enablement")}
+                        style={{
+                          cursor: "pointer",
+                          borderRadius: 10,
+                          padding: "7px 12px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          border: "1px solid #2563eb",
+                          background: "#fff",
+                          color: "#1d4ed8",
+                        }}
+                      >
+                        Open Sales Enablement
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openSalesEnablementSpotlightFlow(
+                            defaultOrg,
+                            sug.spotlightId,
+                            sug.spotlightType,
+                            { openPanel: true }
+                          )
+                        }
+                        style={{
+                          cursor: "pointer",
+                          borderRadius: 10,
+                          padding: "7px 12px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          border: "1px solid #ea580c",
+                          background: "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
+                          color: "#fff",
+                        }}
+                      >
+                        Send Spotlight
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductStrategyWorkflowNotice(
+                            "Training request logged for ops follow-up (placeholder workflow)."
+                          );
+                        }}
+                        style={{
+                          cursor: "pointer",
+                          borderRadius: 10,
+                          padding: "7px 12px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          border: "1px solid rgba(148, 163, 184, 0.6)",
+                          background: "#fff",
+                          color: "#475569",
+                        }}
+                      >
+                        Request Training
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProductStrategyWorkflowNotice(
+                            "KL University assignment queued for curriculum team (placeholder)."
+                          );
+                        }}
+                        style={{
+                          cursor: "pointer",
+                          borderRadius: 10,
+                          padding: "7px 12px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          border: "1px solid rgba(148, 163, 184, 0.6)",
+                          background: "#fff",
+                          color: "#475569",
+                        }}
+                      >
+                        Assign KL University
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {(!salesEnablementSpotlightSuggestions || salesEnablementSpotlightSuggestions.length === 0) && (
+              <p style={{ margin: 0, fontSize: 14, color: "#64748b" }}>
+                Opportunities appear as proposal, mix, inventory, and OCR signals accumulate.
+              </p>
+            )}
+          </div>
+
+          {adminTerritoryTrendIntelligence.hasData ? (
+            <div
+              style={{
+                borderRadius: 16,
+                padding: "18px 20px",
+                background: "#ffffff",
+                border: "1px solid rgba(226, 232, 240, 0.98)",
+                boxShadow: "0 10px 28px rgba(15, 23, 42, 0.07)",
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
+                TERRITORY PRODUCT TRENDS
+              </div>
+              <h4 style={{ margin: "8px 0 10px", fontSize: 17, fontWeight: 900, color: "#0f172a" }}>
+                Narrative signals
+              </h4>
+              <div style={{ display: "grid", gap: 10 }}>
+                {adminTerritoryTrendIntelligence.insights.map((ins, idx) => (
+                  <div
+                    key={`ps-trend-${idx}`}
+                    style={{
+                      fontSize: 14,
+                      color: "#334155",
+                      lineHeight: 1.55,
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      background: "#fafafa",
+                      border: "1px solid rgba(241, 245, 249, 0.95)",
+                    }}
+                  >
+                    {ins}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div style={{ ...styles.grid3, gap: 14 }}>
+            <div
+              style={{
+                ...styles.summaryCard,
+                background: "#ffffff",
+                border: "1px solid rgba(96, 165, 250, 0.32)",
+                padding: 18,
+                gridColumn: "1 / -1",
+              }}
+            >
+              <div style={{ ...styles.summaryLabel, color: "#1e40af" }}>
+                Team activity (quotes · proposals · responses · OCR)
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  marginTop: 12,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "#64748b", marginBottom: 8 }}>
+                    Rep leaderboard
+                  </div>
+                  {adminRepLeaderboardFoundation.hasData ? (
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {adminRepLeaderboardFoundation.rows.slice(0, 6).map((rep, idx) => (
+                        <div
+                          key={`ps-rep-${rep.name}-${idx}`}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: 13,
+                            padding: "6px 8px",
+                            borderRadius: 8,
+                            background: "#f8fafc",
+                          }}
+                        >
+                          <span style={{ fontWeight: 700 }}>{rep.name}</span>
+                          <span style={{ color: "#64748b" }}>{rep.activityCount} touches</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: "#94a3b8" }}>No rep activity yet.</div>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "#64748b", marginBottom: 8 }}>
+                    Weighted activity snapshot (internal scoring)
+                  </div>
+                  <p style={{ margin: "0 0 8px", fontSize: 12, color: "#94a3b8", lineHeight: 1.4 }}>
+                    Same logged counts as elsewhere—weighted for contest-style comparisons only.
+                  </p>
+                  {adminIncentiveLeaderboardFoundation.hasData ? (
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {adminIncentiveLeaderboardFoundation.rows.slice(0, 6).map((rep, idx) => (
+                        <div
+                          key={`ps-inc-${rep.name}-${idx}`}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            fontSize: 13,
+                            padding: "6px 8px",
+                            borderRadius: 8,
+                            background: "#fff7ed",
+                          }}
+                        >
+                          <span style={{ fontWeight: 700 }}>{rep.name}</span>
+                          <span style={{ color: "#c2410c", fontWeight: 800 }}>{rep.activityPoints} pts</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: "#94a3b8" }}>No weighted points yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              ...styles.card,
+              background: "#ffffff",
+              border: "1px solid rgba(96, 165, 250, 0.32)",
+              boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
+            }}
+          >
+            <div style={{ ...styles.eyebrow, color: "#1e3a8a" }}>FIELD INTELLIGENCE</div>
+            <h3 style={styles.cardTitle}>OCR territory intelligence</h3>
+            <p style={styles.cardBody}>
+              Scan activity from live OCR events—same rollup used across the admin workspace.
+            </p>
+            {ocrSnapshotLoading ? (
+              <p style={styles.muted}>Loading OCR scan activity...</p>
+            ) : ocrSnapshot.totalScans === 0 ? (
+              <p style={styles.muted}>
+                No OCR scan activity logged yet. Open the dealer workspace and scan labels to populate
+                signals.
+              </p>
+            ) : (
+              <div style={{ ...styles.grid3, gap: 10 }}>
+                <div style={{ ...styles.summaryCard, background: "#f8fafc" }}>
+                  <div style={styles.summaryLabel}>Total OCR scans</div>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>{ocrSnapshot.totalScans}</div>
+                </div>
+                <div style={{ ...styles.summaryCard, background: "#f8fafc" }}>
+                  <div style={styles.summaryLabel}>Match rate</div>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
+                    {ocrSnapshot.matchSuccessRate}%
+                  </div>
+                </div>
+                <div style={{ ...styles.summaryCard, background: "#f8fafc" }}>
+                  <div style={styles.summaryLabel}>Top viscosity</div>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
+                    {ocrSnapshot.topViscosity || "—"}
+                  </div>
+                </div>
+                <div style={{ ...styles.summaryCard, background: "#f8fafc" }}>
+                  <div style={styles.summaryLabel}>Top brand</div>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>{ocrSnapshot.topBrand || "—"}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {klondikeAdminTab === "dealer_activation" && (
         <div style={{ display: "grid", gap: 14 }}>
@@ -9097,114 +10799,195 @@ const handleFinishDealerEnrollment = async () => {
       {klondikeAdminTab === "dashboard" && (
         <div
           style={{
-            ...styles.card,
-            background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
-            border: "1px solid rgba(59, 130, 246, 0.35)",
-            boxShadow: "0 16px 34px rgba(15, 23, 42, 0.12)",
-            marginBottom: 14,
-            padding: "22px 24px",
+            borderRadius: 20,
+            marginBottom: 22,
+            padding: "24px 22px 26px",
+            background: "linear-gradient(165deg, #0f172a 0%, #1e293b 52%, #0f172a 100%)",
+            border: "1px solid rgba(148, 163, 184, 0.22)",
+            boxShadow: "0 28px 56px rgba(15, 23, 42, 0.35)",
           }}
         >
           <div
             style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 12,
-              alignItems: "baseline",
-              justifyContent: "space-between",
+              height: 4,
+              borderRadius: 6,
+              background:
+                "linear-gradient(90deg, #dc2626 0%, #ea580c 28%, #2563eb 58%, #059669 100%)",
+              marginBottom: 18,
+              opacity: 0.95,
             }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
-                TODAY&apos;S ACTIONS
-              </div>
-              <p
-                style={{
-                  ...styles.cardBody,
-                  color: "#475569",
-                  marginTop: 8,
-                  marginBottom: 0,
-                  lineHeight: 1.5,
-                  maxWidth: 720,
-                }}
-              >
-                Highest-priority territory moves from live dealer, activation, proposal, and inventory
-                signals already loaded for this session—pick one action and execute.
-              </p>
+          />
+          <div style={{ marginBottom: 14 }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 900,
+                letterSpacing: "0.14em",
+                color: "#94a3b8",
+              }}
+            >
+              ACTION CENTER
             </div>
+            <h3
+              style={{
+                margin: "8px 0 0",
+                fontSize: 24,
+                fontWeight: 900,
+                letterSpacing: "-0.02em",
+                color: "#f8fafc",
+                lineHeight: 1.2,
+              }}
+            >
+              Daily action list
+            </h3>
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontSize: 14,
+                color: "#cbd5e1",
+                lineHeight: 1.5,
+                maxWidth: 760,
+              }}
+            >
+              Top priorities first (up to 18 rows)—scan in minutes, then dive into full territory
+              intelligence below.
+            </p>
           </div>
 
           {klondikeActionCenterActions.length === 0 ? (
             <div
               style={{
-                marginTop: 16,
+                marginTop: 8,
                 padding: "18px 20px",
-                borderRadius: 12,
+                borderRadius: 14,
                 border: "1px dashed rgba(52, 211, 153, 0.45)",
-                background: "rgba(236, 253, 245, 0.65)",
-                fontSize: 14,
+                background: "rgba(236, 253, 245, 0.95)",
+                fontSize: 15,
                 color: "#047857",
-                fontWeight: 600,
+                fontWeight: 700,
                 lineHeight: 1.5,
               }}
             >
-              All clear. No high-priority territory actions detected right now.
+              All clear — nothing urgent needs your attention right now.
             </div>
           ) : (
             <div
               style={{
-                display: "grid",
-                gap: 14,
-                marginTop: 16,
-                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+                marginTop: 12,
+                borderRadius: 14,
+                border: "1px solid rgba(226, 232, 240, 0.98)",
+                overflow: "hidden",
+                background: "#ffffff",
+                boxShadow: "0 12px 32px rgba(15, 23, 42, 0.12)",
               }}
             >
-              {klondikeActionCenterActions.map((ac) => {
-                const accent =
-                  ac.accent === "orange"
+              {klondikeActionCenterActions.map((ac, idx, arr) => {
+                const sev =
+                  typeof ac.severityRank === "number" ? ac.severityRank : null;
+                const criticalSpotlight = ac.kind === "spotlight" && sev === 0;
+                const surf =
+                  ac.kind === "dealer_activation" || criticalSpotlight
                     ? {
-                        bd: "rgba(251, 146, 60, 0.55)",
-                        bg: "linear-gradient(145deg, #ffffff 0%, #fff7ed 100%)",
-                        btn: "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
-                        btnBd: "#c2410c",
+                        tag: "Critical",
+                        tagBg: "#fef2f2",
+                        tagColor: "#b91c1c",
+                        bar: "#dc2626",
+                        btn: "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
+                        btnBd: "#991b1b",
                       }
-                    : ac.accent === "green"
+                    : ac.accent === "orange" || sev === 1
                       ? {
-                          bd: "rgba(52, 211, 153, 0.5)",
-                          bg: "linear-gradient(145deg, #ffffff 0%, #ecfdf5 100%)",
-                          btn: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                          btnBd: "#065f46",
+                          tag: "High",
+                          tagBg: "#fff7ed",
+                          tagColor: "#c2410c",
+                          bar: "#ea580c",
+                          btn: "linear-gradient(135deg, #ea580c 0%, #c2410c 100%)",
+                          btnBd: "#9a3412",
                         }
-                      : {
-                          bd: "rgba(59, 130, 246, 0.45)",
-                          bg: "linear-gradient(145deg, #ffffff 0%, #eff6ff 100%)",
-                          btn: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                          btnBd: "#1e3a8a",
-                        };
+                      : ac.accent === "green"
+                        ? {
+                            tag: "Watch",
+                            tagBg: "#ecfdf5",
+                            tagColor: "#047857",
+                            bar: "#059669",
+                            btn: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                            btnBd: "#065f46",
+                          }
+                        : {
+                            tag: "Standard",
+                            tagBg: "#eff6ff",
+                            tagColor: "#1d4ed8",
+                            bar: "#2563eb",
+                            btn: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                            btnBd: "#1e40af",
+                          };
                 return (
                   <div
                     key={ac.id}
                     style={{
-                      borderRadius: 14,
-                      border: `1px solid ${accent.bd}`,
-                      background: accent.bg,
-                      padding: "18px 18px 16px",
-                      display: "grid",
+                      display: "flex",
+                      flexWrap: "wrap",
                       gap: 10,
-                      boxShadow: "0 10px 22px rgba(15, 23, 42, 0.07)",
-                      minHeight: 200,
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "9px 12px",
+                      borderBottom: idx < arr.length - 1 ? "1px solid rgba(241, 245, 249, 0.95)" : "none",
+                      borderLeft: `3px solid ${surf.bar}`,
+                      background: idx % 2 === 0 ? "#fafafa" : "#ffffff",
                     }}
                   >
-                    <div style={{ fontSize: 13, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
-                      {ac.issue}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 10,
+                        alignItems: "center",
+                        flex: "1 1 260px",
+                        minWidth: 0,
+                      }}
+                    >
+                      <span
+                        style={{
+                          flex: "0 0 auto",
+                          fontSize: 9,
+                          fontWeight: 900,
+                          letterSpacing: "0.12em",
+                          padding: "4px 9px",
+                          borderRadius: 999,
+                          background: surf.tagBg,
+                          color: surf.tagColor,
+                        }}
+                      >
+                        {surf.tag}
+                      </span>
+                      <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 900,
+                            color: "#0f172a",
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          <span style={{ fontWeight: 800, color: "#475569" }}>
+                            {String(ac.scope || "Territory").trim()}
+                          </span>
+                          <span style={{ color: "#cbd5e1", margin: "0 5px" }}>—</span>
+                          <span>{ac.issue}</span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginTop: 3,
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          <span style={{ fontWeight: 700, color: "#94a3b8" }}>Next:</span>{" "}
+                          <span style={{ color: "#334155", fontWeight: 600 }}>{ac.recommended}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "#64748b", letterSpacing: "0.04em" }}>
-                      {ac.scope}
-                    </div>
-                    <p style={{ margin: 0, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>{ac.why}</p>
-                    <p style={{ margin: 0, fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
-                      <strong style={{ color: "#0f172a" }}>Next step:</strong> {ac.recommended}
-                    </p>
                     <button
                       type="button"
                       onClick={() => {
@@ -9233,21 +11016,25 @@ const handleFinishDealerEnrollment = async () => {
                         if (ac.kind === "dealers_select") {
                           setKlondikeAdminTab("dealers");
                           if (ac.dealerRow) setSelectedDealerPerformance(ac.dealerRow);
+                          return;
+                        }
+                        if (ac.kind === "sales_enablement") {
+                          setKlondikeAdminTab("sales_enablement");
                         }
                       }}
                       style={{
-                        marginTop: 4,
-                        justifySelf: "stretch",
+                        flex: "0 0 auto",
                         cursor: "pointer",
-                        borderRadius: 12,
-                        padding: "12px 16px",
-                        fontSize: 14,
+                        borderRadius: 10,
+                        padding: "7px 13px",
+                        fontSize: 12,
                         fontWeight: 900,
-                        letterSpacing: "0.03em",
+                        letterSpacing: "0.02em",
                         color: "#ffffff",
-                        border: `1px solid ${accent.btnBd}`,
-                        background: accent.btn,
-                        boxShadow: "0 8px 18px rgba(15, 23, 42, 0.18)",
+                        border: `1px solid ${surf.btnBd}`,
+                        background: surf.btn,
+                        boxShadow: "0 6px 14px rgba(15, 23, 42, 0.12)",
+                        alignSelf: "center",
                       }}
                     >
                       {ac.buttonLabel}
@@ -9261,1491 +11048,655 @@ const handleFinishDealerEnrollment = async () => {
       )}
 
       {klondikeAdminTab === "dashboard" && (
-        <div
-          style={{
-            ...styles.card,
-            background: "#ffffff",
-            border: "1px solid rgba(96, 165, 250, 0.32)",
-            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
-            marginBottom: 12,
-          }}
-        >
-          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
-            EXECUTIVE SUMMARY INTELLIGENCE
+        <div style={{ marginBottom: 20 }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: "0.12em",
+              color: "#64748b",
+              marginBottom: 10,
+            }}
+          >
+            ACTIVE INCENTIVES · SNAPSHOT
           </div>
-          {adminExecutiveSummaryIntelligence.hasData ? (
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-              {adminExecutiveSummaryIntelligence.insights.map((insight, idx) => (
-                <div
-                  key={`executive-summary-${idx}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 10,
-                    background:
-                      idx % 2 === 0 ? "#fff7ed" : "#f8fafc",
-                    border: "1px solid rgba(148, 163, 184, 0.26)",
-                    borderLeft:
-                      idx % 2 === 0
-                        ? "3px solid rgba(246, 165, 49, 0.88)"
-                        : "3px solid rgba(59, 130, 246, 0.82)",
-                    borderRadius: 10,
-                    padding: "10px 12px",
-                    fontSize: 13,
-                    color: "#0f172a",
-                    lineHeight: 1.45,
-                    boxShadow: "0 6px 12px rgba(15, 23, 42, 0.08)",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 999,
-                      background:
-                        idx % 2 === 0 ? "rgba(246, 165, 49, 0.95)" : "rgba(30, 64, 175, 0.9)",
-                      marginTop: 5,
-                      flex: "0 0 auto",
-                    }}
-                  />
-                  <span>{insight}</span>
-                </div>
-              ))}
+          {liveActiveTerritoryContests.length === 0 ? (
+            <div
+              style={{
+                borderRadius: 14,
+                padding: "14px 16px",
+                background: "#ffffff",
+                border: "1px solid rgba(226, 232, 240, 0.98)",
+                fontSize: 14,
+                color: "#64748b",
+                boxShadow: "0 8px 22px rgba(15, 23, 42, 0.06)",
+              }}
+            >
+              No live incentives in the current window.
             </div>
           ) : (
-            <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
-              Executive summary intelligence will expand as more territory activity is
-              logged.
+            <div
+              style={{
+                display: "grid",
+                gap: 12,
+                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+              }}
+            >
+              {liveActiveTerritoryContests.map((c) => {
+                const metricLabel =
+                  CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label || c.metricKey;
+                const ld = resolveTerritoryContestLeaderDisplay(c);
+                const showPh = ld.line === "—" && !ld.footnote;
+                return (
+                  <div
+                    key={`dash-inc-${c.id}`}
+                    style={{
+                      background: "#ffffff",
+                      borderRadius: 14,
+                      border: "1px solid rgba(226, 232, 240, 0.98)",
+                      boxShadow: "0 10px 26px rgba(15, 23, 42, 0.07)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    <TerritoryIncentiveReadOnlyCard
+                      title={c.title}
+                      metricLabel={metricLabel}
+                      prize={c.prize}
+                      qualificationText={formatContestQualificationSummary(c)}
+                      timeRemainingLabel={formatContestTimeRemaining(c)}
+                      scopeDescription={contestScopeDescription(c)}
+                      leaderLine={ld.line}
+                      leaderFootnote={ld.footnote}
+                      showProgressTrackingPlaceholder={showPh}
+                      compact
+                      accentBorder="#ea580c"
+                    />
+                    <div style={{ padding: "0 14px 14px" }}>
+                      <button
+                        type="button"
+                        onClick={() => setKlondikeAdminTab("product_strategy")}
+                        style={{
+                          cursor: "pointer",
+                          borderRadius: 10,
+                          padding: "7px 14px",
+                          fontSize: 12,
+                          fontWeight: 900,
+                          border: "1px solid #2563eb",
+                          background: "#fff",
+                          color: "#1d4ed8",
+                        }}
+                      >
+                        View in Product Strategy
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       )}
 
       {klondikeAdminTab === "dashboard" && (
-        <div
-          style={{
-            ...styles.card,
-            background: "#ffffff",
-            border: "1px solid rgba(96, 165, 250, 0.32)",
-            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
-            marginBottom: 16,
-            padding: "22px 24px",
-          }}
-        >
-          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
-            DEALER ENABLEMENT ALERTS
-          </div>
-          <p
+        <div style={{ marginBottom: 22 }}>
+          <div
             style={{
-              ...styles.cardBody,
-              color: "#475569",
-              marginTop: 10,
-              marginBottom: 0,
-              lineHeight: 1.55,
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: "0.12em",
+              color: "#64748b",
+              marginBottom: 10,
             }}
           >
-            Top signals from live dealer intelligence—review the recommended spotlight and move to
-            Sales Enablement when you are ready to prepare outreach (delivery remains disabled in this
-            phase).
-          </p>
-          {klondikeDashboardEnablementAlerts.length === 0 ? (
-            <div style={{ ...styles.listMeta, color: "#64748b", marginTop: 12 }}>
-              No prioritized alerts yet. Alerts appear when dealer signals cross deterministic
-              thresholds.
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gap: 14,
-                marginTop: 14,
-                gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
-              }}
-            >
-              {klondikeDashboardEnablementAlerts.map((alert) => (
+            PRODUCT PERFORMANCE
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gap: 12,
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+            }}
+          >
+            {adminDashboardProductPerformanceCards.map((card) => {
+              const sig =
+                card.signal === "gap"
+                  ? { bg: "#fef2f2", bd: "#dc2626", lab: "Gap" }
+                  : card.signal === "watch"
+                    ? { bg: "#fff7ed", bd: "#ea580c", lab: "Watch" }
+                    : card.signal === "strength"
+                      ? { bg: "#ecfdf5", bd: "#059669", lab: "Strength" }
+                      : { bg: "#eff6ff", bd: "#2563eb", lab: "Steady" };
+              const defaultOrg = String((dealerNetworkPerformance || [])[0]?.organization_id || "");
+              return (
                 <div
-                  key={alert.alertKey}
+                  key={card.key}
                   style={{
                     borderRadius: 14,
-                    border: "1px solid rgba(148, 163, 184, 0.4)",
-                    borderLeft: "4px solid rgba(59, 130, 246, 0.85)",
-                    background:
-                      "linear-gradient(135deg, rgba(248,250,252,0.98) 0%, rgba(255,247,237,0.55) 100%)",
-                    padding: "16px 18px",
-                    display: "grid",
-                    gap: 10,
-                    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.07)",
+                    padding: "14px 16px",
+                    background: "#ffffff",
+                    border: "1px solid rgba(226, 232, 240, 0.98)",
+                    borderLeft: `4px solid ${sig.bd}`,
+                    boxShadow: "0 8px 22px rgba(15, 23, 42, 0.06)",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a" }}>{card.title}</div>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 900,
+                        letterSpacing: "0.08em",
+                        padding: "4px 8px",
+                        borderRadius: 999,
+                        background: sig.bg,
+                        color: sig.bd,
+                      }}
+                    >
+                      {sig.lab}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: "#0f172a", marginTop: 8 }}>
+                    {card.key === "synthetic" && !klondikeTerritoryInventoryModel?.hasData
+                      ? "—"
+                      : `${card.pct}%`}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{card.pctCaption}</div>
+                  <p style={{ margin: "10px 0 8px", fontSize: 13, color: "#475569", lineHeight: 1.45 }}>
+                    {card.insight}
+                  </p>
+                  {card.recommendedAction ? (
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 10 }}>
+                      Action: {card.recommendedAction}
+                    </div>
+                  ) : null}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => setKlondikeAdminTab("product_strategy")}
+                      style={{
+                        cursor: "pointer",
+                        borderRadius: 10,
+                        padding: "6px 11px",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        border: "1px solid #1e293b",
+                        background: "#0f172a",
+                        color: "#f8fafc",
+                      }}
+                    >
+                      Open Product Strategy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setKlondikeAdminTab("sales_enablement")}
+                      style={{
+                        cursor: "pointer",
+                        borderRadius: 10,
+                        padding: "6px 11px",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        border: "1px solid #2563eb",
+                        background: "#fff",
+                        color: "#1d4ed8",
+                      }}
+                    >
+                      Sales Enablement
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        openSalesEnablementSpotlightFlow(
+                          defaultOrg,
+                          card.spotlightId,
+                          card.spotlightType,
+                          { openPanel: true }
+                        )
+                      }
+                      style={{
+                        cursor: "pointer",
+                        borderRadius: 10,
+                        padding: "6px 11px",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        border: "1px solid #ea580c",
+                        background: "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
+                        color: "#fff",
+                      }}
+                    >
+                      Send Spotlight
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setProductStrategyWorkflowNotice(
+                          "Training request noted for territory ops (placeholder)."
+                        )
+                      }
+                      style={{
+                        cursor: "pointer",
+                        borderRadius: 10,
+                        padding: "6px 11px",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        border: "1px solid rgba(148, 163, 184, 0.55)",
+                        background: "#fff",
+                        color: "#475569",
+                      }}
+                    >
+                      Request Training
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {productStrategyWorkflowNotice ? (
+            <div
+              style={{
+                marginTop: 12,
+                borderRadius: 10,
+                padding: "10px 12px",
+                background: "rgba(254, 243, 199, 0.65)",
+                border: "1px solid rgba(251, 191, 36, 0.45)",
+                fontSize: 13,
+                color: "#92400e",
+              }}
+            >
+              {productStrategyWorkflowNotice}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <div style={{ marginBottom: 22, display: "grid", gap: 18 }}>
+          {(() => {
+            const rollup = adminTerritoryPerformanceRollup || {};
+            const tps = klondikeTerritoryProposalSignals || {};
+            const approvedLinesSig = Number(tps.approvedLines || 0);
+            const dnp = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+            const activeDealersTile = adminDealerHealthFoundation?.hasData
+              ? Number(adminDealerHealthFoundation.activeDealers || 0)
+              : Number(rollup.totalDealers || 0);
+            const repActivityCount = adminRepLeaderboardFoundation?.hasData
+              ? adminRepLeaderboardFoundation.rows.length
+              : 0;
+            const fieldTeam = dnp.reduce((s, d) => s + Number(d.teamMembers || 0), 0);
+            const totalOrg = dnp.length;
+            const quotingOrgs = dnp.filter((d) => Boolean(d?.activation?.firstQuoteCreated)).length;
+            const profileReadyOrgs = dnp.filter((d) => Boolean(d?.activation?.profileConfigured)).length;
+            const inv = klondikeTerritoryInventoryModel;
+            const invAccel =
+              inv?.hasData &&
+              Array.isArray(inv.acceleratingSkus) &&
+              inv.acceleratingSkus.length > 0;
+            let invMain = "—";
+            let invSub = "Awaiting approved-demand rollup";
+            if (inv?.hasData) {
+              invMain = invAccel ? "Watch" : "Steady";
+              const insight0 =
+                Array.isArray(inv.insights) && inv.insights[0]
+                  ? String(inv.insights[0]).trim()
+                  : "";
+              invSub = insight0
+                ? `${insight0.slice(0, 72)}${insight0.length > 72 ? "…" : ""}`
+                : `${Number(inv.totalApprovedUnits || 0).toLocaleString()} approved units · velocity tracked`;
+            }
+            const enablementCount = Array.isArray(klondikeDashboardEnablementAlerts)
+              ? klondikeDashboardEnablementAlerts.length
+              : 0;
+            const spotlightActionCount = Array.isArray(klondikeActionCenterActions)
+              ? klondikeActionCenterActions.filter((a) => a.kind === "spotlight").length
+              : 0;
+            let seMain = "—";
+            let seSub = "No spotlight signals queued";
+            if (enablementCount > 0) {
+              seMain = String(enablementCount);
+              seSub = "dealer enablement signals";
+            } else if (spotlightActionCount > 0) {
+              seMain = String(spotlightActionCount);
+              seSub = "recommended spotlight actions";
+            }
+
+            const snapshotTiles = [
+              { label: "Active dealers", value: activeDealersTile, sub: "orgs in performance load" },
+              {
+                label: "Active reps",
+                value: repActivityCount || "—",
+                sub: repActivityCount ? "with logged activity" : "as teams engage",
+              },
+              {
+                label: "Quotes created",
+                value: Number(rollup.totalQuotesCreated || 0).toLocaleString(),
+                sub: "territory-wide",
+              },
+              {
+                label: "Proposals sent",
+                value: Number(rollup.totalProposalsSent || 0).toLocaleString(),
+                sub: "outbound logged",
+              },
+              {
+                label: "Customer responses",
+                value: Number(rollup.totalCustomerResponses || 0).toLocaleString(),
+                sub: "decisions captured",
+              },
+              {
+                label: "Approved demand",
+                value: approvedLinesSig.toLocaleString(),
+                sub: "approved lines in proposals",
+              },
+              {
+                label: "OCR scans",
+                value: Number(rollup.totalOcrScans || 0).toLocaleString(),
+                sub: "field label scans",
+              },
+              { label: "Inventory signal", value: invMain, sub: invSub },
+              {
+                label: "Activation",
+                value: totalOrg > 0 ? `${quotingOrgs}/${totalOrg}` : "—",
+                sub:
+                  totalOrg > 0
+                    ? `${profileReadyOrgs} profiles ready · dealers quoting`
+                    : "Load dealers to score ramp-up",
+              },
+              { label: "Sales enablement", value: seMain, sub: seSub },
+            ];
+
+            const opBuckets = adminDealerOperationalBuckets;
+            const winRiskCards = [
+              {
+                tag: "Healthy",
+                tagBg: "#ecfdf5",
+                tagColor: "#047857",
+                border: "rgba(52, 211, 153, 0.45)",
+                title: String(opBuckets.healthy),
+                body: "Customer responses logged—pipeline outcomes are landing.",
+              },
+              {
+                tag: "Growing",
+                tagBg: "#eff6ff",
+                tagColor: "#1d4ed8",
+                border: "rgba(59, 130, 246, 0.38)",
+                title: String(opBuckets.growing),
+                body: "Proposals moving; coaching focus on follow-through.",
+              },
+              {
+                tag: "Needs attention",
+                tagBg: "#fff7ed",
+                tagColor: "#c2410c",
+                border: "rgba(251, 146, 60, 0.45)",
+                title: String(opBuckets.needsAttention),
+                body: "Quotes without proposals/responses—clear the next selling step.",
+              },
+              {
+                tag: "Inactive",
+                tagBg: "#f8fafc",
+                tagColor: "#64748b",
+                border: "rgba(148, 163, 184, 0.42)",
+                title: String(opBuckets.inactive),
+                body: "No quotes, proposals, or responses in the current performance load.",
+              },
+            ];
+
+            return (
+              <>
+                <div
+                  style={{
+                    borderRadius: 18,
+                    padding: "22px 24px 20px",
+                    background: "#ffffff",
+                    boxShadow: "0 14px 36px rgba(15, 23, 42, 0.07)",
                   }}
                 >
                   <div
                     style={{
                       fontSize: 11,
                       fontWeight: 900,
-                      letterSpacing: "0.07em",
-                      color: "#1e40af",
+                      letterSpacing: "0.12em",
+                      color: "#64748b",
+                      marginBottom: 6,
                     }}
                   >
-                    {alert.dealerName}
+                    TERRITORY PERFORMANCE SNAPSHOT
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: "#0f172a", lineHeight: 1.3 }}>
-                    {alert.issueTitle}
-                  </div>
-                  <p style={{ margin: 0, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
-                    {alert.issueDetail}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-                    <strong style={{ color: "#475569" }}>Why it matters:</strong> {alert.whyItMatters}
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: 20,
+                      fontWeight: 900,
+                      color: "#0f172a",
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    How is my territory performing?
+                  </h3>
+                  <p style={{ margin: "10px 0 0", fontSize: 14, color: "#64748b", lineHeight: 1.5 }}>
+                    Compact recap—pair this with the Action Center list so nothing slips through.
                   </p>
                   <div
                     style={{
-                      borderRadius: 12,
-                      padding: "12px 14px",
-                      background: "rgba(239, 246, 255, 0.95)",
-                      border: "1px solid rgba(59, 130, 246, 0.38)",
+                      display: "grid",
+                      gap: 14,
+                      marginTop: 18,
+                      gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 118px), 1fr))",
                     }}
                   >
-                    <div
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 900,
-                        letterSpacing: "0.08em",
-                        color: "#1d4ed8",
-                        marginBottom: 6,
-                      }}
-                    >
-                      RECOMMENDED SPOTLIGHT
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a" }}>
-                      {alert.spotlightTitle}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4 }}>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openSalesEnablementSpotlightFlow(
-                          alert.dealerOrgId,
-                          alert.spotlightId,
-                          alert.spotlightType,
-                          { openPanel: false }
-                        )
-                      }
-                      style={{
-                        ...styles.workflowTab,
-                        textTransform: "none",
-                        padding: "9px 16px",
-                        fontSize: 12,
-                        fontWeight: 800,
-                        borderRadius: 10,
-                        cursor: "pointer",
-                        border: "1px solid rgba(59, 130, 246, 0.5)",
-                        background: "#ffffff",
-                        color: "#1e40af",
-                      }}
-                    >
-                      Preview Spotlight
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openSalesEnablementSpotlightFlow(
-                          alert.dealerOrgId,
-                          alert.spotlightId,
-                          alert.spotlightType,
-                          { openPanel: true }
-                        )
-                      }
-                      style={{
-                        ...styles.workflowTab,
-                        ...styles.workflowTabActive,
-                        textTransform: "none",
-                        padding: "9px 16px",
-                        fontSize: 12,
-                        fontWeight: 800,
-                        borderRadius: 10,
-                        cursor: "pointer",
-                        background: "linear-gradient(135deg, #f59e0b 0%, #ea580c 100%)",
-                        border: "1px solid #c2410c",
-                        color: "#ffffff",
-                        boxShadow: "0 6px 16px rgba(234, 88, 12, 0.28)",
-                      }}
-                    >
-                      Prepare Send
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {klondikeAdminTab === "dashboard" && (
-        <div
-          style={{
-            ...styles.card,
-            background: "#ffffff",
-            border: "1px solid rgba(96, 165, 250, 0.32)",
-            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
-            marginBottom: 16,
-            padding: 24,
-          }}
-        >
-          <div style={{ ...styles.eyebrow, color: "#1e3a8a", letterSpacing: "0.07em" }}>
-            KLONDIKE ADMIN COMMAND CENTER
-          </div>
-          <p style={{ ...styles.cardBody, color: "#334155", marginTop: 10 }}>
-            Territory performance, dealer activity, product demand, and field
-            intelligence in one view.
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
-            {[
-              "Territory Performance",
-              "Dealer Adoption",
-              "Field Intelligence",
-              "OCR Territory Intelligence",
-            ].map((label, idx) => (
-              <div
-                key={label}
-                style={{
-                  padding: "7px 13px",
-                  borderRadius: 999,
-                  fontSize: 11,
-                  fontWeight: 900,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  background:
-                    idx === 0
-                      ? "#f59e0b"
-                      : "#f8fafc",
-                  border:
-                    idx === 0
-                      ? "1px solid #d97706"
-                      : "1px solid rgba(96, 165, 250, 0.45)",
-                  color: idx === 0 ? "#ffffff" : "#1e3a8a",
-                  boxShadow:
-                    idx === 0
-                      ? "0 6px 14px rgba(245, 158, 11, 0.28)"
-                      : "0 4px 10px rgba(15, 23, 42, 0.08)",
-                }}
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {klondikeAdminTab === "dashboard" && (
-        <div
-          style={{
-            ...styles.card,
-            background: "#ffffff",
-            border: "1px solid rgba(96, 165, 250, 0.32)",
-            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
-            marginBottom: 16,
-            padding: 24,
-          }}
-        >
-          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
-            TERRITORY PERFORMANCE
-          </div>
-          {adminTerritoryPerformanceRollup.hasActivityData ? (
-            <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
-              <div
-                style={{
-                  display: "grid",
-                  gap: 10,
-                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-                }}
-              >
-                {[
-                  {
-                    label: "Total Dealers",
-                    value: adminTerritoryPerformanceRollup.totalDealers,
-                    color: "rgba(96, 165, 250, 0.75)",
-                  },
-                  {
-                    label: "Total Quotes Created",
-                    value: adminTerritoryPerformanceRollup.totalQuotesCreated,
-                    color: "rgba(246, 165, 49, 0.8)",
-                  },
-                  {
-                    label: "Total Proposals Sent",
-                    value: adminTerritoryPerformanceRollup.totalProposalsSent,
-                    color: "rgba(96, 165, 250, 0.75)",
-                  },
-                  {
-                    label: "Total Customer Responses",
-                    value: adminTerritoryPerformanceRollup.totalCustomerResponses,
-                    color: "rgba(246, 165, 49, 0.8)",
-                  },
-                  {
-                    label: "OCR Scan Activity",
-                    value: adminTerritoryPerformanceRollup.totalOcrScans,
-                    color: "rgba(96, 165, 250, 0.75)",
-                  },
-                ]
-                  .concat(
-                    adminTerritoryPerformanceRollup.hasApprovedRevenueData
-                      ? [
-                          {
-                            label: "Approved Revenue",
-                            value: `$${Number(
-                              adminTerritoryPerformanceRollup.approvedRevenue || 0
-                            ).toLocaleString()}`,
-                            color: "rgba(246, 165, 49, 0.8)",
-                          },
-                        ]
-                      : []
-                  )
-                  .map((item) => (
-                    <div
-                      key={item.label}
-                      style={{
-                        background: "#f8fafc",
-                        border: "1px solid rgba(148, 163, 184, 0.26)",
-                        borderLeft: `2px solid ${item.color}`,
-                        borderRadius: 10,
-                        padding: "10px 12px",
-                      }}
-                    >
+                    {snapshotTiles.map((cell) => (
                       <div
+                        key={cell.label}
                         style={{
-                          fontSize: 11,
-                          color: "#1e3a8a",
-                          letterSpacing: "0.04em",
-                          textTransform: "uppercase",
-                          fontWeight: 800,
+                          minWidth: 0,
+                          borderRadius: 14,
+                          padding: "12px 14px",
+                          background: "#fafafa",
+                          border: "1px solid rgba(241, 245, 249, 0.95)",
                         }}
                       >
-                        {item.label}
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            letterSpacing: "0.08em",
+                            color: "#94a3b8",
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {cell.label}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 22,
+                            fontWeight: 900,
+                            color: "#0f172a",
+                            marginTop: 6,
+                            letterSpacing: "-0.03em",
+                            lineHeight: 1.15,
+                          }}
+                        >
+                          {cell.value}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            color: "#cbd5e1",
+                            marginTop: 6,
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          {cell.sub}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>
-                        {item.value}
+                    ))}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 16,
+                      paddingTop: 14,
+                      borderTop: "1px solid rgba(241, 245, 249, 0.95)",
+                      fontSize: 13,
+                      color: "#64748b",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <strong style={{ color: "#334155" }}>Field team seats:</strong>{" "}
+                    {fieldTeam.toLocaleString()} ·{" "}
+                    <strong style={{ color: "#334155" }}>Access queue:</strong>{" "}
+                    {pendingAccessRequests.length} pending ·{" "}
+                    <strong style={{ color: "#334155" }}>Orgs in view:</strong>{" "}
+                    {dealerOrganizations.length}
+                  </div>
+                </div>
+
+                <div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 900,
+                      letterSpacing: "0.12em",
+                      color: "#64748b",
+                      marginBottom: 10,
+                    }}
+                  >
+                    DEALER HEALTH
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 12,
+                      gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+                    }}
+                  >
+                    {winRiskCards.map((card, idx) => (
+                      <div
+                        key={`winrisk-${idx}-${card.tag}`}
+                        style={{
+                          borderRadius: 16,
+                          padding: "16px 18px",
+                          background: "#ffffff",
+                          border: `1px solid ${card.border}`,
+                          boxShadow: "0 10px 26px rgba(15, 23, 42, 0.06)",
+                          display: "grid",
+                          gap: 10,
+                          minHeight: 118,
+                        }}
+                      >
+                        <span
+                          style={{
+                            alignSelf: "start",
+                            fontSize: 10,
+                            fontWeight: 900,
+                            letterSpacing: "0.1em",
+                            padding: "5px 10px",
+                            borderRadius: 999,
+                            background: card.tagBg,
+                            color: card.tagColor,
+                            width: "fit-content",
+                          }}
+                        >
+                          {card.tag}
+                        </span>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: "#0f172a", lineHeight: 1.3 }}>
+                          {card.title}
+                        </div>
+                        <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
+                          {card.body}
+                        </p>
                       </div>
-                    </div>
-                  ))}
-              </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <div
+          style={{
+            marginBottom: 14,
+            borderRadius: 18,
+            background: "#ffffff",
+            boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
+            overflow: "hidden",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => toggleKlDashboardIntelPanel("executiveSummary")}
+            style={{
+              width: "100%",
+              textAlign: "left",
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              padding: "18px 22px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: 16,
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
               <div
                 style={{
-                  display: "grid",
-                  gap: 8,
-                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.12em",
+                  color: "#94a3b8",
                 }}
               >
-                <div
-                  style={{
-                    background: "#f8fafc",
-                    border: "1px solid rgba(148, 163, 184, 0.26)",
-                    borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
-                    borderRadius: 8,
-                    padding: "8px 10px",
-                    color: "#0f172a",
-                    fontSize: 13,
-                  }}
-                >
-                  Most Active Dealer:{" "}
-                  <strong>{adminTerritoryPerformanceRollup.mostActiveDealerName || "—"}</strong>
-                </div>
-                <div
-                  style={{
-                    background: "#f8fafc",
-                    border: "1px solid rgba(148, 163, 184, 0.26)",
-                    borderLeft: "2px solid rgba(96, 165, 250, 0.75)",
-                    borderRadius: 8,
-                    padding: "8px 10px",
-                    color: "#0f172a",
-                    fontSize: 13,
-                  }}
-                >
-                  Most Active Rep:{" "}
-                  <strong>{adminTerritoryPerformanceRollup.mostActiveRepName || "—"}</strong>
-                </div>
+                COMMAND CENTER · INTELLIGENCE
               </div>
-              {adminTerritoryPerformanceRollup.executiveSummary ? (
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: "#334155",
-                    background: "#f8fafc",
-                    border: "1px solid rgba(148, 163, 184, 0.26)",
-                    borderRadius: 8,
-                    padding: "8px 10px",
-                    marginTop: 2,
-                  }}
-                >
-                  {adminTerritoryPerformanceRollup.executiveSummary}
+              <div style={{ fontSize: 17, fontWeight: 900, color: "#0f172a", marginTop: 6 }}>
+                Executive summary
+              </div>
+              {!klDashboardIntelPanels.executiveSummary ? (
+                <div style={{ fontSize: 13, color: "#64748b", marginTop: 8, lineHeight: 1.5 }}>
+                  {adminExecutiveSummaryIntelligence.hasData &&
+                  adminExecutiveSummaryIntelligence.insights[0]
+                    ? `${String(adminExecutiveSummaryIntelligence.insights[0]).slice(0, 140)}${
+                        String(adminExecutiveSummaryIntelligence.insights[0]).length > 140 ? "…" : ""
+                      }`
+                    : "High-level narrative unlocks as territory activity grows."}
                 </div>
               ) : null}
             </div>
-          ) : (
-            <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
-              Territory performance data will populate as dealer and rep activity
-              increases.
-            </div>
-          )}
-        </div>
-      )}
-
-      {klondikeAdminTab === "dashboard" && (
-        <div
-          style={{
-            ...styles.card,
-            background: "#ffffff",
-            border: "1px solid rgba(96, 165, 250, 0.32)",
-            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
-            marginBottom: 16,
-          }}
-        >
-          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
-            TERRITORY TREND INTELLIGENCE
-          </div>
-          {adminTerritoryTrendIntelligence.hasData ? (
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-              {adminTerritoryTrendIntelligence.insights.map((insight, idx) => (
-                <div
-                  key={`territory-trend-${idx}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 10,
-                    background:
-                      idx % 2 === 0 ? "#fff7ed" : "#f8fafc",
-                    border: "1px solid rgba(148, 163, 184, 0.26)",
-                    borderLeft:
-                      idx % 2 === 0
-                        ? "3px solid rgba(246, 165, 49, 0.8)"
-                        : "3px solid rgba(96, 165, 250, 0.8)",
-                    borderRadius: 10,
-                    padding: "10px 12px",
-                    fontSize: 13,
-                    color: "#0f172a",
-                    lineHeight: 1.45,
-                    boxShadow: "0 6px 12px rgba(15, 23, 42, 0.08)",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 999,
-                      background:
-                        idx % 2 === 0 ? "rgba(246, 165, 49, 0.9)" : "rgba(147, 197, 253, 0.9)",
-                      marginTop: 5,
-                      flex: "0 0 auto",
-                    }}
-                  />
-                  <span>{insight}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
-              Trend intelligence will expand as more territory activity is logged.
-            </div>
-          )}
-        </div>
-      )}
-
-      {klondikeAdminTab === "dashboard" && (
-        <div
-          style={{
-            ...styles.card,
-            background: "#ffffff",
-            border: "1px solid rgba(96, 165, 250, 0.32)",
-            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
-            marginBottom: 16,
-            padding: 24,
-          }}
-        >
-          <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
-            PRODUCT OPPORTUNITY INTELLIGENCE
-          </div>
-          {adminProductOpportunityIntelligence.hasData ? (
-            <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-              {adminProductOpportunityIntelligence.insights.map((insight, idx) => (
-                <div
-                  key={`product-opportunity-${idx}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 10,
-                    background:
-                      idx % 2 === 0 ? "#fff7ed" : "#f8fafc",
-                    border: "1px solid rgba(148, 163, 184, 0.26)",
-                    borderLeft:
-                      idx % 2 === 0
-                        ? "3px solid rgba(246, 165, 49, 0.8)"
-                        : "3px solid rgba(96, 165, 250, 0.8)",
-                    borderRadius: 10,
-                    padding: "10px 12px",
-                    fontSize: 13,
-                    color: "#0f172a",
-                    lineHeight: 1.45,
-                    boxShadow: "0 6px 12px rgba(15, 23, 42, 0.08)",
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 999,
-                      background:
-                        idx % 2 === 0 ? "rgba(246, 165, 49, 0.9)" : "rgba(147, 197, 253, 0.9)",
-                      marginTop: 5,
-                      flex: "0 0 auto",
-                    }}
-                  />
-                  <span>{insight}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
-              Product opportunity intelligence will expand as more quote and product
-              activity is logged.
-            </div>
-          )}
-        </div>
-      )}
-
-      {klondikeAdminTab === "dashboard" && (
-        <div style={{ ...styles.grid3, marginBottom: 12 }}>
-          <div
-            style={{
-              ...styles.summaryCard,
-              background: "#ffffff",
-              border: "1px solid rgba(96, 165, 250, 0.3)",
-              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.1)",
-              padding: 18,
-            }}
-          >
-            <div style={{ ...styles.summaryLabel, color: "#1e3a8a" }}>
-              Product Mix Intelligence
-            </div>
-            {adminProductMixIntelligence.totalItems > 0 ? (
-              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                {adminProductMixIntelligence.rows.map((row) => (
-                  <div
-                    key={`mix-${row.name}`}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 10,
-                      fontSize: 13,
-                      color: "#0f172a",
-                      background: "#f8fafc",
-                      border: "1px solid rgba(148, 163, 184, 0.2)",
-                      borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
-                      borderRadius: 10,
-                      padding: "9px 11px",
-                    }}
-                  >
-                    <span>{row.name}</span>
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        background: "#f8fafc",
-                        border: "1px solid rgba(203, 213, 225, 0.85)",
-                        color: "#0f172a",
-                        borderRadius: 999,
-                        padding: "4px 9px",
-                        lineHeight: 1.1,
-                        fontSize: 12,
-                      }}
-                    >
-                      {row.count} ({row.percent}%)
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
-                Product mix data will populate as quotes are created and saved.
-              </div>
-            )}
-          </div>
-          <div
-            style={{
-              ...styles.summaryCard,
-              background: "#ffffff",
-              border: "1px solid rgba(96, 165, 250, 0.3)",
-              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.1)",
-              padding: 18,
-            }}
-          >
-            <div style={{ ...styles.summaryLabel, color: "#1e3a8a" }}>Dealer Health</div>
-            {adminDealerHealthFoundation.hasData ? (
-              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                {[
-                  {
-                    label: "Active dealers",
-                    value: adminDealerHealthFoundation.activeDealers,
-                  },
-                  {
-                    label: "Dealers with quote activity",
-                    value: adminDealerHealthFoundation.dealersWithQuoteActivity,
-                  },
-                  {
-                    label: "Dealers with proposal activity",
-                    value: adminDealerHealthFoundation.dealersWithProposalActivity,
-                  },
-                  {
-                    label: "Dealers with OCR activity",
-                    value: adminDealerHealthFoundation.dealersWithOcrActivity,
-                  },
-                  {
-                    label: "Building momentum",
-                    value: adminDealerHealthFoundation.dealersBuildingMomentum,
-                  },
-                  {
-                    label: "Needs activity",
-                    value: adminDealerHealthFoundation.dealersNeedingAttention,
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 10,
-                      fontSize: 13,
-                      color: "#0f172a",
-                      background: "#f8fafc",
-                      border: "1px solid rgba(148, 163, 184, 0.2)",
-                      borderLeft: "2px solid rgba(96, 165, 250, 0.75)",
-                      borderRadius: 10,
-                      padding: "9px 11px",
-                    }}
-                  >
-                    <span>{item.label}</span>
-                    <span
-                      style={{
-                        fontWeight: 800,
-                        background: "rgba(96, 165, 250, 0.16)",
-                        border: "1px solid rgba(96, 165, 250, 0.45)",
-                        color: "#bfdbfe",
-                        borderRadius: 999,
-                        padding: "4px 9px",
-                        lineHeight: 1.1,
-                        fontSize: 12,
-                      }}
-                    >
-                      {item.value}
-                    </span>
-                  </div>
-                ))}
-                {adminDealerHealthFoundation.mostActiveDealerName ? (
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: "#0f172a",
-                      background: "#f8fafc",
-                      border: "1px solid rgba(148, 163, 184, 0.2)",
-                      borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
-                      borderRadius: 10,
-                      padding: "9px 11px",
-                    }}
-                  >
-                    Most active dealer:{" "}
-                    <strong>{adminDealerHealthFoundation.mostActiveDealerName}</strong>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div style={{ ...styles.listMeta, color: "#cbd5e1", marginTop: 10 }}>
-                Dealer health data will populate as dealers, reps, quotes, and OCR
-                activity are logged.
-              </div>
-            )}
-          </div>
-          <div
-            style={{
-              ...styles.summaryCard,
-              background: "#ffffff",
-              border: "1px solid rgba(96, 165, 250, 0.3)",
-              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.1)",
-              padding: 18,
-            }}
-          >
-            <div style={{ ...styles.summaryLabel, color: "#1e3a8a" }}>
-              Incentive Leaderboard
-            </div>
-            {adminIncentiveLeaderboardFoundation.hasData ? (
-              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                {adminIncentiveLeaderboardFoundation.rows.map((rep, idx) => (
-                  <div
-                    key={`incentive-foundation-${rep.name}-${idx}`}
-                    style={{
-                      display: "grid",
-                      gap: 3,
-                      background: "#f8fafc",
-                      border: "1px solid rgba(148, 163, 184, 0.2)",
-                      borderLeft: "2px solid rgba(246, 165, 49, 0.75)",
-                      borderRadius: 10,
-                      padding: "9px 11px",
-                    }}
-                  >
+            <span style={{ fontSize: 22, fontWeight: 300, color: "#cbd5e1", lineHeight: 1 }}>
+              {klDashboardIntelPanels.executiveSummary ? "−" : "+"}
+            </span>
+          </button>
+          {klDashboardIntelPanels.executiveSummary ? (
+            <div style={{ padding: "4px 22px 22px" }}>
+              {adminExecutiveSummaryIntelligence.hasData ? (
+                <div style={{ display: "grid", gap: 12 }}>
+                  {adminExecutiveSummaryIntelligence.insights.map((insight, idx) => (
                     <div
+                      key={`executive-summary-${idx}`}
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: 10,
-                        color: "#0f172a",
-                        fontSize: 13,
-                        fontWeight: 700,
+                        fontSize: 14,
+                        color: "#334155",
+                        lineHeight: 1.55,
+                        padding: "12px 14px",
+                        borderRadius: 12,
+                        border: "1px solid rgba(241, 245, 249, 0.95)",
+                        borderLeft: "4px solid #2563eb",
+                        background: "#fafafa",
+                        boxShadow: "0 4px 14px rgba(15, 23, 42, 0.04)",
                       }}
                     >
-                      <span>{rep.name}</span>
-                      <span
-                        style={{
-                          background: "#f8fafc",
-                          border: "1px solid rgba(203, 213, 225, 0.85)",
-                          color: "#0f172a",
-                          borderRadius: 999,
-                          padding: "4px 9px",
-                          lineHeight: 1.1,
-                          fontSize: 12,
-                          fontWeight: 800,
-                        }}
-                      >
-                        {rep.activityPoints} pts
-                      </span>
+                      {insight}
                     </div>
-                    <div style={{ fontSize: 12, color: "#475569" }}>
-                      {rep.dealer ? `Dealer: ${rep.dealer}` : "Dealer: —"}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#1e3a8a" }}>
-                      Quotes: {rep.quotes} • Proposals: {rep.proposals} • Responses:{" "}
-                      {rep.responses} • OCR scans: {rep.ocrScans}
-                    </div>
-                  </div>
-                ))}
-                <div
-                  style={{
-                    ...styles.listMeta,
-                    color: "#475569",
-                    marginTop: 4,
-                    fontSize: 11,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  Activity points are based on existing logged quotes, proposals,
-                  responses, and OCR scans.
+                  ))}
                 </div>
-              </div>
-            ) : (
-              <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
-                Incentive leaderboard data will populate as reps create quotes, send
-                proposals, receive responses, and scan labels.
-              </div>
-            )}
-          </div>
-          <div
-            style={{
-              ...styles.summaryCard,
-              background: "#ffffff",
-              border: "1px solid rgba(96, 165, 250, 0.3)",
-              boxShadow: "0 10px 22px rgba(15, 23, 42, 0.1)",
-              padding: 18,
-            }}
-          >
-            <div style={{ ...styles.summaryLabel, color: "#1e3a8a" }}>Rep Leaderboard</div>
-            {adminRepLeaderboardFoundation.hasData ? (
-              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                {adminRepLeaderboardFoundation.rows.map((rep, idx) => (
-                  <div
-                    key={`rep-foundation-${rep.name}-${idx}`}
-                    style={{
-                      display: "grid",
-                      gap: 3,
-                      background: "#f8fafc",
-                      border: "1px solid rgba(148, 163, 184, 0.2)",
-                      borderLeft: "2px solid rgba(96, 165, 250, 0.75)",
-                      borderRadius: 10,
-                      padding: "9px 11px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: 10,
-                        color: "#0f172a",
-                        fontSize: 13,
-                        fontWeight: 700,
-                      }}
-                    >
-                      <span>{rep.name}</span>
-                      <span
-                        style={{
-                          background: "#f8fafc",
-                          border: "1px solid rgba(203, 213, 225, 0.85)",
-                          color: "#0f172a",
-                          borderRadius: 999,
-                          padding: "4px 9px",
-                          lineHeight: 1.1,
-                          fontSize: 12,
-                          fontWeight: 800,
-                        }}
-                      >
-                        {rep.activityCount} activity
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12, color: "#475569" }}>
-                      {rep.dealer ? `Dealer: ${rep.dealer}` : "Dealer: —"}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#1e3a8a" }}>
-                      Quotes: {rep.quotes} • Proposals: {rep.proposals} • Responses:{" "}
-                      {rep.responses} • OCR scans: {rep.ocrScans}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ ...styles.listMeta, color: "#475569", marginTop: 10 }}>
-                Rep leaderboard data will populate as reps create quotes, send
-                proposals, and scan labels.
-              </div>
-            )}
-          </div>
+              ) : (
+                <div style={{ ...styles.listMeta, color: "#475569" }}>
+                  Executive summary intelligence will expand as more territory activity is logged.
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
-      )}
-
-      {klondikeAdminTab === "dashboard" && (
-      <div style={styles.grid3}>
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Dealers</div>
-          <div style={styles.summaryValue}>{dealerOrganizations.length}</div>
-        </div>
-
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Pending Requests</div>
-          <div style={styles.summaryValue}>{pendingAccessRequests.length}</div>
-        </div>
-
-        <div style={styles.summaryCard}>
-          <div style={styles.summaryLabel}>Recent Invites</div>
-          <div style={styles.summaryValue}>{recentInvites.length}</div>
-        </div>
-      </div>
-      )}
-
-      {klondikeAdminTab === "dashboard" && (
-      <div style={styles.card}>
-        <div style={styles.eyebrow}>DEALER NETWORK PERFORMANCE</div>
-        <h3 style={styles.cardTitle}>Dealer Network Performance</h3>
-        <p style={styles.cardBody}>
-          Combined network visibility using currently loaded dealer performance
-          metrics.
-        </p>
-
-        {dealerNetworkPerformance.length > 0 ? (
-          <div style={styles.grid3}>
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Quotes Created</div>
-              <div style={styles.summaryValue}>
-                {dealerNetworkPerformance.reduce(
-                  (sum, dealer) => sum + Number(dealer.quotesCreated || 0),
-                  0
-                )}
-              </div>
-            </div>
-
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Proposals Sent</div>
-              <div style={styles.summaryValue}>
-                {dealerNetworkPerformance.reduce(
-                  (sum, dealer) => sum + Number(dealer.proposalsSent || 0),
-                  0
-                )}
-              </div>
-            </div>
-
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Customer Responses</div>
-              <div style={styles.summaryValue}>
-                {dealerNetworkPerformance.reduce(
-                  (sum, dealer) => sum + Number(dealer.customerResponses || 0),
-                  0
-                )}
-              </div>
-            </div>
-
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Approved Revenue</div>
-              <div style={styles.summaryValue}>
-                $
-                {dealerNetworkPerformance
-                  .reduce(
-                    (sum, dealer) => sum + Number(dealer.revenueWon || 0),
-                    0
-                  )
-                  .toLocaleString()}
-              </div>
-            </div>
-
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Average Approval Rate</div>
-              <div style={styles.summaryValue}>
-                {Math.round(
-                  dealerNetworkPerformance.reduce(
-                    (sum, dealer) => sum + Number(dealer.approvalRate || 0),
-                    0
-                  ) / dealerNetworkPerformance.length
-                )}
-                %
-              </div>
-            </div>
-
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Active Teams</div>
-              <div style={styles.summaryValue}>
-                {dealerNetworkPerformance.reduce(
-                  (sum, dealer) => sum + Number(dealer.teamMembers || 0),
-                  0
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div style={styles.grid3}>
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Quotes Created</div>
-              <div style={styles.summaryValue}>—</div>
-              <div style={styles.listMeta}>Coming from dealer proposal activity</div>
-            </div>
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Proposals Sent</div>
-              <div style={styles.summaryValue}>—</div>
-              <div style={styles.listMeta}>Coming from dealer proposal activity</div>
-            </div>
-            <div style={styles.summaryCard}>
-              <div style={styles.summaryLabel}>Customer Responses</div>
-              <div style={styles.summaryValue}>—</div>
-              <div style={styles.listMeta}>Coming from dealer proposal activity</div>
-            </div>
-          </div>
-        )}
-      </div>
-      )}
-
-      {klondikeAdminTab === "dashboard" && (
-        <div
-          style={{
-            ...styles.card,
-            background: "#ffffff",
-            border: "1px solid rgba(96, 165, 250, 0.32)",
-            boxShadow: "0 14px 30px rgba(15, 23, 42, 0.12)",
-          }}
-        >
-          <div style={{ ...styles.eyebrow, color: "#1e3a8a" }}>OCR TERRITORY INTELLIGENCE</div>
-          <h3 style={styles.cardTitle}>OCR Territory Intelligence</h3>
-          <p style={styles.cardBody}>
-            Field scan activity showing competitor demand, viscosity trends, and dealer
-            adoption signals.
-          </p>
-          {ocrSnapshotLoading ? (
-            <p style={styles.muted}>Loading OCR scan activity...</p>
-          ) : ocrSnapshot.totalScans === 0 ? (
-            <p style={styles.muted}>
-              No OCR scan activity has been logged yet. Once reps begin scanning labels,
-              this section will show competitor, viscosity, dealer, and rep activity.
-            </p>
-          ) : (
-            <>
-              <div
-                style={{
-                  ...styles.grid3,
-                  gap: 10,
-                }}
-              >
-                <div
-                  style={{
-                    ...styles.summaryCard,
-                    background: "#f8fafc",
-                    border: "1px solid rgba(148,163,184,0.26)",
-                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
-                  }}
-                >
-                  <div style={styles.summaryLabel}>Total OCR Scans</div>
-                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
-                    {ocrSnapshot.totalScans}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    ...styles.summaryCard,
-                    background: "#f8fafc",
-                    border: "1px solid rgba(148,163,184,0.26)",
-                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
-                  }}
-                >
-                  <div style={styles.summaryLabel}>Match Success Rate</div>
-                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
-                    {ocrSnapshot.matchSuccessRate}%
-                  </div>
-                </div>
-                <div
-                  style={{
-                    ...styles.summaryCard,
-                    background: "#f8fafc",
-                    border: "1px solid rgba(148,163,184,0.26)",
-                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
-                  }}
-                >
-                  <div style={styles.summaryLabel}>Most Scanned Viscosity</div>
-                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
-                    {ocrSnapshot.topViscosity || "—"}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    ...styles.summaryCard,
-                    background: "#f8fafc",
-                    border: "1px solid rgba(148,163,184,0.26)",
-                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
-                  }}
-                >
-                  <div style={styles.summaryLabel}>Most Scanned Competitor Brand</div>
-                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
-                    {ocrSnapshot.topBrand || "—"}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    ...styles.summaryCard,
-                    background: "#f8fafc",
-                    border: "1px solid rgba(148,163,184,0.26)",
-                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
-                  }}
-                >
-                  <div style={styles.summaryLabel}>Active Dealers</div>
-                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
-                    {(ocrSnapshot.topDealers || []).length}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    ...styles.summaryCard,
-                    background: "#f8fafc",
-                    border: "1px solid rgba(148,163,184,0.26)",
-                    boxShadow: "0 8px 16px rgba(15,23,42,0.08)",
-                  }}
-                >
-                  <div style={styles.summaryLabel}>Active Reps</div>
-                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
-                    {(ocrSnapshot.topReps || []).length}
-                  </div>
-                </div>
-              </div>
-              <div style={{ ...styles.grid3, marginTop: 14 }}>
-                <div style={styles.summaryCard}>
-                  <div style={styles.summaryLabel}>Top Competitor Brands</div>
-                  {(ocrSnapshot.topBrands || []).length > 0 ? (
-                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                      {ocrSnapshot.topBrands.map((item, idx) => (
-                        <div
-                          key={`${item.value}-${idx}`}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            fontSize: 13,
-                            color: "#0f172a",
-                            gap: 10,
-                          }}
-                        >
-                          <span>{item.value}</span>
-                          <span style={{ fontWeight: 800 }}>
-                            {item.count} (
-                            {ocrSnapshot.totalScans
-                              ? `${Math.round((item.count / ocrSnapshot.totalScans) * 100)}%`
-                              : "0%"}
-                            )
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ ...styles.muted, marginTop: 10 }}>—</div>
-                  )}
-                </div>
-                <div style={styles.summaryCard}>
-                  <div style={styles.summaryLabel}>Top Viscosities</div>
-                  {(ocrSnapshot.topViscosities || []).length > 0 ? (
-                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                      {ocrSnapshot.topViscosities.map((item, idx) => (
-                        <div
-                          key={`${item.value}-${idx}`}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            fontSize: 13,
-                            color: "#0f172a",
-                            gap: 10,
-                          }}
-                        >
-                          <span>{item.value}</span>
-                          <span style={{ fontWeight: 800 }}>
-                            {item.count} (
-                            {ocrSnapshot.totalScans
-                              ? `${Math.round((item.count / ocrSnapshot.totalScans) * 100)}%`
-                              : "0%"}
-                            )
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ ...styles.muted, marginTop: 10 }}>—</div>
-                  )}
-                </div>
-                <div style={styles.summaryCard}>
-                  <div style={styles.summaryLabel}>Adoption Signals</div>
-                  <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                    <div style={{ fontSize: 13, color: "#0f172a" }}>
-                      {(ocrSnapshot.topDealers || []).length} dealers have used OCR
-                      scanning.
-                    </div>
-                    <div style={{ fontSize: 13, color: "#0f172a" }}>
-                      {(ocrSnapshot.topReps || []).length} reps have used OCR scanning.
-                    </div>
-                    {ocrSnapshot.topBrand ? (
-                      <div style={{ fontSize: 13, color: "#0f172a" }}>
-                        Most scanned competitor: {ocrSnapshot.topBrand}.
-                      </div>
-                    ) : null}
-                    {ocrSnapshot.topViscosity ? (
-                      <div style={{ fontSize: 13, color: "#0f172a" }}>
-                        Most scanned viscosity: {ocrSnapshot.topViscosity}.
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-              <div style={{ ...styles.grid3, marginTop: 14 }}>
-                <div style={styles.summaryCard}>
-                  <div style={styles.summaryLabel}>Top 5 OCR-Active Dealers</div>
-                  {(ocrSnapshot.topDealers || []).length > 0 ? (
-                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                      {ocrSnapshot.topDealers.map((item, idx) => (
-                        <div
-                          key={`${item.value}-${idx}`}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            fontSize: 13,
-                            color: "#0f172a",
-                            gap: 10,
-                          }}
-                        >
-                          <span>{shortIdLabel("Dealer", item.value)}</span>
-                          <span style={{ fontWeight: 800 }}>{item.count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ ...styles.muted, marginTop: 10 }}>—</div>
-                  )}
-                </div>
-                <div style={styles.summaryCard}>
-                  <div style={styles.summaryLabel}>Top 5 OCR-Active Reps</div>
-                  {(ocrSnapshot.topReps || []).length > 0 ? (
-                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                      {ocrSnapshot.topReps.map((item, idx) => (
-                        <div
-                          key={`${item.value}-${idx}`}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            fontSize: 13,
-                            color: "#0f172a",
-                            gap: 10,
-                          }}
-                        >
-                          <span>{shortIdLabel("Rep", item.value)}</span>
-                          <span style={{ fontWeight: 800 }}>{item.count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ ...styles.muted, marginTop: 10 }}>—</div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {klondikeAdminTab === "dashboard" && (
-        <>
-          <div style={{ ...styles.card, marginTop: 4 }}>
-            <div style={styles.eyebrow}>PRODUCT LINE PERFORMANCE</div>
-            <h3 style={styles.cardTitle}>Product Line Performance</h3>
-            <p style={styles.cardBody}>
-              Executive snapshot of lubricant category momentum across the
-              Klondike dealer network.
-            </p>
-            <p style={{ ...styles.muted, marginBottom: 18 }}>
-              Mock data — will connect to quote item activity
-            </p>
-
-            <div style={{ overflowX: "auto" }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(200px, 1.4fr) repeat(3, minmax(88px, 1fr))",
-                  gap: 12,
-                  paddingBottom: 10,
-                  borderBottom: "1px solid #e7edf3",
-                  fontSize: 11,
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  color: "#64748b",
-                }}
-              >
-                <div>Product line</div>
-                <div style={{ textAlign: "right" }}>Quotes</div>
-                <div style={{ textAlign: "right" }}>Revenue</div>
-                <div style={{ textAlign: "right" }}>Network mix %</div>
-              </div>
-              {[
-                {
-                  line: "Heavy Duty Engine Oils",
-                  quotes: 142,
-                  revenue: 428600,
-                  mix: 21,
-                },
-                {
-                  line: "Hydraulic Fluids",
-                  quotes: 98,
-                  revenue: 251400,
-                  mix: 17,
-                },
-                { line: "Automotive", quotes: 76, revenue: 189200, mix: 14 },
-                { line: "Grease", quotes: 61, revenue: 97200, mix: 11 },
-                { line: "Gear Oils", quotes: 54, revenue: 118400, mix: 10 },
-                {
-                  line: "Transmission Fluids",
-                  quotes: 47,
-                  revenue: 86200,
-                  mix: 9,
-                },
-                {
-                  line: "Coolants / Chemicals",
-                  quotes: 39,
-                  revenue: 71400,
-                  mix: 8,
-                },
-              ].map((row, i) => (
-                <div
-                  key={row.line}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns:
-                      "minmax(200px, 1.4fr) repeat(3, minmax(88px, 1fr))",
-                    gap: 12,
-                    alignItems: "center",
-                    padding: "14px 0",
-                    borderBottom:
-                      i < 6 ? "1px solid #f1f5f9" : "none",
-                    fontSize: 14,
-                  }}
-                >
-                  <div style={{ fontWeight: 800, color: "#0f172a" }}>
-                    {row.line}
-                  </div>
-                  <div style={{ textAlign: "right", fontWeight: 700 }}>
-                    {row.quotes.toLocaleString()}
-                  </div>
-                  <div style={{ textAlign: "right", fontWeight: 700 }}>
-                    ${row.revenue.toLocaleString()}
-                  </div>
-                  <div style={{ textAlign: "right", fontWeight: 800, color: "#c2410c" }}>
-                    {row.mix}%
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={styles.card}>
-            <div style={styles.eyebrow}>TERRITORY LEADERBOARD</div>
-            <h3 style={styles.cardTitle}>Territory Rep Top 10</h3>
-            <p style={styles.cardBody}>
-              Recognition rankings for incentive trips, contests, prizes, and
-              territory performance — network-wide across dealers.
-            </p>
-            <p style={{ ...styles.muted, marginBottom: 18 }}>
-              Mock leaderboard — will connect to rep performance activity
-            </p>
-
-            <div style={{ overflowX: "auto" }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "44px minmax(120px, 1fr) minmax(140px, 1fr) minmax(96px, 0.9fr) minmax(100px, 0.85fr) minmax(140px, 1.1fr)",
-                  gap: 10,
-                  paddingBottom: 10,
-                  borderBottom: "1px solid #e7edf3",
-                  fontSize: 11,
-                  fontWeight: 900,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  color: "#64748b",
-                }}
-              >
-                <div>#</div>
-                <div>Rep</div>
-                <div>Dealer</div>
-                <div style={{ textAlign: "right" }}>Revenue</div>
-                <div style={{ textAlign: "right" }}>Approval</div>
-                <div>Status</div>
-              </div>
-              {[
-                {
-                  rank: 1,
-                  rep: "Jordan Ellis",
-                  dealer: "Northern Fluid Partners",
-                  revenue: 582400,
-                  approval: 91,
-                  badge: "#1 Trophy",
-                  badgeStyle: { background: "#fff7ed", color: "#c2410c", border: "1px solid #fdba74" },
-                },
-                {
-                  rank: 2,
-                  rep: "Priya Desai",
-                  dealer: "Atlas Fleet Supply",
-                  revenue: 519200,
-                  approval: 88,
-                  badge: "Hot Streak",
-                  badgeStyle: { background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" },
-                },
-                {
-                  rank: 3,
-                  rep: "Marcus Webb",
-                  dealer: "Great Lakes Lubricants",
-                  revenue: 476800,
-                  approval: 86,
-                  badge: "High Conversion",
-                  badgeStyle: { background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe" },
-                },
-                {
-                  rank: 4,
-                  rep: "Elena Vasquez",
-                  dealer: "Prairie Industrial Co.",
-                  revenue: 441100,
-                  approval: 84,
-                  badge: "Rising Rep",
-                  badgeStyle: { background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" },
-                },
-                {
-                  rank: 5,
-                  rep: "Daniel Okonkwo",
-                  dealer: "Maritime Equipment Ltd.",
-                  revenue: 398600,
-                  approval: 82,
-                  badge: "Hot Streak",
-                  badgeStyle: { background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca" },
-                },
-                {
-                  rank: 6,
-                  rep: "Sarah Chen",
-                  dealer: "Mountain West Distributors",
-                  revenue: 362900,
-                  approval: 79,
-                  badge: "High Conversion",
-                  badgeStyle: { background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe" },
-                },
-                {
-                  rank: 7,
-                  rep: "Chris Duarte",
-                  dealer: "Pacific Rim Services",
-                  revenue: 328400,
-                  approval: 77,
-                  badge: "Rising Rep",
-                  badgeStyle: { background: "#f0fdf4", color: "#15803d", border: "1px solid #bbf7d0" },
-                },
-                {
-                  rank: 8,
-                  rep: "Taylor Brooks",
-                  dealer: "Central Plains Supply",
-                  revenue: 294200,
-                  approval: 74,
-                  badge: "—",
-                  badgeStyle: { background: "#f8fafc", color: "#64748b", border: "1px solid #e2e8f0" },
-                },
-                {
-                  rank: 9,
-                  rep: "Alex Rivera",
-                  dealer: "Sunbelt Commercial Fluids",
-                  revenue: 261500,
-                  approval: 72,
-                  badge: "—",
-                  badgeStyle: { background: "#f8fafc", color: "#64748b", border: "1px solid #e2e8f0" },
-                },
-                {
-                  rank: 10,
-                  rep: "Jamie Foster",
-                  dealer: "Heartland Lubrication Group",
-                  revenue: 238700,
-                  approval: 70,
-                  badge: "—",
-                  badgeStyle: { background: "#f8fafc", color: "#64748b", border: "1px solid #e2e8f0" },
-                },
-              ].map((row, i) => (
-                <div
-                  key={row.rank}
-                  style={{
-                    ...styles.dashboardLeaderboardRow,
-                    display: "grid",
-                    gridTemplateColumns:
-                      "44px minmax(120px, 1fr) minmax(140px, 1fr) minmax(96px, 0.9fr) minmax(100px, 0.85fr) minmax(140px, 1.1fr)",
-                    gap: 10,
-                    alignItems: "center",
-                    marginBottom: i < 9 ? 8 : 0,
-                  }}
-                >
-                  <div style={{ fontWeight: 900, color: "#0f172a" }}>
-                    {row.rank}
-                  </div>
-                  <div style={styles.listTitle}>{row.rep}</div>
-                  <div style={styles.listMeta}>{row.dealer}</div>
-                  <div style={{ textAlign: "right", fontWeight: 800 }}>
-                    ${row.revenue.toLocaleString()}
-                  </div>
-                  <div style={{ textAlign: "right", fontWeight: 700 }}>
-                    {row.approval}%
-                  </div>
-                  <div>
-                    <span
-                      style={{
-                        ...styles.statusPill,
-                        fontSize: 11,
-                        padding: "4px 10px",
-                        ...row.badgeStyle,
-                      }}
-                    >
-                      {row.badge}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
       )}
 
       {klondikeAdminTab === "dealers" && (
@@ -12023,6 +12974,48 @@ const renderDealerAdminView = () => (
                 )}
               </ul>
             </div>
+
+            {visibleLiveContestsForPortalUser.length > 0 ? (
+              <div
+                style={{
+                  ...styles.card,
+                  ...styles.dashboardCard,
+                  marginBottom: 20,
+                  borderLeft: "6px solid #059669",
+                }}
+              >
+                <div style={styles.eyebrow}>ACTIVE INCENTIVES</div>
+                <h3 style={styles.cardTitle}>Territory contests</h3>
+                <p style={styles.cardBody}>
+                  Live contests published by Klondike that apply to your organization or the broader
+                  territory. This view is read-only.
+                </p>
+                <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                  {visibleLiveContestsForPortalUser.map((c) => {
+                    const metricLabel =
+                      CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label ||
+                      c.metricKey;
+                    const ld = resolveTerritoryContestLeaderDisplay(c);
+                    const showPh = ld.line === "—" && !ld.footnote;
+                    return (
+                      <TerritoryIncentiveReadOnlyCard
+                        key={`da-inc-${c.id}`}
+                        title={c.title}
+                        metricLabel={metricLabel}
+                        prize={c.prize}
+                        qualificationText={formatContestQualificationSummary(c)}
+                        timeRemainingLabel={formatContestTimeRemaining(c)}
+                        scopeDescription={contestScopeDescription(c)}
+                        leaderLine={ld.line}
+                        leaderFootnote={ld.footnote}
+                        showProgressTrackingPlaceholder={showPh}
+                        compact
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
 
             <DashboardFollowUpIntelligenceCard
               styles={styles}
@@ -16201,6 +17194,39 @@ return (
       </div>
     </div>
 
+    {visibleLiveContestsForPortalUser.length > 0 ? (
+      <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 20 }}>
+        <div style={styles.eyebrow}>ACTIVE INCENTIVES</div>
+        <h3 style={{ ...styles.cardTitle, marginBottom: 12 }}>Territory contests</h3>
+        <p style={{ ...styles.cardBody, marginBottom: 12 }}>
+          Contests you may participate in based on scope (read-only).
+        </p>
+        <div style={{ display: "grid", gap: 12 }}>
+          {visibleLiveContestsForPortalUser.map((c) => {
+            const metricLabel =
+              CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label || c.metricKey;
+            const ld = resolveTerritoryContestLeaderDisplay(c);
+            const showPh = ld.line === "—" && !ld.footnote;
+            return (
+              <TerritoryIncentiveReadOnlyCard
+                key={`rep-inc-${c.id}`}
+                title={c.title}
+                metricLabel={metricLabel}
+                prize={c.prize}
+                qualificationText={formatContestQualificationSummary(c)}
+                timeRemainingLabel={formatContestTimeRemaining(c)}
+                scopeDescription={contestScopeDescription(c)}
+                leaderLine={ld.line}
+                leaderFootnote={ld.footnote}
+                showProgressTrackingPlaceholder={showPh}
+                compact
+              />
+            );
+          })}
+        </div>
+      </div>
+    ) : null}
+
 {leaderboard.length > 0 && (
   <div style={{ ...styles.card, ...styles.dashboardCard, marginBottom: 20 }}>
     <div style={styles.eyebrow}>Dealer Leaderboard</div>
@@ -19675,6 +20701,48 @@ const packages = crossCatalogMap[rec.product] || [];
 
                 {isManager && dealerActiveTab === "dashboard" && (
           <>
+            {visibleLiveContestsForPortalUser.length > 0 ? (
+              <div
+                style={{
+                  ...styles.card,
+                  ...styles.dashboardCard,
+                  marginBottom: 20,
+                  borderLeft: "6px solid #059669",
+                }}
+              >
+                <div style={styles.eyebrow}>ACTIVE INCENTIVES</div>
+                <h3 style={styles.cardTitle}>Territory contests</h3>
+                <p style={styles.cardBody}>
+                  Live contests that apply to your dealer or team scope. Read-only — Klondike admins
+                  publish definitions from Product Strategy.
+                </p>
+                <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                  {visibleLiveContestsForPortalUser.map((c) => {
+                    const metricLabel =
+                      CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label ||
+                      c.metricKey;
+                    const ld = resolveTerritoryContestLeaderDisplay(c);
+                    const showPh = ld.line === "—" && !ld.footnote;
+                    return (
+                      <TerritoryIncentiveReadOnlyCard
+                        key={`mgr-inc-${c.id}`}
+                        title={c.title}
+                        metricLabel={metricLabel}
+                        prize={c.prize}
+                        qualificationText={formatContestQualificationSummary(c)}
+                        timeRemainingLabel={formatContestTimeRemaining(c)}
+                        scopeDescription={contestScopeDescription(c)}
+                        leaderLine={ld.line}
+                        leaderFootnote={ld.footnote}
+                        showProgressTrackingPlaceholder={showPh}
+                        compact
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
             <DashboardFollowUpIntelligenceCard
               styles={styles}
               rows={managerFollowUpIntelligenceRows}
@@ -20583,7 +21651,9 @@ const executiveSummary =
 
 const closingStatement =
   quote?.closing_statement ||
-  `We appreciate the opportunity to support your operation. Your representative will follow up to review next steps and ensure a smooth implementation.`;  if (!quote) {
+  `We appreciate the opportunity to support your operation. Your representative will follow up to review next steps and ensure a smooth implementation.`;
+
+  if (!quote) {
     return <div style={{ padding: 40 }}>Loading proposal...</div>;
   }
 
