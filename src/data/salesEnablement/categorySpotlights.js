@@ -1,68 +1,139 @@
 /**
- * Category spotlight narratives — territory-level themes (foundation).
+ * Category spotlight narratives — territory-level themes (Phase 66).
+ *
+ * Each record supports:
+ * - marketReality: bullets on what reps see in the field.
+ * - link: connects that reality to how Klondike-enabled conversations should flow.
+ * - focus: optional one-line summary (legacy / quick scan); UI may show marketReality first.
+ * - feature / bridge / benefit: F–B–B for the category storyline.
+ *
+ * Keep claims aligned with PDS/OEM; no automated outreach in this phase.
  */
 
 export const CATEGORY_SPOTLIGHTS = [
+  {
+    id: "cs-hd-conversion",
+    type: "category",
+    category: "HD Engine Oils",
+    title: "Heavy Duty Engine Oil Conversion",
+    focus:
+      "Conversion wins when spec clarity, inventory footprint, and service cadence align—avoid generic “better oil” claims.",
+    marketReality: [
+      "Fleets still carry legacy habits from older API categories; bulk tanks often predate current OEM manuals.",
+      "Purchasing asks for price compression while operations inherit wear risk from wrong-category top-offs.",
+    ],
+    link: "Klondike HD positioning supports reps who convert conversations into documented API ladders (CK-4/FA-4 where applicable) instead of brand shootouts.",
+    useWhen:
+      "Dealer carries multiple HD categories or a fleet wants supplier consolidation after contract changes.",
+    feature:
+      "Spec-first HD narrative that respects emissions-era hardware differences without overclaiming interchange.",
+    bridge:
+      "Move stakeholders from brand loyalty cards to VIN-indexed category matrices pinned at the bulk desk.",
+    benefit:
+      "Fewer emergency substitutions and clearer training for night-shift top-offs.",
+    talkingPoints: [
+      "Inventory engine families by API category needs before proposing SKUs.",
+      "Align bulk vs. packaged strategy with yard top-off behavior.",
+      "Document seasonal viscosity moves where climate or OEM guidance demands.",
+    ],
+    suggestedActions: [
+      "Build a one-page spec ladder for the dealer’s top 25 units.",
+      "Pair coolant and transmission reviews with the same PM visit.",
+    ],
+    territorySignals: [
+      "New fleet maintenance director",
+      "Municipal or transit RFP cycles",
+    ],
+    salesAngle:
+      "Treat conversion as a documented spec ladder exercise—not a blind brand swap; cite PDS for any product-specific statements.",
+    closingLines: [
+      "We’ll inventory your highest-hour units first and align categories before touching bulk tanks.",
+      "If you want a poster at the pump, we’ll draft language straight from the PDS notes you approve.",
+    ],
+    tags: ["hd", "conversion", "fleet"],
+    status: "active",
+  },
   {
     id: "cs-hydraulic-opportunity",
     type: "category",
     category: "Hydraulic Fluids",
     title: "Hydraulic Fluids Opportunity",
     focus:
-      "Hydraulic failures often trace to contamination, wrong viscosity, or deferred filtration—not only fluid brand.",
+      "Hydraulic failures often trace to contamination, wrong viscosity, or deferred filtration—not fluid brand alone.",
+    marketReality: [
+      "Rental and construction rebound puts hours on circuits before filters catch up.",
+      "Customers blame oil first when response slows—even when water ingress is the root cause.",
+    ],
+    link: "Hydraulic fluid discussions should reward reps who bring ISO VG discipline, sampling, and breathers—areas Klondike field stories can reinforce without inventing chemistry claims.",
     useWhen:
-      "Territory shows construction rebound, rental fleet growth, or logging/ag hydraulic-intensive seasons.",
+      "Territory shows construction rebound, rental growth, or hydraulic-intensive ag seasons.",
+    feature:
+      "Structured ISO VG and cleanliness narrative before any tier upgrade.",
+    bridge:
+      "Shift from repeated drain-and-fills to trending contamination and fixing entry points.",
+    benefit:
+      "Customers see fewer repeat failures that erode trust in the dealer’s fluid program.",
     talkingPoints: [
-      "Lead with ISO VG match to OEM tags and operating temperature bands.",
+      "Lead with OEM tags and operating temperature bands for viscosity.",
       "Introduce filter micron and change discipline before proposing fluid upgrades.",
-      "Where seasonal swings exist, discuss multi-viscosity options only after confirming OEM allowance.",
+      "Discuss wider temperature coverage only after OEM allowance is confirmed.",
     ],
     suggestedActions: [
-      "Offer a shop walkthrough checklist: reservoir breathers, case drains, filter alignment.",
-      "Photograph pump nameplates on top failure assets.",
-      "Schedule a follow-up fluid sampling conversation where hours justify trending.",
+      "Walk reservoirs and photograph pump tags on top failure assets.",
+      "Schedule sampling where hours justify trending—not everywhere at once.",
     ],
     territorySignals: [
-      "Increased mini-excavator or skid-steer rental counts",
-      "Customers citing foam or slow hydraulics in cold starts",
+      "Skid-steer and mini-excavator rental utilization up",
+      "Foam or slow hydraulics complaints in cold morning starts",
     ],
     salesAngle:
-      "Anchor on circuit tags and contamination control before discussing fluid tier changes.",
+      "Anchor on circuit evidence and contamination control before discussing fluid chemistry changes.",
     closingLines: [
-      "Let's photograph the priority circuits this week and align ISO VG from the tags.",
-      "If filtration is dated, we'll stage upgrades alongside any fluid conversation.",
+      "Let’s photograph priority circuits this week and align ISO VG from the tags.",
+      "If filtration is dated, we’ll stage upgrades alongside any fluid conversation.",
     ],
     tags: ["hydraulic", "construction", "filtration"],
     status: "active",
   },
   {
-    id: "cs-hd-conversion",
+    id: "cs-grease-program-growth",
     type: "category",
-    category: "HD Engine Oils",
-    title: "HD Engine Oil Conversion",
+    category: "Grease",
+    title: "Grease Program Growth",
     focus:
-      "Conversion wins when spec clarity, inventory footprint, and service cadence align—avoid generic \"better oil\" claims.",
+      "Grease revenue grows when compatibility rules and relubrication discipline are clear—not when SKUs multiply blindly.",
+    marketReality: [
+      "Mixed thickeners in central systems still cause costly incompatibility failures.",
+      "Contract shops optimize tube price without a compatibility matrix.",
+    ],
+    link: "Klondike grease programs help reps sell rationalized NLGI and thickener choices plus technician training—supporting stickier dealer relationships.",
     useWhen:
-      "Dealer carries multiple HD categories or fleet wants supplier consolidation post-contract.",
+      "Customer wants fewer greases but fears component risk, or lube truck inventory is out of control.",
+    feature:
+      "Compatibility-first grease messaging tied to asset severity classes.",
+    bridge:
+      "From chaotic shelf to a posted matrix at the service desk and on the lube truck.",
+    benefit:
+      "Technicians stop guessing; purchasing sees predictable SKU counts.",
     talkingPoints: [
-      "Inventory engine families by API category needs (CK-4, FA-4 where applicable) before proposing SKUs.",
-      "Align bulk vs. packaged strategy with top-off behavior in the yard.",
-      "Document seasonal viscosity moves where climate demands.",
+      "Segment assets into severity buckets before proposing consolidation.",
+      "Pair auto-luber settings with chosen NLGI where installed.",
+      "Highlight moly vs. non-moly needs only per OEM guidance.",
     ],
     suggestedActions: [
-      "Build a one-page spec ladder for the dealer's top 25 units.",
-      "Align coolant and transmission touchpoints in the same PM visit.",
+      "Pilot one consolidated spec on worst pin wear locations.",
+      "Publish a one-pager for contract mechanics on approved greases.",
     ],
     territorySignals: [
-      "New fleet maintenance director",
-      "RFP cycles for municipal or transit fleets",
+      "Quarry or demolition activity rising",
+      "Fleet adding leased yellow iron with unknown grease history",
     ],
     salesAngle:
-      "Treat conversion as a documented spec ladder exercise—not a blind brand swap.",
+      "Lead with failure locations and compatibility gates—not SKU counts.",
     closingLines: [
-      "We'll inventory your highest-hour units first and align categories before touching bulk tanks.",
+      "We’ll trial one approved spec on your three worst pins and track shots per shift.",
     ],
-    tags: ["hd", "conversion", "fleet"],
+    tags: ["grease", "growth", "consolidation"],
     status: "active",
   },
   {
@@ -71,24 +142,35 @@ export const CATEGORY_SPOTLIGHTS = [
     category: "Synthetic Conversion",
     title: "Synthetic Upgrade Focus",
     focus:
-      "Position synthetic tiers as alignment tools for climate, OEM guidance, and operational complexity—not blanket superiority.",
+      "Synthetic tiers work best as alignment tools for climate, OEM guidance, and complexity—not blanket superiority.",
+    marketReality: [
+      "Customers hear inflated mileage promises; skepticism is high.",
+      "Cold-start pain and idle-heavy routes are real-leverage moments when OEM allows synthetic tiers.",
+    ],
+    link: "Synthetic upgrade plays position Klondike as the disciplined choice—pilots, documentation, and PDS language—rather than hype.",
     useWhen:
-      "Customers mention extreme cold, extended idle, or desire to reduce SKU complexity at premium tier.",
+      "Prospects mention extreme cold, extended idle, or SKU reduction at the premium tier.",
+    feature:
+      "Pilot-based upgrade path with agreed metrics and OEM viscosity checkpoints.",
+    bridge:
+      "Move from “buy the expensive pail” to “here is the pilot protocol and measurement plan.”",
+    benefit:
+      "Premium tier sells as risk reduction with accountable follow-up.",
     talkingPoints: [
-      "Confirm OEM viscosity and API requirements remain satisfied.",
-      "Discuss total maintenance workflow (filters, sampling) alongside fluid tier.",
-      "Pilot on highest-hour or harshest-duty units first.",
+      "Confirm OEM viscosity/API requirements remain satisfied.",
+      "Discuss filters and sampling alongside fluid tier.",
+      "Pilot highest-hour or harshest-duty units first.",
     ],
     suggestedActions: [
-      "Create a pilot list of 5 VINs with agreed success metrics (cold start, planned drains).",
-      "Pair with training for shop staff on bulk tank labeling.",
+      "Create a five-unit pilot list with cold-start and drain checkpoints.",
+      "Label bulk tanks after approval to prevent cross-fill.",
     ],
     territorySignals: [
       "Cold snap forecasts",
-      "Fleets adding remote idle-heavy routes",
+      "Idle-heavy routes expanding",
     ],
     salesAngle:
-      "Pilot synthetic tiers where climate or duty cycle clearly strains conventional coverage.",
+      "Qualify climate and duty before SKU; describe Klondike synthetic options as supporting OEM-approved programs where PDS aligns.",
     closingLines: [
       "Pick five pilots with agreed metrics—cold starts, planned drains, and OEM alignment.",
     ],
@@ -96,63 +178,167 @@ export const CATEGORY_SPOTLIGHTS = [
     status: "active",
   },
   {
-    id: "cs-construction",
+    id: "cs-agriculture-fluids",
     type: "category",
-    category: "Construction Equipment",
-    title: "Construction Equipment Opportunity",
+    category: "Agriculture",
+    title: "Agriculture Equipment Fluids",
     focus:
-      "Construction wins bundle engine, hydraulic, and grease categories around uptime narratives.",
+      "Ag rewards preseason audits and spec consolidation across tractors, implements, and seasonal peaks.",
+    marketReality: [
+      "Farm windows compress—mistakes show up at harvest, not at purchase.",
+      "Bulk tanks and portable totes introduce contamination if discipline slips.",
+    ],
+    link: "Agriculture fluid narratives help reps tie preseason planning to Klondike categories without promising outcomes OEMs control.",
     useWhen:
-      "Regional permits, infrastructure bids, or quarry activity accelerate equipment utilization.",
+      "Planting or harvest windows approach; dealer promotes preseason inspection offerings.",
+    feature:
+      "Seasonal readiness storyline combining engine, transmission/THF, and coolant discipline.",
+    bridge:
+      "From crisis calls during hay season to planned preseason fluid audits.",
+    benefit:
+      "Growers see fewer in-field surprises during peak revenue hours.",
     talkingPoints: [
-      "Anchor recommendations to OEM manuals and visible component tags.",
-      "Highlight contamination control on shared bulk tanks and remote sites.",
-      "Coordinate grease NLGI and thickener messaging with central lubrication systems.",
+      "Keep ZF / wet brake / THF conversations spec-first.",
+      "Discuss bulk cleanliness before seasonal fills.",
+      "Bundle coolant checks with engine programs.",
     ],
     suggestedActions: [
-      "Site visit template: bulk storage, breathers, grease compatibility chart.",
-      "Identify one anchor contractor for reference storytelling.",
+      "Hand out preseason checklists to counter staff.",
+      "Schedule training before the seasonal rush.",
+    ],
+    territorySignals: [
+      "Co-op bulk buys",
+      "Fertilizer logistics peaks aligned with equipment hours",
+    ],
+    salesAngle:
+      "Lead with preseason audits and technology-family clarity for transmissions and brakes.",
+    closingLines: [
+      "Let’s push the preseason checklist to counter staff before the seasonal rush hits.",
+    ],
+    tags: ["agriculture", "seasonal", "fluids"],
+    status: "active",
+  },
+  {
+    id: "cs-construction-fluids",
+    type: "category",
+    category: "Construction Equipment",
+    title: "Construction Equipment Fluids",
+    focus:
+      "Construction uptime ties engine, hydraulic, axle, and grease decisions to jobsite realities and contamination control.",
+    marketReality: [
+      "Shared bulk tanks on moving sites invite dirt and cross-fill.",
+      "Emergency repairs dominate schedules—planned PM rarely wins without a champion.",
+    ],
+    link: "Construction fluid bundles give reps a reason to walk sites with customers and document tanks—not just quote drums.",
+    useWhen:
+      "Infrastructure bids, quarry activity, or rental utilization spikes equipment hours.",
+    feature:
+      "Cross-system PM storytelling anchored to OEM tags and jobsite hazards.",
+    bridge:
+      "Move from scatter-shot emergency fills to a pinned fluid matrix in the service trailer.",
+    benefit:
+      "Owners reduce surprise downtime that erodes bid margins.",
+    talkingPoints: [
+      "Anchor recommendations to OEM manuals and visible tags.",
+      "Highlight contamination controls on bulk systems.",
+      "Coordinate grease NLGI with centralized lubrication systems.",
+    ],
+    suggestedActions: [
+      "Use a site visit template: bulk storage, breathers, grease chart.",
+      "Identify one anchor contractor for reference stories.",
     ],
     territorySignals: [
       "DOT letting schedules",
       "Rental yard utilization reports",
     ],
     salesAngle:
-      "Bundle engine, hydraulic, and grease around uptime PM stories—not SKU counts alone.",
+      "Bundle engine, hydraulic, and grease around uptime PM—not SKU counts alone.",
     closingLines: [
-      "We'll walk one busy site this month and document bulk storage and breathers together.",
+      "We’ll walk one busy site this month and document bulk storage and breathers together.",
     ],
-    tags: ["construction", "uptime", "bundle"],
+    tags: ["construction", "uptime", "fluids"],
     status: "active",
   },
   {
-    id: "cs-agriculture",
+    id: "cs-transmission-drivetrain",
     type: "category",
-    category: "Agriculture",
-    title: "Agriculture Equipment Opportunity",
+    category: "Transmission Fluids",
+    title: "Transmission & Drivetrain Opportunity",
     focus:
-      "Ag cycles favor pre-season fluid audits and spec consolidation across tractors, combines, and implements.",
+      "Drivetrain wins come from fluid-code discipline across transmissions, axles, and off-highway units—not one universal ATF story.",
+    marketReality: [
+      "Mixed-generation fleets tempt single-bulk-tank shortcuts.",
+      "Shift complaints arrive before shops verify fluid codes.",
+    ],
+    link: "Transmission narratives position Klondike as the partner for code-indexed matrices and dealer documentation—not impulse substitutions.",
     useWhen:
-      "Planting or harvest windows approach; dealer promotes preseason inspection packages.",
+      "Fleet spans automatic, powershift, and hydrostatic hardware; warranty-sensitive industries push documentation.",
+    feature:
+      "Code-first drivetrain workflow covering ATF, TO-4-type needs, and axle fills where separate.",
+    bridge:
+      "Shift from visual similarity to dipstick photos and OEM tables.",
+    benefit:
+      "Fewer comebacks that damage dealer credibility on high-cost components.",
     talkingPoints: [
-      "ZF / wet brake / THF conversations stay spec-first.",
-      "Discuss bulk tank cleanliness before seasonal fills.",
-      "Bundle coolant checks with engine oil programs.",
+      "Build a fluid matrix indexed by asset ID or VIN prefix.",
+      "Separate construction/off-highway codes from on-highway ATF bulk.",
+      "Coordinate filters with fluid changes when manuals demand.",
     ],
     suggestedActions: [
-      "Distribute a preseason one-pager checklist to dealer counter staff.",
-      "Schedule group training before peak season rush.",
+      "Photograph dipstick and fill-port labels on top ten assets.",
+      "Host a lunch-and-learn on code lookup tools your dealer already trusts.",
     ],
     territorySignals: [
-      "Co-op bulk buys",
-      "Anhydrous or fertilizer logistics peaks correlated with equipment hours",
+      "Fleet adding vocational trucks alongside yellow iron",
+      "Warranty audits increasing for municipal fleets",
     ],
     salesAngle:
-      "Lead with preseason fluid audits and spec-first narratives for transmissions and wet brakes.",
+      "Inventory codes before quoting pails; position Klondike products as supporting OEM-approved programs per PDS.",
     closingLines: [
-      "Let's distribute the preseason checklist to counter staff before the seasonal rush hits.",
+      "Let’s build the transmission and axle matrix before the next seasonal bulk buy.",
     ],
-    tags: ["agriculture", "seasonal", "agrimax"],
+    tags: ["transmission", "drivetrain", "fleet"],
+    status: "active",
+  },
+  {
+    id: "cs-coolant-chemical-addon",
+    type: "category",
+    category: "Coolants / Chemicals",
+    title: "Coolant / Chemical Add-On Opportunity",
+    focus:
+      "Coolant and chemical attach rates climb when testing cadence and technology-family discipline precede SKU adds.",
+    marketReality: [
+      "Top-off emergencies repeat until fleets adopt single technology families per yard.",
+      "Brake cleaner, DEF handling, and coolant chemistry intersect on the same PM calendar.",
+    ],
+    link: "Add-on storytelling lets reps broaden Klondike footprint responsibly—chemistry education first, SKU second.",
+    useWhen:
+      "Customer already buys engine or hydraulic volumes; coolant testing reveals neglect or mixing.",
+    feature:
+      "Technology-family clarity and testing rhythm as prerequisites to expanded chemical SKUs.",
+    bridge:
+      "Move from ‘grab whatever jug is closest’ to labeled bulk and jug traceability.",
+    benefit:
+      "Fewer repeated cooling-system repairs mistaken for unrelated faults.",
+    talkingPoints: [
+      "Bundle coolant tests with belt and tensioner inspections.",
+      "Separate DEF hygiene messaging where fleets struggle with contamination.",
+      "Introduce brake and chassis chemicals only after shop storage audit.",
+    ],
+    suggestedActions: [
+      "Offer a coolant technology one-pager per fleet yard.",
+      "Stage quarterly chemical SKU reviews tied to PM windows.",
+    ],
+    territorySignals: [
+      "Rising cooling-system ROs",
+      "Insurance or audit emphasis on documented PM",
+    ],
+    salesAngle:
+      "Lead with test results and OEM coolant type; attach Klondike chemicals where PDS and storage practices align.",
+    closingLines: [
+      "We’ll align coolant technology first, then layer compatible chemical SKUs on the next PM cycle.",
+    ],
+    tags: ["coolant", "chemicals", "add-on"],
     status: "active",
   },
   {
@@ -161,26 +347,37 @@ export const CATEGORY_SPOTLIGHTS = [
     category: "Fleet Opportunity",
     title: "Fleet Governance & Standardization",
     focus:
-      "Large fleets value documentation, fewer SKUs, and predictable supply—technical credibility beats slogans.",
+      "Large fleets value documentation, fewer SKUs, and predictable supply—credibility beats slogans.",
+    marketReality: [
+      "Mergers mix lubricant cultures overnight.",
+      "Software rollouts demand asset IDs that shops still lack on fluids.",
+    ],
+    link: "Governance plays position Klondike as the supplier willing to write things down and revisit cadence—not just drop drums.",
     useWhen:
-      "Prospect mentions audit readiness, insurance reviews, or ESG reporting pressure.",
+      "Prospect mentions audits, insurer questionnaires, or ESG-adjacent reporting pressure.",
+    feature:
+      "Documentation-heavy fleet narrative with exception reporting hooks.",
+    bridge:
+      "Move from tribal knowledge to approved SKU lists per yard.",
+    benefit:
+      "Fleet leaders defend choices internally with paperwork reps helped create.",
     talkingPoints: [
-      "Offer spec matrices tied to asset IDs.",
-      "Emphasize consistent supplier documentation for shops.",
+      "Offer spec matrices keyed to asset IDs.",
+      "Emphasize supplier consistency for warranty posture.",
       "Keep claims aligned with PDS and OEM—avoid uncited numbers.",
     ],
     suggestedActions: [
-      "Propose quarterly business reviews with usage and exception reports.",
+      "Propose quarterly business reviews with usage summaries.",
       "Map emergency top-off kits per yard.",
     ],
     territorySignals: [
-      "Merger activity among regional carriers",
-      "New maintenance software rollouts",
+      "Carrier mergers",
+      "New maintenance software deployments",
     ],
     salesAngle:
       "Emphasize audit-ready documentation and fewer approved SKUs over anecdotal performance claims.",
     closingLines: [
-      "We'll propose a quarterly review template tied to asset IDs and exception reporting.",
+      "We’ll propose a quarterly review template tied to asset IDs and exception reporting.",
     ],
     tags: ["fleet", "governance", "documentation"],
     status: "draft",

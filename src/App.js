@@ -11048,14 +11048,14 @@ const handleFinishDealerEnrollment = async () => {
       )}
 
       {klondikeAdminTab === "dashboard" && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: 22 }}>
           <div
             style={{
               fontSize: 11,
               fontWeight: 900,
               letterSpacing: "0.12em",
               color: "#64748b",
-              marginBottom: 10,
+              marginBottom: 12,
             }}
           >
             ACTIVE INCENTIVES · SNAPSHOT
@@ -11111,24 +11111,6 @@ const handleFinishDealerEnrollment = async () => {
                       compact
                       accentBorder="#ea580c"
                     />
-                    <div style={{ padding: "0 14px 14px" }}>
-                      <button
-                        type="button"
-                        onClick={() => setKlondikeAdminTab("product_strategy")}
-                        style={{
-                          cursor: "pointer",
-                          borderRadius: 10,
-                          padding: "7px 14px",
-                          fontSize: 12,
-                          fontWeight: 900,
-                          border: "1px solid #2563eb",
-                          background: "#fff",
-                          color: "#1d4ed8",
-                        }}
-                      >
-                        View in Product Strategy
-                      </button>
-                    </div>
                   </div>
                 );
               })}
@@ -11145,7 +11127,7 @@ const handleFinishDealerEnrollment = async () => {
               fontWeight: 900,
               letterSpacing: "0.12em",
               color: "#64748b",
-              marginBottom: 10,
+              marginBottom: 12,
             }}
           >
             PRODUCT PERFORMANCE
@@ -11209,39 +11191,14 @@ const handleFinishDealerEnrollment = async () => {
                       Action: {card.recommendedAction}
                     </div>
                   ) : null}
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    <button
-                      type="button"
-                      onClick={() => setKlondikeAdminTab("product_strategy")}
-                      style={{
-                        cursor: "pointer",
-                        borderRadius: 10,
-                        padding: "6px 11px",
-                        fontSize: 11,
-                        fontWeight: 800,
-                        border: "1px solid #1e293b",
-                        background: "#0f172a",
-                        color: "#f8fafc",
-                      }}
-                    >
-                      Open Product Strategy
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setKlondikeAdminTab("sales_enablement")}
-                      style={{
-                        cursor: "pointer",
-                        borderRadius: 10,
-                        padding: "6px 11px",
-                        fontSize: 11,
-                        fontWeight: 800,
-                        border: "1px solid #2563eb",
-                        background: "#fff",
-                        color: "#1d4ed8",
-                      }}
-                    >
-                      Sales Enablement
-                    </button>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 10,
+                      alignItems: "center",
+                    }}
+                  >
                     <button
                       type="button"
                       onClick={() =>
@@ -11255,8 +11212,8 @@ const handleFinishDealerEnrollment = async () => {
                       style={{
                         cursor: "pointer",
                         borderRadius: 10,
-                        padding: "6px 11px",
-                        fontSize: 11,
+                        padding: "8px 14px",
+                        fontSize: 12,
                         fontWeight: 800,
                         border: "1px solid #ea580c",
                         background: "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
@@ -11275,12 +11232,12 @@ const handleFinishDealerEnrollment = async () => {
                       style={{
                         cursor: "pointer",
                         borderRadius: 10,
-                        padding: "6px 11px",
-                        fontSize: 11,
+                        padding: "8px 14px",
+                        fontSize: 12,
                         fontWeight: 800,
-                        border: "1px solid rgba(148, 163, 184, 0.55)",
+                        border: "1px solid rgba(37, 99, 235, 0.45)",
                         background: "#fff",
-                        color: "#475569",
+                        color: "#1d4ed8",
                       }}
                     >
                       Request Training
@@ -11554,7 +11511,7 @@ const handleFinishDealerEnrollment = async () => {
                       fontWeight: 900,
                       letterSpacing: "0.12em",
                       color: "#64748b",
-                      marginBottom: 10,
+                      marginBottom: 12,
                     }}
                   >
                     DEALER HEALTH
