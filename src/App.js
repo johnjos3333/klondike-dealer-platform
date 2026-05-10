@@ -9,6 +9,8 @@ import {
   SPOTLIGHT_CATEGORIES,
   SPOTLIGHT_CATEGORY_ALL,
 } from "./data/salesEnablement/spotlightCategories";
+import { buildSpotlightSuggestions } from "./utils/buildSpotlightSuggestions";
+import { computeTerritoryProposalSignals } from "./utils/territoryProposalSignals";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -36,6 +38,63 @@ function SalesEnablementPreviewLabel({ children }) {
     >
       {children}
     </div>
+  );
+}
+
+function KlondikeAdminCreateDealerIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <path
+        d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M10 6h4M10 10h4M10 14h4M10 18h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function KlondikeAdminCreateUsersIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden
+    >
+      <path
+        d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -3671,6 +3730,8 @@ const [dealerNetworkPerformance, setDealerNetworkPerformance] = useState([]);
 /** Approved-demand rollup for Klondike Admin Inventory Intelligence (proposal data only). */
 const [klondikeTerritoryInventoryModel, setKlondikeTerritoryInventoryModel] =
   useState(null);
+const [klondikeTerritoryProposalSignals, setKlondikeTerritoryProposalSignals] =
+  useState(null);
 const [selectedDealerPerformance, setSelectedDealerPerformance] = useState(null);
   const [dealerSaving, setDealerSaving] = useState(false);
   const [dealerSaveMessage, setDealerSaveMessage] = useState("");
@@ -3992,6 +4053,7 @@ useEffect(() => {
       console.error("Dealer network org load error:", orgError);
       setDealerNetworkPerformance([]);
       setKlondikeTerritoryInventoryModel(null);
+      setKlondikeTerritoryProposalSignals(null);
       return;
     }
 
@@ -4000,6 +4062,7 @@ useEffect(() => {
     if (orgIds.length === 0) {
       setDealerNetworkPerformance([]);
       setKlondikeTerritoryInventoryModel(null);
+      setKlondikeTerritoryProposalSignals(null);
       return;
     }
 
@@ -5592,6 +5655,24 @@ const handleFinishDealerEnrollment = async () => {
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.totalScans, adminRepLeaderboardFoundation]);
 
+  const salesEnablementSpotlightSuggestions = React.useMemo(
+    () =>
+      buildSpotlightSuggestions({
+        territoryInventoryModel: klondikeTerritoryInventoryModel,
+        productMixIntelligence: adminProductMixIntelligence,
+        ocrSnapshot,
+        territoryProposalSignals: klondikeTerritoryProposalSignals,
+        territoryRollup: adminTerritoryPerformanceRollup,
+      }),
+    [
+      klondikeTerritoryInventoryModel,
+      adminProductMixIntelligence,
+      ocrSnapshot,
+      klondikeTerritoryProposalSignals,
+      adminTerritoryPerformanceRollup,
+    ]
+  );
+
   const dealerActivationChecklistRows = React.useMemo(() => {
     const dealers = Array.isArray(dealerNetworkPerformance)
       ? dealerNetworkPerformance
@@ -5999,50 +6080,152 @@ const handleFinishDealerEnrollment = async () => {
         </p>
       </div>
 
-      <div
-        style={{
-          ...styles.workflowTabBar,
-          display: "flex",
-          flexWrap: "wrap",
-          gap: 8,
-          rowGap: 10,
-          alignItems: "stretch",
-          marginBottom: 18,
-        }}
-      >
-        {[
-          { id: "dashboard", label: "DASHBOARD" },
-          { id: "dealers", label: "DEALERS" },
-          { id: "dealer_activation", label: "DEALER ACTIVATION" },
-          { id: "inventory_intelligence", label: "INVENTORY INTEL" },
-          { id: "sales_enablement", label: "SALES ENABLEMENT" },
-          { id: "create_dealer", label: "CREATE DEALER" },
-          { id: "create_dealer_user", label: "CREATE USERS" },
-          { id: "approvals", label: "APPROVALS" },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setKlondikeAdminTab(tab.id)}
+      <div style={{ display: "grid", gap: 14, marginBottom: 18 }}>
+        <div
+          style={{
+            ...styles.workflowTabBar,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 8,
+            rowGap: 10,
+            alignItems: "stretch",
+            marginBottom: 0,
+          }}
+        >
+          {[
+            { id: "dashboard", label: "DASHBOARD" },
+            { id: "dealers", label: "DEALERS" },
+            { id: "dealer_activation", label: "DEALER ACTIVATION" },
+            { id: "inventory_intelligence", label: "INVENTORY INTEL" },
+            { id: "sales_enablement", label: "SALES ENABLEMENT" },
+            { id: "approvals", label: "APPROVALS" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setKlondikeAdminTab(tab.id)}
+              style={{
+                ...styles.workflowTab,
+                ...(klondikeAdminTab === tab.id ? styles.workflowTabActive : {}),
+                textTransform: "none",
+                flex: "1 1 140px",
+                minWidth: "min(140px, 100%)",
+                maxWidth: "100%",
+                padding: "10px 14px",
+                fontSize: 12,
+                letterSpacing: "0.05em",
+                lineHeight: 1.25,
+                whiteSpace: "normal",
+                textAlign: "center",
+                hyphens: "none",
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div
+          style={{
+            borderRadius: 14,
+            border: "1px solid rgba(59, 130, 246, 0.28)",
+            background:
+              "linear-gradient(180deg, rgba(239, 246, 255, 0.96) 0%, rgba(248, 250, 252, 0.99) 100%)",
+            boxShadow: "0 10px 26px rgba(15, 23, 42, 0.07)",
+            padding: "14px 16px 16px",
+            boxSizing: "border-box",
+            minWidth: 0,
+          }}
+        >
+          <div
             style={{
-              ...styles.workflowTab,
-              ...(klondikeAdminTab === tab.id ? styles.workflowTabActive : {}),
-              textTransform: "none",
-              flex: "1 1 auto",
-              minWidth: "min(160px, 100%)",
-              maxWidth: "100%",
-              padding: "10px 14px",
-              fontSize: 12,
-              letterSpacing: "0.05em",
-              lineHeight: 1.25,
-              whiteSpace: "normal",
-              textAlign: "center",
-              hyphens: "none",
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "0.08em",
+              color: "#475569",
+              marginBottom: 6,
             }}
           >
-            {tab.label}
-          </button>
-        ))}
+            ACCOUNT MANAGEMENT
+          </div>
+          <p
+            style={{
+              fontSize: 13,
+              color: "#64748b",
+              margin: "0 0 14px",
+              lineHeight: 1.45,
+              maxWidth: 560,
+            }}
+          >
+            Add and manage platform accounts and dealer access.
+          </p>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 10,
+              alignItems: "stretch",
+            }}
+          >
+            {[
+              {
+                id: "create_dealer",
+                label: "CREATE DEALER",
+                icon: KlondikeAdminCreateDealerIcon,
+              },
+              {
+                id: "create_dealer_user",
+                label: "CREATE USERS",
+                icon: KlondikeAdminCreateUsersIcon,
+              },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const active = klondikeAdminTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setKlondikeAdminTab(tab.id)}
+                  style={{
+                    ...styles.workflowTab,
+                    ...(active ? styles.workflowTabActive : {}),
+                    textTransform: "none",
+                    flex: "1 1 200px",
+                    minWidth: "min(220px, 100%)",
+                    maxWidth: "100%",
+                    padding: "12px 18px",
+                    fontSize: 12,
+                    letterSpacing: "0.05em",
+                    lineHeight: 1.25,
+                    whiteSpace: "normal",
+                    textAlign: "left",
+                    hyphens: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    justifyContent: "flex-start",
+                    border: active
+                      ? undefined
+                      : "1px solid rgba(59, 130, 246, 0.42)",
+                    background: active ? undefined : "#ffffff",
+                    boxShadow: active ? undefined : "0 2px 10px rgba(15, 23, 42, 0.06)",
+                  }}
+                >
+                  <span
+                    style={{
+                      flex: "0 0 auto",
+                      color: active ? "inherit" : "#1e40af",
+                      opacity: active ? 1 : 0.88,
+                    }}
+                  >
+                    <Icon />
+                  </span>
+                  <span style={{ flex: "1 1 auto", fontWeight: 800 }}>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {klondikeAdminTab === "dealer_activation" && (
@@ -7148,10 +7331,23 @@ const handleFinishDealerEnrollment = async () => {
                   </div>
                   <SalesEnablementPreviewLabel>Market reality</SalesEnablementPreviewLabel>
                   <ul style={SALES_ENABLEMENT_LIST_STYLE}>
-                    {(selectedSalesEnablementSpotlight.targetMarkets || []).map((line, idx) => (
-                      <li key={`tm-${idx}`}>{line}</li>
+                    {(
+                      (Array.isArray(selectedSalesEnablementSpotlight.marketReality) &&
+                      selectedSalesEnablementSpotlight.marketReality.length > 0
+                        ? selectedSalesEnablementSpotlight.marketReality
+                        : selectedSalesEnablementSpotlight.targetMarkets) || []
+                    ).map((line, idx) => (
+                      <li key={`mr-${idx}`}>{line}</li>
                     ))}
                   </ul>
+                  {selectedSalesEnablementSpotlight.link ? (
+                    <>
+                      <SalesEnablementPreviewLabel>Link</SalesEnablementPreviewLabel>
+                      <p style={SALES_ENABLEMENT_BODY_STYLE}>
+                        {selectedSalesEnablementSpotlight.link}
+                      </p>
+                    </>
+                  ) : null}
                   <SalesEnablementPreviewLabel>Use when</SalesEnablementPreviewLabel>
                   <p style={SALES_ENABLEMENT_BODY_STYLE}>{selectedSalesEnablementSpotlight.useWhen}</p>
                   <SalesEnablementPreviewLabel>Talking points</SalesEnablementPreviewLabel>
@@ -7166,14 +7362,21 @@ const handleFinishDealerEnrollment = async () => {
                       <strong>Benefit:</strong> {selectedSalesEnablementSpotlight.benefit}
                     </li>
                   </ul>
-                  <SalesEnablementPreviewLabel>Suggested actions</SalesEnablementPreviewLabel>
-                  <ul style={SALES_ENABLEMENT_LIST_STYLE}>
-                    <li>{selectedSalesEnablementSpotlight.expandedOpportunity}</li>
-                    {(selectedSalesEnablementSpotlight.relatedProducts || []).map((line, idx) => (
-                      <li key={`rp-${idx}`}>{line}</li>
-                    ))}
-                  </ul>
-                  <SalesEnablementPreviewLabel>Sales angle</SalesEnablementPreviewLabel>
+                  <SalesEnablementPreviewLabel>Expanded opportunity</SalesEnablementPreviewLabel>
+                  <p style={SALES_ENABLEMENT_BODY_STYLE}>
+                    {selectedSalesEnablementSpotlight.expandedOpportunity}
+                  </p>
+                  {(selectedSalesEnablementSpotlight.relatedProducts || []).length > 0 ? (
+                    <>
+                      <SalesEnablementPreviewLabel>Related products and follow-through</SalesEnablementPreviewLabel>
+                      <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                        {(selectedSalesEnablementSpotlight.relatedProducts || []).map((line, idx) => (
+                          <li key={`rp-${idx}`}>{line}</li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                  <SalesEnablementPreviewLabel>Sales angle for reps</SalesEnablementPreviewLabel>
                   <p style={SALES_ENABLEMENT_BODY_STYLE}>{selectedSalesEnablementSpotlight.salesAngle}</p>
                   <SalesEnablementPreviewLabel>Closing lines</SalesEnablementPreviewLabel>
                   <ul style={SALES_ENABLEMENT_LIST_STYLE}>
@@ -7211,11 +7414,54 @@ const handleFinishDealerEnrollment = async () => {
                       {selectedSalesEnablementSpotlight.category}
                     </div>
                   </div>
-                  <SalesEnablementPreviewLabel>Focus</SalesEnablementPreviewLabel>
-                  <p style={SALES_ENABLEMENT_BODY_STYLE}>{selectedSalesEnablementSpotlight.focus}</p>
+                  <SalesEnablementPreviewLabel>Market reality</SalesEnablementPreviewLabel>
+                  {Array.isArray(selectedSalesEnablementSpotlight.marketReality) &&
+                  selectedSalesEnablementSpotlight.marketReality.length > 0 ? (
+                    <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                      {selectedSalesEnablementSpotlight.marketReality.map((line, idx) => (
+                        <li key={`cmr-${idx}`}>{line}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p style={SALES_ENABLEMENT_BODY_STYLE}>
+                      {selectedSalesEnablementSpotlight.focus}
+                    </p>
+                  )}
+                  {selectedSalesEnablementSpotlight.link ? (
+                    <>
+                      <SalesEnablementPreviewLabel>Link</SalesEnablementPreviewLabel>
+                      <p style={SALES_ENABLEMENT_BODY_STYLE}>
+                        {selectedSalesEnablementSpotlight.link}
+                      </p>
+                    </>
+                  ) : null}
                   <SalesEnablementPreviewLabel>Use when</SalesEnablementPreviewLabel>
                   <p style={SALES_ENABLEMENT_BODY_STYLE}>{selectedSalesEnablementSpotlight.useWhen}</p>
-                  <SalesEnablementPreviewLabel>Talking points</SalesEnablementPreviewLabel>
+                  {(selectedSalesEnablementSpotlight.feature ||
+                    selectedSalesEnablementSpotlight.bridge ||
+                    selectedSalesEnablementSpotlight.benefit) && (
+                    <>
+                      <SalesEnablementPreviewLabel>Talking points</SalesEnablementPreviewLabel>
+                      <ul style={SALES_ENABLEMENT_LIST_STYLE}>
+                        {selectedSalesEnablementSpotlight.feature ? (
+                          <li>
+                            <strong>Feature:</strong> {selectedSalesEnablementSpotlight.feature}
+                          </li>
+                        ) : null}
+                        {selectedSalesEnablementSpotlight.bridge ? (
+                          <li>
+                            <strong>Bridge:</strong> {selectedSalesEnablementSpotlight.bridge}
+                          </li>
+                        ) : null}
+                        {selectedSalesEnablementSpotlight.benefit ? (
+                          <li>
+                            <strong>Benefit:</strong> {selectedSalesEnablementSpotlight.benefit}
+                          </li>
+                        ) : null}
+                      </ul>
+                    </>
+                  )}
+                  <SalesEnablementPreviewLabel>Conversation anchors</SalesEnablementPreviewLabel>
                   <ul style={SALES_ENABLEMENT_LIST_STYLE}>
                     {(selectedSalesEnablementSpotlight.talkingPoints || []).map((line, idx) => (
                       <li key={`tp-${idx}`}>{line}</li>
@@ -7233,7 +7479,7 @@ const handleFinishDealerEnrollment = async () => {
                       <li key={`ts-${idx}`}>{line}</li>
                     ))}
                   </ul>
-                  <SalesEnablementPreviewLabel>Sales angle</SalesEnablementPreviewLabel>
+                  <SalesEnablementPreviewLabel>Sales angle for reps</SalesEnablementPreviewLabel>
                   <p style={SALES_ENABLEMENT_BODY_STYLE}>
                     {selectedSalesEnablementSpotlight.salesAngle ||
                       "Lead with evidence-backed OEM/PDS alignment and documented maintenance rhythm."}
@@ -7269,18 +7515,172 @@ const handleFinishDealerEnrollment = async () => {
           <div
             style={{
               ...styles.card,
-              background: "linear-gradient(135deg, #f8fafc 0%, #fff7ed 100%)",
-              border: "1px dashed rgba(100, 116, 139, 0.55)",
-              padding: "18px 20px",
+              background: "#ffffff",
+              border: "1px solid rgba(96, 165, 250, 0.28)",
+              boxShadow: "0 12px 28px rgba(15, 23, 42, 0.08)",
+              padding: "20px 22px",
             }}
           >
             <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
               SUGGESTED SPOTLIGHTS
             </div>
-            <p style={{ ...styles.cardBody, color: "#64748b", marginTop: 10, marginBottom: 0 }}>
-              Reserved for future recommendation surfacing (e.g., territory fit scoring). No
-              auto-suggestion logic in this phase.
+            <p
+              style={{
+                fontSize: 12,
+                color: "#64748b",
+                marginTop: 8,
+                marginBottom: 14,
+                lineHeight: 1.45,
+              }}
+            >
+              Deterministic suggestions from live territory signals (quotes, proposal responses,
+              approved demand rollup, OCR). No automated outreach—review spotlight copy before
+              external use.
             </p>
+            {salesEnablementSpotlightSuggestions.length === 0 ? (
+              <p style={{ ...styles.cardBody, color: "#64748b", margin: 0, lineHeight: 1.5 }}>
+                Suggested spotlights will populate as territory and proposal intelligence expands.
+              </p>
+            ) : (
+              <div style={{ display: "grid", gap: 12 }}>
+                {salesEnablementSpotlightSuggestions.map((sug) => {
+                  const pri = sug.priority || "medium";
+                  const priStyle =
+                    pri === "high"
+                      ? {
+                          background: "#fff7ed",
+                          color: "#c2410c",
+                          border: "1px solid rgba(251, 146, 60, 0.55)",
+                        }
+                      : pri === "low"
+                        ? {
+                            background: "#ecfdf5",
+                            color: "#047857",
+                            border: "1px solid rgba(52, 211, 153, 0.55)",
+                          }
+                        : {
+                            background: "#eff6ff",
+                            color: "#1d4ed8",
+                            border: "1px solid rgba(59, 130, 246, 0.45)",
+                          };
+                  return (
+                    <div
+                      key={sug.spotlightId}
+                      style={{
+                        borderRadius: 12,
+                        border: "1px solid rgba(148, 163, 184, 0.35)",
+                        background: "#f8fafc",
+                        padding: "14px 16px",
+                        display: "grid",
+                        gap: 10,
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 8,
+                          alignItems: "flex-start",
+                          justifyContent: "space-between",
+                          rowGap: 8,
+                        }}
+                      >
+                        <div style={{ minWidth: 0, flex: "1 1 200px" }}>
+                          <div
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 800,
+                              letterSpacing: "0.06em",
+                              color: "#64748b",
+                              marginBottom: 4,
+                            }}
+                          >
+                            {sug.spotlightType === "product" ? "PRODUCT" : "CATEGORY"} ·{" "}
+                            {sug.category || "—"}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 15,
+                              fontWeight: 800,
+                              color: "#0f172a",
+                              lineHeight: 1.3,
+                            }}
+                          >
+                            {sug.title}
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            padding: "5px 10px",
+                            borderRadius: 999,
+                            flex: "0 0 auto",
+                            ...priStyle,
+                          }}
+                        >
+                          {pri}
+                        </span>
+                      </div>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: 13,
+                          color: "#334155",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {sug.reason}
+                      </p>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#64748b",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        <strong style={{ color: "#475569" }}>Signal:</strong>{" "}
+                        <span style={{ fontFamily: "ui-monospace, monospace" }}>
+                          {sug.signalType}
+                        </span>
+                        {sug.territoryContext ? (
+                          <>
+                            {" "}
+                            · <span>{sug.territoryContext}</span>
+                          </>
+                        ) : null}
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSalesEnablementSpotlightMode(
+                              sug.spotlightType === "product" ? "product" : "category"
+                            );
+                            setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
+                            setSalesEnablementSelectedId(sug.spotlightId);
+                          }}
+                          style={{
+                            ...styles.workflowTab,
+                            ...styles.workflowTabActive,
+                            textTransform: "none",
+                            padding: "8px 14px",
+                            fontSize: 12,
+                            borderRadius: 10,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Open in preview
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
