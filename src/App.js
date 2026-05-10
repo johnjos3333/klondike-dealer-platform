@@ -9,7 +9,13 @@ import {
   SPOTLIGHT_CATEGORIES,
   SPOTLIGHT_CATEGORY_ALL,
 } from "./data/salesEnablement/spotlightCategories";
+import { DEALER_TRAINING_OPPORTUNITIES } from "./data/salesEnablement/dealerTrainingCatalog";
 import { buildSpotlightSuggestions } from "./utils/buildSpotlightSuggestions";
+import { buildDealerApprovedDemandProfiles } from "./utils/buildDealerApprovedDemandProfiles";
+import {
+  buildDealerEnablementIntelligence,
+  computeTerritoryQuotedBenchmarks,
+} from "./utils/buildDealerEnablementIntelligence";
 import { computeTerritoryProposalSignals } from "./utils/territoryProposalSignals";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
@@ -3730,9 +3736,12 @@ const [dealerNetworkPerformance, setDealerNetworkPerformance] = useState([]);
 /** Approved-demand rollup for Klondike Admin Inventory Intelligence (proposal data only). */
 const [klondikeTerritoryInventoryModel, setKlondikeTerritoryInventoryModel] =
   useState(null);
-const [klondikeTerritoryProposalSignals, setKlondikeTerritoryProposalSignals] =
-  useState(null);
-const [selectedDealerPerformance, setSelectedDealerPerformance] = useState(null);
+  const [klondikeTerritoryProposalSignals, setKlondikeTerritoryProposalSignals] =
+    useState(null);
+  const [klondikeDealerApprovedDemandProfiles, setKlondikeDealerApprovedDemandProfiles] =
+    useState({});
+  const [salesEnablementDealerOrgId, setSalesEnablementDealerOrgId] = useState("");
+  const [selectedDealerPerformance, setSelectedDealerPerformance] = useState(null);
   const [dealerSaving, setDealerSaving] = useState(false);
   const [dealerSaveMessage, setDealerSaveMessage] = useState("");
   const [activeTab, setActiveTab] = React.useState("quote");
@@ -4054,6 +4063,7 @@ useEffect(() => {
       setDealerNetworkPerformance([]);
       setKlondikeTerritoryInventoryModel(null);
       setKlondikeTerritoryProposalSignals(null);
+      setKlondikeDealerApprovedDemandProfiles({});
       return;
     }
 
@@ -4063,6 +4073,7 @@ useEffect(() => {
       setDealerNetworkPerformance([]);
       setKlondikeTerritoryInventoryModel(null);
       setKlondikeTerritoryProposalSignals(null);
+      setKlondikeDealerApprovedDemandProfiles({});
       return;
     }
 
@@ -4360,6 +4371,12 @@ useEffect(() => {
     });
 
     setDealerNetworkPerformance(orgPerformance);
+    setKlondikeTerritoryProposalSignals(
+      computeTerritoryProposalSignals(quotes, responseRows)
+    );
+    setKlondikeDealerApprovedDemandProfiles(
+      buildDealerApprovedDemandProfiles(responseRows, itemRows, quotes)
+    );
     setKlondikeTerritoryInventoryModel(
       buildKlondikeTerritoryInventoryModel({
         responseRows,
@@ -5824,6 +5841,48 @@ const handleFinishDealerEnrollment = async () => {
       };
     });
   }, [dealerNetworkPerformance, ocrSnapshot?.topDealers]);
+
+  const salesEnablementQuotedBenchmarks = React.useMemo(
+    () => computeTerritoryQuotedBenchmarks(dealerNetworkPerformance),
+    [dealerNetworkPerformance]
+  );
+
+  const salesEnablementDealerIntel = React.useMemo(() => {
+    if (!salesEnablementDealerOrgId) {
+      return buildDealerEnablementIntelligence({
+        dealerRow: null,
+        ocrActivityCount: 0,
+        approvedProfile: null,
+        quotedBenchmarks: salesEnablementQuotedBenchmarks,
+        territorySyntheticSharePct: klondikeTerritoryInventoryModel?.syntheticSharePct ?? null,
+      });
+    }
+    const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+    const dealerRow =
+      dealers.find((d) => String(d.organization_id) === String(salesEnablementDealerOrgId)) ||
+      null;
+    const drillRows = Array.isArray(adminDealerDrilldownRows) ? adminDealerDrilldownRows : [];
+    const drill =
+      drillRows.find((d) => String(d.organization_id) === String(salesEnablementDealerOrgId)) ||
+      null;
+    const approvedProfile =
+      klondikeDealerApprovedDemandProfiles[String(salesEnablementDealerOrgId)] || null;
+    return buildDealerEnablementIntelligence({
+      dealerRow,
+      ocrActivityCount: Number(drill?.ocrActivityCount || 0),
+      approvedProfile,
+      quotedBenchmarks: salesEnablementQuotedBenchmarks,
+      territorySyntheticSharePct: klondikeTerritoryInventoryModel?.syntheticSharePct ?? null,
+    });
+  }, [
+    salesEnablementDealerOrgId,
+    dealerNetworkPerformance,
+    adminDealerDrilldownRows,
+    klondikeDealerApprovedDemandProfiles,
+    salesEnablementQuotedBenchmarks,
+    klondikeTerritoryInventoryModel?.syntheticSharePct,
+  ]);
+
   const adminTerritoryTrendIntelligence = React.useMemo(() => {
     const insights = [];
     const productLeader =
@@ -7142,6 +7201,439 @@ const handleFinishDealerEnrollment = async () => {
               rep sales conversations. Automated communication delivery will be added in a later
               phase.
             </p>
+          </div>
+
+          <div
+            style={{
+              ...styles.card,
+              background: "#ffffff",
+              border: "1px solid rgba(30, 58, 138, 0.28)",
+              boxShadow: "0 18px 42px rgba(15, 23, 42, 0.1)",
+              padding: "24px 26px",
+              display: "grid",
+              gap: 18,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 14,
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ minWidth: 0, flex: "1 1 280px" }}>
+                <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
+                  DEALER ENABLEMENT INTELLIGENCE
+                </div>
+                <p
+                  style={{
+                    ...styles.cardBody,
+                    color: "#475569",
+                    marginTop: 10,
+                    marginBottom: 0,
+                    lineHeight: 1.55,
+                  }}
+                >
+                  Dealer-scoped signals from quotes, proposal responses, approved-demand capture,
+                  and OCR counts already loaded for Klondike Admin. Recommendations are rule-based
+                  and auditable—no scoring fabrications.
+                </p>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, flex: "1 1 240px" }}>
+                {[
+                  { key: "hero", label: "Hero imagery", sub: "Roadmap slot" },
+                  { key: "product", label: "Product imagery", sub: "SKU visuals" },
+                  { key: "pdf", label: "PDF export pack", sub: "Future packet" },
+                  { key: "gfx", label: "Spotlight graphic", sub: "Campaign shell" },
+                ].map((slot) => (
+                  <div
+                    key={slot.key}
+                    style={{
+                      flex: "1 1 110px",
+                      minHeight: 72,
+                      borderRadius: 12,
+                      border: "2px dashed rgba(148, 163, 184, 0.65)",
+                      background:
+                        "linear-gradient(145deg, rgba(248,250,252,0.98) 0%, rgba(239,246,255,0.85) 100%)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 4,
+                      padding: "10px 8px",
+                      textAlign: "center",
+                    }}
+                  >
+                    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "#475569" }}>
+                      {slot.label.toUpperCase()}
+                    </span>
+                    <span style={{ fontSize: 10, color: "#94a3b8", lineHeight: 1.35 }}>{slot.sub}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 12,
+                alignItems: "flex-end",
+              }}
+            >
+              <label style={{ display: "grid", gap: 6, flex: "1 1 260px", minWidth: 0 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#64748b" }}>
+                  DEALER ORGANIZATION
+                </span>
+                <select
+                  value={salesEnablementDealerOrgId}
+                  onChange={(e) => setSalesEnablementDealerOrgId(e.target.value)}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(59, 130, 246, 0.45)",
+                    background: "#ffffff",
+                    color: "#0f172a",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">Select dealer…</option>
+                  {(Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [])
+                    .slice()
+                    .sort((a, b) =>
+                      String(a?.name || "").localeCompare(String(b?.name || ""), undefined, {
+                        sensitivity: "base",
+                      })
+                    )
+                    .map((d) => (
+                      <option key={String(d.organization_id)} value={String(d.organization_id)}>
+                        {d.name || "Dealer"}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <p style={{ fontSize: 12, color: "#64748b", margin: 0, flex: "1 1 220px", lineHeight: 1.45 }}>
+                Mix benchmarks compare quoted line buckets across dealers with at least five lines.
+                Sample size:{" "}
+                <strong style={{ color: "#334155" }}>
+                  {salesEnablementQuotedBenchmarks.sampleDealersCompared || 0}
+                </strong>{" "}
+                dealers.
+              </p>
+            </div>
+
+            {!salesEnablementDealerOrgId ? (
+              <div
+                style={{
+                  borderRadius: 14,
+                  border: "1px solid rgba(148, 163, 184, 0.45)",
+                  background: "#f8fafc",
+                  padding: "22px 20px",
+                  fontSize: 14,
+                  color: "#64748b",
+                  lineHeight: 1.5,
+                }}
+              >
+                Select a dealer to generate deterministic signals and recommendation cards.
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  {(salesEnablementDealerIntel.statusTags || []).length === 0 ? (
+                    <span style={{ fontSize: 13, color: "#64748b" }}>
+                      Status tags populate when signals cross configured thresholds.
+                    </span>
+                  ) : (
+                    (salesEnablementDealerIntel.statusTags || []).map((tag) => {
+                      const meta =
+                        tag === "Needs Workflow Adoption"
+                          ? { bg: "#fff7ed", fg: "#c2410c", bd: "rgba(251, 146, 60, 0.55)" }
+                          : tag === "Needs Product Focus"
+                            ? { bg: "#eff6ff", fg: "#1e40af", bd: "rgba(59, 130, 246, 0.45)" }
+                            : tag === "Opportunity Detected"
+                              ? { bg: "#fefce8", fg: "#a16207", bd: "rgba(234, 179, 8, 0.55)" }
+                              : { bg: "#ecfdf5", fg: "#047857", bd: "rgba(52, 211, 153, 0.55)" };
+                      return (
+                        <span
+                          key={tag}
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 800,
+                            letterSpacing: "0.06em",
+                            padding: "6px 12px",
+                            borderRadius: 999,
+                            background: meta.bg,
+                            color: meta.fg,
+                            border: `1px solid ${meta.bd}`,
+                          }}
+                        >
+                          {tag.toUpperCase()}
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+
+                {(salesEnablementDealerIntel.signals || []).length === 0 ? (
+                  <div style={{ fontSize: 14, color: "#64748b", lineHeight: 1.5 }}>
+                    No dealer-level gaps matched current thresholds—keep monitoring as quotes and
+                    approvals accumulate.
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div style={{ ...styles.summaryLabel, color: "#475569", letterSpacing: "0.06em" }}>
+                      SIGNALS (WHY)
+                    </div>
+                    {(salesEnablementDealerIntel.signals || []).map((sig, idx) => {
+                      const sev =
+                        sig.severity === "high"
+                          ? "#c2410c"
+                          : sig.severity === "medium"
+                            ? "#1d4ed8"
+                            : "#64748b";
+                      return (
+                        <div
+                          key={`dealer-sig-${sig.kind}-${idx}`}
+                          style={{
+                            borderRadius: 12,
+                            border: "1px solid rgba(148, 163, 184, 0.45)",
+                            background: "#ffffff",
+                            padding: "14px 16px",
+                            display: "flex",
+                            gap: 12,
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <span
+                            style={{
+                              marginTop: 4,
+                              width: 10,
+                              height: 10,
+                              borderRadius: 999,
+                              background: sev,
+                              flex: "0 0 auto",
+                            }}
+                          />
+                          <div style={{ minWidth: 0 }}>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 800,
+                                letterSpacing: "0.06em",
+                                color: "#64748b",
+                                marginBottom: 4,
+                              }}
+                            >
+                              {String(sig.kind || "").replace(/_/g, " ").toUpperCase()}
+                            </div>
+                            <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.5 }}>
+                              {sig.detail}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {salesEnablementDealerIntel.territoryOpportunity ? (
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      padding: "16px 18px",
+                      border: "1px solid rgba(245, 158, 11, 0.45)",
+                      background: "linear-gradient(120deg, #fffbeb 0%, #eff6ff 100%)",
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.07em", color: "#c2410c" }}>
+                      TERRITORY OPPORTUNITY
+                    </div>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", marginTop: 6 }}>
+                      {salesEnablementDealerIntel.territoryOpportunity.headline}
+                    </div>
+                    <p style={{ margin: "8px 0 0", fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
+                      {salesEnablementDealerIntel.territoryOpportunity.detail}
+                    </p>
+                  </div>
+                ) : null}
+
+                <div style={{ display: "grid", gap: 14 }}>
+                  <div style={{ ...styles.summaryLabel, color: "#1e40af", letterSpacing: "0.06em" }}>
+                    DETERMINISTIC RECOMMENDATIONS
+                  </div>
+                  {(salesEnablementDealerIntel.recommendations || []).length === 0 ? (
+                    <div style={{ fontSize: 14, color: "#64748b" }}>
+                      No recommendation cards for this dealer under current rules.
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+                        gap: 14,
+                      }}
+                    >
+                      {(salesEnablementDealerIntel.recommendations || []).map((rec, ridx) => (
+                        <div
+                          key={`dealer-rec-${ridx}-${rec.title}`}
+                          style={{
+                            borderRadius: 16,
+                            border: "1px solid rgba(30, 58, 138, 0.22)",
+                            background: "#ffffff",
+                            boxShadow: "0 14px 32px rgba(15, 23, 42, 0.08)",
+                            padding: "20px 22px",
+                            display: "grid",
+                            gap: 12,
+                            minHeight: 220,
+                          }}
+                        >
+                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.07em", color: "#64748b" }}>
+                            {rec.cardType?.toUpperCase?.() || "CARD"}
+                          </div>
+                          <div style={{ fontSize: 17, fontWeight: 900, color: "#0f172a", lineHeight: 1.25 }}>
+                            {rec.title}
+                          </div>
+                          {rec.category ? (
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#1e40af" }}>
+                              {rec.category}
+                            </div>
+                          ) : null}
+                          <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.55 }}>
+                            <strong style={{ color: "#0f172a" }}>Why suggested:</strong> {rec.why}
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {rec.spotlightId ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSalesEnablementSpotlightMode(
+                                    rec.spotlightType === "product" ? "product" : "category"
+                                  );
+                                  setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
+                                  setSalesEnablementSelectedId(rec.spotlightId);
+                                }}
+                                style={{
+                                  ...styles.workflowTab,
+                                  ...styles.workflowTabActive,
+                                  textTransform: "none",
+                                  padding: "8px 14px",
+                                  fontSize: 12,
+                                  borderRadius: 10,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Quick spotlight preview
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      marginTop: 4,
+                      padding: "14px 16px",
+                      borderRadius: 12,
+                      border: "1px dashed rgba(100, 116, 139, 0.55)",
+                      background: "#f8fafc",
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#64748b" }}>
+                      FUTURE DELIVERY ACTIONS (PLACEHOLDER)
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                      {["Send Spotlight", "Request Training", "Assign KL University Material"].map((lbl) => (
+                        <button
+                          key={lbl}
+                          type="button"
+                          disabled
+                          title="No automation or email in this phase—these controls reserve UX only."
+                          style={{
+                            ...styles.workflowTab,
+                            textTransform: "none",
+                            padding: "8px 14px",
+                            fontSize: 12,
+                            borderRadius: 10,
+                            opacity: 0.5,
+                            cursor: "not-allowed",
+                          }}
+                        >
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gap: 14 }}>
+                  <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.06em" }}>
+                    TRAINING OPPORTUNITY LIBRARY
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
+                      gap: 14,
+                    }}
+                  >
+                    {DEALER_TRAINING_OPPORTUNITIES.map((train) => {
+                      const matched = (salesEnablementDealerIntel.trainingMatches || []).some(
+                        (m) => m.id === train.id
+                      );
+                      return (
+                        <div
+                          key={train.id}
+                          style={{
+                            borderRadius: 16,
+                            border: matched
+                              ? "2px solid rgba(245, 158, 11, 0.75)"
+                              : "1px solid rgba(148, 163, 184, 0.45)",
+                            background: matched
+                              ? "linear-gradient(160deg, #ffffff 0%, #fffbeb 100%)"
+                              : "#ffffff",
+                            boxShadow: matched
+                              ? "0 16px 34px rgba(245, 158, 11, 0.12)"
+                              : "0 10px 24px rgba(15, 23, 42, 0.06)",
+                            padding: "18px 20px",
+                            display: "grid",
+                            gap: 10,
+                            minHeight: 170,
+                          }}
+                        >
+                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#64748b" }}>
+                            {matched ? "MATCHED PRIORITY" : "REFERENCE MODULE"}
+                          </div>
+                          <div style={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>{train.title}</div>
+                          <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>{train.summary}</div>
+                          <button
+                            type="button"
+                            disabled
+                            title="Assign LMS tracks when KL University integration lands."
+                            style={{
+                              ...styles.workflowTab,
+                              justifySelf: "start",
+                              textTransform: "none",
+                              padding: "7px 12px",
+                              fontSize: 11,
+                              borderRadius: 10,
+                              opacity: 0.52,
+                              cursor: "not-allowed",
+                            }}
+                          >
+                            Queue training (placeholder)
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           <div
