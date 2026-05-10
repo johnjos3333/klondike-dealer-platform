@@ -11011,6 +11011,73 @@ const handleFinishDealerEnrollment = async () => {
             </p>
           </div>
 
+          {(() => {
+            const totalShown = klondikeActionCenterActions.length;
+            let preparedCount = 0;
+            let handledCount = 0;
+            klondikeActionCenterActions.forEach((a) => {
+              const st = klAdminActionCenterCompletionById[a.id];
+              if (st === "prepared") preparedCount += 1;
+              else if (st === "handled") handledCount += 1;
+            });
+            const remainingCount = Math.max(0, totalShown - preparedCount - handledCount);
+            return (
+              <div
+                style={{
+                  marginBottom: 12,
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  background: "rgba(248, 250, 252, 0.98)",
+                  border: "1px solid rgba(226, 232, 240, 0.92)",
+                  boxShadow: "0 4px 14px rgba(15, 23, 42, 0.07)",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: "10px 16px",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 900,
+                    letterSpacing: "0.11em",
+                    color: "#64748b",
+                  }}
+                >
+                  DAILY ACTION SUMMARY · SESSION
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "12px 18px",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: "#334155",
+                  }}
+                >
+                  <span>
+                    <span style={{ color: "#94a3b8", fontWeight: 800 }}>Total </span>
+                    {totalShown}
+                  </span>
+                  <span style={{ color: "#047857" }}>
+                    <span style={{ color: "#94a3b8", fontWeight: 800 }}>Prepared </span>
+                    {preparedCount}
+                  </span>
+                  <span style={{ color: "#2563eb" }}>
+                    <span style={{ color: "#94a3b8", fontWeight: 800 }}>Handled </span>
+                    {handledCount}
+                  </span>
+                  <span style={{ color: "#ea580c" }}>
+                    <span style={{ color: "#94a3b8", fontWeight: 800 }}>Remaining </span>
+                    {remainingCount}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
           {klondikeActionCenterActions.length === 0 ? (
             <div
               style={{
