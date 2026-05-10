@@ -20,7 +20,10 @@ import {
   buildDashboardEnablementAlerts,
   resolvePrimarySpotlightForDealerIntel,
 } from "./utils/buildDashboardEnablementAlerts";
-import { buildKlondikeActionCenterActions } from "./utils/buildKlondikeActionCenterActions";
+import {
+  buildKlAdminActionPlaybookMocks,
+  buildKlondikeActionCenterActions,
+} from "./utils/buildKlondikeActionCenterActions";
 import { computeTerritoryProposalSignals } from "./utils/territoryProposalSignals";
 import { buildSalesEnablementSpotlightEmailPayload } from "./utils/buildSalesEnablementSpotlightEmailPayload";
 import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "./data/salesEnablement/spotlightSuggestionRules";
@@ -6446,6 +6449,18 @@ const handleFinishDealerEnrollment = async () => {
       });
     }
 
+    const defaultPlaybookOrgId = String((dealerNetworkPerformance || [])[0]?.organization_id || "");
+    const playbookMocks = buildKlAdminActionPlaybookMocks({
+      dealerOrgId: defaultPlaybookOrgId,
+    });
+    for (const row of playbookMocks) {
+      if (merged.length >= KL_ADMIN_ACTION_CENTER_LIMIT) break;
+      if (merged.length >= 5) break;
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      merged.push(row);
+    }
+
     return merged.slice(0, KL_ADMIN_ACTION_CENTER_LIMIT).map((ac) => {
       if (ac.kind !== "spotlight" || typeof ac.severityRank === "number") return ac;
       const al = alerts.find((x) => `alert-${x.alertKey}` === ac.id);
@@ -10934,8 +10949,8 @@ const handleFinishDealerEnrollment = async () => {
                 maxWidth: 760,
               }}
             >
-              Top priorities first (up to 18 rows)—scan in minutes, then dive into full territory
-              intelligence below.
+              Klondike surfaces why each item matters and the next move—prioritized up to{" "}
+              {KL_ADMIN_ACTION_CENTER_LIMIT} rows, then deeper intelligence below.
             </p>
           </div>
 
@@ -10959,99 +10974,93 @@ const handleFinishDealerEnrollment = async () => {
             <div
               style={{
                 marginTop: 12,
-                borderRadius: 14,
-                border: "1px solid rgba(226, 232, 240, 0.98)",
-                overflow: "hidden",
-                background: "#ffffff",
-                boxShadow: "0 12px 32px rgba(15, 23, 42, 0.12)",
+                display: "grid",
+                gap: 10,
               }}
             >
-              {klondikeActionCenterActions.map((ac, idx, arr) => {
+              {klondikeActionCenterActions.map((ac) => {
                 const sev =
                   typeof ac.severityRank === "number" ? ac.severityRank : null;
                 const criticalSpotlight = ac.kind === "spotlight" && sev === 0;
-                const surf =
-                  ac.kind === "dealer_activation" || criticalSpotlight
-                    ? {
-                        tag: "Critical",
-                        tagBg: "#fef2f2",
-                        tagColor: "#b91c1c",
-                        bar: "#dc2626",
-                        btn: "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)",
-                        btnBd: "#991b1b",
-                      }
-                    : ac.accent === "orange" || sev === 1
-                      ? {
-                          tag: "High",
-                          tagBg: "#fff7ed",
-                          tagColor: "#c2410c",
-                          bar: "#ea580c",
-                          btn: "linear-gradient(135deg, #ea580c 0%, #c2410c 100%)",
-                          btnBd: "#9a3412",
-                        }
-                      : ac.accent === "green"
-                        ? {
-                            tag: "Watch",
-                            tagBg: "#ecfdf5",
-                            tagColor: "#047857",
-                            bar: "#059669",
-                            btn: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                            btnBd: "#065f46",
-                          }
-                        : {
-                            tag: "Standard",
-                            tagBg: "#eff6ff",
-                            tagColor: "#1d4ed8",
-                            bar: "#2563eb",
-                            btn: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-                            btnBd: "#1e40af",
-                          };
+                let surf;
+                if (ac.kind === "dealer_activation" || criticalSpotlight || sev === 0) {
+                  surf = {
+                    tag: "Critical",
+                    tagBg: "#fef2f2",
+                    tagColor: "#b91c1c",
+                    bar: "#dc2626",
+                  };
+                } else if (sev === 1 || ac.accent === "orange") {
+                  surf = {
+                    tag: "High priority",
+                    tagBg: "#fff7ed",
+                    tagColor: "#c2410c",
+                    bar: "#ea580c",
+                  };
+                } else if (sev === 2 || ac.accent === "green") {
+                  surf = {
+                    tag: "Opportunity",
+                    tagBg: "#eff6ff",
+                    tagColor: "#1d4ed8",
+                    bar: "#2563eb",
+                  };
+                } else if (typeof sev === "number" && sev >= 3) {
+                  surf = {
+                    tag: "Follow-up",
+                    tagBg: "#eff6ff",
+                    tagColor: "#2563eb",
+                    bar: "#3b82f6",
+                  };
+                } else {
+                  surf = {
+                    tag: "Standard",
+                    tagBg: "#eff6ff",
+                    tagColor: "#1d4ed8",
+                    bar: "#2563eb",
+                  };
+                }
+                const whyText = String(ac.why || "").trim();
                 return (
                   <div
                     key={ac.id}
                     style={{
                       display: "flex",
                       flexWrap: "wrap",
-                      gap: 10,
-                      alignItems: "center",
+                      gap: 12,
+                      alignItems: "flex-start",
                       justifyContent: "space-between",
-                      padding: "9px 12px",
-                      borderBottom: idx < arr.length - 1 ? "1px solid rgba(241, 245, 249, 0.95)" : "none",
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(226, 232, 240, 0.98)",
                       borderLeft: `3px solid ${surf.bar}`,
-                      background: idx % 2 === 0 ? "#fafafa" : "#ffffff",
+                      background: "#ffffff",
+                      boxShadow: "0 6px 18px rgba(15, 23, 42, 0.06)",
+                      minWidth: 0,
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 10,
-                        alignItems: "center",
-                        flex: "1 1 260px",
-                        minWidth: 0,
-                      }}
-                    >
-                      <span
-                        style={{
-                          flex: "0 0 auto",
-                          fontSize: 9,
-                          fontWeight: 900,
-                          letterSpacing: "0.12em",
-                          padding: "4px 9px",
-                          borderRadius: 999,
-                          background: surf.tagBg,
-                          color: surf.tagColor,
-                        }}
-                      >
-                        {surf.tag}
-                      </span>
-                      <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+                    <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                        <span
+                          style={{
+                            flex: "0 0 auto",
+                            fontSize: 9,
+                            fontWeight: 900,
+                            letterSpacing: "0.12em",
+                            padding: "4px 9px",
+                            borderRadius: 999,
+                            background: surf.tagBg,
+                            color: surf.tagColor,
+                          }}
+                        >
+                          {surf.tag}
+                        </span>
                         <div
                           style={{
                             fontSize: 13,
                             fontWeight: 900,
                             color: "#0f172a",
                             lineHeight: 1.35,
+                            minWidth: 0,
                           }}
                         >
                           <span style={{ fontWeight: 800, color: "#475569" }}>
@@ -11060,22 +11069,42 @@ const handleFinishDealerEnrollment = async () => {
                           <span style={{ color: "#cbd5e1", margin: "0 5px" }}>—</span>
                           <span>{ac.issue}</span>
                         </div>
+                      </div>
+                      {whyText ? (
                         <div
                           style={{
                             fontSize: 12,
                             color: "#64748b",
-                            marginTop: 3,
-                            lineHeight: 1.4,
+                            marginTop: 8,
+                            lineHeight: 1.45,
                           }}
                         >
-                          <span style={{ fontWeight: 700, color: "#94a3b8" }}>Next:</span>{" "}
-                          <span style={{ color: "#334155", fontWeight: 600 }}>{ac.recommended}</span>
+                          <span style={{ fontWeight: 800, color: "#94a3b8" }}>Why it matters:</span>{" "}
+                          {whyText}
                         </div>
+                      ) : null}
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: "#334155",
+                          marginTop: whyText ? 6 : 8,
+                          lineHeight: 1.45,
+                          fontWeight: 600,
+                        }}
+                      >
+                        <span style={{ fontWeight: 800, color: "#94a3b8" }}>Recommended:</span>{" "}
+                        {ac.recommended}
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => {
+                        if (ac.kind === "workflow_notice") {
+                          setProductStrategyWorkflowNotice(
+                            String(ac.noticeText || "").trim() || "Notification logged (mock)."
+                          );
+                          return;
+                        }
                         if (ac.kind === "spotlight") {
                           openSalesEnablementSpotlightFlow(
                             ac.dealerOrgId,
@@ -11111,15 +11140,15 @@ const handleFinishDealerEnrollment = async () => {
                         flex: "0 0 auto",
                         cursor: "pointer",
                         borderRadius: 10,
-                        padding: "7px 13px",
+                        padding: "8px 14px",
                         fontSize: 12,
                         fontWeight: 900,
                         letterSpacing: "0.02em",
                         color: "#ffffff",
-                        border: `1px solid ${surf.btnBd}`,
-                        background: surf.btn,
+                        border: "1px solid #9a3412",
+                        background: "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
                         boxShadow: "0 6px 14px rgba(15, 23, 42, 0.12)",
-                        alignSelf: "center",
+                        alignSelf: "flex-start",
                       }}
                     >
                       {ac.buttonLabel}

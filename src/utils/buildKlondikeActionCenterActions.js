@@ -2,6 +2,83 @@
  * Prioritized KL Admin dashboard actions from existing session intelligence only.
  */
 
+import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "../data/salesEnablement/spotlightSuggestionRules";
+
+/**
+ * Static coaching archetypes to fill Action Center when live signals are sparse (Phase 72B.5).
+ * Uses existing action kinds + handlers only.
+ */
+export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
+  const oid = String(dealerOrgId || "");
+
+  return [
+    {
+      id: "playbook-dealer-activation-risk",
+      kind: oid ? "dealer_activation" : "dealers_tab",
+      issue: "Dealer activation risk is elevated.",
+      scope: "Territory",
+      why: "Orgs stuck before the first quote burn runway and skew funnel math.",
+      recommended: "Target the slowest onboarding lanes before rolling wider campaigns.",
+      buttonLabel: "Review Dealer",
+      accent: "orange",
+      dealerOrgId: oid || undefined,
+      severityRank: 1,
+    },
+    {
+      id: "playbook-weak-grease-adoption",
+      kind: "spotlight",
+      issue: "Weak grease adoption versus territory potential.",
+      scope: "Category · Grease",
+      why: "PM intervals and attach SKUs slip when grease stays optional in conversations.",
+      recommended: "Deploy the grease program spotlight with bundled PM talking points.",
+      buttonLabel: "Send Spotlight",
+      accent: "orange",
+      dealerOrgId: oid,
+      spotlightId: CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY.Grease,
+      spotlightType: "category",
+      severityRank: 2,
+    },
+    {
+      id: "playbook-low-ocr-usage",
+      kind: "workflow_notice",
+      issue: "Low OCR usage limits competitive visibility.",
+      scope: "Territory",
+      why: "Without label scans, reps guess on swap-outs while competitors hide blind spots.",
+      recommended: "Ask managers to mandate scans on competitive bids this week.",
+      buttonLabel: "Notify Manager",
+      accent: "blue",
+      noticeText:
+        "Notify manager (mock): prioritize OCR scans on competitive bids — automation comes later.",
+      severityRank: 2,
+    },
+    {
+      id: "playbook-synthetic-conversion",
+      kind: "spotlight",
+      issue: "Synthetic conversion opportunity on approved demand.",
+      scope: "Category · Synthetic",
+      why: "Premium mix lifts margin when fleets accept OEM-aligned upgrades.",
+      recommended: "Push synthetic upgrade positioning before price concessions.",
+      buttonLabel: "Send Spotlight",
+      accent: "orange",
+      dealerOrgId: oid,
+      spotlightId: "cs-synthetic-upgrade",
+      spotlightType: "category",
+      severityRank: 2,
+    },
+    {
+      id: "playbook-training-followup",
+      kind: "sales_enablement",
+      issue: "Training follow-up needed after recent spotlights.",
+      scope: "Territory enablement",
+      why: "Reps retain narratives when reinforcement lands within a tight window of sends.",
+      recommended: "Queue a walkthrough tied to last week's spotlight themes.",
+      buttonLabel: "Request Training",
+      accent: "blue",
+      severityRank: 3,
+    },
+  ];
+}
+
 function activationGapForDealer(dealer) {
   const a = dealer?.activation;
   if (!a) return null;
