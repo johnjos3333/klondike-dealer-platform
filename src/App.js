@@ -4553,6 +4553,8 @@ useEffect(() => {
   ]);
   /** Phase 73.18 — Staged knowledge → template preview only (session/local; not send payload). */
   const [seKnowledgeStagedTemplateSnapshot, setSeKnowledgeStagedTemplateSnapshot] = useState(null);
+  /** Phase 73.20 — Guided mock labels from Knowledge Apply (preview only; never send payloads). */
+  const [seGuidedKnowledgePreviewMock, setSeGuidedKnowledgePreviewMock] = useState(null);
   /** Enablement Library subsection: product/category browsers, customer profile placeholders, training catalog. */
   const [salesEnablementLibraryTab, setSalesEnablementLibraryTab] = useState("product");
   const [salesEnablementRecipientPreview, setSalesEnablementRecipientPreview] = useState(null);
@@ -10355,6 +10357,15 @@ const handleFinishDealerEnrollment = async () => {
               !salesEnablementDealerOrgId ? 1 : !salesEnablementSelectedId ? 2 : salesEnablementSendPanelOpen ? 4 : 3;
             const guidedMockProductLabel =
               SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.find((o) => o.id === seGuidedMockProductImageId)?.label || "—";
+            const guidedPreviewProductLabel =
+              (seGuidedKnowledgePreviewMock?.mockProductLabel &&
+                String(seGuidedKnowledgePreviewMock.mockProductLabel).trim()) ||
+              guidedMockProductLabel;
+            const guidedPreviewSpotlightContext = seGuidedKnowledgePreviewMock?.spotlightContextLine
+              ? String(seGuidedKnowledgePreviewMock.spotlightContextLine)
+              : salesEnablementGuidedTemplateLines.spotlightTitle
+                ? String(salesEnablementGuidedTemplateLines.spotlightTitle).slice(0, 52)
+                : "none selected";
             const kTplSnap = seKnowledgeStagedTemplateSnapshot?.snapshot;
             const kTplSp =
               kTplSnap?.spotlight && typeof kTplSnap.spotlight === "object" ? kTplSnap.spotlight : null;
@@ -10882,6 +10893,22 @@ const handleFinishDealerEnrollment = async () => {
                         )}
 
                         <div style={{ padding: "16px 18px 18px", display: "grid", gap: 16 }}>
+                          {seGuidedKnowledgePreviewMock ? (
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                letterSpacing: "0.06em",
+                                color: "#64748b",
+                                padding: "8px 10px",
+                                borderRadius: 8,
+                                background: "#f8fafc",
+                                border: "1px solid rgba(226, 232, 240, 0.98)",
+                              }}
+                            >
+                              Applied to preview · send workflow unchanged
+                            </div>
+                          ) : null}
                           {seTplStagedKnowledge ? (
                             <div
                               style={{
@@ -10915,7 +10942,10 @@ const handleFinishDealerEnrollment = async () => {
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() => setSeKnowledgeStagedTemplateSnapshot(null)}
+                                  onClick={() => {
+                                    setSeKnowledgeStagedTemplateSnapshot(null);
+                                    setSeGuidedKnowledgePreviewMock(null);
+                                  }}
                                   style={{
                                     cursor: "pointer",
                                     border: "none",
@@ -11024,16 +11054,13 @@ const handleFinishDealerEnrollment = async () => {
                                 PRODUCT IMAGE PLACEHOLDER
                               </div>
                               <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", textAlign: "center" }}>
-                                {guidedMockProductLabel}
+                                {guidedPreviewProductLabel}
                               </div>
                               <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textAlign: "center" }}>
                                 Mock asset · preview label only · no file upload
                               </div>
                               <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", textAlign: "center" }}>
-                                Spotlight context:{" "}
-                                {salesEnablementGuidedTemplateLines.spotlightTitle
-                                  ? String(salesEnablementGuidedTemplateLines.spotlightTitle).slice(0, 52)
-                                  : "none selected"}
+                                Spotlight context: {guidedPreviewSpotlightContext}
                               </div>
                             </div>
                           ) : null}
@@ -11273,7 +11300,7 @@ const handleFinishDealerEnrollment = async () => {
                                 >
                                   <span aria-hidden>🖼</span>
                                   <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
-                                    Product hero · {guidedMockProductLabel}
+                                    Product hero · {guidedPreviewProductLabel}
                                   </span>
                                 </span>
                               ) : null}
@@ -11611,6 +11638,56 @@ const handleFinishDealerEnrollment = async () => {
                             seKnowledgePreviewType === "category"
                               ? seKnowledgeCategoryOverlayId
                               : seKnowledgeProductOverlayId;
+                          const keSp = seKnowledgeEnginePreview?.spotlight;
+                          if (keSp && typeof keSp === "object") {
+                            const isCat = seKnowledgePreviewType === "category";
+                            const p1 = isCat
+                              ? String(keSp.title || "").trim()
+                              : String(keSp.productName || "").trim();
+                            const p2 = String(keSp.categoryTitle || "").trim();
+                            const mockProductLabel = [p1, p2].filter(Boolean).join(" · ").slice(0, 72) || p1 || "—";
+                            const spotlightContextLine = (isCat ? p1 || p2 : p1 || p2).slice(0, 52);
+                            setSeGuidedKnowledgePreviewMock({ mockProductLabel, spotlightContextLine });
+                          } else {
+                            setSeGuidedKnowledgePreviewMock(null);
+                          }
+                          try {
+                            setSeKnowledgeStagedTemplateSnapshot({
+                              sourceType: seKnowledgePreviewType,
+                              overlayId: overlayIdForStage,
+                              customerProfileId: seKnowledgeCustomerProfileId,
+                              snapshot: JSON.parse(JSON.stringify(seKnowledgeEnginePreview)),
+                            });
+                          } catch {
+                            setSeKnowledgeStagedTemplateSnapshot({
+                              sourceType: seKnowledgePreviewType,
+                              overlayId: overlayIdForStage,
+                              customerProfileId: seKnowledgeCustomerProfileId,
+                              snapshot: { ...seKnowledgeEnginePreview },
+                            });
+                          }
+                        }}
+                        style={{
+                          cursor: "pointer",
+                          borderRadius: 10,
+                          padding: "9px 14px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          border: "1px solid rgba(14, 165, 233, 0.45)",
+                          background: "linear-gradient(135deg, #ecfeff 0%, #e0f2fe 100%)",
+                          color: "#0c4a6e",
+                        }}
+                      >
+                        Apply to guided preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSeGuidedKnowledgePreviewMock(null);
+                          const overlayIdForStage =
+                            seKnowledgePreviewType === "category"
+                              ? seKnowledgeCategoryOverlayId
+                              : seKnowledgeProductOverlayId;
                           try {
                             setSeKnowledgeStagedTemplateSnapshot({
                               sourceType: seKnowledgePreviewType,
@@ -11642,7 +11719,10 @@ const handleFinishDealerEnrollment = async () => {
                       </button>
                       <button
                         type="button"
-                        onClick={() => setSeKnowledgeStagedTemplateSnapshot(null)}
+                        onClick={() => {
+                          setSeKnowledgeStagedTemplateSnapshot(null);
+                          setSeGuidedKnowledgePreviewMock(null);
+                        }}
                         disabled={!seKnowledgeStagedTemplateSnapshot}
                         style={{
                           cursor: seKnowledgeStagedTemplateSnapshot ? "pointer" : "not-allowed",
