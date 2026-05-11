@@ -22,6 +22,7 @@
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",
     "validate:sales-enablement": "node src/data/salesEnablement/runKnowledgeValidation.js",
+    "test:sales-enablement": "npm run validate:sales-enablement && npm run test:sales-enablement-composer && npm run test:sales-enablement-category-composer",
     "demo:sales-enablement-composer": "node src/data/salesEnablement/runComposerDemo.js",
     "test:sales-enablement-composer": "node src/data/salesEnablement/runComposerSmokeTests.js",
     "demo:sales-enablement-category-composer": "node src/data/salesEnablement/runCategoryComposerDemo.js",
