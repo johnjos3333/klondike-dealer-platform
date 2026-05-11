@@ -456,6 +456,15 @@ const KL_ADMIN_DEMO_LIVE_CONTESTS = [
   },
 ];
 
+/** Phase 72C.3 — mock product image picks for Sales Enablement preview only (no upload / no email attach). */
+const SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS = [
+  { id: "nano_ep2_grease", label: "Nano EP 2 Grease" },
+  { id: "hydraulic_fluids", label: "Hydraulic Fluids" },
+  { id: "synthetic_engine_oil", label: "Synthetic Engine Oil" },
+  { id: "universal_tractor_fluid", label: "Universal Tractor Fluid" },
+  { id: "atf_transmission", label: "ATF / Transmission Fluid" },
+];
+
 /** Sum booked revenue from dealer leaderboard rows for a rep name (session data only). */
 function sumRepBookedRevenueFromDealers(dealers, repName) {
   const target = String(repName || "").trim();
@@ -4502,6 +4511,9 @@ useEffect(() => {
   /** Phase 72C.1 — guided workspace mock preview toggles (local UI only). */
   const [seGuidedIncludeBranding, setSeGuidedIncludeBranding] = useState(true);
   const [seGuidedIncludeProductImage, setSeGuidedIncludeProductImage] = useState(false);
+  const [seGuidedMockProductImageId, setSeGuidedMockProductImageId] = useState(
+    () => SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS[0]?.id || "nano_ep2_grease"
+  );
   const [seGuidedAttachPds, setSeGuidedAttachPds] = useState(true);
   const [seGuidedStageDraft, setSeGuidedStageDraft] = useState(true);
   /** Enablement Library subsection: product/category browsers, customer profile placeholders, training catalog. */
@@ -10267,6 +10279,8 @@ const handleFinishDealerEnrollment = async () => {
           {(() => {
             const guidedStep =
               !salesEnablementDealerOrgId ? 1 : !salesEnablementSelectedId ? 2 : salesEnablementSendPanelOpen ? 4 : 3;
+            const guidedMockProductLabel =
+              SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.find((o) => o.id === seGuidedMockProductImageId)?.label || "—";
             const stepChip = (n, label) => {
               const active = guidedStep === n;
               const done = guidedStep > n;
@@ -10563,6 +10577,58 @@ const handleFinishDealerEnrollment = async () => {
                       <p style={{ margin: "6px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
                         These toggles only reshape the preview—delivery still flows through Prepare Send / Send Spotlight when you enable it.
                       </p>
+
+                      <div
+                        style={{
+                          marginTop: 12,
+                          paddingTop: 14,
+                          borderTop: "1px solid rgba(226, 232, 240, 0.95)",
+                          display: "grid",
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: "#475569" }}>
+                          PRODUCT IMAGE (MOCK LIBRARY)
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 8,
+                            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 140px), 1fr))",
+                          }}
+                        >
+                          {SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.map((opt) => {
+                            const active = seGuidedMockProductImageId === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setSeGuidedMockProductImageId(opt.id)}
+                                style={{
+                                  cursor: "pointer",
+                                  textAlign: "left",
+                                  borderRadius: 10,
+                                  padding: "8px 10px",
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  lineHeight: 1.35,
+                                  border: active
+                                    ? "2px solid rgba(234, 88, 12, 0.85)"
+                                    : "1px solid rgba(203, 213, 225, 0.95)",
+                                  background: active ? "#fff7ed" : "#ffffff",
+                                  color: active ? "#9a3412" : "#334155",
+                                  boxShadow: active ? "0 4px 12px rgba(234, 88, 12, 0.12)" : "none",
+                                }}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", lineHeight: 1.45 }}>
+                          Image selection is preview-only until asset library is connected.
+                        </p>
+                      </div>
                     </div>
 
                     <div
@@ -10682,10 +10748,17 @@ const handleFinishDealerEnrollment = async () => {
                               <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8", letterSpacing: "0.06em" }}>
                                 PRODUCT IMAGE PLACEHOLDER
                               </div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textAlign: "center" }}>
+                              <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", textAlign: "center" }}>
+                                {guidedMockProductLabel}
+                              </div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textAlign: "center" }}>
+                                Mock asset · preview label only · no file upload
+                              </div>
+                              <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", textAlign: "center" }}>
+                                Spotlight context:{" "}
                                 {salesEnablementGuidedTemplateLines.spotlightTitle
-                                  ? String(salesEnablementGuidedTemplateLines.spotlightTitle).slice(0, 56)
-                                  : "Hero asset slots here after creative approval"}
+                                  ? String(salesEnablementGuidedTemplateLines.spotlightTitle).slice(0, 52)
+                                  : "none selected"}
                               </div>
                             </div>
                           ) : null}
@@ -10826,6 +10899,7 @@ const handleFinishDealerEnrollment = async () => {
                               )}
                               {seGuidedIncludeProductImage ? (
                                 <span
+                                  title="Preview-only mock selection—not attached to outbound email."
                                   style={{
                                     display: "inline-flex",
                                     alignItems: "center",
@@ -10838,10 +10912,13 @@ const handleFinishDealerEnrollment = async () => {
                                     color: "#c2410c",
                                     border: "1px solid rgba(251, 146, 60, 0.42)",
                                     boxShadow: "0 2px 6px rgba(234, 88, 12, 0.1)",
+                                    maxWidth: "100%",
                                   }}
                                 >
                                   <span aria-hidden>🖼</span>
-                                  Product hero · image
+                                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                    Product hero · {guidedMockProductLabel}
+                                  </span>
                                 </span>
                               ) : null}
                               {salesEnablementGuidedTemplateLines.trainingAttachmentSuggested ? (
