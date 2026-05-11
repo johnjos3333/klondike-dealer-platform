@@ -152,6 +152,502 @@ function formatKlAdminMessageComposerMockNotice({ recipient, subject, purpose, n
   return lines.join("\n");
 }
 
+/** Phase 72B.16 — KL Admin dashboard demo slice only (no persistence). */
+function buildAdminTerritoryPerformanceRollupFromDealers(
+  dealersInput,
+  totalOcrScansIn,
+  adminRepLeaderboardFoundation
+) {
+  const dealers = Array.isArray(dealersInput) ? dealersInput : [];
+  const totalDealers = dealers.length;
+  const totalQuotesCreated = dealers.reduce(
+    (sum, dealer) => sum + Number(dealer?.quotesCreated || 0),
+    0
+  );
+  const totalProposalsSent = dealers.reduce(
+    (sum, dealer) => sum + Number(dealer?.proposalsSent || 0),
+    0
+  );
+  const totalCustomerResponses = dealers.reduce(
+    (sum, dealer) => sum + Number(dealer?.customerResponses || 0),
+    0
+  );
+  const hasApprovedRevenueData = dealers.some((dealer) =>
+    Number.isFinite(Number(dealer?.revenueWon))
+  );
+  const approvedRevenue = hasApprovedRevenueData
+    ? dealers.reduce((sum, dealer) => sum + Number(dealer?.revenueWon || 0), 0)
+    : null;
+  const totalOcrScans = Number(totalOcrScansIn || 0);
+  const mostActiveDealer = dealers.reduce((best, dealer) => {
+    const activityScore =
+      Number(dealer?.quotesCreated || 0) +
+      Number(dealer?.proposalsSent || 0) +
+      Number(dealer?.customerResponses || 0);
+    if (!best || activityScore > best.activityScore) {
+      return {
+        name: String(dealer?.name || "").trim(),
+        activityScore,
+      };
+    }
+    return best;
+  }, null);
+  const mostActiveRep = Array.isArray(adminRepLeaderboardFoundation?.rows)
+    ? adminRepLeaderboardFoundation.rows[0] || null
+    : null;
+  const hasActivityData =
+    totalDealers > 0 ||
+    totalQuotesCreated > 0 ||
+    totalProposalsSent > 0 ||
+    totalCustomerResponses > 0 ||
+    totalOcrScans > 0;
+  let executiveSummary = "";
+  if (hasActivityData && totalProposalsSent > 0 && totalCustomerResponses > 0) {
+    executiveSummary =
+      "Field activity and proposal engagement continue to expand across the territory.";
+  } else if (hasActivityData && totalQuotesCreated > 0) {
+    executiveSummary =
+      "Dealer quote activity is building momentum across the territory network.";
+  } else if (hasActivityData && totalOcrScans > 0) {
+    executiveSummary =
+      "OCR field scanning activity is increasing and improving territory visibility.";
+  }
+  return {
+    hasActivityData,
+    totalDealers,
+    totalQuotesCreated,
+    totalProposalsSent,
+    totalCustomerResponses,
+    totalOcrScans,
+    hasApprovedRevenueData,
+    approvedRevenue,
+    mostActiveDealerName:
+      Number(mostActiveDealer?.activityScore || 0) > 0 ? mostActiveDealer?.name || "" : "",
+    mostActiveRepName:
+      Number(mostActiveRep?.activityCount || 0) > 0 ? mostActiveRep?.name || "" : "",
+    executiveSummary,
+  };
+}
+
+const KL_ADMIN_DEMO_DEALERS = [
+  {
+    organization_id: "demo-kl-prairie-industrial",
+    name: "Prairie Industrial Supply Ltd.",
+    slug: "prairie-industrial-demo",
+    quotesCreated: 58,
+    proposalsSent: 36,
+    customerResponses: 19,
+    revenueWon: 214500,
+    approvalRate: 46,
+    teamMembers: 9,
+    productMix: [
+      { name: "Heavy Duty", count: 41 },
+      { name: "Hydraulic Fluids", count: 28 },
+      { name: "Synthetic", count: 17 },
+      { name: "Grease", count: 14 },
+      { name: "Transmission Fluids", count: 9 },
+    ],
+    activation: {
+      profilesQueryOk: true,
+      profileConfigured: true,
+      logoUploaded: true,
+      hasDealerAdmin: true,
+      hasManager: true,
+      repsAssigned: true,
+      firstQuoteCreated: true,
+      firstProposalSent: true,
+      customerProposalViewed: true,
+      customerResponseReceived: true,
+      approvedDemandGenerated: true,
+      inventoryAlertsActive: true,
+      ocrScanStarted: true,
+      ocrQueryOk: true,
+      proposalViewsQueryOk: true,
+    },
+    leaderboard: [
+      { name: "S. Whitmore", quotes: 22, proposals: 14, responses: 8, revenue: 86200 },
+      { name: "T. Okonkwo", quotes: 18, proposals: 11, responses: 6, revenue: 62400 },
+    ],
+  },
+  {
+    organization_id: "demo-kl-red-deer-fleet",
+    name: "Red Deer Fleet & Truck Centre",
+    slug: "red-deer-fleet-demo",
+    quotesCreated: 14,
+    proposalsSent: 5,
+    customerResponses: 2,
+    revenueWon: 46800,
+    approvalRate: 33,
+    teamMembers: 5,
+    productMix: [
+      { name: "Heavy Duty", count: 11 },
+      { name: "Hydraulic Fluids", count: 6 },
+      { name: "Grease", count: 3 },
+      { name: "Synthetic", count: 4 },
+    ],
+    activation: {
+      profilesQueryOk: true,
+      profileConfigured: true,
+      logoUploaded: false,
+      hasDealerAdmin: true,
+      hasManager: false,
+      repsAssigned: true,
+      firstQuoteCreated: true,
+      firstProposalSent: false,
+      customerProposalViewed: false,
+      customerResponseReceived: true,
+      approvedDemandGenerated: true,
+      inventoryAlertsActive: true,
+      ocrScanStarted: false,
+      ocrQueryOk: true,
+      proposalViewsQueryOk: true,
+    },
+    leaderboard: [{ name: "M. Singh", quotes: 9, proposals: 3, responses: 1, revenue: 21400 }],
+  },
+  {
+    organization_id: "demo-kl-fort-mac-logistics",
+    name: "Fort Mac Logistics & Equipment",
+    slug: "fort-mac-logistics-demo",
+    quotesCreated: 31,
+    proposalsSent: 22,
+    customerResponses: 11,
+    revenueWon: 128900,
+    approvalRate: 52,
+    teamMembers: 7,
+    productMix: [
+      { name: "Heavy Duty", count: 24 },
+      { name: "Synthetic", count: 19 },
+      { name: "Hydraulic Fluids", count: 14 },
+      { name: "Grease", count: 6 },
+    ],
+    activation: {
+      profilesQueryOk: true,
+      profileConfigured: true,
+      logoUploaded: true,
+      hasDealerAdmin: true,
+      hasManager: true,
+      repsAssigned: true,
+      firstQuoteCreated: true,
+      firstProposalSent: true,
+      customerProposalViewed: true,
+      customerResponseReceived: true,
+      approvedDemandGenerated: true,
+      inventoryAlertsActive: true,
+      ocrScanStarted: true,
+      ocrQueryOk: true,
+      proposalViewsQueryOk: true,
+    },
+    leaderboard: [
+      { name: "K. Mensah", quotes: 15, proposals: 10, responses: 5, revenue: 58200 },
+      { name: "R. Dubois", quotes: 11, proposals: 8, responses: 4, revenue: 44100 },
+    ],
+  },
+  {
+    organization_id: "demo-kl-calgary-jobbers",
+    name: "Calgary Jobbers Cooperative",
+    slug: "calgary-jobbers-demo",
+    quotesCreated: 0,
+    proposalsSent: 0,
+    customerResponses: 0,
+    revenueWon: 0,
+    approvalRate: 0,
+    teamMembers: 4,
+    productMix: [],
+    activation: {
+      profilesQueryOk: true,
+      profileConfigured: true,
+      logoUploaded: true,
+      hasDealerAdmin: true,
+      hasManager: true,
+      repsAssigned: false,
+      firstQuoteCreated: false,
+      firstProposalSent: false,
+      customerProposalViewed: false,
+      customerResponseReceived: false,
+      approvedDemandGenerated: false,
+      inventoryAlertsActive: false,
+      ocrScanStarted: false,
+      ocrQueryOk: true,
+      proposalViewsQueryOk: true,
+    },
+    leaderboard: [],
+  },
+];
+
+const KL_ADMIN_DEMO_INVENTORY_MODEL = {
+  hasData: true,
+  totalApprovedUnits: 12680,
+  syntheticSharePct: 23,
+  unitsLast14d: 4180,
+  unitsPrior14d: 3620,
+  velocityPerDay7d: 412,
+  velocityPerDay14d: 385,
+  largePackShareRecent: 61,
+  totalApprovedLines: 284,
+  distinctSkus: 168,
+  activeDealersWithDemand: 4,
+  toteRecent: 920,
+  totePrior: 780,
+  acceleratingSkus: [
+    { sku: "KL-HYD-AW-46", label: "Premium AW hydraulic (bulk)" },
+    { sku: "KL-SYN-5W40", label: "Full synthetic CK-4 heavy duty" },
+  ],
+  insights: [
+    "Hydraulic velocity is ahead of prior period in Prairie routes—align AW ISO VG stocking before peak construction demand.",
+    "Synthetic share on approved demand trails benchmark; OEM refresh cycles on fleet accounts warrant upgrade positioning.",
+    "Grease line density remains below attach targets—pair PM bundles with high-frequency chassis grease SKUs.",
+  ],
+  topSkus: [],
+  packageTrendRows: [],
+  categoryRows: [],
+  packageRows: [],
+  dealerConcentration: [],
+};
+
+const KL_ADMIN_DEMO_PROPOSAL_SIGNALS = {
+  proposalsSent: 63,
+  responsesReceived: 34,
+  approvedLines: 94,
+  declinedLines: 17,
+  decisionsTotal: 51,
+  approvalRatioPercent: 57,
+  categoryDecisions: {
+    "Heavy Duty": { approved: 28, declined: 9 },
+    Grease: { approved: 11, declined: 8 },
+    "Hydraulic Fluids": { approved: 18, declined: 4 },
+    Synthetic: { approved: 14, declined: 3 },
+    Other: { approved: 8, declined: 3 },
+  },
+};
+
+const KL_ADMIN_DEMO_LIVE_CONTESTS = [
+  {
+    id: "demo-contest-grease-momentum",
+    title: "Grease attach acceleration · field sprint",
+    metricKey: "grease_sales",
+    startDate: "2026-05-01",
+    endDate: "2026-05-31",
+    prize: "Territory SPIFF pool",
+    status: "live",
+    qualMinUnits: 12,
+    scopeType: "territory",
+  },
+  {
+    id: "demo-contest-proposal-discipline",
+    title: "Proposal discipline · outbound cadence",
+    metricKey: "proposal_activity",
+    startDate: "2026-05-01",
+    endDate: "2026-06-30",
+    prize: "Enablement workshop seats",
+    status: "live",
+    qualMinProposals: 28,
+    scopeType: "territory",
+  },
+  {
+    id: "demo-contest-approved-demand",
+    title: "Approved demand intelligence · inventory alignment",
+    metricKey: "approved_demand",
+    startDate: "2026-05-01",
+    endDate: "2026-09-30",
+    prize: "Demand planning review with HQ",
+    status: "live",
+    qualMinApprovedDemand: 6000,
+    scopeType: "territory",
+  },
+];
+
+/** Sum booked revenue from dealer leaderboard rows for a rep name (session data only). */
+function sumRepBookedRevenueFromDealers(dealers, repName) {
+  const target = String(repName || "").trim();
+  let sum = 0;
+  (Array.isArray(dealers) ? dealers : []).forEach((d) => {
+    (Array.isArray(d?.leaderboard) ? d.leaderboard : []).forEach((r) => {
+      if (String(r?.name || "").trim() === target) sum += Number(r?.revenue || 0);
+    });
+  });
+  return sum;
+}
+
+/** Phase 72B.17 — dashboard Top 10 fallback when rep leaderboard is sparse (not incentive scoring). */
+const KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS = [
+  {
+    rank: 1,
+    name: "S. Whitmore",
+    dealer: "Prairie Industrial Supply Ltd.",
+    proposals: 14,
+    approvedLabel: "$86,200 booked",
+    approvalPct: 57,
+    coaching: "Overall territory leader—sustain synthetic + hydraulic attach on fleet renewals.",
+  },
+  {
+    rank: 2,
+    name: "K. Mensah",
+    dealer: "Fort Mac Logistics & Equipment",
+    proposals: 10,
+    approvedLabel: "3.8k approved units (demand)",
+    approvalPct: 55,
+    coaching: "Strong approved-demand capture—tighten grease line density on mixed fleets.",
+  },
+  {
+    rank: 3,
+    name: "T. Okonkwo",
+    dealer: "Prairie Industrial Supply Ltd.",
+    proposals: 11,
+    approvedLabel: "$62,400 booked",
+    approvalPct: 48,
+    coaching: "Proposal velocity high—focus customer decision follow-through within 48h.",
+  },
+  {
+    rank: 4,
+    name: "R. Dubois",
+    dealer: "Fort Mac Logistics & Equipment",
+    proposals: 8,
+    approvedLabel: "$44,100 booked",
+    approvalPct: 50,
+    coaching: "Hydraulic growth signal—pair AW ISO VG story with bulk stocking.",
+  },
+  {
+    rank: 5,
+    name: "M. Singh",
+    dealer: "Red Deer Fleet & Truck Centre",
+    proposals: 3,
+    approvedLabel: "$21,400 booked",
+    approvalPct: 33,
+    coaching: "Activation risk pocket—convert quotes to proposals before expanding campaigns.",
+  },
+  {
+    rank: 6,
+    name: "J. Caron",
+    dealer: "Grande Prairie Truck & Trailer",
+    proposals: 9,
+    approvedLabel: "1.1k approved units (demand)",
+    approvalPct: 44,
+    coaching: "OCR utilization below peers—mandate scans on competitive counter bids.",
+  },
+  {
+    rank: 7,
+    name: "L. Patel",
+    dealer: "Lloydminster Industrial Fluids",
+    proposals: 7,
+    approvedLabel: "$38,600 booked",
+    approvalPct: 41,
+    coaching: "Training follow-up: reinforce CK-4 positioning with fleet maintenance managers.",
+  },
+  {
+    rank: 8,
+    name: "E. Forsyth",
+    dealer: "Medicine Hat Jobbers Co-op",
+    proposals: 6,
+    approvedLabel: "$29,200 booked",
+    approvalPct: 38,
+    coaching: "Grease penetration lagging—bundle PM chassis packs with HD engine quotes.",
+  },
+  {
+    rank: 9,
+    name: "N. Berube",
+    dealer: "Red Deer Fleet & Truck Centre",
+    proposals: 5,
+    approvedLabel: "$18,900 booked",
+    approvalPct: 40,
+    coaching: "Proposal discipline opportunity—stage outbound before scaling enablement sends.",
+  },
+  {
+    rank: 10,
+    name: "H. Okada",
+    dealer: "Calgary Jobbers Cooperative",
+    proposals: 0,
+    approvedLabel: "—",
+    approvalPct: 0,
+    coaching: "No logged proposals yet—prioritize first outbound win before contest overlays.",
+  },
+];
+
+/**
+ * Phase 72B.17 — Product Strategy incentive leaderboard fallback (contest-weighted points only).
+ * Shape matches adminIncentiveLeaderboardFoundation rows for existing UI.
+ */
+function buildKlIncentiveLeaderboardDemoRows(metricKey) {
+  const mk = String(metricKey || "");
+  const row = (name, dealer, quotes, proposals, responses, ocrScans, activityPoints) => ({
+    name,
+    dealer,
+    quotes,
+    proposals,
+    responses,
+    ocrScans,
+    activityPoints,
+  });
+  if (mk === "grease_sales") {
+    return [
+      row("S. Whitmore", "Prairie Industrial Supply Ltd.", 24, 14, 9, 14, 462),
+      row("K. Mensah", "Fort Mac Logistics & Equipment", 18, 11, 7, 11, 384),
+      row("R. Dubois", "Fort Mac Logistics & Equipment", 16, 9, 6, 9, 332),
+      row("T. Okonkwo", "Prairie Industrial Supply Ltd.", 20, 10, 6, 10, 328),
+      row("L. Patel", "Lloydminster Industrial Fluids", 14, 8, 5, 8, 284),
+      row("E. Forsyth", "Medicine Hat Jobbers Co-op", 12, 7, 4, 6, 248),
+    ];
+  }
+  if (mk === "synthetic_conversions") {
+    return [
+      row("K. Mensah", "Fort Mac Logistics & Equipment", 19, 12, 8, 10, 448),
+      row("S. Whitmore", "Prairie Industrial Supply Ltd.", 21, 13, 8, 12, 446),
+      row("R. Dubois", "Fort Mac Logistics & Equipment", 17, 10, 7, 9, 376),
+      row("T. Okonkwo", "Prairie Industrial Supply Ltd.", 18, 11, 7, 11, 368),
+      row("J. Caron", "Grande Prairie Truck & Trailer", 15, 9, 6, 8, 316),
+      row("M. Singh", "Red Deer Fleet & Truck Centre", 11, 6, 4, 5, 252),
+    ];
+  }
+  if (mk === "proposal_activity") {
+    return [
+      row("S. Whitmore", "Prairie Industrial Supply Ltd.", 22, 16, 9, 12, 472),
+      row("T. Okonkwo", "Prairie Industrial Supply Ltd.", 20, 14, 8, 11, 428),
+      row("K. Mensah", "Fort Mac Logistics & Equipment", 18, 13, 8, 10, 412),
+      row("R. Dubois", "Fort Mac Logistics & Equipment", 16, 11, 7, 9, 368),
+      row("L. Patel", "Lloydminster Industrial Fluids", 14, 10, 6, 8, 336),
+      row("J. Caron", "Grande Prairie Truck & Trailer", 13, 9, 5, 8, 304),
+    ];
+  }
+  if (mk === "approved_demand") {
+    return [
+      row("K. Mensah", "Fort Mac Logistics & Equipment", 17, 12, 9, 10, 468),
+      row("S. Whitmore", "Prairie Industrial Supply Ltd.", 20, 13, 9, 12, 454),
+      row("R. Dubois", "Fort Mac Logistics & Equipment", 16, 11, 8, 9, 402),
+      row("T. Okonkwo", "Prairie Industrial Supply Ltd.", 18, 11, 8, 11, 396),
+      row("L. Patel", "Lloydminster Industrial Fluids", 15, 10, 7, 8, 358),
+      row("E. Forsyth", "Medicine Hat Jobbers Co-op", 13, 8, 6, 7, 302),
+    ];
+  }
+  if (mk === "ocr_activity") {
+    return [
+      row("S. Whitmore", "Prairie Industrial Supply Ltd.", 20, 12, 7, 28, 398),
+      row("J. Caron", "Grande Prairie Truck & Trailer", 16, 9, 6, 24, 342),
+      row("T. Okonkwo", "Prairie Industrial Supply Ltd.", 18, 10, 6, 22, 332),
+      row("K. Mensah", "Fort Mac Logistics & Equipment", 17, 10, 7, 20, 324),
+      row("R. Dubois", "Fort Mac Logistics & Equipment", 15, 9, 6, 18, 306),
+      row("L. Patel", "Lloydminster Industrial Fluids", 14, 8, 5, 16, 278),
+    ];
+  }
+  if (mk === "revenue_booked") {
+    return [
+      row("S. Whitmore", "Prairie Industrial Supply Ltd.", 22, 14, 9, 12, 444),
+      row("K. Mensah", "Fort Mac Logistics & Equipment", 19, 12, 8, 10, 420),
+      row("R. Dubois", "Fort Mac Logistics & Equipment", 17, 11, 7, 9, 384),
+      row("T. Okonkwo", "Prairie Industrial Supply Ltd.", 20, 11, 7, 11, 374),
+      row("L. Patel", "Lloydminster Industrial Fluids", 16, 10, 6, 8, 340),
+      row("J. Caron", "Grande Prairie Truck & Trailer", 15, 9, 5, 8, 304),
+    ];
+  }
+  /* category_growth / hydraulic-style territory push */
+  return [
+    row("S. Whitmore", "Prairie Industrial Supply Ltd.", 23, 14, 9, 13, 458),
+    row("K. Mensah", "Fort Mac Logistics & Equipment", 19, 12, 8, 11, 424),
+    row("R. Dubois", "Fort Mac Logistics & Equipment", 17, 11, 7, 10, 392),
+    row("T. Okonkwo", "Prairie Industrial Supply Ltd.", 19, 11, 7, 11, 376),
+    row("J. Caron", "Grande Prairie Truck & Trailer", 15, 10, 6, 9, 344),
+    row("L. Patel", "Lloydminster Industrial Fluids", 14, 9, 6, 8, 318),
+  ];
+}
+
 function TerritoryIncentiveReadOnlyCard({
   title,
   metricLabel,
@@ -5886,6 +6382,7 @@ const handleFinishDealerEnrollment = async () => {
       rows,
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.topReps]);
+
   const adminIncentiveLeaderboardFoundation = React.useMemo(() => {
     const dealers = Array.isArray(dealerNetworkPerformance)
       ? dealerNetworkPerformance
@@ -5952,81 +6449,179 @@ const handleFinishDealerEnrollment = async () => {
     };
   }, [dealerNetworkPerformance, ocrSnapshot?.topReps]);
 
-  const adminTerritoryPerformanceRollup = React.useMemo(() => {
-    const dealers = Array.isArray(dealerNetworkPerformance)
-      ? dealerNetworkPerformance
-      : [];
-    const totalDealers = dealers.length;
-    const totalQuotesCreated = dealers.reduce(
-      (sum, dealer) => sum + Number(dealer?.quotesCreated || 0),
+  const adminTerritoryPerformanceRollup = React.useMemo(
+    () =>
+      buildAdminTerritoryPerformanceRollupFromDealers(
+        dealerNetworkPerformance,
+        ocrSnapshot?.totalScans,
+        adminRepLeaderboardFoundation
+      ),
+    [dealerNetworkPerformance, ocrSnapshot?.totalScans, adminRepLeaderboardFoundation]
+  );
+
+  const klAdminDashboardDemoFallbackActive = React.useMemo(() => {
+    const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+    if (dealers.length === 0) return true;
+    const motion = dealers.reduce(
+      (s, d) =>
+        s +
+        Number(d?.quotesCreated || 0) +
+        Number(d?.proposalsSent || 0) +
+        Number(d?.customerResponses || 0),
       0
     );
-    const totalProposalsSent = dealers.reduce(
-      (sum, dealer) => sum + Number(dealer?.proposalsSent || 0),
-      0
-    );
-    const totalCustomerResponses = dealers.reduce(
-      (sum, dealer) => sum + Number(dealer?.customerResponses || 0),
-      0
-    );
-    const hasApprovedRevenueData = dealers.some((dealer) =>
-      Number.isFinite(Number(dealer?.revenueWon))
-    );
-    const approvedRevenue = hasApprovedRevenueData
-      ? dealers.reduce((sum, dealer) => sum + Number(dealer?.revenueWon || 0), 0)
-      : null;
-    const totalOcrScans = Number(ocrSnapshot?.totalScans || 0);
-    const mostActiveDealer = dealers.reduce((best, dealer) => {
-      const activityScore =
-        Number(dealer?.quotesCreated || 0) +
-        Number(dealer?.proposalsSent || 0) +
-        Number(dealer?.customerResponses || 0);
-      if (!best || activityScore > best.activityScore) {
-        return {
-          name: String(dealer?.name || "").trim(),
-          activityScore,
+    return motion === 0;
+  }, [dealerNetworkPerformance]);
+
+  const klAdminDashboardDealersForView = React.useMemo(() => {
+    if (!klAdminDashboardDemoFallbackActive) return dealerNetworkPerformance;
+    return KL_ADMIN_DEMO_DEALERS;
+  }, [klAdminDashboardDemoFallbackActive, dealerNetworkPerformance]);
+
+  const adminRepLeaderboardFoundationKlDashboard = React.useMemo(() => {
+    const dealers = Array.isArray(klAdminDashboardDealersForView) ? klAdminDashboardDealersForView : [];
+    const repMap = new Map();
+    dealers.forEach((dealer) => {
+      const dealerName = String(dealer?.name || "Dealer").trim();
+      const reps = Array.isArray(dealer?.leaderboard) ? dealer.leaderboard : [];
+      reps.forEach((rep) => {
+        const repName = String(rep?.name || "").trim();
+        if (!repName) return;
+        const existing = repMap.get(repName) || {
+          name: repName,
+          dealer: dealerName,
+          quotes: 0,
+          proposals: 0,
+          responses: 0,
+          ocrScans: 0,
         };
-      }
-      return best;
-    }, null);
-    const mostActiveRep = Array.isArray(adminRepLeaderboardFoundation?.rows)
-      ? adminRepLeaderboardFoundation.rows[0] || null
-      : null;
-    const hasActivityData =
-      totalDealers > 0 ||
-      totalQuotesCreated > 0 ||
-      totalProposalsSent > 0 ||
-      totalCustomerResponses > 0 ||
-      totalOcrScans > 0;
-    let executiveSummary = "";
-    if (hasActivityData && totalProposalsSent > 0 && totalCustomerResponses > 0) {
-      executiveSummary =
-        "Field activity and proposal engagement continue to expand across the territory.";
-    } else if (hasActivityData && totalQuotesCreated > 0) {
-      executiveSummary =
-        "Dealer quote activity is building momentum across the territory network.";
-    } else if (hasActivityData && totalOcrScans > 0) {
-      executiveSummary =
-        "OCR field scanning activity is increasing and improving territory visibility.";
-    }
+        existing.quotes += Number(rep?.quotes || 0);
+        existing.proposals += Number(rep?.proposals || 0);
+        existing.responses += Number(rep?.responses || 0);
+        if (!existing.dealer && dealerName) existing.dealer = dealerName;
+        repMap.set(repName, existing);
+      });
+    });
+    const ocrRepRows = Array.isArray(ocrSnapshot?.topReps) ? ocrSnapshot.topReps : [];
+    ocrRepRows.forEach((row) => {
+      const rawRepId = String(row?.value || "").trim();
+      if (!rawRepId) return;
+      const existing =
+        repMap.get(rawRepId) ||
+        Array.from(repMap.values()).find(
+          (entry) => String(entry?.name || "").trim() === rawRepId
+        ) || {
+          name: shortIdLabel("Rep", rawRepId),
+          dealer: "",
+          quotes: 0,
+          proposals: 0,
+          responses: 0,
+          ocrScans: 0,
+        };
+      existing.ocrScans += Number(row?.count || 0);
+      repMap.set(existing.name, existing);
+    });
+    const rows = Array.from(repMap.values())
+      .map((row) => ({
+        ...row,
+        activityCount:
+          Number(row?.quotes || 0) +
+          Number(row?.proposals || 0) +
+          Number(row?.responses || 0) +
+          Number(row?.ocrScans || 0),
+      }))
+      .filter((row) => Number(row?.activityCount || 0) > 0)
+      .sort((a, b) => Number(b.activityCount || 0) - Number(a.activityCount || 0))
+      .slice(0, 10);
     return {
-      hasActivityData,
-      totalDealers,
-      totalQuotesCreated,
-      totalProposalsSent,
-      totalCustomerResponses,
-      totalOcrScans,
-      hasApprovedRevenueData,
-      approvedRevenue,
-      mostActiveDealerName:
-        Number(mostActiveDealer?.activityScore || 0) > 0
-          ? mostActiveDealer?.name || ""
-          : "",
-      mostActiveRepName:
-        Number(mostActiveRep?.activityCount || 0) > 0 ? mostActiveRep?.name || "" : "",
-      executiveSummary,
+      hasData: rows.length > 0,
+      rows,
     };
-  }, [dealerNetworkPerformance, ocrSnapshot?.totalScans, adminRepLeaderboardFoundation]);
+  }, [klAdminDashboardDealersForView, ocrSnapshot?.topReps]);
+
+  const klAdminDashboardTopRepLeaderboardModel = React.useMemo(() => {
+    const dealers = Array.isArray(klAdminDashboardDealersForView) ? klAdminDashboardDealersForView : [];
+    const raw = Array.isArray(adminRepLeaderboardFoundationKlDashboard?.rows)
+      ? adminRepLeaderboardFoundationKlDashboard.rows
+      : [];
+    const sparse =
+      !adminRepLeaderboardFoundationKlDashboard?.hasData ||
+      raw.length < 3 ||
+      raw.filter((r) => Number(r?.proposals || 0) + Number(r?.responses || 0) > 0).length < 2;
+    if (sparse) {
+      return { rows: KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS, demoFallback: true };
+    }
+    const mapped = raw.slice(0, 10).map((r, idx) => {
+      const proposals = Number(r.proposals || 0);
+      const responses = Number(r.responses || 0);
+      const quotes = Number(r.quotes || 0);
+      const rev = sumRepBookedRevenueFromDealers(dealers, r.name);
+      const approvalPct =
+        proposals > 0
+          ? Math.min(100, Math.round((responses / proposals) * 100))
+          : responses > 0
+            ? 100
+            : 0;
+      let coaching = "Balance quote volume with proposal discipline.";
+      if (quotes > 0 && proposals === 0) coaching = "Convert quotes to proposals—pipeline stalls without outbound.";
+      else if (proposals > 0 && responses === 0) coaching = "Chase proposal decisions—response gap burns cycle time.";
+      else if (Number(r.ocrScans || 0) === 0) coaching = "Increase OCR scans to sharpen competitive counter bids.";
+      else if (approvalPct >= 55 && rev > 40000) coaching = "Top performer—protect key accounts and coach adjacency SKUs.";
+      else if (approvalPct < 35 && proposals > 0) coaching = "Tighten customer decision language—approval rate below territory norm.";
+      const approvedLabel =
+        rev > 500
+          ? `$${Math.round(rev).toLocaleString()} booked`
+          : responses > 0
+            ? `${responses} decision${responses === 1 ? "" : "s"} captured`
+            : proposals > 0
+              ? "Awaiting booked revenue signal"
+              : "—";
+      return {
+        rank: idx + 1,
+        name: String(r.name || "—").trim(),
+        dealer: String(r.dealer || "—").trim(),
+        proposals,
+        approvedLabel,
+        approvalPct,
+        coaching,
+      };
+    });
+    return { rows: mapped, demoFallback: false };
+  }, [klAdminDashboardDealersForView, adminRepLeaderboardFoundationKlDashboard]);
+
+  const klAdminDashboardInventoryView = React.useMemo(() => {
+    const real = klondikeTerritoryInventoryModel;
+    if (!klAdminDashboardDemoFallbackActive) return real;
+    if (real?.hasData) return real;
+    return KL_ADMIN_DEMO_INVENTORY_MODEL;
+  }, [klAdminDashboardDemoFallbackActive, klondikeTerritoryInventoryModel]);
+
+  const klAdminDashboardProposalSignalsView = React.useMemo(() => {
+    const real = klondikeTerritoryProposalSignals || {};
+    if (!klAdminDashboardDemoFallbackActive) return real;
+    const hasReal =
+      Number(real.approvedLines || 0) > 0 ||
+      Number(real.proposalsSent || 0) > 0 ||
+      Number(real.responsesReceived || 0) > 0;
+    if (hasReal) return real;
+    return { ...real, ...KL_ADMIN_DEMO_PROPOSAL_SIGNALS };
+  }, [klAdminDashboardDemoFallbackActive, klondikeTerritoryProposalSignals]);
+
+  const adminTerritoryPerformanceRollupKlDashboard = React.useMemo(() => {
+    const totalOcrScans = klAdminDashboardDemoFallbackActive
+      ? Math.max(Number(ocrSnapshot?.totalScans || 0), 156)
+      : Number(ocrSnapshot?.totalScans || 0);
+    return buildAdminTerritoryPerformanceRollupFromDealers(
+      klAdminDashboardDealersForView,
+      totalOcrScans,
+      adminRepLeaderboardFoundationKlDashboard
+    );
+  }, [
+    klAdminDashboardDealersForView,
+    klAdminDashboardDemoFallbackActive,
+    ocrSnapshot?.totalScans,
+    adminRepLeaderboardFoundationKlDashboard,
+  ]);
 
   const activeTerritoryContests = React.useMemo(() => {
     const now = Date.now();
@@ -6044,15 +6639,63 @@ const handleFinishDealerEnrollment = async () => {
     [activeTerritoryContests]
   );
 
+  const liveActiveTerritoryContestsKlDashboard = React.useMemo(() => {
+    if (!klAdminDashboardDemoFallbackActive) return liveActiveTerritoryContests;
+    if (liveActiveTerritoryContests.length > 0) return liveActiveTerritoryContests;
+    const now = Date.now();
+    return KL_ADMIN_DEMO_LIVE_CONTESTS.filter((c) => {
+      const a = Date.parse(String(c?.startDate || ""));
+      const b = Date.parse(String(c?.endDate || ""));
+      if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+      return now >= a && now <= b && isTerritoryContestLive(c);
+    });
+  }, [klAdminDashboardDemoFallbackActive, liveActiveTerritoryContests]);
+
   const visibleLiveContestsForPortalUser = React.useMemo(() => {
     return liveActiveTerritoryContests.filter((c) =>
       contestVisibleToPortalMembership(c, activeMembership)
     );
   }, [liveActiveTerritoryContests, activeMembership]);
 
+  const productStrategyIncentiveLeaderboardView = React.useMemo(() => {
+    const live = adminIncentiveLeaderboardFoundation;
+    const liveRows = Array.isArray(live.rows) ? live.rows : [];
+    const maxPts = liveRows.reduce((m, r) => Math.max(m, Number(r.activityPoints || 0)), 0);
+    const sparse =
+      !live.hasData ||
+      liveRows.length < 2 ||
+      (liveRows.length > 0 && maxPts < 12);
+    if (!sparse) {
+      return { rows: liveRows, demoFallback: false, contestHint: "" };
+    }
+    const anchor =
+      (Array.isArray(liveActiveTerritoryContests) && liveActiveTerritoryContests[0]) ||
+      (Array.isArray(activeTerritoryContests) && activeTerritoryContests[0]) ||
+      (Array.isArray(territoryContests) ? territoryContests[0] : null);
+    const metricKey = String(anchor?.metricKey || "category_growth");
+    const rows = buildKlIncentiveLeaderboardDemoRows(metricKey);
+    return {
+      rows,
+      demoFallback: true,
+      contestHint: anchor?.title
+        ? `Contest preview · ${String(anchor.title).trim()}`
+        : "Contest preview · weighted scoring",
+      metricKey,
+    };
+  }, [
+    adminIncentiveLeaderboardFoundation,
+    liveActiveTerritoryContests,
+    activeTerritoryContests,
+    territoryContests,
+  ]);
+
   const resolveTerritoryContestLeaderDisplay = useCallback(
-    (contest) => {
-      const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+    (contest, ctx) => {
+      const dealers = Array.isArray(ctx?.dealers)
+        ? ctx.dealers
+        : Array.isArray(dealerNetworkPerformance)
+          ? dealerNetworkPerformance
+          : [];
       const metric = String(contest?.metricKey || "");
       const scope = String(contest?.scopeType || "territory");
       const minRev = Number(contest?.qualMinRevenue || 0) || 0;
@@ -6065,8 +6708,13 @@ const handleFinishDealerEnrollment = async () => {
           ? dealers.filter((d) => String(d.organization_id) === String(contest.scopeDealerOrgId))
           : dealers;
 
-      const territoryApprovedUnits = Number(klondikeTerritoryInventoryModel?.totalApprovedUnits || 0);
-      const territoryProposalTotal = Number(adminTerritoryPerformanceRollup?.totalProposalsSent || 0);
+      const invModel = ctx?.inventoryModel ?? klondikeTerritoryInventoryModel;
+      const territoryApprovedUnits = Number(invModel?.totalApprovedUnits || 0);
+      const territoryProposalTotal = Number(
+        ctx?.territoryProposalTotal != null
+          ? ctx.territoryProposalTotal
+          : adminTerritoryPerformanceRollup?.totalProposalsSent || 0
+      );
 
       const pending = (text) => ({
         line: "Qualification pending",
@@ -6104,7 +6752,8 @@ const handleFinishDealerEnrollment = async () => {
       };
 
       if (scope === "all_reps") {
-        const top = adminRepLeaderboardFoundation?.rows?.[0];
+        const repLb = ctx?.repLeaderboardFoundation ?? adminRepLeaderboardFoundation;
+        const top = repLb?.rows?.[0];
         const touches = Number(top?.activityCount || 0);
         const proposals = Number(top?.proposals || 0);
         if (!top || touches <= 0) {
@@ -6155,7 +6804,7 @@ const handleFinishDealerEnrollment = async () => {
           };
         }
         case "synthetic_conversions": {
-          const inv = klondikeTerritoryInventoryModel;
+          const inv = invModel;
           if (!inv?.hasData) {
             return { line: "—", qualified: false, footnote: null };
           }
@@ -6197,7 +6846,7 @@ const handleFinishDealerEnrollment = async () => {
           };
         }
         case "approved_demand": {
-          const inv = klondikeTerritoryInventoryModel;
+          const inv = invModel;
           if (!inv?.hasData) return { line: "—", qualified: false, footnote: null };
           const u = Number(inv.totalApprovedUnits || 0);
           if (minDemand > 0 && u < minDemand) {
@@ -6411,9 +7060,64 @@ const handleFinishDealerEnrollment = async () => {
     });
   }, [dealerNetworkPerformance, ocrSnapshot?.topDealers]);
 
+  const adminDealerDrilldownRowsKlDashboard = React.useMemo(() => {
+    const dealers = Array.isArray(klAdminDashboardDealersForView) ? klAdminDashboardDealersForView : [];
+    const ocrDealerMap = new Map();
+    (Array.isArray(ocrSnapshot?.topDealers) ? ocrSnapshot.topDealers : []).forEach((row) => {
+      const key = String(row?.value || "").trim();
+      if (!key) return;
+      ocrDealerMap.set(key, Number(row?.count || 0));
+    });
+    return dealers.map((dealer) => {
+      const quotesCreated = Number(dealer?.quotesCreated || 0);
+      const proposalsSent = Number(dealer?.proposalsSent || 0);
+      const customerResponses = Number(dealer?.customerResponses || 0);
+      const activityScore = quotesCreated + proposalsSent + customerResponses;
+      const status =
+        activityScore === 0
+          ? "Needs Attention"
+          : proposalsSent > 0 || customerResponses > 0
+            ? "Building Momentum"
+            : "Active";
+      const productMixRows = Array.isArray(dealer?.productMix) ? dealer.productMix : [];
+      const topProductCategory = productMixRows
+        .slice()
+        .sort((a, b) => Number(b?.count || 0) - Number(a?.count || 0))[0]?.name;
+      const repRows = Array.isArray(dealer?.leaderboard) ? dealer.leaderboard : [];
+      const mostActiveRep = repRows
+        .slice()
+        .sort((a, b) => {
+          const aScore =
+            Number(a?.quotes || 0) + Number(a?.proposals || 0) + Number(a?.responses || 0);
+          const bScore =
+            Number(b?.quotes || 0) + Number(b?.proposals || 0) + Number(b?.responses || 0);
+          if (bScore !== aScore) return bScore - aScore;
+          return Number(b?.revenue || 0) - Number(a?.revenue || 0);
+        })[0];
+      const ocrActivityCount =
+        Number(ocrDealerMap.get(String(dealer?.organization_id || "").trim()) || 0) ||
+        Number(ocrDealerMap.get(String(dealer?.name || "").trim()) || 0) ||
+        0;
+      return {
+        ...dealer,
+        status,
+        activityScore,
+        topProductCategory: topProductCategory || "",
+        mostActiveRepName: String(mostActiveRep?.name || "").trim(),
+        ocrActivityCount,
+        hasOcrActivity: ocrActivityCount > 0,
+      };
+    });
+  }, [klAdminDashboardDealersForView, ocrSnapshot?.topDealers]);
+
   const salesEnablementQuotedBenchmarks = React.useMemo(
     () => computeTerritoryQuotedBenchmarks(dealerNetworkPerformance),
     [dealerNetworkPerformance]
+  );
+
+  const salesEnablementQuotedBenchmarksKlDashboard = React.useMemo(
+    () => computeTerritoryQuotedBenchmarks(klAdminDashboardDealersForView),
+    [klAdminDashboardDealersForView]
   );
 
   const klondikeDashboardEnablementAlerts = React.useMemo(
@@ -6434,6 +7138,91 @@ const handleFinishDealerEnrollment = async () => {
       klondikeTerritoryInventoryModel?.syntheticSharePct,
     ]
   );
+
+  const klondikeDashboardEnablementAlertsKlDashboard = React.useMemo(
+    () =>
+      buildDashboardEnablementAlerts({
+        dealerNetworkPerformance: klAdminDashboardDealersForView,
+        adminDealerDrilldownRows: adminDealerDrilldownRowsKlDashboard,
+        klondikeDealerApprovedDemandProfiles,
+        quotedBenchmarks: salesEnablementQuotedBenchmarksKlDashboard,
+        territorySyntheticSharePct: klAdminDashboardInventoryView?.syntheticSharePct ?? null,
+        maxAlerts: 8,
+      }),
+    [
+      klAdminDashboardDealersForView,
+      adminDealerDrilldownRowsKlDashboard,
+      klondikeDealerApprovedDemandProfiles,
+      salesEnablementQuotedBenchmarksKlDashboard,
+      klAdminDashboardInventoryView?.syntheticSharePct,
+    ]
+  );
+
+  const adminDealerOperationalBucketsKlDashboard = React.useMemo(() => {
+    const dealers = Array.isArray(klAdminDashboardDealersForView) ? klAdminDashboardDealersForView : [];
+    let healthy = 0;
+    let growing = 0;
+    let needsAttention = 0;
+    let inactive = 0;
+    dealers.forEach((d) => {
+      const q = Number(d?.quotesCreated || 0);
+      const p = Number(d?.proposalsSent || 0);
+      const r = Number(d?.customerResponses || 0);
+      const sum = q + p + r;
+      if (sum === 0) inactive += 1;
+      else if (r > 0) healthy += 1;
+      else if (p > 0) growing += 1;
+      else needsAttention += 1;
+    });
+    return { healthy, growing, needsAttention, inactive, total: dealers.length };
+  }, [klAdminDashboardDealersForView]);
+
+  const adminDealerHealthFoundationKlDashboard = React.useMemo(() => {
+    const rows = Array.isArray(klAdminDashboardDealersForView) ? klAdminDashboardDealersForView : [];
+    const activeDealers = rows.length;
+    const dealersWithQuoteActivity = rows.filter(
+      (dealer) => Number(dealer?.quotesCreated || 0) > 0
+    ).length;
+    const dealersWithProposalActivity = rows.filter(
+      (dealer) => Number(dealer?.proposalsSent || 0) > 0
+    ).length;
+    const dealersWithOcrActivity = Array.isArray(ocrSnapshot?.topDealers)
+      ? ocrSnapshot.topDealers.length
+      : 0;
+    const mostActiveDealer = rows.reduce((best, dealer) => {
+      const score =
+        Number(dealer?.quotesCreated || 0) +
+        Number(dealer?.proposalsSent || 0) +
+        Number(dealer?.customerResponses || 0);
+      if (!best || score > best.score) {
+        return { name: String(dealer?.name || "—"), score };
+      }
+      return best;
+    }, null);
+    const dealersNeedingAttention = rows.filter((dealer) => {
+      const quoteCount = Number(dealer?.quotesCreated || 0);
+      const proposalCount = Number(dealer?.proposalsSent || 0);
+      const responseCount = Number(dealer?.customerResponses || 0);
+      return quoteCount === 0 && proposalCount === 0 && responseCount === 0;
+    }).length;
+    const dealersBuildingMomentum = rows.filter((dealer) => {
+      const quoteCount = Number(dealer?.quotesCreated || 0);
+      const proposalCount = Number(dealer?.proposalsSent || 0);
+      const responseCount = Number(dealer?.customerResponses || 0);
+      return quoteCount > 0 && (proposalCount > 0 || responseCount > 0);
+    }).length;
+    return {
+      hasData: activeDealers > 0,
+      activeDealers,
+      dealersWithQuoteActivity,
+      dealersWithProposalActivity,
+      dealersWithOcrActivity,
+      mostActiveDealerName: mostActiveDealer?.name || "",
+      mostActiveDealerScore: Number(mostActiveDealer?.score || 0),
+      dealersNeedingAttention,
+      dealersBuildingMomentum,
+    };
+  }, [klAdminDashboardDealersForView, ocrSnapshot?.topDealers]);
 
   const klondikeActionCenterActions = React.useMemo(() => {
     const alerts = Array.isArray(klondikeDashboardEnablementAlerts)
@@ -6507,6 +7296,80 @@ const handleFinishDealerEnrollment = async () => {
     dealerNetworkPerformance,
     klondikeTerritoryProposalSignals,
     klondikeTerritoryInventoryModel,
+  ]);
+
+  const klondikeActionCenterActionsKlDashboard = React.useMemo(() => {
+    const alerts = Array.isArray(klondikeDashboardEnablementAlertsKlDashboard)
+      ? klondikeDashboardEnablementAlertsKlDashboard
+      : [];
+    const base = buildKlondikeActionCenterActions({
+      enablementAlerts: klondikeDashboardEnablementAlertsKlDashboard,
+      dealerNetworkPerformance: klAdminDashboardDealersForView,
+      territoryProposalSignals: klAdminDashboardProposalSignalsView,
+      territoryInventoryModel: klAdminDashboardInventoryView,
+      maxActions: 24,
+    });
+    const merged = [...base];
+    const seen = new Set(base.map((a) => a.id));
+
+    for (const al of alerts) {
+      if (merged.length >= KL_ADMIN_ACTION_CENTER_LIMIT) break;
+      const id = `alert-${al.alertKey}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      merged.push({
+        id,
+        kind: "spotlight",
+        issue: al.issueTitle || "Dealer enablement gap detected.",
+        scope: String(al.dealerName || "Dealer").trim(),
+        why:
+          al.whyItMatters || "Rule-based signals flagged this dealer for coaching.",
+        recommended: `Send the “${al.spotlightTitle}” spotlight after you review copy.`,
+        buttonLabel: "Send Spotlight",
+        accent: "blue",
+        dealerOrgId: String(al.dealerOrgId || ""),
+        spotlightId: al.spotlightId,
+        spotlightType: al.spotlightType,
+        severityRank: typeof al.severityRank === "number" ? al.severityRank : 2,
+      });
+    }
+
+    if (merged.length < KL_ADMIN_ACTION_CENTER_LIMIT && !seen.has("cmd-open-sales-enablement")) {
+      merged.push({
+        id: "cmd-open-sales-enablement",
+        kind: "sales_enablement",
+        issue: "Preview spotlights and coach outbound sends.",
+        scope: "Territory",
+        why: "Keep library copy and recipients aligned before dealers deploy.",
+        recommended: "Open Sales Enablement to review materials and delivery workflow.",
+        buttonLabel: "Open Sales Enablement",
+        accent: "blue",
+      });
+    }
+
+    const defaultPlaybookOrgId = String((klAdminDashboardDealersForView || [])[0]?.organization_id || "");
+    const playbookMocks = buildKlAdminActionPlaybookMocks({
+      dealerOrgId: defaultPlaybookOrgId,
+    });
+    for (const row of playbookMocks) {
+      if (merged.length >= KL_ADMIN_ACTION_CENTER_LIMIT) break;
+      if (merged.length >= 5) break;
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      merged.push(row);
+    }
+
+    return merged.slice(0, KL_ADMIN_ACTION_CENTER_LIMIT).map((ac) => {
+      if (ac.kind !== "spotlight" || typeof ac.severityRank === "number") return ac;
+      const al = alerts.find((x) => `alert-${x.alertKey}` === ac.id);
+      if (!al || typeof al.severityRank !== "number") return ac;
+      return { ...ac, severityRank: al.severityRank };
+    });
+  }, [
+    klondikeDashboardEnablementAlertsKlDashboard,
+    klAdminDashboardDealersForView,
+    klAdminDashboardProposalSignalsView,
+    klAdminDashboardInventoryView,
   ]);
 
   const salesEnablementDealerIntel = React.useMemo(() => {
@@ -8318,27 +9181,60 @@ const handleFinishDealerEnrollment = async () => {
                 </div>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 800, color: "#64748b", marginBottom: 8 }}>
-                    Weighted activity snapshot (internal scoring)
+                    Incentive contest scores (weighted)
                   </div>
+                  {productStrategyIncentiveLeaderboardView.demoFallback ? (
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.07em",
+                        color: "#c2410c",
+                        marginBottom: 6,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      Demo leaderboard active · contest-weighted only
+                    </div>
+                  ) : null}
                   <p style={{ margin: "0 0 8px", fontSize: 12, color: "#94a3b8", lineHeight: 1.4 }}>
-                    Same logged counts as elsewhere—weighted for contest-style comparisons only.
+                    {productStrategyIncentiveLeaderboardView.contestHint ? (
+                      <span style={{ color: "#475569", fontWeight: 700 }}>
+                        {productStrategyIncentiveLeaderboardView.contestHint}.{" "}
+                      </span>
+                    ) : null}
+                    Not overall territory rank—same logged counts as elsewhere, weighted for active contest
+                    pacing only.
                   </p>
-                  {adminIncentiveLeaderboardFoundation.hasData ? (
+                  {productStrategyIncentiveLeaderboardView.rows.length > 0 ? (
                     <div style={{ display: "grid", gap: 6 }}>
-                      {adminIncentiveLeaderboardFoundation.rows.slice(0, 6).map((rep, idx) => (
+                      {productStrategyIncentiveLeaderboardView.rows.slice(0, 6).map((rep, idx) => (
                         <div
                           key={`ps-inc-${rep.name}-${idx}`}
                           style={{
-                            display: "flex",
-                            justifyContent: "space-between",
                             fontSize: 13,
-                            padding: "6px 8px",
+                            padding: "8px 10px",
                             borderRadius: 8,
                             background: "#fff7ed",
+                            border: "1px solid rgba(251, 146, 60, 0.22)",
                           }}
                         >
-                          <span style={{ fontWeight: 700 }}>{rep.name}</span>
-                          <span style={{ color: "#c2410c", fontWeight: 800 }}>{rep.activityPoints} pts</span>
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: 10,
+                              alignItems: "baseline",
+                            }}
+                          >
+                            <span style={{ fontWeight: 700 }}>{rep.name}</span>
+                            <span style={{ color: "#c2410c", fontWeight: 800, flexShrink: 0 }}>
+                              {rep.activityPoints} pts
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, lineHeight: 1.35 }}>
+                            {rep.dealer ? String(rep.dealer).trim() : "—"}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -11012,19 +11908,33 @@ const handleFinishDealerEnrollment = async () => {
               Scan ranked rows first—deeper territory intelligence follows below (up to{" "}
               {KL_ADMIN_ACTION_CENTER_LIMIT} queued).
             </p>
+            {klAdminDashboardDemoFallbackActive ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  color: "rgba(251, 191, 36, 0.92)",
+                  textTransform: "uppercase",
+                }}
+              >
+                Demo data active · replace with live territory signals as adoption grows
+              </div>
+            ) : null}
           </div>
 
           {(() => {
-            const totalShown = klondikeActionCenterActions.length;
+            const totalShown = klondikeActionCenterActionsKlDashboard.length;
             let preparedCount = 0;
             let handledCount = 0;
-            klondikeActionCenterActions.forEach((a) => {
+            klondikeActionCenterActionsKlDashboard.forEach((a) => {
               const st = klAdminActionCenterCompletionById[a.id];
               if (st === "prepared") preparedCount += 1;
               else if (st === "handled") handledCount += 1;
             });
             const remainingCount = Math.max(0, totalShown - preparedCount - handledCount);
-            const dealerRisksFlagged = klondikeActionCenterActions.filter(
+            const dealerRisksFlagged = klondikeActionCenterActionsKlDashboard.filter(
               (a) =>
                 a.kind === "dealer_activation" ||
                 (a.kind === "spotlight" &&
@@ -11236,7 +12146,7 @@ const handleFinishDealerEnrollment = async () => {
             );
           })()}
 
-          {klondikeActionCenterActions.length === 0 ? (
+          {klondikeActionCenterActionsKlDashboard.length === 0 ? (
             <div
               style={{
                 marginTop: 8,
@@ -11260,7 +12170,7 @@ const handleFinishDealerEnrollment = async () => {
                 gap: 10,
               }}
             >
-              {klondikeActionCenterActions.map((ac, idx) => {
+              {klondikeActionCenterActionsKlDashboard.map((ac, idx) => {
                 const queuePriorityRank = idx + 1;
                 const queueTierLabel =
                   idx === 0 ? "Top action" : idx === 1 ? "Next best action" : "Follow-up";
@@ -11307,7 +12217,7 @@ const handleFinishDealerEnrollment = async () => {
                 }
                 const whyText = String(ac.why || "").trim();
                 const oid = String(ac.dealerOrgId || "");
-                const dealerRowMatch = (dealerNetworkPerformance || []).find(
+                const dealerRowMatch = (klAdminDashboardDealersForView || []).find(
                   (d) => String(d.organization_id) === oid
                 );
                 const dealerDisplayName = String(dealerRowMatch?.name || "").trim();
@@ -11782,7 +12692,7 @@ const handleFinishDealerEnrollment = async () => {
           >
             Executive pulse on live Product Strategy incentives—full contest management stays in that tab.
           </p>
-          {liveActiveTerritoryContests.length === 0 ? (
+          {liveActiveTerritoryContestsKlDashboard.length === 0 ? (
             <div
               style={{
                 borderRadius: 12,
@@ -11806,11 +12716,21 @@ const handleFinishDealerEnrollment = async () => {
                   gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
                 }}
               >
-                {liveActiveTerritoryContests.slice(0, 3).map((c) => {
+                {liveActiveTerritoryContestsKlDashboard.slice(0, 3).map((c) => {
                   const metricLabel =
                     CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label ||
                     String(c.metricKey || "Contest");
-                  const ld = resolveTerritoryContestLeaderDisplay(c);
+                  const ld = resolveTerritoryContestLeaderDisplay(
+                    c,
+                    klAdminDashboardDemoFallbackActive && liveActiveTerritoryContests.length === 0
+                      ? {
+                          dealers: klAdminDashboardDealersForView,
+                          inventoryModel: klAdminDashboardInventoryView,
+                          territoryProposalTotal: adminTerritoryPerformanceRollupKlDashboard?.totalProposalsSent,
+                          repLeaderboardFoundation: adminRepLeaderboardFoundationKlDashboard,
+                        }
+                      : undefined
+                  );
                   const windowLabel = formatContestTimeRemaining(c);
                   let pulse =
                     ld.line === "Qualification pending" && ld.footnote
@@ -11874,9 +12794,9 @@ const handleFinishDealerEnrollment = async () => {
                   );
                 })}
               </div>
-              {liveActiveTerritoryContests.length > 3 ? (
+              {liveActiveTerritoryContestsKlDashboard.length > 3 ? (
                 <p style={{ margin: "12px 0 0", fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                  +{liveActiveTerritoryContests.length - 3} more live in Product Strategy.
+                  +{liveActiveTerritoryContestsKlDashboard.length - 3} more live in Product Strategy.
                 </p>
               ) : null}
             </>
@@ -11916,7 +12836,7 @@ const handleFinishDealerEnrollment = async () => {
             }}
           >
             {adminDashboardProductPerformanceCards.map((card) => {
-              const defaultOrg = String((dealerNetworkPerformance || [])[0]?.organization_id || "");
+              const defaultOrg = String((klAdminDashboardDealersForView || [])[0]?.organization_id || "");
               const tr = card.trend;
               const arrow = tr.dir === "up" ? "↑" : tr.dir === "down" ? "↓" : "→";
               const trendColor =
@@ -12105,21 +13025,21 @@ const handleFinishDealerEnrollment = async () => {
       {klondikeAdminTab === "dashboard" && (
         <div style={{ marginBottom: 22, display: "grid", gap: 18 }}>
           {(() => {
-            const rollup = adminTerritoryPerformanceRollup || {};
-            const tps = klondikeTerritoryProposalSignals || {};
+            const rollup = adminTerritoryPerformanceRollupKlDashboard || {};
+            const tps = klAdminDashboardProposalSignalsView || {};
             const approvedLinesSig = Number(tps.approvedLines || 0);
-            const dnp = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
-            const activeDealersTile = adminDealerHealthFoundation?.hasData
-              ? Number(adminDealerHealthFoundation.activeDealers || 0)
+            const dnp = Array.isArray(klAdminDashboardDealersForView) ? klAdminDashboardDealersForView : [];
+            const activeDealersTile = adminDealerHealthFoundationKlDashboard?.hasData
+              ? Number(adminDealerHealthFoundationKlDashboard.activeDealers || 0)
               : Number(rollup.totalDealers || 0);
-            const repActivityCount = adminRepLeaderboardFoundation?.hasData
-              ? adminRepLeaderboardFoundation.rows.length
+            const repActivityCount = adminRepLeaderboardFoundationKlDashboard?.hasData
+              ? adminRepLeaderboardFoundationKlDashboard.rows.length
               : 0;
             const fieldTeam = dnp.reduce((s, d) => s + Number(d.teamMembers || 0), 0);
             const totalOrg = dnp.length;
             const quotingOrgs = dnp.filter((d) => Boolean(d?.activation?.firstQuoteCreated)).length;
             const profileReadyOrgs = dnp.filter((d) => Boolean(d?.activation?.profileConfigured)).length;
-            const inv = klondikeTerritoryInventoryModel;
+            const inv = klAdminDashboardInventoryView;
             const invAccel =
               inv?.hasData &&
               Array.isArray(inv.acceleratingSkus) &&
@@ -12136,11 +13056,11 @@ const handleFinishDealerEnrollment = async () => {
                 ? `${insight0.slice(0, 72)}${insight0.length > 72 ? "…" : ""}`
                 : `${Number(inv.totalApprovedUnits || 0).toLocaleString()} approved units · velocity tracked`;
             }
-            const enablementCount = Array.isArray(klondikeDashboardEnablementAlerts)
-              ? klondikeDashboardEnablementAlerts.length
+            const enablementCount = Array.isArray(klondikeDashboardEnablementAlertsKlDashboard)
+              ? klondikeDashboardEnablementAlertsKlDashboard.length
               : 0;
-            const spotlightActionCount = Array.isArray(klondikeActionCenterActions)
-              ? klondikeActionCenterActions.filter((a) => a.kind === "spotlight").length
+            const spotlightActionCount = Array.isArray(klondikeActionCenterActionsKlDashboard)
+              ? klondikeActionCenterActionsKlDashboard.filter((a) => a.kind === "spotlight").length
               : 0;
             let seMain = "—";
             let seSub = "No spotlight signals queued";
@@ -12196,7 +13116,7 @@ const handleFinishDealerEnrollment = async () => {
               { label: "Sales enablement", value: seMain, sub: seSub },
             ];
 
-            const opBuckets = adminDealerOperationalBuckets;
+            const opBuckets = adminDealerOperationalBucketsKlDashboard;
             const winRiskCards = [
               {
                 tag: "Healthy",
@@ -12402,6 +13322,136 @@ const handleFinishDealerEnrollment = async () => {
               </>
             );
           })()}
+        </div>
+      )}
+
+      {klondikeAdminTab === "dashboard" && (
+        <div
+          style={{
+            marginBottom: 22,
+            borderRadius: 18,
+            background: "#ffffff",
+            border: "1px solid rgba(226, 232, 240, 0.95)",
+            boxShadow: "0 12px 32px rgba(15, 23, 42, 0.07)",
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ padding: "20px 22px 22px" }}>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 900,
+                letterSpacing: "0.12em",
+                color: "#64748b",
+                marginBottom: 6,
+              }}
+            >
+              TOP 10 REP LEADERBOARD
+            </div>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 20,
+                fontWeight: 900,
+                color: "#0f172a",
+                letterSpacing: "-0.02em",
+                lineHeight: 1.2,
+              }}
+            >
+              Who is leading the territory?
+            </h3>
+            <p style={{ margin: "8px 0 0", fontSize: 13, color: "#64748b", lineHeight: 1.5, maxWidth: 800 }}>
+              Overall rep performance from logged quotes, proposals, responses, and OCR—separate from
+              Product Strategy contest scoring.
+            </p>
+            {klAdminDashboardTopRepLeaderboardModel.demoFallback ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  color: "#b45309",
+                  textTransform: "uppercase",
+                }}
+              >
+                Demo data active · overall rep snapshot (not contest-weighted)
+              </div>
+            ) : null}
+            <div style={{ marginTop: 16, width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <div style={{ minWidth: "min(100%, 720px)" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "44px 1.1fr 0.9fr 72px 1fr 56px 1.15fr",
+                    gap: "8px 12px",
+                    alignItems: "center",
+                    padding: "8px 10px",
+                    borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
+                    fontSize: 10,
+                    fontWeight: 900,
+                    letterSpacing: "0.1em",
+                    color: "#64748b",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  <span>#</span>
+                  <span>Rep</span>
+                  <span>Team</span>
+                  <span style={{ textAlign: "right" }}>Prop.</span>
+                  <span>Booked / demand</span>
+                  <span style={{ textAlign: "right" }}>Rate</span>
+                  <span>Coaching signal</span>
+                </div>
+                {klAdminDashboardTopRepLeaderboardModel.rows.map((row) => {
+                  const top = row.rank <= 3;
+                  return (
+                    <div
+                      key={`kl-toprep-${row.rank}-${row.name}`}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "44px 1.1fr 0.9fr 72px 1fr 56px 1.15fr",
+                        gap: "8px 12px",
+                        alignItems: "start",
+                        padding: "10px 10px",
+                        borderBottom: "1px solid rgba(241, 245, 249, 0.98)",
+                        borderLeft: top ? "3px solid #ea580c" : "3px solid transparent",
+                        background: top ? "rgba(255, 247, 237, 0.45)" : "#ffffff",
+                      }}
+                    >
+                      <div style={{ fontWeight: 900, color: top ? "#c2410c" : "#334155" }}>{row.rank}</div>
+                      <div style={{ fontWeight: 800, color: "#0f172a", fontSize: 14, lineHeight: 1.3 }}>
+                        {row.name}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.35 }}>{row.dealer}</div>
+                      <div
+                        style={{
+                          textAlign: "right",
+                          fontSize: 13,
+                          fontWeight: 800,
+                          color: "#1e40af",
+                        }}
+                      >
+                        {row.proposals}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.4 }}>{row.approvedLabel}</div>
+                      <div
+                        style={{
+                          textAlign: "right",
+                          fontSize: 13,
+                          fontWeight: 800,
+                          color: "#64748b",
+                        }}
+                      >
+                        {row.approvalPct ? `${row.approvalPct}%` : "—"}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.45 }}>{row.coaching}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
