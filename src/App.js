@@ -4516,6 +4516,10 @@ useEffect(() => {
   );
   const [seGuidedAttachPds, setSeGuidedAttachPds] = useState(true);
   const [seGuidedStageDraft, setSeGuidedStageDraft] = useState(true);
+  const [seGuidedPreviewLogoFailed, setSeGuidedPreviewLogoFailed] = useState(false);
+  useEffect(() => {
+    if (seGuidedIncludeBranding) setSeGuidedPreviewLogoFailed(false);
+  }, [seGuidedIncludeBranding]);
   /** Enablement Library subsection: product/category browsers, customer profile placeholders, training catalog. */
   const [salesEnablementLibraryTab, setSalesEnablementLibraryTab] = useState("product");
   const [salesEnablementRecipientPreview, setSalesEnablementRecipientPreview] = useState(null);
@@ -10733,16 +10737,33 @@ const handleFinishDealerEnrollment = async () => {
                               color: "#f8fafc",
                             }}
                           >
-                            <div
-                              style={{
-                                fontSize: 18,
-                                fontWeight: 900,
-                                letterSpacing: "0.08em",
-                                lineHeight: 1.2,
-                              }}
-                            >
-                              KLONDIKE
-                            </div>
+                            {seGuidedPreviewLogoFailed ? (
+                              <div
+                                style={{
+                                  fontSize: 18,
+                                  fontWeight: 900,
+                                  letterSpacing: "0.08em",
+                                  lineHeight: 1.2,
+                                }}
+                              >
+                                KLONDIKE
+                              </div>
+                            ) : (
+                              <img
+                                src="/klondike-full-logo.png"
+                                alt="Klondike"
+                                onError={() => setSeGuidedPreviewLogoFailed(true)}
+                                style={{
+                                  display: "block",
+                                  width: "auto",
+                                  maxWidth: "min(220px, 85vw)",
+                                  maxHeight: 48,
+                                  height: "auto",
+                                  objectFit: "contain",
+                                  objectPosition: "left center",
+                                }}
+                              />
+                            )}
                             <div
                               style={{
                                 marginTop: 4,
