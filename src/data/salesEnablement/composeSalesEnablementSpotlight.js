@@ -1,5 +1,6 @@
 /**
- * Phase 73.8 — Pure composer: draft spotlight messaging from overlay + knowledge + profile + LFBB.
+ * Phase 73.8 / 73.10 — Pure composer: draft spotlight messaging from overlay + knowledge + profile + LFBB.
+ * LFBB selection is deterministic; `lfbbSelectionReason` documents the audit path.
  * No UI or network dependencies.
  */
 
@@ -24,6 +25,8 @@ function buildEmptySpotlight() {
     categoryTitle: "",
     customerProfileTitle: "",
     lfbb: emptyLfbb(),
+    lfbbBlockId: "",
+    lfbbSelectionReason: "",
     technicalProofPoints: [],
     salesAngles: [],
     suggestedCta: "",
@@ -83,13 +86,23 @@ function copyStrings(arr) {
 }
 
 /**
- * Prefer first overlay LFBB id that appears in the profile’s recommended list; else first valid overlay id;
- * else first valid profile id.
- * @param {import("./productSpotlightOverlays").SalesEnablementProductSpotlightOverlay | null} overlay
+ * Deterministic LFBB pick with auditable reason string.
+ * @param {import("./productSpotlightOverlays").SalesEnablementProductSpotlightOverlay} overlay
  * @param {import("./customerProfiles").SalesEnablementCustomerProfile | null} profile
+ * @param {string} requestedProfileId — trimmed customerProfileId from input (may be empty)
+ * @param {boolean} profileLookupFailed — true when an id was requested but did not resolve
  */
-function selectLfbbBlock(overlay, profile) {
-  if (!overlay || typeof overlay !== "object") return null;
+function selectLfbbWithReason(overlay, profile, requestedProfileId, profileLookupFailed) {
+  /** @type {{ block: import("./lfbbBlocks").SalesEnablementLfbbBlock | null, lfbbBlockId: string, lfbbSelectionReason: string }} */
+  const none = { block: null, lfbbBlockId: "", lfbbSelectionReason: "" };
+
+  if (!overlay || typeof overlay !== "object") {
+    return {
+      ...none,
+      lfbbSelectionReason:
+        "none: Overlay missing; cannot evaluate LFBB lists.",
+    };
+  }
 
   const overlayIds = Array.isArray(overlay.recommendedLfbbBlockIds)
     ? overlay.recommendedLfbbBlockIds.map(norm).filter(Boolean)
@@ -100,26 +113,99 @@ function selectLfbbBlock(overlay, profile) {
     : [];
   const profileIdSet = new Set(profileIdsOrdered);
 
-  if (profile && profileIdSet.size > 0) {
-    for (const bid of overlayIds) {
-      if (profileIdSet.has(bid)) {
-        const b = getLfbbById(bid);
-        if (b) return b;
-      }
+  /** @param {string} bid @param {string} reason */
+  const resolved = (bid, reason) => {
+    const b = getLfbbById(bid);
+    if (!b) return null;
+    return { block: b, lfbbBlockId: bid, lfbbSelectionReason: reason };
+  };
+
+  // --- No usable profile path (omit, unresolved, or empty LFBB list on profile) ---
+  const skipIntersection =
+    !requestedProfileId ||
+    profileLookupFailed ||
+    !profile ||
+    profileIdSet.size === 0;
+
+  if (skipIntersection) {
+    let prefix = "";
+    if (!requestedProfileId) {
+      prefix =
+        "no_customer_profile_id: customerProfileId was omitted; skipped overlay/profile intersection.";
+    } else if (profileLookupFailed) {
+      prefix =
+        "unknown_customer_profile: customerProfileId did not resolve to a profile; skipped intersection.";
+    } else if (profile && profileIdSet.size === 0) {
+      prefix = `profile_has_no_lfbb_refs: profile "${profile.id}" has no recommendedLfbbBlockIds; skipped intersection.`;
+    } else {
+      prefix = "no_profile_context: skipped intersection.";
     }
+
+    for (const bid of overlayIds) {
+      const r = resolved(
+        bid,
+        `${prefix} Using first resolvable id in overlay.recommendedLfbbBlockIds order: "${bid}".`
+      );
+      if (r) return r;
+    }
+
+    for (const bid of profileIdsOrdered) {
+      const r = resolved(
+        bid,
+        `${prefix} No resolvable LFBB on overlay list; using first resolvable id in profile.recommendedLfbbBlockIds order: "${bid}".`
+      );
+      if (r) return r;
+    }
+
+    return {
+      ...none,
+      lfbbSelectionReason: `${prefix} No LFBB rows resolved from overlay or profile id lists.`,
+    };
   }
 
+  // --- Intersection: preserve overlay list order (canonical tie-break) ---
+  /** @type {string[]} */
+  const intersectionResolved = [];
   for (const bid of overlayIds) {
-    const b = getLfbbById(bid);
-    if (b) return b;
+    if (!profileIdSet.has(bid)) continue;
+    if (getLfbbById(bid)) intersectionResolved.push(bid);
+  }
+
+  if (intersectionResolved.length > 0) {
+    const chosen = intersectionResolved[0];
+    const tieNote =
+      intersectionResolved.length > 1
+        ? ` Among ${intersectionResolved.length} shared id(s) that resolve in both lists, overlay.recommendedLfbbBlockIds order is the tie-break (first wins).`
+        : " Single shared id between overlay and profile lists.";
+    const r = resolved(
+      chosen,
+      `intersection_overlay_priority: Matched overlay and profile recommendations.${tieNote} Selected "${chosen}".`
+    );
+    if (r) return r;
+  }
+
+  // --- Profile present but no overlapping resolvable ids ---
+  for (const bid of overlayIds) {
+    const r = resolved(
+      bid,
+      `no_intersection: Profile "${profile.id}" shares no resolvable LFBB id with overlay recommendations (or ids do not resolve). Using first resolvable id in overlay.recommendedLfbbBlockIds order: "${bid}".`
+    );
+    if (r) return r;
   }
 
   for (const bid of profileIdsOrdered) {
-    const b = getLfbbById(bid);
-    if (b) return b;
+    const r = resolved(
+      bid,
+      `fallback_profile_order: No resolvable LFBB on overlay list after empty intersection; using first resolvable id in profile.recommendedLfbbBlockIds order: "${bid}".`
+    );
+    if (r) return r;
   }
 
-  return null;
+  return {
+    ...none,
+    lfbbSelectionReason:
+      "none: No LFBB rows resolved after intersection, overlay-order, and profile-order passes.",
+  };
 }
 
 /**
@@ -135,7 +221,7 @@ export function composeSalesEnablementSpotlight(input) {
   const errors = [];
   const raw = input && typeof input === "object" ? input : {};
   const overlayId = norm(raw.overlayId);
-  const customerProfileId = norm(raw.customerProfileId);
+  const requestedProfileId = norm(raw.customerProfileId);
 
   if (!overlayId) {
     errors.push("overlayId is required");
@@ -148,9 +234,10 @@ export function composeSalesEnablementSpotlight(input) {
     return { ok: false, errors, spotlight: buildEmptySpotlight() };
   }
 
-  const profile = customerProfileId ? getProfileById(customerProfileId) : null;
-  if (customerProfileId && !profile) {
-    errors.push(`Unknown customer profile: "${customerProfileId}"`);
+  const profile = requestedProfileId ? getProfileById(requestedProfileId) : null;
+  const profileLookupFailed = Boolean(requestedProfileId) && !profile;
+  if (profileLookupFailed) {
+    errors.push(`Unknown customer profile: "${requestedProfileId}"`);
   }
 
   const category = getCategoryById(overlay.categoryId);
@@ -158,7 +245,13 @@ export function composeSalesEnablementSpotlight(input) {
     errors.push(`Unknown category for overlay: "${norm(overlay.categoryId)}"`);
   }
 
-  const lfbbBlock = selectLfbbBlock(overlay, profile);
+  const { block: lfbbBlock, lfbbBlockId, lfbbSelectionReason } = selectLfbbWithReason(
+    overlay,
+    profile,
+    requestedProfileId,
+    profileLookupFailed
+  );
+
   if (!lfbbBlock) {
     errors.push("No LFBB block could be resolved for this composition");
   }
@@ -177,6 +270,8 @@ export function composeSalesEnablementSpotlight(input) {
     categoryTitle: category ? norm(category.title) : norm(overlay.categoryId),
     customerProfileTitle: profile ? norm(profile.title) : "",
     lfbb,
+    lfbbBlockId: lfbbBlock ? lfbbBlockId : "",
+    lfbbSelectionReason: lfbbSelectionReason || "",
     technicalProofPoints: copyStrings(overlay.technicalProofPoints),
     salesAngles: copyStrings(overlay.salesAngles),
     suggestedCta: norm(overlay.suggestedCta),

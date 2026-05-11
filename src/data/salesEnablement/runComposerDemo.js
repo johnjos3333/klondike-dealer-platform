@@ -49,6 +49,8 @@ for (const ex of EXAMPLES) {
   console.log("\nProduct name:       ", spotlight.productName || "(empty)");
   console.log("Category:           ", spotlight.categoryTitle || "(empty)");
   console.log("Customer profile:   ", spotlight.customerProfileTitle || "(empty)");
+  console.log("LFBB block id:      ", spotlight.lfbbBlockId || "(empty)");
+  console.log("LFBB selection:     ", spotlight.lfbbSelectionReason || "(empty)");
 
   console.log("\nLFBB:");
   printLfbb(spotlight.lfbb);
