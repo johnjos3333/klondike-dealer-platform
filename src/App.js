@@ -10672,6 +10672,33 @@ const handleFinishDealerEnrollment = async () => {
                         <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", lineHeight: 1.45 }}>
                           Image selection is preview-only until asset library is connected.
                         </p>
+                        <div
+                          style={{
+                            marginTop: 8,
+                            padding: "10px 12px",
+                            borderRadius: 10,
+                            background: "rgba(248, 250, 252, 0.85)",
+                            border: "1px dashed rgba(203, 213, 225, 0.95)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 800,
+                              letterSpacing: "0.05em",
+                              color: "#94a3b8",
+                              marginBottom: 6,
+                            }}
+                          >
+                            Future: Saved Spotlight Images
+                          </div>
+                          <p style={{ margin: 0, fontSize: 10, color: "#64748b", lineHeight: 1.45 }}>
+                            Today&apos;s mock picks shape the preview only—they are not saved or sent as attachments yet.
+                            Next: KL Admins will upload a product image per spotlight; it will store with the spotlight and
+                            reload automatically next time. Supabase Storage and a metadata table will power persistence—upload
+                            controls are not wired yet.
+                          </p>
+                        </div>
                       </div>
                     </div>
 
