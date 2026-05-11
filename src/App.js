@@ -27,6 +27,11 @@ import {
 import { computeTerritoryProposalSignals } from "./utils/territoryProposalSignals";
 import { buildSalesEnablementSpotlightEmailPayload } from "./utils/buildSalesEnablementSpotlightEmailPayload";
 import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "./data/salesEnablement/spotlightSuggestionRules";
+import { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./data/salesEnablement/productSpotlightOverlays";
+import { SALES_ENABLEMENT_CATEGORY_SPOTLIGHT_OVERLAYS } from "./data/salesEnablement/categorySpotlightOverlays";
+import { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./data/salesEnablement/customerProfiles";
+import { composeSalesEnablementSpotlight } from "./data/salesEnablement/composeSalesEnablementSpotlight";
+import { composeSalesEnablementCategorySpotlight } from "./data/salesEnablement/composeSalesEnablementCategorySpotlight";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -4520,6 +4525,32 @@ useEffect(() => {
   useEffect(() => {
     if (seGuidedIncludeBranding) setSeGuidedPreviewLogoFailed(false);
   }, [seGuidedIncludeBranding]);
+  /** Phase 73.17 — Knowledge Engine Preview (read-only; not wired to send payloads). */
+  const [seKnowledgePreviewType, setSeKnowledgePreviewType] = useState("product");
+  const [seKnowledgeProductOverlayId, setSeKnowledgeProductOverlayId] = useState(
+    "overlay-nano-ep2-grease"
+  );
+  const [seKnowledgeCategoryOverlayId, setSeKnowledgeCategoryOverlayId] = useState(
+    "cat-overlay-severe-duty-grease-program"
+  );
+  const [seKnowledgeCustomerProfileId, setSeKnowledgeCustomerProfileId] = useState("mining_aggregate");
+  const seKnowledgeEnginePreview = useMemo(() => {
+    if (seKnowledgePreviewType === "category") {
+      return composeSalesEnablementCategorySpotlight({
+        overlayId: seKnowledgeCategoryOverlayId,
+        customerProfileId: seKnowledgeCustomerProfileId,
+      });
+    }
+    return composeSalesEnablementSpotlight({
+      overlayId: seKnowledgeProductOverlayId,
+      customerProfileId: seKnowledgeCustomerProfileId,
+    });
+  }, [
+    seKnowledgePreviewType,
+    seKnowledgeProductOverlayId,
+    seKnowledgeCategoryOverlayId,
+    seKnowledgeCustomerProfileId,
+  ]);
   /** Enablement Library subsection: product/category browsers, customer profile placeholders, training catalog. */
   const [salesEnablementLibraryTab, setSalesEnablementLibraryTab] = useState("product");
   const [salesEnablementRecipientPreview, setSalesEnablementRecipientPreview] = useState(null);
@@ -11253,6 +11284,277 @@ const handleFinishDealerEnrollment = async () => {
                         </button>
                       </div>
                     </div>
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 6,
+                      paddingTop: 18,
+                      borderTop: "1px solid rgba(226, 232, 240, 0.95)",
+                      display: "grid",
+                      gap: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#475569" }}>
+                        KNOWLEDGE ENGINE PREVIEW
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          letterSpacing: "0.06em",
+                          padding: "4px 10px",
+                          borderRadius: 999,
+                          background: "rgba(148, 163, 184, 0.18)",
+                          color: "#64748b",
+                          border: "1px solid rgba(148, 163, 184, 0.45)",
+                        }}
+                      >
+                        Read-only · not send payload
+                      </span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", lineHeight: 1.45, maxWidth: 720 }}>
+                      Composed from overlay + profile + LFBB data files. Does not replace live spotlight rows or
+                      Prepare Send content.
+                    </p>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 10,
+                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
+                      }}
+                    >
+                      <div style={{ display: "grid", gap: 6 }}>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: "#64748b", letterSpacing: "0.06em" }}>
+                          TYPE
+                        </label>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {[
+                            { id: "product", label: "Product" },
+                            { id: "category", label: "Category" },
+                          ].map((t) => {
+                            const active = seKnowledgePreviewType === t.id;
+                            return (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => setSeKnowledgePreviewType(t.id)}
+                                style={{
+                                  cursor: "pointer",
+                                  borderRadius: 10,
+                                  padding: "8px 12px",
+                                  fontSize: 12,
+                                  fontWeight: 800,
+                                  border: active
+                                    ? "2px solid rgba(234, 88, 12, 0.85)"
+                                    : "1px solid rgba(203, 213, 225, 0.95)",
+                                  background: active ? "#fff7ed" : "#ffffff",
+                                  color: active ? "#9a3412" : "#334155",
+                                }}
+                              >
+                                {t.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: "#64748b", letterSpacing: "0.06em" }}>
+                          {seKnowledgePreviewType === "category" ? "CATEGORY OVERLAY" : "PRODUCT OVERLAY"}
+                        </label>
+                        <select
+                          value={
+                            seKnowledgePreviewType === "category"
+                              ? seKnowledgeCategoryOverlayId
+                              : seKnowledgeProductOverlayId
+                          }
+                          onChange={(e) => {
+                            if (seKnowledgePreviewType === "category") {
+                              setSeKnowledgeCategoryOverlayId(e.target.value);
+                            } else {
+                              setSeKnowledgeProductOverlayId(e.target.value);
+                            }
+                          }}
+                          style={{
+                            width: "100%",
+                            maxWidth: "100%",
+                            borderRadius: 10,
+                            padding: "9px 10px",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            border: "1px solid rgba(203, 213, 225, 0.95)",
+                            background: "#ffffff",
+                            color: "#0f172a",
+                          }}
+                        >
+                          {((seKnowledgePreviewType === "category"
+                            ? SALES_ENABLEMENT_CATEGORY_SPOTLIGHT_OVERLAYS?.overlays
+                            : SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS?.overlays) || []).map((o) =>
+                            o && o.id ? (
+                              <option key={o.id} value={o.id}>
+                                {seKnowledgePreviewType === "category"
+                                  ? String(o.title || o.id).slice(0, 72)
+                                  : String(o.productName || o.id).slice(0, 72)}
+                              </option>
+                            ) : null
+                          )}
+                        </select>
+                      </div>
+                      <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
+                        <label style={{ fontSize: 10, fontWeight: 800, color: "#64748b", letterSpacing: "0.06em" }}>
+                          CUSTOMER PROFILE
+                        </label>
+                        <select
+                          value={seKnowledgeCustomerProfileId}
+                          onChange={(e) => setSeKnowledgeCustomerProfileId(e.target.value)}
+                          style={{
+                            width: "100%",
+                            maxWidth: "100%",
+                            borderRadius: 10,
+                            padding: "9px 10px",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            border: "1px solid rgba(203, 213, 225, 0.95)",
+                            background: "#ffffff",
+                            color: "#0f172a",
+                          }}
+                        >
+                          {(SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles || []).map((p) =>
+                            p && p.id ? (
+                              <option key={p.id} value={p.id}>
+                                {String(p.title || p.id).slice(0, 72)}
+                              </option>
+                            ) : null
+                          )}
+                        </select>
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const ke = seKnowledgeEnginePreview;
+                      const sp = ke?.spotlight || {};
+                      const heading =
+                        seKnowledgePreviewType === "category"
+                          ? String(sp.title || "").trim()
+                          : String(sp.productName || "").trim();
+                      const lfbb = sp.lfbb && typeof sp.lfbb === "object" ? sp.lfbb : {};
+                      const bullets = (arr) =>
+                        Array.isArray(arr) && arr.length ? (
+                          <ul style={{ margin: "6px 0 0", paddingLeft: 18, color: "#334155", fontSize: 12, lineHeight: 1.45 }}>
+                            {arr.map((line, i) => (
+                              <li key={i} style={{ marginBottom: 4 }}>
+                                {line}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p style={{ margin: "6px 0 0", fontSize: 11, color: "#94a3b8" }}>—</p>
+                        );
+                      return (
+                        <div
+                          style={{
+                            borderRadius: 14,
+                            padding: "14px 16px",
+                            background: "#fafbfc",
+                            border: "1px solid rgba(226, 232, 240, 0.98)",
+                            display: "grid",
+                            gap: 10,
+                            minWidth: 0,
+                          }}
+                        >
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 12px", alignItems: "center" }}>
+                            <span style={{ fontSize: 11, fontWeight: 900, color: ke?.ok ? "#047857" : "#b91c1c" }}>
+                              {ke?.ok ? "Compose OK" : "Compose issues"}
+                            </span>
+                            {!ke?.ok && (ke?.errors || []).length ? (
+                              <span style={{ fontSize: 11, color: "#b91c1c", fontWeight: 600 }}>
+                                {(ke.errors || []).join(" · ")}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
+                            {heading || "—"}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
+                            <strong style={{ color: "#64748b" }}>Category:</strong>{" "}
+                            {String(sp.categoryTitle || "").trim() || "—"}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
+                            <strong style={{ color: "#64748b" }}>Customer profile:</strong>{" "}
+                            {String(sp.customerProfileTitle || "").trim() || "—"}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.45 }}>
+                            <strong style={{ color: "#64748b" }}>LFBB block:</strong>{" "}
+                            <code style={{ fontSize: 11, color: "#0f172a" }}>{String(sp.lfbbBlockId || "").trim() || "—"}</code>
+                          </div>
+                          {String(sp.lfbbSelectionReason || "").trim() ? (
+                            <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", lineHeight: 1.45 }}>
+                              {String(sp.lfbbSelectionReason).trim()}
+                            </p>
+                          ) : null}
+                          <div style={{ marginTop: 4 }}>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                              LINK / FEATURE / BRIDGE / BENEFIT
+                            </div>
+                            <div
+                              style={{
+                                marginTop: 6,
+                                display: "grid",
+                                gap: 6,
+                                fontSize: 12,
+                                color: "#334155",
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              <div>
+                                <span style={{ fontWeight: 800, color: "#64748b" }}>Link:</span> {lfbb.link || "—"}
+                              </div>
+                              <div>
+                                <span style={{ fontWeight: 800, color: "#64748b" }}>Feature:</span>{" "}
+                                {lfbb.feature || "—"}
+                              </div>
+                              <div>
+                                <span style={{ fontWeight: 800, color: "#64748b" }}>Bridge:</span> {lfbb.bridge || "—"}
+                              </div>
+                              <div>
+                                <span style={{ fontWeight: 800, color: "#64748b" }}>Benefit:</span>{" "}
+                                {lfbb.benefit || "—"}
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                              TECHNICAL PROOF POINTS
+                            </div>
+                            {bullets(sp.technicalProofPoints)}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                              SALES ANGLES
+                            </div>
+                            {bullets(sp.salesAngles)}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                              CTA
+                            </div>
+                            <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: "#0f172a", lineHeight: 1.45 }}>
+                              {String(sp.suggestedCta || "").trim() || "—"}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </>
