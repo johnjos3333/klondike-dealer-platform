@@ -22,7 +22,8 @@
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",
     "validate:sales-enablement": "node src/data/salesEnablement/runKnowledgeValidation.js",
-    "demo:sales-enablement-composer": "node src/data/salesEnablement/runComposerDemo.js"
+    "demo:sales-enablement-composer": "node src/data/salesEnablement/runComposerDemo.js",
+    "test:sales-enablement-composer": "node src/data/salesEnablement/runComposerSmokeTests.js"
   },
   "browserslist": [
     ">0.2%",
