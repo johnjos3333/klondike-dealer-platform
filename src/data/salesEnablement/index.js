@@ -1,5 +1,5 @@
 /**
- * Phase 73.3 / 73.5 — Sales Enablement knowledge foundation index (data + pure lookups).
+ * Phase 73.3 / 73.5 / 73.13 — Sales Enablement knowledge foundation index (data + pure lookups).
  * Re-exports canonical datasets; helpers are defensive and side-effect free.
  * Not wired to UI or sends.
  */
@@ -8,11 +8,13 @@ import { SALES_ENABLEMENT_KNOWLEDGE } from "./salesEnablementKnowledge";
 import { SALES_ENABLEMENT_LFBB_BLOCKS } from "./lfbbBlocks";
 import { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./customerProfiles";
 import { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./productSpotlightOverlays";
+import { SALES_ENABLEMENT_CATEGORY_SPOTLIGHT_OVERLAYS } from "./categorySpotlightOverlays";
 
 export { SALES_ENABLEMENT_KNOWLEDGE } from "./salesEnablementKnowledge";
 export { SALES_ENABLEMENT_LFBB_BLOCKS } from "./lfbbBlocks";
 export { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./customerProfiles";
 export { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./productSpotlightOverlays";
+export { SALES_ENABLEMENT_CATEGORY_SPOTLIGHT_OVERLAYS } from "./categorySpotlightOverlays";
 
 /** @param {unknown} id */
 function normId(id) {
@@ -73,6 +75,65 @@ export function getSalesEnablementProductOverlaysForLfbbBlock(blockId) {
   const key = normId(blockId);
   if (!key) return [];
   return getProductSpotlightOverlaysList().filter((o) => {
+    if (!o || typeof o !== "object") return false;
+    const ids = Array.isArray(o.recommendedLfbbBlockIds) ? o.recommendedLfbbBlockIds : [];
+    return ids.some((raw) => normId(raw) === key);
+  });
+}
+
+/** @returns {import("./categorySpotlightOverlays").SalesEnablementCategorySpotlightOverlay[]} */
+function getCategorySpotlightOverlaysList() {
+  const root = SALES_ENABLEMENT_CATEGORY_SPOTLIGHT_OVERLAYS;
+  return root && Array.isArray(root.overlays) ? root.overlays : [];
+}
+
+/**
+ * @param {unknown} overlayId
+ * @returns {import("./categorySpotlightOverlays").SalesEnablementCategorySpotlightOverlay | null}
+ */
+export function getSalesEnablementCategoryOverlayById(overlayId) {
+  const key = normId(overlayId);
+  if (!key) return null;
+  const list = getCategorySpotlightOverlaysList();
+  const found = list.find((o) => o && typeof o === "object" && o.id === key);
+  return found || null;
+}
+
+/**
+ * Knowledge-base category id (e.g. `grease`) — not to be confused with category spotlight overlay id.
+ * @param {unknown} categoryId
+ * @returns {import("./categorySpotlightOverlays").SalesEnablementCategorySpotlightOverlay[]}
+ */
+export function getSalesEnablementCategoryOverlaysForCategory(categoryId) {
+  const key = normId(categoryId);
+  if (!key) return [];
+  return getCategorySpotlightOverlaysList().filter(
+    (o) => o && typeof o === "object" && o.categoryId === key
+  );
+}
+
+/**
+ * @param {unknown} profileId
+ * @returns {import("./categorySpotlightOverlays").SalesEnablementCategorySpotlightOverlay[]}
+ */
+export function getSalesEnablementCategoryOverlaysForProfile(profileId) {
+  const key = normId(profileId);
+  if (!key) return [];
+  return getCategorySpotlightOverlaysList().filter((o) => {
+    if (!o || typeof o !== "object") return false;
+    const ids = Array.isArray(o.recommendedCustomerProfileIds) ? o.recommendedCustomerProfileIds : [];
+    return ids.some((raw) => normId(raw) === key);
+  });
+}
+
+/**
+ * @param {unknown} blockId
+ * @returns {import("./categorySpotlightOverlays").SalesEnablementCategorySpotlightOverlay[]}
+ */
+export function getSalesEnablementCategoryOverlaysForLfbbBlock(blockId) {
+  const key = normId(blockId);
+  if (!key) return [];
+  return getCategorySpotlightOverlaysList().filter((o) => {
     if (!o || typeof o !== "object") return false;
     const ids = Array.isArray(o.recommendedLfbbBlockIds) ? o.recommendedLfbbBlockIds : [];
     return ids.some((raw) => normId(raw) === key);
