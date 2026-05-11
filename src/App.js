@@ -7716,8 +7716,24 @@ const handleFinishDealerEnrollment = async () => {
       (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : []).find(
         (d) => String(d.organization_id) === String(salesEnablementDealerOrgId)
       )?.name || "";
+    const clip = (s, n = 78) => {
+      const t = String(s || "").trim();
+      if (!t) return "";
+      return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+    };
+    const technicalProofPoints = [];
+    const addProof = (raw) => {
+      const t = clip(raw, 86);
+      if (!t || technicalProofPoints.includes(t) || technicalProofPoints.length >= 4) return;
+      technicalProofPoints.push(t);
+    };
     if (!sp) {
+      addProof("Severe-duty protection framing verified against approved PDS language.");
+      addProof("Water resistance / contamination cues where specs support the claim.");
+      addProof("Synthetic upgrade opportunities anchored to OEM allowance—not blanket mileage.");
+      addProof("Extended drain narratives only when manufacturer bulletins align.");
       return {
+        spotlightTitle: "",
         subject: "Klondike enablement · select spotlight",
         audience: salesEnablementDealerOrgId
           ? `Dealer admins, managers, active reps · ${dealerName || "selected dealer"}`
@@ -7725,18 +7741,46 @@ const handleFinishDealerEnrollment = async () => {
         bodyLead:
           "Pick an opportunity card above or browse the Advanced Library—this preview updates from your chosen spotlight.",
         cta: "Reply with stocking questions or invite Klondike for a counter walk-through.",
+        technicalProofPoints,
+        trainingAttachmentSuggested: salesEnablementLibraryTab === "training",
       };
     }
-    const title =
-      salesEnablementSpotlightMode === "product"
-        ? String(sp.title || "").trim()
-        : String(sp.title || "").trim();
+    const mode = salesEnablementSpotlightMode === "product" ? "product" : "category";
+    const title = String(sp.title || "").trim();
     const bodyLead =
-      salesEnablementSpotlightMode === "product"
+      mode === "product"
         ? String(sp.link || sp.useWhen || sp.feature || "").trim()
         : String(sp.focus || sp.link || sp.useWhen || "").trim();
+    if (mode === "product") {
+      (Array.isArray(sp.relatedSpecs) ? sp.relatedSpecs : []).slice(0, 2).forEach(addProof);
+      addProof(sp.feature);
+      addProof(sp.benefit);
+      if (technicalProofPoints.length < 4) addProof(sp.expandedOpportunity);
+      if (technicalProofPoints.length < 4 && Array.isArray(sp.marketReality))
+        addProof(sp.marketReality[0]);
+    } else {
+      addProof(sp.feature);
+      addProof(sp.benefit);
+      (Array.isArray(sp.talkingPoints) ? sp.talkingPoints : []).slice(0, 2).forEach(addProof);
+      if (technicalProofPoints.length < 4 && Array.isArray(sp.territorySignals))
+        addProof(sp.territorySignals[0]);
+    }
+    [
+      "Application highlights emphasize documented specs—not unsupported chemistry claims.",
+      "Operational benefits framed for service managers and counter conversations.",
+      "Synthetic upgrade or extended-drain notes only where OEM guidance supports.",
+    ].forEach((line) => {
+      if (technicalProofPoints.length >= 4) return;
+      addProof(line);
+    });
+    const trainingAttachmentSuggested =
+      salesEnablementLibraryTab === "training" ||
+      ["cs-grease-program-growth", "cs-hydraulic-opportunity", "cs-synthetic-upgrade"].includes(
+        String(sp.id || "")
+      );
     return {
-      subject: `Klondike spotlight · ${title}`,
+      spotlightTitle: title,
+      subject: `Klondike · ${title}`,
       audience: salesEnablementDealerOrgId
         ? `Dealer admins, managers, active reps · ${dealerName || "organization"}`
         : "Dealer routing pending — select organization below.",
@@ -7744,15 +7788,18 @@ const handleFinishDealerEnrollment = async () => {
         bodyLead ||
         "Concise positioning notes will mirror the approved spotlight library entry when you send.",
       cta:
-        salesEnablementSpotlightMode === "product"
+        mode === "product"
           ? "Review the attached product snapshot and confirm NLGI / spec alignment before quoting."
           : "Confirm OEM tags and operating bands with your shop lead—we’ll align enablement follow-up.",
+      technicalProofPoints: technicalProofPoints.slice(0, 4),
+      trainingAttachmentSuggested,
     };
   }, [
     selectedSalesEnablementSpotlight,
     salesEnablementSpotlightMode,
     salesEnablementDealerOrgId,
     dealerNetworkPerformance,
+    salesEnablementLibraryTab,
   ]);
 
   const handleSendSalesEnablementSpotlight = useCallback(async () => {
@@ -10520,131 +10567,376 @@ const handleFinishDealerEnrollment = async () => {
 
                     <div
                       style={{
-                        borderRadius: 14,
-                        padding: "18px 20px",
-                        background: "#ffffff",
-                        border: "1px solid rgba(226, 232, 240, 0.98)",
-                        boxShadow: "0 10px 28px rgba(15, 23, 42, 0.06)",
+                        borderRadius: 16,
+                        padding: "16px 16px 18px",
+                        background: "#f1f5f9",
+                        border: "1px solid rgba(148, 163, 184, 0.35)",
+                        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.85)",
                         display: "grid",
                         gap: 14,
                         minWidth: 0,
                       }}
                     >
-                      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-                        MESSAGE TEMPLATE PREVIEW
-                      </div>
-                      {seGuidedIncludeBranding ? (
-                        <div
-                          style={{
-                            borderRadius: 12,
-                            padding: "12px 14px",
-                            background: "linear-gradient(90deg, #ea580c 0%, #1e40af 100%)",
-                            color: "#fff",
-                            fontSize: 13,
-                            fontWeight: 900,
-                            letterSpacing: "0.04em",
-                          }}
-                        >
-                          KLONDIKE — branded header placeholder
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            borderRadius: 12,
-                            padding: "10px 12px",
-                            background: "#e2e8f0",
-                            color: "#64748b",
-                            fontSize: 12,
-                            fontWeight: 700,
-                          }}
-                        >
-                          Plain header (branding off)
-                        </div>
-                      )}
-                      {seGuidedIncludeProductImage ? (
-                        <div
-                          style={{
-                            borderRadius: 12,
-                            border: "1px dashed rgba(148, 163, 184, 0.75)",
-                            background: "#fafafa",
-                            minHeight: 88,
-                            display: "grid",
-                            placeItems: "center",
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: "#94a3b8",
-                          }}
-                        >
-                          Product image placeholder
-                        </div>
-                      ) : null}
-                      <div style={{ fontSize: 12, fontWeight: 800, color: "#1e40af" }}>
-                        Subject:{" "}
-                        <span style={{ color: "#0f172a", fontWeight: 700 }}>
-                          {salesEnablementGuidedTemplateLines.subject}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
-                        <strong style={{ color: "#64748b" }}>Audience:</strong>{" "}
-                        {salesEnablementGuidedTemplateLines.audience}
-                      </div>
                       <div
                         style={{
-                          fontSize: 13,
-                          color: "#334155",
-                          lineHeight: 1.55,
-                          padding: "12px 14px",
-                          borderRadius: 12,
-                          background: "#fafafa",
-                          border: "1px solid rgba(241, 245, 249, 0.98)",
-                          whiteSpace: "pre-wrap",
+                          display: "flex",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 10,
                         }}
                       >
-                        {String(salesEnablementPreparedIntro || "").trim()
-                          ? `${String(salesEnablementPreparedIntro || "").trim()}\n\n`
-                          : ""}
-                        {salesEnablementGuidedTemplateLines.bodyLead}
-                      </div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: "#c2410c" }}>
-                        CTA: {salesEnablementGuidedTemplateLines.cta}
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                        <span style={{ fontSize: 11, fontWeight: 800, color: "#64748b", letterSpacing: "0.06em" }}>
-                          ATTACHMENTS
-                        </span>
-                        {seGuidedAttachPds ? (
+                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.11em", color: "#64748b" }}>
+                          MESSAGE TEMPLATE PREVIEW
+                        </div>
+                        {seGuidedIncludeBranding ? (
                           <span
                             style={{
-                              fontSize: 11,
+                              fontSize: 10,
                               fontWeight: 800,
+                              letterSpacing: "0.07em",
                               padding: "4px 10px",
                               borderRadius: 999,
-                              background: "#eff6ff",
-                              color: "#1d4ed8",
-                              border: "1px solid rgba(59, 130, 246, 0.35)",
-                            }}
-                          >
-                            PDS PDF
-                          </span>
-                        ) : null}
-                        {seGuidedIncludeProductImage ? (
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 800,
-                              padding: "4px 10px",
-                              borderRadius: 999,
-                              background: "#fff7ed",
+                              background: "rgba(234, 88, 12, 0.12)",
                               color: "#c2410c",
-                              border: "1px solid rgba(251, 146, 60, 0.45)",
+                              border: "1px solid rgba(251, 146, 60, 0.42)",
                             }}
                           >
-                            Product image
+                            Klondike Branding Enabled
                           </span>
                         ) : (
-                          <span style={{ fontSize: 11, color: "#94a3b8" }}>No image attachment</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8" }}>Neutral envelope</span>
                         )}
                       </div>
+
+                      <div
+                        style={{
+                          borderRadius: 14,
+                          overflow: "hidden",
+                          border: "1px solid rgba(226, 232, 240, 0.98)",
+                          background: "#ffffff",
+                          boxShadow: "0 14px 36px rgba(15, 23, 42, 0.08)",
+                          minWidth: 0,
+                        }}
+                      >
+                        {seGuidedIncludeBranding ? (
+                          <div
+                            style={{
+                              padding: "14px 18px 16px",
+                              background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 52%, #7c2d12 100%)",
+                              color: "#f8fafc",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: 18,
+                                fontWeight: 900,
+                                letterSpacing: "0.08em",
+                                lineHeight: 1.2,
+                              }}
+                            >
+                              KLONDIKE
+                            </div>
+                            <div
+                              style={{
+                                marginTop: 4,
+                                fontSize: 11,
+                                fontWeight: 700,
+                                letterSpacing: "0.06em",
+                                opacity: 0.92,
+                              }}
+                            >
+                              Territory enablement · dealer-facing preview
+                            </div>
+                            <div style={{ marginTop: 10, height: 3, borderRadius: 2, background: "#ea580c", maxWidth: 120 }} />
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              padding: "12px 16px",
+                              background: "#f8fafc",
+                              borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
+                              fontSize: 12,
+                              fontWeight: 800,
+                              color: "#64748b",
+                            }}
+                          >
+                            Plain header · branding omitted for paste-in workflows
+                          </div>
+                        )}
+
+                        <div style={{ padding: "16px 18px 18px", display: "grid", gap: 16 }}>
+                          {seGuidedIncludeProductImage ? (
+                            <div
+                              style={{
+                                borderRadius: 12,
+                                border: "1px dashed rgba(148, 163, 184, 0.65)",
+                                background: "linear-gradient(180deg, #fafafa 0%, #f8fafc 100%)",
+                                minHeight: 96,
+                                display: "grid",
+                                placeItems: "center",
+                                gap: 6,
+                                padding: "12px",
+                              }}
+                            >
+                              <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8", letterSpacing: "0.06em" }}>
+                                PRODUCT IMAGE PLACEHOLDER
+                              </div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textAlign: "center" }}>
+                                {salesEnablementGuidedTemplateLines.spotlightTitle
+                                  ? String(salesEnablementGuidedTemplateLines.spotlightTitle).slice(0, 56)
+                                  : "Hero asset slots here after creative approval"}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          <div style={{ display: "grid", gap: 6 }}>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                              SUBJECT LINE
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
+                              {salesEnablementGuidedTemplateLines.subject}
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "#475569",
+                              lineHeight: 1.5,
+                              padding: "10px 12px",
+                              borderRadius: 10,
+                              background: "#f8fafc",
+                              border: "1px solid rgba(226, 232, 240, 0.95)",
+                            }}
+                          >
+                            <strong style={{ color: "#64748b", fontSize: 10, letterSpacing: "0.06em" }}>
+                              AUDIENCE
+                            </strong>
+                            <div style={{ marginTop: 6 }}>{salesEnablementGuidedTemplateLines.audience}</div>
+                          </div>
+
+                          <div style={{ display: "grid", gap: 8 }}>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                              MESSAGE BODY
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 14,
+                                color: "#334155",
+                                lineHeight: 1.6,
+                                padding: "14px 16px",
+                                borderRadius: 12,
+                                background: "#ffffff",
+                                border: "1px solid rgba(226, 232, 240, 0.98)",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              {String(salesEnablementPreparedIntro || "").trim()
+                                ? `${String(salesEnablementPreparedIntro || "").trim()}\n\n`
+                                : ""}
+                              {salesEnablementGuidedTemplateLines.bodyLead}
+                            </div>
+                          </div>
+
+                          <div style={{ display: "grid", gap: 10 }}>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                              TECHNICAL PROOF POINTS (PREVIEW)
+                            </div>
+                            <div
+                              style={{
+                                display: "grid",
+                                gap: 8,
+                                padding: "12px 14px",
+                                borderRadius: 12,
+                                background: "#fafafa",
+                                border: "1px solid rgba(226, 232, 240, 0.98)",
+                              }}
+                            >
+                              {(salesEnablementGuidedTemplateLines.technicalProofPoints || []).map((pt, i) => (
+                                <div
+                                  key={`se-proof-${i}`}
+                                  style={{
+                                    display: "flex",
+                                    gap: 10,
+                                    alignItems: "flex-start",
+                                    fontSize: 13,
+                                    color: "#334155",
+                                    lineHeight: 1.45,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      marginTop: 5,
+                                      width: 6,
+                                      height: 6,
+                                      borderRadius: 999,
+                                      background: "#ea580c",
+                                      flexShrink: 0,
+                                    }}
+                                  />
+                                  <span>{pt}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              padding: "12px 14px",
+                              borderRadius: 12,
+                              background: "linear-gradient(90deg, rgba(255, 247, 237, 0.95) 0%, rgba(239, 246, 255, 0.65) 100%)",
+                              border: "1px solid rgba(251, 146, 60, 0.28)",
+                            }}
+                          >
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#c2410c" }}>
+                              CALL TO ACTION
+                            </div>
+                            <div style={{ marginTop: 8, fontSize: 14, fontWeight: 800, color: "#0f172a", lineHeight: 1.45 }}>
+                              {salesEnablementGuidedTemplateLines.cta}
+                            </div>
+                          </div>
+
+                          <div style={{ display: "grid", gap: 10 }}>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#64748b" }}>
+                              ATTACHMENTS (PREVIEW)
+                            </div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                              {seGuidedAttachPds ? (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    padding: "6px 12px",
+                                    borderRadius: 10,
+                                    background: "#eff6ff",
+                                    color: "#1e40af",
+                                    border: "1px solid rgba(59, 130, 246, 0.38)",
+                                    boxShadow: "0 2px 6px rgba(37, 99, 235, 0.12)",
+                                  }}
+                                >
+                                  <span aria-hidden>📄</span>
+                                  PDS · spec PDF
+                                </span>
+                              ) : (
+                                <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>No PDS attachment</span>
+                              )}
+                              {seGuidedIncludeProductImage ? (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    padding: "6px 12px",
+                                    borderRadius: 10,
+                                    background: "#fff7ed",
+                                    color: "#c2410c",
+                                    border: "1px solid rgba(251, 146, 60, 0.42)",
+                                    boxShadow: "0 2px 6px rgba(234, 88, 12, 0.1)",
+                                  }}
+                                >
+                                  <span aria-hidden>🖼</span>
+                                  Product hero · image
+                                </span>
+                              ) : null}
+                              {salesEnablementGuidedTemplateLines.trainingAttachmentSuggested ? (
+                                <span
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    padding: "6px 12px",
+                                    borderRadius: 10,
+                                    background: "#ecfdf5",
+                                    color: "#047857",
+                                    border: "1px solid rgba(52, 211, 153, 0.45)",
+                                    boxShadow: "0 2px 6px rgba(5, 150, 105, 0.08)",
+                                  }}
+                                >
+                                  <span aria-hidden>▶</span>
+                                  Training module · KL-U prep
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          {(() => {
+                            const hasDealer = Boolean(String(salesEnablementDealerOrgId || "").trim());
+                            const hasSpotlight = salesEnablementSelectedId != null;
+                            const readyPath = hasDealer && hasSpotlight && !seGuidedStageDraft;
+                            return (
+                              <div
+                                style={{
+                                  padding: "12px 14px",
+                                  borderRadius: 12,
+                                  background: "#f8fafc",
+                                  border: "1px solid rgba(226, 232, 240, 0.98)",
+                                  display: "grid",
+                                  gap: 10,
+                                }}
+                              >
+                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#64748b" }}>
+                                  OUTBOUND STATUS
+                                </div>
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
+                                    <span
+                                      style={{
+                                        fontSize: 12,
+                                        fontWeight: 900,
+                                        color: seGuidedStageDraft ? "#c2410c" : "#94a3b8",
+                                      }}
+                                    >
+                                      Draft staged
+                                    </span>
+                                    <span style={{ fontSize: 11, color: "#64748b" }}>
+                                      {seGuidedStageDraft
+                                        ? "Preview locked for leadership scan—mock only."
+                                        : "Draft staging off — compose treats preview as fluid."}
+                                    </span>
+                                  </div>
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
+                                    <span style={{ fontSize: 12, fontWeight: 900, color: "#1e40af" }}>
+                                      Pending KL Admin review
+                                    </span>
+                                    <span style={{ fontSize: 11, color: "#64748b" }}>
+                                      {hasDealer && hasSpotlight
+                                        ? "Validate recipients & spotlight sections before delivery."
+                                        : "Finish dealer + content picks to unlock checklist."}
+                                    </span>
+                                  </div>
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
+                                    <span
+                                      style={{
+                                        fontSize: 12,
+                                        fontWeight: 900,
+                                        color: readyPath ? "#047857" : "#94a3b8",
+                                      }}
+                                    >
+                                      Ready for approved send workflow
+                                    </span>
+                                    <span style={{ fontSize: 11, color: "#64748b" }}>
+                                      {readyPath
+                                        ? "Use Prepare Send / Send Spotlight when routing is confirmed."
+                                        : hasSpotlight && hasDealer && seGuidedStageDraft
+                                          ? "Clear draft staging or open Prepare Send after review."
+                                          : "Complete selections — operational send stays unchanged below."}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                         <button
                           type="button"
