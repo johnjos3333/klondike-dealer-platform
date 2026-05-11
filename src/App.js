@@ -11259,6 +11259,39 @@ const handleFinishDealerEnrollment = async () => {
                   (d) => String(d.organization_id) === oid
                 );
                 const dealerDisplayName = String(dealerRowMatch?.name || "").trim();
+                const dealerRiskDetailRow =
+                  ac.kind === "dealers_select" && ac.dealerRow
+                    ? ac.dealerRow
+                    : dealerRowMatch;
+                const showDealerRiskDetail =
+                  ac.kind === "dealer_activation" || ac.kind === "dealers_select";
+                let dealerRiskActivitySignal = "";
+                if (dealerRiskDetailRow) {
+                  const q = Number(dealerRiskDetailRow.quotesCreated || 0);
+                  const p = Number(dealerRiskDetailRow.proposalsSent || 0);
+                  const r = Number(dealerRiskDetailRow.customerResponses || 0);
+                  const st = String(dealerRiskDetailRow.status || "").trim();
+                  dealerRiskActivitySignal =
+                    q + p + r > 0
+                      ? `${q} quotes · ${p} proposals · ${r} responses${st ? ` · ${st}` : ""}`
+                      : st || "Pipeline quiet — awaiting first logged motion.";
+                } else {
+                  dealerRiskActivitySignal =
+                    oid || ac.kind === "dealers_select"
+                      ? "Counters pending — open dealer workspace to hydrate."
+                      : "Associate a dealer org to show live signals.";
+                }
+                const dealerRiskName =
+                  String(dealerRiskDetailRow?.name || dealerDisplayName || ac.scope || "").trim() ||
+                  "Dealer (name pending)";
+                const dealerRiskReason =
+                  whyText ||
+                  (ac.kind === "dealers_select"
+                    ? "Quote/proposal motion without customer responses logged."
+                    : "Activation milestone lagging versus territory expectation.");
+                const dealerRiskBdmMove =
+                  String(ac.recommended || "").trim() ||
+                  "Open workspace and lock the next accountable dealer milestone.";
                 let followStatus = "Action ready";
                 let followPrepared = "";
                 let followClick = "";
@@ -11425,6 +11458,46 @@ const handleFinishDealerEnrollment = async () => {
                         <span style={{ fontWeight: 800, color: "#94a3b8" }}>Recommended:</span>{" "}
                         {ac.recommended}
                       </div>
+                      {showDealerRiskDetail ? (
+                        <div
+                          style={{
+                            marginTop: 6,
+                            padding: "7px 10px",
+                            borderRadius: 8,
+                            background: "#f8fafc",
+                            border: "1px solid rgba(226, 232, 240, 0.95)",
+                            fontSize: 11,
+                            color: "#475569",
+                            lineHeight: 1.32,
+                          }}
+                        >
+                          <div style={{ fontWeight: 800, color: "#94a3b8", marginBottom: 4 }}>
+                            Dealer risk · BDM context
+                          </div>
+                          <div>
+                            <span style={{ color: "#94a3b8", fontWeight: 800 }}>Dealer </span>
+                            {dealerRiskName}
+                          </div>
+                          <div>
+                            <span style={{ color: "#94a3b8", fontWeight: 800 }}>Last signal </span>
+                            {dealerRiskActivitySignal.length > 112
+                              ? `${dealerRiskActivitySignal.slice(0, 109)}…`
+                              : dealerRiskActivitySignal}
+                          </div>
+                          <div>
+                            <span style={{ color: "#94a3b8", fontWeight: 800 }}>Risk </span>
+                            {dealerRiskReason.length > 120
+                              ? `${dealerRiskReason.slice(0, 117)}…`
+                              : dealerRiskReason}
+                          </div>
+                          <div>
+                            <span style={{ color: "#94a3b8", fontWeight: 800 }}>BDM move </span>
+                            {dealerRiskBdmMove.length > 120
+                              ? `${dealerRiskBdmMove.slice(0, 117)}…`
+                              : dealerRiskBdmMove}
+                          </div>
+                        </div>
+                      ) : null}
                       <div
                         style={{
                           marginTop: 8,
