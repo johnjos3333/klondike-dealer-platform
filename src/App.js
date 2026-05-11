@@ -10433,6 +10433,9 @@ const handleFinishDealerEnrollment = async () => {
                   <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.5, maxWidth: 820 }}>
                     Templates are staged for review. Live sending uses approved spotlight workflow.
                   </p>
+                  <p style={{ margin: 0, fontSize: 12, color: "#475569", fontWeight: 700, lineHeight: 1.45, maxWidth: 820 }}>
+                    Use this for recommended sends and staged templates.
+                  </p>
                   <div
                     style={{
                       display: "flex",
@@ -12125,17 +12128,100 @@ const handleFinishDealerEnrollment = async () => {
 
           <div
             style={{
+              marginTop: 28,
+              paddingTop: 22,
+              borderTop: "2px solid rgba(226, 232, 240, 0.98)",
+              display: "grid",
+              gap: 14,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: "10px 18px",
+              }}
+            >
+              <div
+                style={{
+                  flex: "1 1 80px",
+                  height: 1,
+                  background: "linear-gradient(90deg, transparent 0%, #cbd5e1 12%, #cbd5e1 88%, transparent 100%)",
+                  minWidth: 40,
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 900,
+                  letterSpacing: "0.14em",
+                  color: "#94a3b8",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                SECONDARY · LIBRARY BROWSE
+              </span>
+              <div
+                style={{
+                  flex: "1 1 80px",
+                  height: 1,
+                  background: "linear-gradient(90deg, transparent 0%, #cbd5e1 12%, #cbd5e1 88%, transparent 100%)",
+                  minWidth: 40,
+                }}
+              />
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5, maxWidth: 760 }}>
+              Use this when you need to browse all spotlights, training, and enablement content.
+            </p>
+
+            <div
+              style={{
+                borderRadius: 16,
+                padding: "12px 12px 14px",
+                background: "linear-gradient(180deg, rgba(241, 245, 249, 0.92) 0%, rgba(248, 250, 252, 0.98) 100%)",
+                border: "1px dashed rgba(148, 163, 184, 0.55)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.85)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.06em",
+                    color: "#94a3b8",
+                  }}
+                >
+                  LIBRARY PANEL · ALWAYS OPEN
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#cbd5e1" }} aria-hidden>
+                  ▾
+                </span>
+              </div>
+
+          <div
+            style={{
               ...styles.card,
-              background: "#ffffff",
-              border: "1px solid rgba(59, 130, 246, 0.28)",
-              boxShadow: "0 18px 40px rgba(15, 23, 42, 0.14)",
-              padding: "22px 24px",
+              background: "#fafbfc",
+              border: "1px solid rgba(148, 163, 184, 0.38)",
+              boxShadow: "0 8px 22px rgba(15, 23, 42, 0.05)",
+              padding: "20px 22px",
               display: "grid",
               gap: 16,
             }}
           >
             <div style={{ minWidth: 0 }}>
-              <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
+              <div style={{ ...styles.summaryLabel, color: "#64748b", letterSpacing: "0.07em" }}>
                 ADVANCED LIBRARY
               </div>
               <p
@@ -12145,10 +12231,11 @@ const handleFinishDealerEnrollment = async () => {
                   marginTop: 10,
                   marginBottom: 0,
                   lineHeight: 1.55,
+                  fontSize: 13,
                 }}
               >
-                Full spotlight taxonomy, customer profile previews, and training references—use after the guided
-                workspace above when you need deeper browsing.
+                Full spotlight taxonomy, customer profiles, and training references live here—secondary to the guided
+                path above, same capabilities as before.
               </p>
             </div>
 
@@ -12713,6 +12800,9 @@ const handleFinishDealerEnrollment = async () => {
             </div>
           ) : null}
 
+          </div>
+
+            </div>
           </div>
 
           <div
