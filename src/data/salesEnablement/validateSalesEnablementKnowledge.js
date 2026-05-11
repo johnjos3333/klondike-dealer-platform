@@ -3,10 +3,10 @@
  * Does not throw by default. Not wired to UI or build pipeline.
  */
 
-import { SALES_ENABLEMENT_KNOWLEDGE } from "./salesEnablementKnowledge";
-import { SALES_ENABLEMENT_LFBB_BLOCKS } from "./lfbbBlocks";
-import { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./customerProfiles";
-import { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./productSpotlightOverlays";
+import { SALES_ENABLEMENT_KNOWLEDGE } from "./salesEnablementKnowledge.js";
+import { SALES_ENABLEMENT_LFBB_BLOCKS } from "./lfbbBlocks.js";
+import { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./customerProfiles.js";
+import { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./productSpotlightOverlays.js";
 
 /**
  * @returns {{ ok: boolean, errors: string[], warnings: string[] }}
