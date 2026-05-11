@@ -10359,6 +10359,16 @@ const handleFinishDealerEnrollment = async () => {
             const kTplSp =
               kTplSnap?.spotlight && typeof kTplSnap.spotlight === "object" ? kTplSnap.spotlight : null;
             const seTplStagedKnowledge = Boolean(kTplSp);
+            const kTplStagedSourceLabel =
+              seKnowledgeStagedTemplateSnapshot?.sourceType === "category" ? "Category" : "Product";
+            const kTplStagedOverlayId = String(seKnowledgeStagedTemplateSnapshot?.overlayId || "").trim();
+            const kTplStagedProfileId = String(seKnowledgeStagedTemplateSnapshot?.customerProfileId || "").trim();
+            const kTplStagedLfbbReasonTrunc = (() => {
+              const t = String(kTplSp?.lfbbSelectionReason || "").trim();
+              if (!t) return "—";
+              const max = 118;
+              return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+            })();
             const tplLfbbFromKnowledge =
               seTplStagedKnowledge && kTplSp.lfbb && typeof kTplSp.lfbb === "object"
                 ? kTplSp.lfbb
@@ -10919,6 +10929,69 @@ const handleFinishDealerEnrollment = async () => {
                                 >
                                   Clear staged knowledge copy
                                 </button>
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 700,
+                                  letterSpacing: "0.03em",
+                                  color: "#64748b",
+                                  padding: "8px 10px",
+                                  borderRadius: 8,
+                                  background: "rgba(255, 255, 255, 0.78)",
+                                  border: "1px dashed rgba(148, 163, 184, 0.65)",
+                                  display: "grid",
+                                  gap: 4,
+                                  lineHeight: 1.35,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontWeight: 900,
+                                    color: "#475569",
+                                    fontSize: 9,
+                                    letterSpacing: "0.06em",
+                                  }}
+                                >
+                                  Preview source · not send payload
+                                </div>
+                                <div>
+                                  <span style={{ color: "#94a3b8" }}>Type:</span> {kTplStagedSourceLabel}
+                                  <span style={{ color: "#cbd5e1", margin: "0 5px" }}>|</span>
+                                  <span style={{ color: "#94a3b8" }}>Overlay:</span>{" "}
+                                  <code style={{ fontSize: 9, color: "#334155" }}>
+                                    {kTplStagedOverlayId || "—"}
+                                  </code>
+                                </div>
+                                <div>
+                                  <span style={{ color: "#94a3b8" }}>Profile:</span>{" "}
+                                  <code style={{ fontSize: 9, color: "#334155" }}>
+                                    {kTplStagedProfileId || "—"}
+                                  </code>
+                                  {String(kTplSp?.customerProfileTitle || "").trim() ? (
+                                    <span style={{ color: "#94a3b8" }}>
+                                      {" "}
+                                      · {String(kTplSp.customerProfileTitle).trim().slice(0, 42)}
+                                      {String(kTplSp.customerProfileTitle).trim().length > 42 ? "…" : ""}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div>
+                                  <span style={{ color: "#94a3b8" }}>LFBB block:</span>{" "}
+                                  <code style={{ fontSize: 9, color: "#334155" }}>
+                                    {String(kTplSp?.lfbbBlockId || "").trim() || "—"}
+                                  </code>
+                                </div>
+                                <div
+                                  style={{
+                                    color: "#94a3b8",
+                                    wordBreak: "break-word",
+                                    fontWeight: 600,
+                                  }}
+                                  title={String(kTplSp?.lfbbSelectionReason || "").trim() || undefined}
+                                >
+                                  <span style={{ color: "#94a3b8" }}>Selection:</span> {kTplStagedLfbbReasonTrunc}
+                                </div>
                               </div>
                               {tplKnowledgeHeading ? (
                                 <div
@@ -11534,14 +11607,22 @@ const handleFinishDealerEnrollment = async () => {
                       <button
                         type="button"
                         onClick={() => {
+                          const overlayIdForStage =
+                            seKnowledgePreviewType === "category"
+                              ? seKnowledgeCategoryOverlayId
+                              : seKnowledgeProductOverlayId;
                           try {
                             setSeKnowledgeStagedTemplateSnapshot({
                               sourceType: seKnowledgePreviewType,
+                              overlayId: overlayIdForStage,
+                              customerProfileId: seKnowledgeCustomerProfileId,
                               snapshot: JSON.parse(JSON.stringify(seKnowledgeEnginePreview)),
                             });
                           } catch {
                             setSeKnowledgeStagedTemplateSnapshot({
                               sourceType: seKnowledgePreviewType,
+                              overlayId: overlayIdForStage,
+                              customerProfileId: seKnowledgeCustomerProfileId,
                               snapshot: { ...seKnowledgeEnginePreview },
                             });
                           }
