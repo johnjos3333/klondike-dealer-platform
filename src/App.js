@@ -11139,49 +11139,97 @@ const handleFinishDealerEnrollment = async () => {
                     background: "rgba(248, 250, 252, 0.98)",
                     border: "1px solid rgba(226, 232, 240, 0.92)",
                     boxShadow: "0 4px 14px rgba(15, 23, 42, 0.07)",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: "10px 16px",
-                    justifyContent: "space-between",
                   }}
                 >
                   <div
                     style={{
-                      fontSize: 10,
-                      fontWeight: 900,
-                      letterSpacing: "0.11em",
-                      color: "#64748b",
-                    }}
-                  >
-                    SESSION PROGRESS · COMPLETION
-                  </div>
-                  <div
-                    style={{
                       display: "flex",
                       flexWrap: "wrap",
-                      gap: "12px 18px",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      color: "#334155",
+                      gap: "12px 16px",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
                     }}
                   >
-                    <span>
-                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Total </span>
-                      {totalShown}
-                    </span>
-                    <span style={{ color: "#047857" }}>
-                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Prepared </span>
-                      {preparedCount}
-                    </span>
-                    <span style={{ color: "#2563eb" }}>
-                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Handled </span>
-                      {handledCount}
-                    </span>
-                    <span style={{ color: "#ea580c" }}>
-                      <span style={{ color: "#94a3b8", fontWeight: 800 }}>Remaining </span>
-                      {remainingCount}
-                    </span>
+                    <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 900,
+                          letterSpacing: "0.11em",
+                          color: "#64748b",
+                        }}
+                      >
+                        SESSION PROGRESS · COMPLETION
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "#94a3b8",
+                          marginTop: 4,
+                          lineHeight: 1.35,
+                          maxWidth: 440,
+                        }}
+                      >
+                        Clears Prepared/Handled on cards for this browser tab session only—nothing is stored
+                        remotely.
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "10px 14px",
+                        alignItems: "center",
+                        justifyContent: "flex-end",
+                        flex: "1 1 260px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: "12px 18px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          color: "#334155",
+                        }}
+                      >
+                        <span>
+                          <span style={{ color: "#94a3b8", fontWeight: 800 }}>Total </span>
+                          {totalShown}
+                        </span>
+                        <span style={{ color: "#047857" }}>
+                          <span style={{ color: "#94a3b8", fontWeight: 800 }}>Prepared </span>
+                          {preparedCount}
+                        </span>
+                        <span style={{ color: "#2563eb" }}>
+                          <span style={{ color: "#94a3b8", fontWeight: 800 }}>Handled </span>
+                          {handledCount}
+                        </span>
+                        <span style={{ color: "#ea580c" }}>
+                          <span style={{ color: "#94a3b8", fontWeight: 800 }}>Remaining </span>
+                          {remainingCount}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setKlAdminActionCenterCompletionById({})}
+                        style={{
+                          cursor: "pointer",
+                          borderRadius: 8,
+                          padding: "6px 12px",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          letterSpacing: "0.04em",
+                          color: "#64748b",
+                          background: "#ffffff",
+                          border: "1px solid rgba(148, 163, 184, 0.55)",
+                          flex: "0 0 auto",
+                        }}
+                      >
+                        Reset session
+                      </button>
+                    </div>
                   </div>
                 </div>
               </>
