@@ -11345,6 +11345,25 @@ const handleFinishDealerEnrollment = async () => {
                 }
                 const followHeadline = `${followStatus}${followPrepared ? ` · ${followPrepared}` : ""}`;
                 const completion = klAdminActionCenterCompletionById[ac.id];
+                const showSpotlightOpportunityDetail = ac.kind === "spotlight";
+                const spotlightTypeLabel =
+                  ac.spotlightType === "product" ? "Product" : "Category";
+                const spotlightFocus = showSpotlightOpportunityDetail
+                  ? `${spotlightTypeLabel} · ${String(ac.spotlightId || "library").trim()}`
+                  : "";
+                const spotlightOpportunitySignal = showSpotlightOpportunityDetail
+                  ? whyText ||
+                    "Enablement rule matched this spotlight — validate positioning before dealer sends."
+                  : "";
+                const spotlightBdmMove = showSpotlightOpportunityDetail
+                  ? String(ac.recommended || "").trim() ||
+                    "Review enablement copy, then coach rep timing with this dealer."
+                  : "";
+                const spotlightPreparedContentStatus = showSpotlightOpportunityDetail
+                  ? completion === "handled"
+                    ? "Send workspace opened — outbound pipeline mock-only until wired."
+                    : "Library entry staged — draft prepared · not sent · mock routing."
+                  : "";
                 const markActionPrepared = () =>
                   setKlAdminActionCenterCompletionById((prev) => ({
                     ...prev,
@@ -11458,6 +11477,46 @@ const handleFinishDealerEnrollment = async () => {
                         <span style={{ fontWeight: 800, color: "#94a3b8" }}>Recommended:</span>{" "}
                         {ac.recommended}
                       </div>
+                      {showSpotlightOpportunityDetail ? (
+                        <div
+                          style={{
+                            marginTop: 6,
+                            padding: "7px 10px",
+                            borderRadius: 8,
+                            background: "#fffbeb",
+                            border: "1px solid rgba(251, 191, 36, 0.42)",
+                            fontSize: 11,
+                            color: "#78350f",
+                            lineHeight: 1.32,
+                          }}
+                        >
+                          <div style={{ fontWeight: 800, color: "#b45309", marginBottom: 4 }}>
+                            Product opportunity · intelligence
+                          </div>
+                          <div>
+                            <span style={{ color: "#b45309", fontWeight: 800 }}>Focus </span>
+                            {spotlightFocus.length > 96
+                              ? `${spotlightFocus.slice(0, 93)}…`
+                              : spotlightFocus}
+                          </div>
+                          <div>
+                            <span style={{ color: "#b45309", fontWeight: 800 }}>Signal </span>
+                            {spotlightOpportunitySignal.length > 118
+                              ? `${spotlightOpportunitySignal.slice(0, 115)}…`
+                              : spotlightOpportunitySignal}
+                          </div>
+                          <div>
+                            <span style={{ color: "#b45309", fontWeight: 800 }}>BDM move </span>
+                            {spotlightBdmMove.length > 118
+                              ? `${spotlightBdmMove.slice(0, 115)}…`
+                              : spotlightBdmMove}
+                          </div>
+                          <div>
+                            <span style={{ color: "#b45309", fontWeight: 800 }}>Prepared </span>
+                            {spotlightPreparedContentStatus}
+                          </div>
+                        </div>
+                      ) : null}
                       {showDealerRiskDetail ? (
                         <div
                           style={{
