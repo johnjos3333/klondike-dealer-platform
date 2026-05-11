@@ -1,5 +1,5 @@
 /**
- * Phase 73.3 — Sales Enablement knowledge foundation index (data + pure lookups).
+ * Phase 73.3 / 73.5 — Sales Enablement knowledge foundation index (data + pure lookups).
  * Re-exports canonical datasets; helpers are defensive and side-effect free.
  * Not wired to UI or sends.
  */
@@ -7,16 +7,76 @@
 import { SALES_ENABLEMENT_KNOWLEDGE } from "./salesEnablementKnowledge";
 import { SALES_ENABLEMENT_LFBB_BLOCKS } from "./lfbbBlocks";
 import { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./customerProfiles";
+import { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./productSpotlightOverlays";
 
 export { SALES_ENABLEMENT_KNOWLEDGE } from "./salesEnablementKnowledge";
 export { SALES_ENABLEMENT_LFBB_BLOCKS } from "./lfbbBlocks";
 export { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./customerProfiles";
+export { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./productSpotlightOverlays";
 
 /** @param {unknown} id */
 function normId(id) {
   if (id === null || id === undefined) return "";
   const s = String(id).trim();
   return s;
+}
+
+/** @returns {import("./productSpotlightOverlays").SalesEnablementProductSpotlightOverlay[]} */
+function getProductSpotlightOverlaysList() {
+  const root = SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS;
+  return root && Array.isArray(root.overlays) ? root.overlays : [];
+}
+
+/**
+ * @param {unknown} overlayId
+ * @returns {import("./productSpotlightOverlays").SalesEnablementProductSpotlightOverlay | null}
+ */
+export function getSalesEnablementProductOverlayById(overlayId) {
+  const key = normId(overlayId);
+  if (!key) return null;
+  const list = getProductSpotlightOverlaysList();
+  const found = list.find((o) => o && typeof o === "object" && o.id === key);
+  return found || null;
+}
+
+/**
+ * @param {unknown} categoryId
+ * @returns {import("./productSpotlightOverlays").SalesEnablementProductSpotlightOverlay[]}
+ */
+export function getSalesEnablementProductOverlaysForCategory(categoryId) {
+  const key = normId(categoryId);
+  if (!key) return [];
+  return getProductSpotlightOverlaysList().filter(
+    (o) => o && typeof o === "object" && o.categoryId === key
+  );
+}
+
+/**
+ * @param {unknown} profileId
+ * @returns {import("./productSpotlightOverlays").SalesEnablementProductSpotlightOverlay[]}
+ */
+export function getSalesEnablementProductOverlaysForProfile(profileId) {
+  const key = normId(profileId);
+  if (!key) return [];
+  return getProductSpotlightOverlaysList().filter((o) => {
+    if (!o || typeof o !== "object") return false;
+    const ids = Array.isArray(o.recommendedCustomerProfileIds) ? o.recommendedCustomerProfileIds : [];
+    return ids.some((raw) => normId(raw) === key);
+  });
+}
+
+/**
+ * @param {unknown} blockId
+ * @returns {import("./productSpotlightOverlays").SalesEnablementProductSpotlightOverlay[]}
+ */
+export function getSalesEnablementProductOverlaysForLfbbBlock(blockId) {
+  const key = normId(blockId);
+  if (!key) return [];
+  return getProductSpotlightOverlaysList().filter((o) => {
+    if (!o || typeof o !== "object") return false;
+    const ids = Array.isArray(o.recommendedLfbbBlockIds) ? o.recommendedLfbbBlockIds : [];
+    return ids.some((raw) => normId(raw) === key);
+  });
 }
 
 /**
