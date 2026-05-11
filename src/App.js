@@ -7733,6 +7733,41 @@ const handleFinishDealerEnrollment = async () => {
       if (!t) return "";
       return t.length > n ? `${t.slice(0, n - 1)}…` : t;
     };
+    const LFBB_FALLBACK = {
+      link: "Lead with what the shop or fleet is fighting—comebacks, slow circuits, cold reliability, or margin at the counter.",
+      feature: "Klondike stays inside OEM guidance and PDS-backed claims reps can repeat with confidence.",
+      bridge: "Connect spec discipline to how equipment actually runs: loads, seasons, and maintenance rhythm.",
+      benefit: "Uptime improves, failures taper, quotes stick, and customers trust the recommendation.",
+    };
+    const pickLfbb = (primary, ...alts) => {
+      const cands = [primary, ...alts].filter(Boolean).map((x) => String(x).trim());
+      for (const c of cands) {
+        if (c) return c;
+      }
+      return "";
+    };
+    const buildLfbb = () => {
+      if (!sp) return { ...LFBB_FALLBACK };
+      const mode = salesEnablementSpotlightMode === "product" ? "product" : "category";
+      const tp = Array.isArray(sp.talkingPoints) ? sp.talkingPoints : [];
+      const cls = Array.isArray(sp.closingLines) ? sp.closingLines : [];
+      const mr = Array.isArray(sp.marketReality) ? sp.marketReality : [];
+      const rs = Array.isArray(sp.relatedSpecs) ? sp.relatedSpecs : [];
+      if (mode === "product") {
+        return {
+          link: pickLfbb(sp.link, sp.useWhen, mr[0], LFBB_FALLBACK.link),
+          feature: pickLfbb(sp.feature, rs[0], sp.link, LFBB_FALLBACK.feature),
+          bridge: pickLfbb(sp.bridge, sp.salesAngle, sp.expandedOpportunity, LFBB_FALLBACK.bridge),
+          benefit: pickLfbb(sp.benefit, cls[0], sp.bridge, LFBB_FALLBACK.benefit),
+        };
+      }
+      return {
+        link: pickLfbb(sp.link, sp.focus, sp.useWhen, tp[0], LFBB_FALLBACK.link),
+        feature: pickLfbb(sp.feature, tp[0], sp.link, LFBB_FALLBACK.feature),
+        bridge: pickLfbb(sp.bridge, mr[0], sp.salesAngle, LFBB_FALLBACK.bridge),
+        benefit: pickLfbb(sp.benefit, cls[0], sp.bridge, LFBB_FALLBACK.benefit),
+      };
+    };
     const technicalProofPoints = [];
     const addProof = (raw) => {
       const t = clip(raw, 86);
@@ -7753,6 +7788,7 @@ const handleFinishDealerEnrollment = async () => {
         bodyLead:
           "Pick an opportunity card above or browse the Advanced Library—this preview updates from your chosen spotlight.",
         cta: "Reply with stocking questions or invite Klondike for a counter walk-through.",
+        lfbb: buildLfbb(),
         technicalProofPoints,
         trainingAttachmentSuggested: salesEnablementLibraryTab === "training",
       };
@@ -7803,6 +7839,7 @@ const handleFinishDealerEnrollment = async () => {
         mode === "product"
           ? "Review the attached product snapshot and confirm NLGI / spec alignment before quoting."
           : "Confirm OEM tags and operating bands with your shop lead—we’ll align enablement follow-up.",
+      lfbb: buildLfbb(),
       technicalProofPoints: technicalProofPoints.slice(0, 4),
       trainingAttachmentSuggested,
     };
@@ -10809,6 +10846,87 @@ const handleFinishDealerEnrollment = async () => {
                                 ? `${String(salesEnablementPreparedIntro || "").trim()}\n\n`
                                 : ""}
                               {salesEnablementGuidedTemplateLines.bodyLead}
+                            </div>
+                          </div>
+
+                          <div style={{ display: "grid", gap: 10 }}>
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 900,
+                                letterSpacing: "0.08em",
+                                color: "#94a3b8",
+                              }}
+                            >
+                              SPOTLIGHT STRUCTURE · LINK / FEATURE / BRIDGE / BENEFIT
+                            </div>
+                            <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.45 }}>
+                              Spotlights follow Link / Feature / Bridge / Benefit for consistent rep-ready messaging.
+                            </p>
+                            <div
+                              style={{
+                                display: "grid",
+                                gap: 10,
+                                padding: "14px 16px",
+                                borderRadius: 12,
+                                background: "#fafafa",
+                                border: "1px solid rgba(226, 232, 240, 0.98)",
+                              }}
+                            >
+                              {(
+                                [
+                                  {
+                                    key: "link",
+                                    label: "LINK",
+                                    caption: "Dealer / customer pain point or opportunity",
+                                    text: salesEnablementGuidedTemplateLines.lfbb?.link || "",
+                                  },
+                                  {
+                                    key: "feature",
+                                    label: "FEATURE",
+                                    caption: "Klondike product, spec, or technical capability",
+                                    text: salesEnablementGuidedTemplateLines.lfbb?.feature || "",
+                                  },
+                                  {
+                                    key: "bridge",
+                                    label: "BRIDGE",
+                                    caption: "Why it matters in the real application",
+                                    text: salesEnablementGuidedTemplateLines.lfbb?.bridge || "",
+                                  },
+                                  {
+                                    key: "benefit",
+                                    label: "BENEFIT",
+                                    caption: "Uptime, fewer failures, margin, ease of sale, confidence",
+                                    text: salesEnablementGuidedTemplateLines.lfbb?.benefit || "",
+                                  },
+                                ]
+                              ).map((row, lfIdx, lfArr) => (
+                                <div
+                                  key={row.key}
+                                  style={{
+                                    display: "grid",
+                                    gap: 6,
+                                    paddingBottom: lfIdx < lfArr.length - 1 ? 10 : 0,
+                                    borderBottom:
+                                      lfIdx < lfArr.length - 1 ? "1px solid rgba(226, 232, 240, 0.9)" : "none",
+                                  }}
+                                >
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 12px", alignItems: "baseline" }}>
+                                    <span
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: 900,
+                                        letterSpacing: "0.1em",
+                                        color: "#c2410c",
+                                      }}
+                                    >
+                                      {row.label}
+                                    </span>
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8" }}>{row.caption}</span>
+                                  </div>
+                                  <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.55 }}>{row.text}</div>
+                                </div>
+                              ))}
                             </div>
                           </div>
 
