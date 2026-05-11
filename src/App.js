@@ -11212,7 +11212,11 @@ const handleFinishDealerEnrollment = async () => {
                 gap: 10,
               }}
             >
-              {klondikeActionCenterActions.map((ac) => {
+              {klondikeActionCenterActions.map((ac, idx) => {
+                const queuePriorityRank = idx + 1;
+                const queueTierLabel =
+                  idx === 0 ? "Top action" : idx === 1 ? "Next best action" : "Follow-up";
+                const isTopQueueItem = idx === 0;
                 const sev =
                   typeof ac.severityRank === "number" ? ac.severityRank : null;
                 const criticalSpotlight = ac.kind === "spotlight" && sev === 0;
@@ -11391,16 +11395,38 @@ const handleFinishDealerEnrollment = async () => {
                       justifyContent: "space-between",
                       padding: "12px 14px",
                       borderRadius: 12,
-                      border: "1px solid rgba(226, 232, 240, 0.98)",
-                      borderLeft: `3px solid ${surf.bar}`,
-                      background: "#ffffff",
-                      boxShadow: "0 6px 18px rgba(15, 23, 42, 0.06)",
+                      border: isTopQueueItem
+                        ? "1px solid rgba(251, 146, 60, 0.42)"
+                        : "1px solid rgba(226, 232, 240, 0.98)",
+                      borderLeft: `${isTopQueueItem ? "4px" : "3px"} solid ${surf.bar}`,
+                      background: isTopQueueItem ? "#fffdfb" : "#ffffff",
+                      boxShadow: isTopQueueItem
+                        ? "0 8px 22px rgba(234, 88, 12, 0.11)"
+                        : "0 6px 18px rgba(15, 23, 42, 0.06)",
                       minWidth: 0,
                       opacity: completion ? 0.94 : 1,
                     }}
                   >
                     <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                        <span
+                          style={{
+                            flex: "0 0 auto",
+                            fontSize: 9,
+                            fontWeight: 900,
+                            letterSpacing: "0.12em",
+                            padding: "4px 9px",
+                            borderRadius: 999,
+                            background: isTopQueueItem ? "#fff7ed" : "#f8fafc",
+                            color: isTopQueueItem ? "#c2410c" : "#64748b",
+                            border: isTopQueueItem
+                              ? "1px solid rgba(251, 146, 60, 0.42)"
+                              : "1px solid rgba(226, 232, 240, 0.95)",
+                          }}
+                          title="Queue order — displayed sequence only"
+                        >
+                          PRIORITY {queuePriorityRank} · {queueTierLabel.toUpperCase()}
+                        </span>
                         <span
                           style={{
                             flex: "0 0 auto",
