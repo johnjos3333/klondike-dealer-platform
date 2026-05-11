@@ -4551,6 +4551,8 @@ useEffect(() => {
     seKnowledgeCategoryOverlayId,
     seKnowledgeCustomerProfileId,
   ]);
+  /** Phase 73.18 — Staged knowledge → template preview only (session/local; not send payload). */
+  const [seKnowledgeStagedTemplateSnapshot, setSeKnowledgeStagedTemplateSnapshot] = useState(null);
   /** Enablement Library subsection: product/category browsers, customer profile placeholders, training catalog. */
   const [salesEnablementLibraryTab, setSalesEnablementLibraryTab] = useState("product");
   const [salesEnablementRecipientPreview, setSalesEnablementRecipientPreview] = useState(null);
@@ -10353,6 +10355,25 @@ const handleFinishDealerEnrollment = async () => {
               !salesEnablementDealerOrgId ? 1 : !salesEnablementSelectedId ? 2 : salesEnablementSendPanelOpen ? 4 : 3;
             const guidedMockProductLabel =
               SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.find((o) => o.id === seGuidedMockProductImageId)?.label || "—";
+            const kTplSnap = seKnowledgeStagedTemplateSnapshot?.snapshot;
+            const kTplSp =
+              kTplSnap?.spotlight && typeof kTplSnap.spotlight === "object" ? kTplSnap.spotlight : null;
+            const seTplStagedKnowledge = Boolean(kTplSp);
+            const tplLfbbFromKnowledge =
+              seTplStagedKnowledge && kTplSp.lfbb && typeof kTplSp.lfbb === "object"
+                ? kTplSp.lfbb
+                : salesEnablementGuidedTemplateLines.lfbb;
+            const tplProofFromKnowledge = seTplStagedKnowledge
+              ? Array.isArray(kTplSp.technicalProofPoints)
+                ? kTplSp.technicalProofPoints
+                : []
+              : salesEnablementGuidedTemplateLines.technicalProofPoints || [];
+            const tplCtaFromKnowledge = seTplStagedKnowledge
+              ? String(kTplSp.suggestedCta || "").trim()
+              : salesEnablementGuidedTemplateLines.cta;
+            const tplKnowledgeHeading = seTplStagedKnowledge
+              ? String(kTplSp.title || kTplSp.productName || "").trim()
+              : "";
             const stepChip = (n, label) => {
               const active = guidedStep === n;
               const done = guidedStep > n;
@@ -10851,6 +10872,68 @@ const handleFinishDealerEnrollment = async () => {
                         )}
 
                         <div style={{ padding: "16px 18px 18px", display: "grid", gap: 16 }}>
+                          {seTplStagedKnowledge ? (
+                            <div
+                              style={{
+                                borderRadius: 12,
+                                padding: "12px 14px",
+                                background:
+                                  "linear-gradient(100deg, rgba(224, 231, 255, 0.75) 0%, rgba(254, 243, 199, 0.55) 100%)",
+                                border: "1px solid rgba(99, 102, 241, 0.38)",
+                                display: "grid",
+                                gap: 8,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: 8,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: 10,
+                                    fontWeight: 900,
+                                    letterSpacing: "0.08em",
+                                    color: "#4338ca",
+                                  }}
+                                >
+                                  Knowledge Engine staged · preview only
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setSeKnowledgeStagedTemplateSnapshot(null)}
+                                  style={{
+                                    cursor: "pointer",
+                                    border: "none",
+                                    background: "transparent",
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    color: "#4f46e5",
+                                    textDecoration: "underline",
+                                    padding: 0,
+                                  }}
+                                >
+                                  Clear staged knowledge copy
+                                </button>
+                              </div>
+                              {tplKnowledgeHeading ? (
+                                <div
+                                  style={{
+                                    fontSize: 15,
+                                    fontWeight: 900,
+                                    color: "#0f172a",
+                                    lineHeight: 1.35,
+                                  }}
+                                >
+                                  {tplKnowledgeHeading}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                           {seGuidedIncludeProductImage ? (
                             <div
                               style={{
@@ -10961,25 +11044,25 @@ const handleFinishDealerEnrollment = async () => {
                                     key: "link",
                                     label: "LINK",
                                     caption: "Dealer / customer pain point or opportunity",
-                                    text: salesEnablementGuidedTemplateLines.lfbb?.link || "",
+                                    text: tplLfbbFromKnowledge?.link || "",
                                   },
                                   {
                                     key: "feature",
                                     label: "FEATURE",
                                     caption: "Klondike product, spec, or technical capability",
-                                    text: salesEnablementGuidedTemplateLines.lfbb?.feature || "",
+                                    text: tplLfbbFromKnowledge?.feature || "",
                                   },
                                   {
                                     key: "bridge",
                                     label: "BRIDGE",
                                     caption: "Why it matters in the real application",
-                                    text: salesEnablementGuidedTemplateLines.lfbb?.bridge || "",
+                                    text: tplLfbbFromKnowledge?.bridge || "",
                                   },
                                   {
                                     key: "benefit",
                                     label: "BENEFIT",
                                     caption: "Uptime, fewer failures, margin, ease of sale, confidence",
-                                    text: salesEnablementGuidedTemplateLines.lfbb?.benefit || "",
+                                    text: tplLfbbFromKnowledge?.benefit || "",
                                   },
                                 ]
                               ).map((row, lfIdx, lfArr) => (
@@ -11026,7 +11109,7 @@ const handleFinishDealerEnrollment = async () => {
                                 border: "1px solid rgba(226, 232, 240, 0.98)",
                               }}
                             >
-                              {(salesEnablementGuidedTemplateLines.technicalProofPoints || []).map((pt, i) => (
+                              {(tplProofFromKnowledge || []).map((pt, i) => (
                                 <div
                                   key={`se-proof-${i}`}
                                   style={{
@@ -11066,7 +11149,7 @@ const handleFinishDealerEnrollment = async () => {
                               CALL TO ACTION
                             </div>
                             <div style={{ marginTop: 8, fontSize: 14, fontWeight: 800, color: "#0f172a", lineHeight: 1.45 }}>
-                              {salesEnablementGuidedTemplateLines.cta}
+                              {tplCtaFromKnowledge}
                             </div>
                           </div>
 
@@ -11438,6 +11521,61 @@ const handleFinishDealerEnrollment = async () => {
                           )}
                         </select>
                       </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 10,
+                        alignItems: "center",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          try {
+                            setSeKnowledgeStagedTemplateSnapshot({
+                              sourceType: seKnowledgePreviewType,
+                              snapshot: JSON.parse(JSON.stringify(seKnowledgeEnginePreview)),
+                            });
+                          } catch {
+                            setSeKnowledgeStagedTemplateSnapshot({
+                              sourceType: seKnowledgePreviewType,
+                              snapshot: { ...seKnowledgeEnginePreview },
+                            });
+                          }
+                        }}
+                        style={{
+                          cursor: "pointer",
+                          borderRadius: 10,
+                          padding: "9px 14px",
+                          fontSize: 12,
+                          fontWeight: 800,
+                          border: "1px solid rgba(99, 102, 241, 0.5)",
+                          background: "linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)",
+                          color: "#3730a3",
+                        }}
+                      >
+                        Stage to Template Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSeKnowledgeStagedTemplateSnapshot(null)}
+                        disabled={!seKnowledgeStagedTemplateSnapshot}
+                        style={{
+                          cursor: seKnowledgeStagedTemplateSnapshot ? "pointer" : "not-allowed",
+                          borderRadius: 10,
+                          padding: "9px 12px",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          border: "1px solid rgba(203, 213, 225, 0.95)",
+                          background: seKnowledgeStagedTemplateSnapshot ? "#ffffff" : "#f1f5f9",
+                          color: seKnowledgeStagedTemplateSnapshot ? "#64748b" : "#cbd5e1",
+                        }}
+                      >
+                        Clear staged knowledge copy
+                      </button>
                     </div>
 
                     {(() => {
