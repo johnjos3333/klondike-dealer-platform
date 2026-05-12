@@ -33,7 +33,7 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
       id: "flagship-nano-ep-2-grease",
       productName: "Nano EP 2 Grease",
       flagshipPositioning:
-        "Premium severe-duty NLGI 2 calcium sulfonate EP grease built for shock, wet pins, and real wash-down—not the commodity EP-2 drum that lives on price alone.",
+        "Premium severe-duty grease film for shock, wet pins, and real wash-down—not the commodity EP-2 drum sold on price alone.",
       fieldIdentity:
         "What you reach for when hammers, crushers, and loader pins are eating shock, slurry is in every joint, and downtime from washout or metal loss is not an abstract risk.",
       severeDutyUseCases: [
