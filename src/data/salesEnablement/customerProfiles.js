@@ -219,5 +219,65 @@ export const SALES_ENABLEMENT_CUSTOMER_PROFILES = {
         "lfbb-synthetics-upgrade-v1",
       ],
     },
+    {
+      id: "food_processing",
+      title: "Food processing — hygienic production and incidental-contact fluids",
+      operatingConditions: [
+        "Wash-down schedules, allergen controls, and NSF incidental-contact audits on hydraulic circuits near packaging lines.",
+        "Seasonal temperature swings in cold rooms and cook lines that still expect reliable pump response.",
+      ],
+      commonPainPoints: [
+        "Wrong non-H1 fluid in a food-adjacent circuit after emergency maintenance borrows from the farm store.",
+        "Foam and water separation issues when heat loads spike without filtration discipline.",
+      ],
+      priorityProductCategories: ["hydraulic_fluids", "grease"],
+      buyingTriggers: [
+        "Plant SQF / HACCP refresh requiring documented H1 inventory and tank labeling.",
+        "OEM audit of hydraulic cleanliness near open product zones.",
+      ],
+      recommendedMessagingAngles: [
+        "NSF H1 first: post the exact SKU and ISO grade from the PDS at each food-adjacent manifold.",
+        "Pair hydraulic tier with breather and kidney-loop upgrades where OEM allows.",
+      ],
+      relevantEquipmentTypes: [
+        "Formers, fillers, and conveyors with food-zone hydraulics",
+        "Cold-storage lift trucks and pallet jacks in hygienic areas",
+      ],
+      recommendedLfbbBlockIds: [
+        "lfbb-hydraulic-uptime-v1",
+        "lfbb-hydraulic-oxidation-v1",
+      ],
+    },
+    {
+      id: "industrial_processing",
+      title: "Industrial processing — compressors, turbines, and long-life rotating fluids",
+      operatingConditions: [
+        "24/7 rotating equipment with oxidation reserve and varnish risk on long-drain compressor and turbine loops.",
+        "Shared MRO stores where hydraulic AW grades are mistaken for compressor or turbine chemistry.",
+      ],
+      commonPainPoints: [
+        "Moisture carryover and valve deposits when demulsibility and air-release are not matched to OEM class.",
+        "Cross-top-off between hydraulic, compressor, and turbine sumps under downtime pressure.",
+      ],
+      priorityProductCategories: ["hydraulic_fluids", "synthetics", "hd_engine_oils"],
+      buyingTriggers: [
+        "Reliability initiative or insurance-driven documentation for rotating equipment.",
+        "OEM major on compressors or steam/gas turbines.",
+      ],
+      recommendedMessagingAngles: [
+        "ASTM / DIN class first: circulating vs compressor vs turbine rows on the PDS—not color of the drum.",
+        "Oil analysis trending varnish precursors before trip setpoints.",
+      ],
+      relevantEquipmentTypes: [
+        "Rotary screw and reciprocating compressors",
+        "Steam and gas turbines in co-gen and utility support",
+        "Large hydraulic power units adjacent to compressor yards",
+      ],
+      recommendedLfbbBlockIds: [
+        "lfbb-hydraulic-oxidation-v1",
+        "lfbb-hydraulic-uptime-v1",
+        "lfbb-synthetics-upgrade-v1",
+      ],
+    },
   ],
 };
