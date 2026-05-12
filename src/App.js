@@ -37,6 +37,7 @@ import {
   getSalesEnablementPdsFileHintForLibrarySpotlight,
 } from "./data/salesEnablement/salesEnablementPdsUrl";
 import { getSalesEnablementFlagshipNarrativeByProductName } from "./data/salesEnablement/salesEnablementFlagshipNarrativeLookup";
+import { getGuidedSpotlightBuilderRecommendation } from "./data/salesEnablement/guidedSpotlightBuilderRecommendations";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -4540,6 +4541,8 @@ useEffect(() => {
   const [seGuidedWizardProfileRefId, setSeGuidedWizardProfileRefId] = useState(
     () => String(SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles?.[0]?.id || "")
   );
+  /** Phase 77.0 — Guided builder query (preview selection only; send payloads unchanged). */
+  const [seGuidedBuilderQuery, setSeGuidedBuilderQuery] = useState("");
   useEffect(() => {
     if (klondikeAdminTab !== "sales_enablement") return;
     setSeGuidedWizardMessageKind((prev) => {
@@ -7758,6 +7761,15 @@ const handleFinishDealerEnrollment = async () => {
     }
     return CATEGORY_SPOTLIGHTS.filter((c) => c.category === salesEnablementCategoryFilter);
   }, [salesEnablementCategoryFilter]);
+
+  const guidedSpotlightBuilderRecommendation = React.useMemo(
+    () =>
+      getGuidedSpotlightBuilderRecommendation({
+        query: seGuidedBuilderQuery,
+        messageKind: seGuidedWizardMessageKind,
+      }),
+    [seGuidedBuilderQuery, seGuidedWizardMessageKind]
+  );
 
   const selectedSalesEnablementSpotlight = React.useMemo(() => {
     if (salesEnablementSpotlightMode === "product") {
@@ -11248,12 +11260,14 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-                      STEP 3 · BUILD YOUR MESSAGE
+                      STEP 3 · AI-GUIDED SPOTLIGHT BUILDER
                     </div>
                     <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5, maxWidth: 860 }}>
-                      Choose the primary library row for this preview. Copy stays anchored to{" "}
-                      <strong style={{ color: "#334155" }}>PDS-backed</strong> spotlight text; Step 4 condenses LFBB and
-                      proof for scanning.
+                      Describe the opportunity in plain language—the platform scores{" "}
+                      <strong style={{ color: "#334155" }}>PDS maps</strong>,{" "}
+                      <strong style={{ color: "#334155" }}>flagship narratives</strong>,{" "}
+                      <strong style={{ color: "#334155" }}>profiles</strong>, and library rows with deterministic keyword
+                      matches (no autonomous AI). Step 4 preview and send payloads behave as before.
                     </p>
                     {!messageKindReady ? (
                       <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", fontWeight: 700, lineHeight: 1.45 }}>
@@ -11262,6 +11276,202 @@ const handleFinishDealerEnrollment = async () => {
                     ) : null}
                     {messageKindReady ? (
                       <>
+                        <div
+                          style={{
+                            borderRadius: 12,
+                            padding: "12px 14px",
+                            background: "linear-gradient(120deg, rgba(239, 246, 255, 0.95) 0%, rgba(250, 245, 255, 0.9) 100%)",
+                            border: "1px solid rgba(99, 102, 241, 0.28)",
+                            display: "grid",
+                            gap: 10,
+                          }}
+                        >
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#4338ca" }}>
+                            GUIDED PROMPT
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
+                            {seGuidedWizardMessageKind === "customer_profile"
+                              ? "What type of customer are you targeting?"
+                              : seGuidedWizardMessageKind === "category"
+                                ? "What product line or operational problem are you targeting?"
+                                : "What product would you like to highlight?"}
+                          </div>
+                          <input
+                            type="search"
+                            value={seGuidedBuilderQuery}
+                            onChange={(e) => setSeGuidedBuilderQuery(e.target.value)}
+                            placeholder="Type keywords — e.g. Nano EP 2, wet brake chatter, mining grease…"
+                            style={{
+                              width: "100%",
+                              maxWidth: "100%",
+                              borderRadius: 10,
+                              padding: "11px 12px",
+                              fontSize: 14,
+                              fontWeight: 600,
+                              border: "1px solid rgba(99, 102, 241, 0.45)",
+                              background: "#ffffff",
+                              color: "#0f172a",
+                            }}
+                          />
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b", lineHeight: 1.45 }}>
+                            Examples:{" "}
+                            <span style={{ color: "#475569" }}>
+                              Nano EP 2 · Wet brake chatter · Cold weather hydraulics · Mining grease · Food processing
+                              hydraulics · Mixed fleet uptime
+                            </span>
+                          </div>
+                        </div>
+                        {guidedSpotlightBuilderRecommendation?.match ? (
+                          <div
+                            style={{
+                              borderRadius: 12,
+                              padding: "14px 14px 16px",
+                              border: "1px solid rgba(45, 212, 191, 0.4)",
+                              background: "linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 55%, #ffffff 100%)",
+                              display: "grid",
+                              gap: 10,
+                            }}
+                          >
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#0f766e" }}>
+                              RECOMMENDED SPOTLIGHT
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.3 }}>
+                              {guidedSpotlightBuilderRecommendation.match.spotlightTitle}
+                              <span style={{ display: "block", marginTop: 4, fontSize: 11, fontWeight: 700, color: "#64748b" }}>
+                                {guidedSpotlightBuilderRecommendation.match.resultType === "product"
+                                  ? "Product spotlight"
+                                  : guidedSpotlightBuilderRecommendation.match.resultType === "category"
+                                    ? "Category spotlight"
+                                    : "Customer profile"}
+                                {guidedSpotlightBuilderRecommendation.match.matchedTerms?.length ? (
+                                  <span style={{ color: "#94a3b8" }}>
+                                    {" "}
+                                    · matched:{" "}
+                                    {guidedSpotlightBuilderRecommendation.match.matchedTerms.slice(0, 6).join(", ")}
+                                  </span>
+                                ) : null}
+                              </span>
+                            </div>
+                            {guidedSpotlightBuilderRecommendation.match.pairedProductSpotlightId ? (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#047857", lineHeight: 1.4 }}>
+                                Suggested pairing:{" "}
+                                {PRODUCT_SPOTLIGHTS.find(
+                                  (p) => p.id === guidedSpotlightBuilderRecommendation.match.pairedProductSpotlightId
+                                )?.title || guidedSpotlightBuilderRecommendation.match.pairedProductSpotlightId}{" "}
+                                (optional product lens for preview)
+                              </div>
+                            ) : null}
+                            <div style={{ display: "grid", gap: 4 }}>
+                              <div style={{ fontSize: 10, fontWeight: 900, color: "#0f766e", letterSpacing: "0.08em" }}>
+                                {guidedSpotlightBuilderRecommendation.match.resultType === "customer_profile"
+                                  ? "WHY THIS PROFILE FITS"
+                                  : "WHY THIS PRODUCT WINS"}
+                              </div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: "#134e4a", lineHeight: 1.45 }}>
+                                {guidedSpotlightBuilderRecommendation.match.whyItWins}
+                              </div>
+                            </div>
+                            <div style={{ display: "grid", gap: 4 }}>
+                              <div style={{ fontSize: 10, fontWeight: 900, color: "#0e7490", letterSpacing: "0.08em" }}>
+                                TOP PROOF POINTS
+                              </div>
+                              <ul style={{ margin: 0, paddingLeft: 18, color: "#334155", fontSize: 12, lineHeight: 1.45 }}>
+                                {(guidedSpotlightBuilderRecommendation.match.proofPoints || []).slice(0, 4).map((pt, i) => (
+                                  <li key={`gb-proof-${i}`}>{pt}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div style={{ display: "grid", gap: 4 }}>
+                              <div style={{ fontSize: 10, fontWeight: 900, color: "#64748b", letterSpacing: "0.08em" }}>
+                                CUSTOMER PAIN SIGNALS
+                              </div>
+                              <ul style={{ margin: 0, paddingLeft: 18, color: "#334155", fontSize: 12, lineHeight: 1.45 }}>
+                                {(guidedSpotlightBuilderRecommendation.match.painSignals || []).slice(0, 4).map((pt, i) => (
+                                  <li key={`gb-pain-${i}`}>{pt}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div style={{ display: "grid", gap: 4 }}>
+                              <div style={{ fontSize: 10, fontWeight: 900, color: "#5b21b6", letterSpacing: "0.08em" }}>
+                                REP TALK TRACK (PREVIEW)
+                              </div>
+                              <ul style={{ margin: 0, paddingLeft: 18, color: "#334155", fontSize: 12, lineHeight: 1.45 }}>
+                                {(guidedSpotlightBuilderRecommendation.match.repTalkPreview || []).map((pt, i) => (
+                                  <li key={`gb-rep-${i}`}>{pt}</li>
+                                ))}
+                              </ul>
+                            </div>
+                            <div style={{ display: "grid", gap: 4 }}>
+                              <div style={{ fontSize: 10, fontWeight: 900, color: "#c2410c", letterSpacing: "0.08em" }}>
+                                CTA
+                              </div>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", lineHeight: 1.4 }}>
+                                {guidedSpotlightBuilderRecommendation.match.cta}
+                              </div>
+                            </div>
+                            {guidedSpotlightBuilderRecommendation.match.pdsUrl ? (
+                              <div style={{ fontSize: 12 }}>
+                                <a
+                                  href={guidedSpotlightBuilderRecommendation.match.pdsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{ fontWeight: 800, color: "#2563eb" }}
+                                >
+                                  View Product Data Sheet
+                                </a>
+                                <span style={{ display: "block", marginTop: 4, fontSize: 10, color: "#94a3b8" }}>
+                                  Preview link only — not added to send payload automatically.
+                                </span>
+                              </div>
+                            ) : null}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const m = guidedSpotlightBuilderRecommendation?.match;
+                                if (!m) return;
+                                if (m.resultType === "customer_profile") {
+                                  setSeGuidedWizardProfileRefId(String(m.spotlightId || "").trim());
+                                  const pair = String(m.pairedProductSpotlightId || "").trim();
+                                  if (pair) guidedPickSpotlight(pair, "product");
+                                  return;
+                                }
+                                if (m.resultType === "category") {
+                                  guidedPickSpotlight(String(m.spotlightId || "").trim(), "category");
+                                  return;
+                                }
+                                guidedPickSpotlight(String(m.spotlightId || "").trim(), "product");
+                              }}
+                              style={{
+                                cursor: "pointer",
+                                marginTop: 4,
+                                borderRadius: 10,
+                                padding: "10px 14px",
+                                fontSize: 13,
+                                fontWeight: 900,
+                                border: "none",
+                                background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                                color: "#ffffff",
+                                boxShadow: "0 6px 16px rgba(5, 150, 105, 0.25)",
+                              }}
+                            >
+                              Use Recommended Spotlight
+                            </button>
+                          </div>
+                        ) : String(seGuidedBuilderQuery || "").trim().length >= 2 ? (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: "#94a3b8",
+                              padding: "8px 10px",
+                              borderRadius: 8,
+                              background: "#f8fafc",
+                              border: "1px dashed rgba(148, 163, 184, 0.65)",
+                            }}
+                          >
+                            No strong library match yet—try another keyword or expand the Advanced Library below.
+                          </div>
+                        ) : null}
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                           <span style={{ fontSize: 10, fontWeight: 800, color: "#94a3b8", letterSpacing: "0.06em" }}>
                             MESSAGE TYPE
@@ -11395,9 +11605,11 @@ const handleFinishDealerEnrollment = async () => {
                             type="button"
                             onClick={() => {
                               try {
-                                document
-                                  .getElementById("kl-se-advanced-library")
-                                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                                const el = document.getElementById("kl-se-advanced-library");
+                                if (el && typeof el === "object" && "open" in el) {
+                                  /** @type {HTMLDetailsElement} */ (el).open = true;
+                                }
+                                el?.scrollIntoView({ behavior: "smooth", block: "start" });
                               } catch {
                                 /* ignore */
                               }
@@ -11416,10 +11628,10 @@ const handleFinishDealerEnrollment = async () => {
                               gap: 4,
                             }}
                           >
-                            Browse Available Materials
+                            Open Advanced Library (fallback)
                             <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", lineHeight: 1.45 }}>
-                              Open the full library of product spotlights, category spotlights, customer profiles, and
-                              training modules (scrolls to Advanced Library below).
+                              Full product, category, profile, and training browsers—collapsed by default; expands here
+                              when you need manual control.
                             </span>
                           </button>
                         </div>
@@ -14556,17 +14768,28 @@ const handleFinishDealerEnrollment = async () => {
             </div>
           ) : null}
 
-          <div
+          <details
             id="kl-se-advanced-library"
             style={{
               marginTop: 22,
               paddingTop: 18,
               borderTop: "2px solid rgba(226, 232, 240, 0.85)",
-              display: "grid",
-              gap: 12,
               opacity: 0.97,
             }}
           >
+            <summary
+              style={{
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 900,
+                letterSpacing: "0.08em",
+                color: "#64748b",
+                listStyle: "none",
+              }}
+            >
+              Advanced Library — manual browse (expand)
+            </summary>
+            <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
             <div
               style={{
                 display: "flex",
@@ -15236,7 +15459,8 @@ const handleFinishDealerEnrollment = async () => {
           </div>
 
             </div>
-          </div>
+            </div>
+          </details>
 
           <div
             style={{
