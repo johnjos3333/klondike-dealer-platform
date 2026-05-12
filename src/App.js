@@ -10489,29 +10489,31 @@ const handleFinishDealerEnrollment = async () => {
                     background: "#ffffff",
                     border: "1px solid rgba(226, 232, 240, 0.98)",
                     boxShadow: "0 12px 32px rgba(15, 23, 42, 0.06)",
-                    padding: "20px 22px",
+                    padding: "22px 22px 20px",
                     display: "grid",
-                    gap: 16,
+                    gap: 18,
                   }}
                 >
                   <div
                     style={{
                       fontSize: 11,
                       fontWeight: 900,
-                      letterSpacing: "0.12em",
+                      letterSpacing: "0.14em",
                       color: "#64748b",
                     }}
                   >
                     GUIDED WORKSPACE
                   </div>
                   <h3 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.02em" }}>
-                    Sales Enablement path
+                    Dealer spotlight journey
                   </h3>
-                  <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.5, maxWidth: 820 }}>
-                    Templates are staged for review. Live sending uses approved spotlight workflow.
+                  <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.55, maxWidth: 820 }}>
+                    Walk the steps below to align preview copy with an approved library spotlight. Outbound email still
+                    flows through Prepare Send and your existing send controls—nothing here replaces that workflow.
                   </p>
-                  <p style={{ margin: 0, fontSize: 12, color: "#475569", fontWeight: 700, lineHeight: 1.45, maxWidth: 820 }}>
-                    Use this for recommended sends and staged templates.
+                  <p style={{ margin: 0, fontSize: 12, color: "#475569", fontWeight: 700, lineHeight: 1.5, maxWidth: 820 }}>
+                    Recommended cards jump-start content picks; the template preview and toggles stay mock-safe until you
+                    open the operational send panel.
                   </p>
                   <div
                     style={{
@@ -10520,24 +10522,63 @@ const handleFinishDealerEnrollment = async () => {
                       gap: 10,
                     }}
                   >
-                    {stepChip(1, "Pick Opportunity")}
-                    {stepChip(2, "Choose Content")}
-                    {stepChip(3, "Review Template")}
-                    {stepChip(4, "Send / Stage")}
+                    {stepChip(1, "Pick opportunity")}
+                    {stepChip(2, "Choose content")}
+                    {stepChip(3, "Review template")}
+                    {stepChip(4, "Send / stage")}
                   </div>
 
-                  <div style={{ marginTop: 4 }}>
+                  <div
+                    style={{
+                      marginTop: 2,
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      background: "linear-gradient(135deg, rgba(248, 250, 252, 0.98) 0%, rgba(241, 245, 249, 0.92) 100%)",
+                      border: "1px dashed rgba(148, 163, 184, 0.72)",
+                      display: "grid",
+                      gap: 8,
+                      maxWidth: 820,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        letterSpacing: "0.12em",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      COMING SOON
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: "#334155", letterSpacing: "-0.01em" }}>
+                      Smart Spotlight Builder
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                      On the roadmap: a dedicated builder that layers{" "}
+                      <strong style={{ color: "#475569" }}>product and category knowledge</strong>,{" "}
+                      <strong style={{ color: "#475569" }}>customer profiles</strong>, and{" "}
+                      <strong style={{ color: "#475569" }}>LFBB structure</strong> to generate{" "}
+                      <strong style={{ color: "#475569" }}>preview-only</strong> draft lines you can contrast with your
+                      library selection—without wiring new payloads into Prepare Send.
+                    </p>
+                  </div>
+
+                  <div style={{ marginTop: 2 }}>
                     <div
                       style={{
                         fontSize: 11,
                         fontWeight: 900,
                         letterSpacing: "0.1em",
                         color: "#64748b",
-                        marginBottom: 10,
+                        marginBottom: 6,
                       }}
                     >
                       RECOMMENDED ENABLEMENT ACTIONS
                     </div>
+                    <p style={{ margin: "0 0 10px", fontSize: 11, color: "#94a3b8", lineHeight: 1.45, maxWidth: 820 }}>
+                      One-tap applies a spotlight into this guided preview; “Open in Advanced Library” only switches the
+                      library tab—no automatic send.
+                    </p>
                     <div
                       style={{
                         display: "grid",
@@ -10791,13 +10832,18 @@ const handleFinishDealerEnrollment = async () => {
                         style={{
                           display: "flex",
                           flexWrap: "wrap",
-                          alignItems: "center",
+                          alignItems: "flex-start",
                           justifyContent: "space-between",
                           gap: 10,
                         }}
                       >
-                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.11em", color: "#64748b" }}>
-                          MESSAGE TEMPLATE PREVIEW
+                        <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
+                          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.11em", color: "#64748b" }}>
+                            MESSAGE TEMPLATE PREVIEW
+                          </div>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", lineHeight: 1.35 }}>
+                            Library spotlight + guided toggles—compare before opening Prepare Send.
+                          </div>
                         </div>
                         {seGuidedIncludeBranding ? (
                           <span
