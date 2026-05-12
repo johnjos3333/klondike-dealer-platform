@@ -11605,11 +11605,15 @@ const handleFinishDealerEnrollment = async () => {
                             type="button"
                             onClick={() => {
                               try {
-                                const el = document.getElementById("kl-se-advanced-library");
-                                if (el && typeof el === "object" && "open" in el) {
-                                  /** @type {HTMLDetailsElement} */ (el).open = true;
+                                const browse = document.getElementById("kl-se-browse-materials");
+                                const lib = document.getElementById("kl-se-advanced-library");
+                                if (browse && typeof browse === "object" && "open" in browse) {
+                                  /** @type {HTMLDetailsElement} */ (browse).open = true;
                                 }
-                                el?.scrollIntoView({ behavior: "smooth", block: "start" });
+                                if (lib && typeof lib === "object" && "open" in lib) {
+                                  /** @type {HTMLDetailsElement} */ (lib).open = true;
+                                }
+                                (lib || browse)?.scrollIntoView({ behavior: "smooth", block: "start" });
                               } catch {
                                 /* ignore */
                               }
@@ -11947,121 +11951,132 @@ const handleFinishDealerEnrollment = async () => {
                   <div
                     style={{
                       display: "grid",
-                      gap: 16,
-                      gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+                      gap: 18,
+                      gridTemplateColumns: "minmax(0, 260px) minmax(0, 1fr)",
+                      alignItems: "start",
                     }}
                   >
-                    <div
+                    <details
                       style={{
-                        borderRadius: 14,
-                        padding: "16px 18px",
+                        borderRadius: 12,
+                        padding: "10px 12px",
                         background: "#f8fafc",
                         border: "1px solid rgba(226, 232, 240, 0.98)",
-                        display: "grid",
-                        gap: 12,
+                        minWidth: 0,
                       }}
                     >
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: "#94a3b8" }}>
-                        STEP 4 · PREVIEW OPTIONS
-                      </div>
-                      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: "#475569" }}>
-                        MOCK PREVIEW OPTIONS (LOCAL ONLY)
-                      </div>
-                      {seToggleRow(seGuidedIncludeBranding, setSeGuidedIncludeBranding, "Include Klondike branding")}
-                      {seToggleRow(seGuidedIncludeProductImage, setSeGuidedIncludeProductImage, "Include product image")}
-                      {seToggleRow(seGuidedAttachPds, setSeGuidedAttachPds, "Attach PDS")}
-                      {seToggleRow(seGuidedStageDraft, setSeGuidedStageDraft, "Stage as draft")}
-                      <p style={{ margin: "6px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
-                        These toggles only reshape the preview—delivery still flows through Prepare Send / Send Spotlight when you enable it.
-                      </p>
-
-                      <div
+                      <summary
                         style={{
-                          marginTop: 12,
-                          paddingTop: 14,
-                          borderTop: "1px solid rgba(226, 232, 240, 0.95)",
-                          display: "grid",
-                          gap: 10,
+                          cursor: "pointer",
+                          fontSize: 12,
+                          fontWeight: 900,
+                          letterSpacing: "0.06em",
+                          color: "#475569",
+                          listStyle: "none",
                         }}
                       >
-                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: "#475569" }}>
-                          PRODUCT IMAGE (MOCK LIBRARY)
+                        Preview settings
+                      </summary>
+                      <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: "#94a3b8" }}>
+                          STEP 4 · MOCK PREVIEW (LOCAL ONLY)
                         </div>
-                        <div
-                          style={{
-                            display: "grid",
-                            gap: 8,
-                            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 140px), 1fr))",
-                          }}
-                        >
-                          {SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.map((opt) => {
-                            const active = seGuidedMockProductImageId === opt.id;
-                            return (
-                              <button
-                                key={opt.id}
-                                type="button"
-                                onClick={() => setSeGuidedMockProductImageId(opt.id)}
-                                style={{
-                                  cursor: "pointer",
-                                  textAlign: "left",
-                                  borderRadius: 10,
-                                  padding: "8px 10px",
-                                  fontSize: 11,
-                                  fontWeight: 800,
-                                  lineHeight: 1.35,
-                                  border: active
-                                    ? "2px solid rgba(234, 88, 12, 0.85)"
-                                    : "1px solid rgba(203, 213, 225, 0.95)",
-                                  background: active ? "#fff7ed" : "#ffffff",
-                                  color: active ? "#9a3412" : "#334155",
-                                  boxShadow: active ? "0 4px 12px rgba(234, 88, 12, 0.12)" : "none",
-                                }}
-                              >
-                                {opt.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", lineHeight: 1.45 }}>
-                          Image selection is preview-only until asset library is connected.
+                        {seToggleRow(seGuidedIncludeBranding, setSeGuidedIncludeBranding, "Include Klondike branding")}
+                        {seToggleRow(seGuidedIncludeProductImage, setSeGuidedIncludeProductImage, "Include product image")}
+                        {seToggleRow(seGuidedAttachPds, setSeGuidedAttachPds, "Attach PDS")}
+                        {seToggleRow(seGuidedStageDraft, setSeGuidedStageDraft, "Stage as draft")}
+                        <p style={{ margin: "6px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
+                          These toggles only reshape the preview—delivery still flows through Prepare Send / Send Spotlight when you enable it.
                         </p>
+
                         <div
                           style={{
-                            marginTop: 8,
-                            padding: "10px 12px",
-                            borderRadius: 10,
-                            background: "rgba(248, 250, 252, 0.85)",
-                            border: "1px dashed rgba(203, 213, 225, 0.95)",
+                            marginTop: 4,
+                            paddingTop: 14,
+                            borderTop: "1px solid rgba(226, 232, 240, 0.95)",
+                            display: "grid",
+                            gap: 10,
                           }}
                         >
+                          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: "#475569" }}>
+                            PRODUCT IMAGE (MOCK LIBRARY)
+                          </div>
                           <div
                             style={{
-                              fontSize: 10,
-                              fontWeight: 800,
-                              letterSpacing: "0.05em",
-                              color: "#94a3b8",
-                              marginBottom: 6,
+                              display: "grid",
+                              gap: 8,
+                              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 140px), 1fr))",
                             }}
                           >
-                            Future: Saved Spotlight Images
+                            {SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.map((opt) => {
+                              const active = seGuidedMockProductImageId === opt.id;
+                              return (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() => setSeGuidedMockProductImageId(opt.id)}
+                                  style={{
+                                    cursor: "pointer",
+                                    textAlign: "left",
+                                    borderRadius: 10,
+                                    padding: "8px 10px",
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    lineHeight: 1.35,
+                                    border: active
+                                      ? "2px solid rgba(234, 88, 12, 0.85)"
+                                      : "1px solid rgba(203, 213, 225, 0.95)",
+                                    background: active ? "#fff7ed" : "#ffffff",
+                                    color: active ? "#9a3412" : "#334155",
+                                    boxShadow: active ? "0 4px 12px rgba(234, 88, 12, 0.12)" : "none",
+                                  }}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
                           </div>
-                          <p style={{ margin: 0, fontSize: 10, color: "#64748b", lineHeight: 1.4 }}>
-                            Mock picks are preview-only today. Future: per-spotlight uploads with Supabase-backed
-                            storage—not wired yet.
+                          <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", lineHeight: 1.45 }}>
+                            Image selection is preview-only until asset library is connected.
                           </p>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              padding: "10px 12px",
+                              borderRadius: 10,
+                              background: "rgba(248, 250, 252, 0.85)",
+                              border: "1px dashed rgba(203, 213, 225, 0.95)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                letterSpacing: "0.05em",
+                                color: "#94a3b8",
+                                marginBottom: 6,
+                              }}
+                            >
+                              Future: Saved Spotlight Images
+                            </div>
+                            <p style={{ margin: 0, fontSize: 10, color: "#64748b", lineHeight: 1.4 }}>
+                              Mock picks are preview-only today. Future: per-spotlight uploads with Supabase-backed
+                              storage—not wired yet.
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </details>
 
                     <div
                       style={{
                         borderRadius: 16,
-                        padding: "14px 14px 16px",
-                        background: "#f1f5f9",
-                        border: "1px solid rgba(148, 163, 184, 0.35)",
+                        padding: "16px 14px 18px",
+                        background: "linear-gradient(180deg, #e2e8f0 0%, #f1f5f9 100%)",
+                        border: "1px solid rgba(148, 163, 184, 0.4)",
                         boxShadow: "inset 0 1px 0 rgba(255,255,255,0.85)",
                         display: "grid",
-                        gap: 10,
+                        gap: 12,
                         minWidth: 0,
                       }}
                     >
@@ -12177,11 +12192,19 @@ const handleFinishDealerEnrollment = async () => {
 
                       <div
                         style={{
+                          width: "100%",
+                          maxWidth: 720,
+                          margin: "0 auto",
+                          minWidth: 0,
+                        }}
+                      >
+                      <div
+                        style={{
                           borderRadius: 14,
                           overflow: "hidden",
                           border: "1px solid rgba(226, 232, 240, 0.98)",
                           background: "#ffffff",
-                          boxShadow: "0 14px 36px rgba(15, 23, 42, 0.08)",
+                          boxShadow: "0 20px 48px rgba(15, 23, 42, 0.12)",
                           minWidth: 0,
                         }}
                       >
@@ -12248,7 +12271,14 @@ const handleFinishDealerEnrollment = async () => {
                           </div>
                         )}
 
-                        <div style={{ padding: "12px 14px 14px", display: "grid", gap: 10 }}>
+                        <div
+                          style={{
+                            padding: "16px 18px 18px",
+                            display: "grid",
+                            gap: 14,
+                            background: "linear-gradient(180deg, #fafbfc 0%, #ffffff 28%)",
+                          }}
+                        >
                           {seGuidedKnowledgePreviewMock ? (
                             <div
                               style={{
@@ -12305,58 +12335,162 @@ const handleFinishDealerEnrollment = async () => {
                               </div>
                             )
                           ) : null}
-                          {seGuidedIncludeProductImage ? (
-                            <div
-                              style={{
-                                borderRadius: 12,
-                                border: "1px dashed rgba(148, 163, 184, 0.65)",
-                                background: "linear-gradient(180deg, #fafafa 0%, #f8fafc 100%)",
-                                minHeight: 72,
-                                display: "grid",
-                                placeItems: "center",
-                                gap: 4,
-                                padding: "10px",
-                              }}
-                            >
-                              <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8", letterSpacing: "0.06em" }}>
-                                PRODUCT IMAGE PLACEHOLDER
-                              </div>
-                              <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", textAlign: "center" }}>
-                                {guidedPreviewProductLabel}
-                              </div>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textAlign: "center" }}>
-                                Mock asset · preview label only · no file upload
-                              </div>
-                              <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", textAlign: "center" }}>
-                                Spotlight context: {guidedPreviewSpotlightContext}
-                              </div>
-                            </div>
-                          ) : null}
 
-                          <div style={{ display: "grid", gap: 6 }}>
-                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
-                              SUBJECT LINE
-                            </div>
-                            <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
-                              {salesEnablementGuidedTemplateLines.subject}
+                          <div
+                            style={{
+                              borderRadius: 10,
+                              overflow: "hidden",
+                              border: "1px solid rgba(254, 215, 170, 0.65)",
+                              background: "linear-gradient(90deg, #fff7ed 0%, #ffedd5 42%, #f8fafc 100%)",
+                              padding: "10px 14px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                            }}
+                          >
+                            <span
+                              style={{
+                                width: 4,
+                                alignSelf: "stretch",
+                                borderRadius: 2,
+                                background: "#ea580c",
+                                flexShrink: 0,
+                              }}
+                            />
+                            <div style={{ minWidth: 0 }}>
+                              <div
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 900,
+                                  letterSpacing: "0.1em",
+                                  color: "#c2410c",
+                                }}
+                              >
+                                SPOTLIGHT PREVIEW
+                              </div>
+                              <div
+                                style={{
+                                  marginTop: 4,
+                                  fontSize: 12,
+                                  fontWeight: 800,
+                                  color: "#0f172a",
+                                  lineHeight: 1.35,
+                                }}
+                              >
+                                {guidedPreviewSpotlightContext}
+                              </div>
                             </div>
                           </div>
 
                           <div
                             style={{
-                              fontSize: 12,
-                              color: "#475569",
-                              lineHeight: 1.5,
-                              padding: "10px 12px",
-                              borderRadius: 10,
-                              background: "#f8fafc",
-                              border: "1px solid rgba(226, 232, 240, 0.95)",
+                              display: "grid",
+                              gridTemplateColumns: "minmax(0, 1fr) 132px",
+                              gap: 14,
+                              alignItems: "stretch",
                             }}
                           >
-                            <strong style={{ color: "#64748b", fontSize: 10, letterSpacing: "0.06em" }}>
-                              AUDIENCE
-                            </strong>
-                            <div style={{ marginTop: 6 }}>{salesEnablementGuidedTemplateLines.audience}</div>
+                            <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
+                              <div style={{ display: "grid", gap: 6 }}>
+                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                  SUBJECT LINE
+                                </div>
+                                <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
+                                  {salesEnablementGuidedTemplateLines.subject}
+                                </div>
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: "#475569",
+                                  lineHeight: 1.5,
+                                  padding: "10px 12px",
+                                  borderRadius: 10,
+                                  background: "#f8fafc",
+                                  border: "1px solid rgba(226, 232, 240, 0.95)",
+                                }}
+                              >
+                                <strong style={{ color: "#64748b", fontSize: 10, letterSpacing: "0.06em" }}>
+                                  AUDIENCE
+                                </strong>
+                                <div style={{ marginTop: 6 }}>{salesEnablementGuidedTemplateLines.audience}</div>
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                borderRadius: 12,
+                                border: seGuidedIncludeProductImage
+                                  ? "1px solid rgba(148, 163, 184, 0.55)"
+                                  : "1px dashed rgba(203, 213, 225, 0.95)",
+                                background: seGuidedIncludeProductImage
+                                  ? "linear-gradient(160deg, #fafafa 0%, #f1f5f9 100%)"
+                                  : "#f8fafc",
+                                display: "grid",
+                                placeItems: "center",
+                                gap: 6,
+                                padding: "10px 8px",
+                                minHeight: 132,
+                                textAlign: "center",
+                                boxShadow: seGuidedIncludeProductImage
+                                  ? "inset 0 1px 0 rgba(255,255,255,0.9)"
+                                  : "none",
+                              }}
+                            >
+                              {seGuidedIncludeProductImage ? (
+                                <>
+                                  <div
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 900,
+                                      color: "#94a3b8",
+                                      letterSpacing: "0.08em",
+                                    }}
+                                  >
+                                    PRODUCT IMAGE
+                                  </div>
+                                  <div
+                                    style={{
+                                      width: "100%",
+                                      maxWidth: 108,
+                                      aspectRatio: "1",
+                                      borderRadius: 10,
+                                      background:
+                                        "linear-gradient(145deg, #e2e8f0 0%, #cbd5e1 55%, #f8fafc 100%)",
+                                      border: "1px solid rgba(148, 163, 184, 0.45)",
+                                      display: "grid",
+                                      placeItems: "center",
+                                      fontSize: 10,
+                                      fontWeight: 800,
+                                      color: "#64748b",
+                                      lineHeight: 1.25,
+                                      padding: 6,
+                                    }}
+                                  >
+                                    {guidedPreviewProductLabel}
+                                  </div>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#94a3b8", lineHeight: 1.3 }}>
+                                    Mock hero · preview only · no file upload
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 900,
+                                      color: "#cbd5e1",
+                                      letterSpacing: "0.06em",
+                                    }}
+                                  >
+                                    IMAGE OFF
+                                  </div>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", lineHeight: 1.35 }}>
+                                    Enable “Include product image” in Preview settings
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           </div>
 
                           {previewSendUsesFlagship ? (
@@ -12664,10 +12798,41 @@ const handleFinishDealerEnrollment = async () => {
                           ) : null}
 
                           {!previewSendUsesFlagship ? (
-                          <div style={{ display: "grid", gap: 6 }}>
+                          <div style={{ display: "grid", gap: 8 }}>
                             <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
-                              TECHNICAL PROOF POINTS (PREVIEW)
+                              TECHNICAL PROOF · PREVIEW CARDS
                             </div>
+                            {(tplProofDisplay || []).length ? (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: 8,
+                                }}
+                              >
+                                {(tplProofDisplay || []).slice(0, 4).map((pt, i) => (
+                                  <div
+                                    key={`se-proof-chip-${i}`}
+                                    style={{
+                                      flex: "1 1 140px",
+                                      minWidth: 120,
+                                      maxWidth: 220,
+                                      padding: "10px 12px",
+                                      borderRadius: 10,
+                                      background: "linear-gradient(145deg, #fff7ed 0%, #ffffff 100%)",
+                                      border: "1px solid rgba(251, 146, 60, 0.42)",
+                                      boxShadow: "0 4px 10px rgba(234, 88, 12, 0.08)",
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      color: "#334155",
+                                      lineHeight: 1.35,
+                                    }}
+                                  >
+                                    {String(pt).length > 120 ? `${String(pt).slice(0, 117)}…` : pt}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
                             <div
                               style={{
                                 display: "grid",
@@ -12709,17 +12874,50 @@ const handleFinishDealerEnrollment = async () => {
 
                           <div
                             style={{
-                              padding: "12px 14px",
+                              padding: "16px 18px",
                               borderRadius: 12,
-                              background: "linear-gradient(90deg, rgba(255, 247, 237, 0.95) 0%, rgba(239, 246, 255, 0.65) 100%)",
-                              border: "1px solid rgba(251, 146, 60, 0.28)",
+                              background: "linear-gradient(135deg, #ea580c 0%, #c2410c 48%, #1e3a8a 100%)",
+                              border: "1px solid rgba(251, 146, 60, 0.45)",
+                              boxShadow: "0 10px 28px rgba(194, 65, 12, 0.22)",
+                              textAlign: "center",
                             }}
                           >
-                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#c2410c" }}>
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 900,
+                                letterSpacing: "0.14em",
+                                color: "rgba(255, 255, 255, 0.88)",
+                              }}
+                            >
                               CALL TO ACTION
                             </div>
-                            <div style={{ marginTop: 6, fontSize: 13, fontWeight: 800, color: "#0f172a", lineHeight: 1.4 }}>
+                            <div
+                              style={{
+                                marginTop: 10,
+                                fontSize: 15,
+                                fontWeight: 900,
+                                color: "#ffffff",
+                                lineHeight: 1.45,
+                                textShadow: "0 1px 2px rgba(15, 23, 42, 0.25)",
+                              }}
+                            >
                               {guidedCtaForPreview}
+                            </div>
+                            <div
+                              style={{
+                                marginTop: 12,
+                                display: "inline-block",
+                                padding: "8px 18px",
+                                borderRadius: 999,
+                                background: "rgba(255, 255, 255, 0.95)",
+                                fontSize: 11,
+                                fontWeight: 900,
+                                color: "#c2410c",
+                                letterSpacing: "0.04em",
+                              }}
+                            >
+                              Reply or forward in your workflow — preview only
                             </div>
                           </div>
 
@@ -13122,6 +13320,7 @@ const handleFinishDealerEnrollment = async () => {
                             );
                           })()}
                         </div>
+                      </div>
                       </div>
 
                       <div style={{ display: "grid", gap: 8 }}>
@@ -13854,6 +14053,10 @@ const handleFinishDealerEnrollment = async () => {
               <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
                 SALES ENABLEMENT
               </div>
+              <p style={{ margin: "8px 0 0", fontSize: 12, color: "#475569", fontWeight: 600, lineHeight: 1.45 }}>
+                Build and send spotlight messaging — start with the Guided Spotlight Wizard above, then expand{" "}
+                <strong style={{ color: "#1d4ed8" }}>Browse Available Materials</strong> when you need the full library.
+              </p>
               <p
                 style={{
                   ...styles.cardBody,
@@ -13864,8 +14067,7 @@ const handleFinishDealerEnrollment = async () => {
                 }}
               >
                 <strong style={{ color: "#0f172a" }}>Capability preserved:</strong> dealer signals, spotlight
-                library, and manual sends remain below—follow the Guided Spotlight Wizard above for the happy path, then use{" "}
-                <strong style={{ color: "#1d4ed8" }}>Advanced Library</strong> for deep browsing.
+                library, and manual sends remain in this tab—same payloads and routing as before.
               </p>
               <p
                 style={{
@@ -14029,6 +14231,9 @@ const handleFinishDealerEnrollment = async () => {
               <div style={{ ...styles.summaryLabel, color: "#1e3a8a", letterSpacing: "0.07em" }}>
                 DEALER ENABLEMENT INTELLIGENCE
               </div>
+              <p style={{ margin: "8px 0 0", fontSize: 12, color: "#475569", fontWeight: 600, lineHeight: 1.45 }}>
+                Dealer gap detection and recommended next actions — rule-based signals you can audit before you message.
+              </p>
               <p
                 style={{
                   ...styles.cardBody,
@@ -14768,6 +14973,42 @@ const handleFinishDealerEnrollment = async () => {
             </div>
           ) : null}
 
+          <details
+            id="kl-se-browse-materials"
+            style={{
+              marginTop: 22,
+              borderRadius: 14,
+              border: "1px solid rgba(148, 163, 184, 0.45)",
+              background: "#ffffff",
+              boxShadow: "0 10px 26px rgba(15, 23, 42, 0.06)",
+              overflow: "hidden",
+            }}
+          >
+            <summary
+              style={{
+                cursor: "pointer",
+                listStyle: "none",
+                padding: "16px 18px",
+                display: "grid",
+                gap: 6,
+                background: "linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)",
+              }}
+            >
+              <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.01em" }}>
+                Browse Available Materials
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#64748b", lineHeight: 1.5, maxWidth: 720 }}>
+                Open product spotlights, category spotlights, customer profiles, and training references.
+              </div>
+            </summary>
+            <div
+              style={{
+                padding: "14px 18px 20px",
+                display: "grid",
+                gap: 18,
+                borderTop: "1px solid rgba(226, 232, 240, 0.95)",
+              }}
+            >
           <details
             id="kl-se-advanced-library"
             style={{
@@ -15632,6 +15873,8 @@ const handleFinishDealerEnrollment = async () => {
               </div>
             )}
           </div>
+            </div>
+          </details>
         </div>
         </div>
       )}
