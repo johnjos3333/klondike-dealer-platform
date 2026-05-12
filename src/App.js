@@ -4538,6 +4538,8 @@ useEffect(() => {
       return salesEnablementSpotlightMode === "category" ? "category" : "product";
     });
   }, [klondikeAdminTab, salesEnablementSpotlightMode]);
+  /** Phase 73.24 — optional knowledge tools panel (collapsed by default). */
+  const [seGuidedKnowledgeToolsOpen, setSeGuidedKnowledgeToolsOpen] = useState(false);
   /** Phase 73.17 — Knowledge Engine Preview (read-only; not wired to send payloads). */
   const [seKnowledgePreviewType, setSeKnowledgePreviewType] = useState("product");
   const [seKnowledgeProductOverlayId, setSeKnowledgeProductOverlayId] = useState(
@@ -10390,6 +10392,31 @@ const handleFinishDealerEnrollment = async () => {
                 (p) => String(p?.id) === String(seGuidedWizardProfileRefId)
               ) || null;
             const wizardProfileTitle = String(wizardProfileRow?.title || "").trim() || "—";
+            const buildSelectRows =
+              seGuidedWizardMessageKind === "customer_profile"
+                ? (SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles || []).map((p) => ({
+                    value: String(p.id),
+                    label: String(p.title || p.id).slice(0, 96),
+                  }))
+                : seGuidedWizardMessageKind === "category"
+                  ? (filteredSalesCategorySpotlights || []).map((r) => ({
+                      value: String(r.id),
+                      label: String(r.title || r.id).slice(0, 96),
+                    }))
+                  : (filteredSalesProductSpotlights || []).map((r) => ({
+                      value: String(r.id),
+                      label: String(r.title || r.id).slice(0, 96),
+                    }));
+            const buildSelectValue =
+              seGuidedWizardMessageKind === "customer_profile"
+                ? String(seGuidedWizardProfileRefId || "")
+                : String(salesEnablementSelectedId || "");
+            const buildMessageTypeLabel =
+              seGuidedWizardMessageKind === "customer_profile"
+                ? "Customer profile"
+                : seGuidedWizardMessageKind === "category"
+                  ? "Category spotlight"
+                  : "Product spotlight";
             const guidedMockProductLabel =
               SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.find((o) => o.id === seGuidedMockProductImageId)?.label || "—";
             const guidedPreviewProductLabel =
@@ -10788,20 +10815,184 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-                      STEP 3 · BUILD YOUR SPOTLIGHT / PROFILE
+                      STEP 3 · BUILD YOUR MESSAGE
                     </div>
-                    <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.55, maxWidth: 900 }}>
-                      Final dealer-facing sentences stay anchored to{" "}
-                      <strong style={{ color: "#334155" }}>approved PDS language</strong> in the library. Use the picks
-                      here to mirror what you will send—LFBB blocks and proof lines already respect that contract in
-                      curated rows.
+                    <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5, maxWidth: 860 }}>
+                      Choose the primary library row for this preview. Copy stays anchored to{" "}
+                      <strong style={{ color: "#334155" }}>PDS-backed</strong> spotlight text; Step 4 condenses LFBB and
+                      proof for scanning.
                     </p>
                     {!messageKindReady ? (
-                      <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 700, lineHeight: 1.45 }}>
-                        Choose a message type in Step 2 to load the matching quick picks.
+                      <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", fontWeight: 700, lineHeight: 1.45 }}>
+                        Pick Step 2 first—then choose your spotlight or profile below.
                       </p>
                     ) : null}
-                    {messageKindReady && seGuidedWizardMessageKind === "customer_profile" ? (
+                    {messageKindReady ? (
+                      <>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 10, fontWeight: 800, color: "#94a3b8", letterSpacing: "0.06em" }}>
+                            MESSAGE TYPE
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 900,
+                              padding: "5px 12px",
+                              borderRadius: 999,
+                              background: "#eff6ff",
+                              color: "#1e40af",
+                              border: "1px solid rgba(59, 130, 246, 0.35)",
+                            }}
+                          >
+                            {buildMessageTypeLabel}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "10px 12px",
+                            borderRadius: 12,
+                            background: "linear-gradient(90deg, #f8fafc 0%, #eff6ff 52%, #fff7ed 100%)",
+                            border: "1px solid rgba(226, 232, 240, 0.95)",
+                          }}
+                          aria-hidden
+                        >
+                          {["Audience", "Content", "LFBB", "Preview"].map((lab, i) => (
+                            <div key={lab} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 900,
+                                  letterSpacing: "0.04em",
+                                  padding: "6px 10px",
+                                  borderRadius: 8,
+                                  background: "#ffffff",
+                                  color: "#334155",
+                                  border: "1px solid rgba(203, 213, 225, 0.85)",
+                                  boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
+                                }}
+                              >
+                                {lab}
+                              </span>
+                              {i < 3 ? (
+                                <span style={{ fontSize: 12, fontWeight: 900, color: "#cbd5e1" }} aria-hidden>
+                                  →
+                                </span>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                        <label style={{ display: "grid", gap: 6, fontWeight: 800, color: "#475569", fontSize: 11 }}>
+                          {seGuidedWizardMessageKind === "customer_profile"
+                            ? "PRIMARY PROFILE (PREVIEW LENS)"
+                            : "PRIMARY LIBRARY SELECTION"}
+                          <select
+                            key={String(seGuidedWizardMessageKind || "x")}
+                            value={buildSelectValue}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              if (!v) return;
+                              if (seGuidedWizardMessageKind === "customer_profile") {
+                                setSeGuidedWizardProfileRefId(v);
+                                return;
+                              }
+                              if (seGuidedWizardMessageKind === "category") {
+                                guidedPickSpotlight(v, "category");
+                                return;
+                              }
+                              guidedPickSpotlight(v, "product");
+                            }}
+                            disabled={!messageKindReady || buildSelectRows.length === 0}
+                            style={{
+                              width: "100%",
+                              maxWidth: "100%",
+                              borderRadius: 10,
+                              padding: "10px 12px",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              border: "1px solid rgba(59, 130, 246, 0.4)",
+                              background: "#ffffff",
+                              color: "#0f172a",
+                              cursor: messageKindReady && buildSelectRows.length > 0 ? "pointer" : "not-allowed",
+                              opacity: messageKindReady && buildSelectRows.length > 0 ? 1 : 0.65,
+                            }}
+                          >
+                            <option value="">
+                              {seGuidedWizardMessageKind === "customer_profile"
+                                ? "Select a customer profile…"
+                                : "Select a spotlight…"}
+                            </option>
+                            {buildSelectRows.map((row) => (
+                              <option key={row.value} value={row.value}>
+                                {row.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <ul
+                          style={{
+                            margin: 0,
+                            paddingLeft: 18,
+                            color: "#64748b",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            lineHeight: 1.45,
+                            display: "grid",
+                            gap: 4,
+                          }}
+                        >
+                          <li>Confirm PDS wording before anything is shared outside the dealer workspace.</li>
+                          <li>Keep LFBB and proof points tied to the library row you selected.</li>
+                          <li>Prepare Send still governs recipients—this step only shapes the preview.</li>
+                        </ul>
+                        <div
+                          style={{
+                            borderRadius: 12,
+                            padding: "12px 14px",
+                            border: "1px solid rgba(226, 232, 240, 0.95)",
+                            background: "#fafbfc",
+                            display: "grid",
+                            gap: 8,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => {
+                              try {
+                                document
+                                  .getElementById("kl-se-advanced-library")
+                                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                              } catch {
+                                /* ignore */
+                              }
+                            }}
+                            style={{
+                              cursor: "pointer",
+                              textAlign: "left",
+                              borderRadius: 10,
+                              padding: "12px 14px",
+                              fontSize: 13,
+                              fontWeight: 900,
+                              border: "1px solid rgba(37, 99, 235, 0.42)",
+                              background: "linear-gradient(135deg, #ffffff 0%, #eff6ff 100%)",
+                              color: "#1d4ed8",
+                              display: "grid",
+                              gap: 4,
+                            }}
+                          >
+                            Browse Available Materials
+                            <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", lineHeight: 1.45 }}>
+                              Open the full library of product spotlights, category spotlights, customer profiles, and
+                              training modules (scrolls to Advanced Library below).
+                            </span>
+                          </button>
+                        </div>
+                      </>
+                    ) : null}
+                    {false && messageKindReady && seGuidedWizardMessageKind === "customer_profile" ? (
                       <div style={{ display: "grid", gap: 10 }}>
                         <div style={{ fontSize: 11, fontWeight: 800, color: "#475569" }}>
                           Reference profile (preview lens · not a new send type)
@@ -10845,7 +11036,7 @@ const handleFinishDealerEnrollment = async () => {
                           how you read the preview and talk track alongside reps.
                         </p>
                       </div>
-                    ) : messageKindReady && seGuidedWizardMessageKind === "category" ? (
+                    ) : false && messageKindReady && seGuidedWizardMessageKind === "category" ? (
                       <div style={{ display: "grid", gap: 10 }}>
                         <div style={{ fontSize: 11, fontWeight: 800, color: "#475569" }}>
                           Category spotlight quick picks
@@ -10885,7 +11076,7 @@ const handleFinishDealerEnrollment = async () => {
                           })}
                         </div>
                       </div>
-                    ) : messageKindReady ? (
+                    ) : false && messageKindReady ? (
                       <div style={{ display: "grid", gap: 10 }}>
                         <div style={{ fontSize: 11, fontWeight: 800, color: "#475569" }}>
                           Product spotlight quick picks
@@ -10927,7 +11118,7 @@ const handleFinishDealerEnrollment = async () => {
                       </div>
                     ) : null}
 
-                    <div style={{ marginTop: 4 }}>
+                    <div style={{ marginTop: 4, display: "none" }} aria-hidden>
                       <div
                         style={{
                           fontSize: 11,
@@ -11209,11 +11400,9 @@ const handleFinishDealerEnrollment = async () => {
                           >
                             Future: Saved Spotlight Images
                           </div>
-                          <p style={{ margin: 0, fontSize: 10, color: "#64748b", lineHeight: 1.45 }}>
-                            Today&apos;s mock picks shape the preview only—they are not saved or sent as attachments yet.
-                            Next: KL Admins will upload a product image per spotlight; it will store with the spotlight and
-                            reload automatically next time. Supabase Storage and a metadata table will power persistence—upload
-                            controls are not wired yet.
+                          <p style={{ margin: 0, fontSize: 10, color: "#64748b", lineHeight: 1.4 }}>
+                            Mock picks are preview-only today. Future: per-spotlight uploads with Supabase-backed
+                            storage—not wired yet.
                           </p>
                         </div>
                       </div>
@@ -11222,12 +11411,12 @@ const handleFinishDealerEnrollment = async () => {
                     <div
                       style={{
                         borderRadius: 16,
-                        padding: "16px 16px 18px",
+                        padding: "14px 14px 16px",
                         background: "#f1f5f9",
                         border: "1px solid rgba(148, 163, 184, 0.35)",
                         boxShadow: "inset 0 1px 0 rgba(255,255,255,0.85)",
                         display: "grid",
-                        gap: 14,
+                        gap: 10,
                         minWidth: 0,
                       }}
                     >
@@ -11287,7 +11476,7 @@ const handleFinishDealerEnrollment = async () => {
                         {seGuidedIncludeBranding ? (
                           <div
                             style={{
-                              padding: "14px 18px 16px",
+                              padding: "10px 14px 12px",
                               background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 52%, #7c2d12 100%)",
                               color: "#f8fafc",
                             }}
@@ -11330,7 +11519,7 @@ const handleFinishDealerEnrollment = async () => {
                             >
                               Territory enablement · dealer-facing preview
                             </div>
-                            <div style={{ marginTop: 10, height: 3, borderRadius: 2, background: "#ea580c", maxWidth: 120 }} />
+                            <div style={{ marginTop: 6, height: 2, borderRadius: 2, background: "#ea580c", maxWidth: 100 }} />
                           </div>
                         ) : (
                           <div
@@ -11347,7 +11536,7 @@ const handleFinishDealerEnrollment = async () => {
                           </div>
                         )}
 
-                        <div style={{ padding: "16px 18px 18px", display: "grid", gap: 16 }}>
+                        <div style={{ padding: "12px 14px 14px", display: "grid", gap: 10 }}>
                           {seGuidedKnowledgePreviewMock ? (
                             <div
                               style={{
@@ -11498,11 +11687,11 @@ const handleFinishDealerEnrollment = async () => {
                                 borderRadius: 12,
                                 border: "1px dashed rgba(148, 163, 184, 0.65)",
                                 background: "linear-gradient(180deg, #fafafa 0%, #f8fafc 100%)",
-                                minHeight: 96,
+                                minHeight: 72,
                                 display: "grid",
                                 placeItems: "center",
-                                gap: 6,
-                                padding: "12px",
+                                gap: 4,
+                                padding: "10px",
                               }}
                             >
                               <div style={{ fontSize: 11, fontWeight: 900, color: "#94a3b8", letterSpacing: "0.06em" }}>
@@ -11552,11 +11741,11 @@ const handleFinishDealerEnrollment = async () => {
                             </div>
                             <div
                               style={{
-                                fontSize: 14,
+                                fontSize: 13,
                                 color: "#334155",
-                                lineHeight: 1.6,
-                                padding: "14px 16px",
-                                borderRadius: 12,
+                                lineHeight: 1.5,
+                                padding: "10px 12px",
+                                borderRadius: 10,
                                 background: "#ffffff",
                                 border: "1px solid rgba(226, 232, 240, 0.98)",
                                 whiteSpace: "pre-wrap",
@@ -11569,7 +11758,7 @@ const handleFinishDealerEnrollment = async () => {
                             </div>
                           </div>
 
-                          <div style={{ display: "grid", gap: 10 }}>
+                          <div style={{ display: "grid", gap: 6 }}>
                             <div
                               style={{
                                 fontSize: 10,
@@ -11578,17 +11767,14 @@ const handleFinishDealerEnrollment = async () => {
                                 color: "#94a3b8",
                               }}
                             >
-                              SPOTLIGHT STRUCTURE · LINK / FEATURE / BRIDGE / BENEFIT
+                              SPOTLIGHT STRUCTURE · LFBB
                             </div>
-                            <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.45 }}>
-                              Spotlights follow Link / Feature / Bridge / Benefit for consistent rep-ready messaging.
-                            </p>
                             <div
                               style={{
                                 display: "grid",
-                                gap: 10,
-                                padding: "14px 16px",
-                                borderRadius: 12,
+                                gap: 6,
+                                padding: "10px 12px",
+                                borderRadius: 10,
                                 background: "#fafafa",
                                 border: "1px solid rgba(226, 232, 240, 0.98)",
                               }}
@@ -11626,7 +11812,7 @@ const handleFinishDealerEnrollment = async () => {
                                   style={{
                                     display: "grid",
                                     gap: 6,
-                                    paddingBottom: lfIdx < lfArr.length - 1 ? 10 : 0,
+                                    paddingBottom: lfIdx < lfArr.length - 1 ? 6 : 0,
                                     borderBottom:
                                       lfIdx < lfArr.length - 1 ? "1px solid rgba(226, 232, 240, 0.9)" : "none",
                                   }}
@@ -11644,22 +11830,22 @@ const handleFinishDealerEnrollment = async () => {
                                     </span>
                                     <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8" }}>{row.caption}</span>
                                   </div>
-                                  <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.55 }}>{row.text}</div>
+                                  <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.45 }}>{row.text}</div>
                                 </div>
                               ))}
                             </div>
                           </div>
 
-                          <div style={{ display: "grid", gap: 10 }}>
+                          <div style={{ display: "grid", gap: 6 }}>
                             <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
                               TECHNICAL PROOF POINTS (PREVIEW)
                             </div>
                             <div
                               style={{
                                 display: "grid",
-                                gap: 8,
-                                padding: "12px 14px",
-                                borderRadius: 12,
+                                gap: 6,
+                                padding: "8px 10px",
+                                borderRadius: 10,
                                 background: "#fafafa",
                                 border: "1px solid rgba(226, 232, 240, 0.98)",
                               }}
@@ -11669,11 +11855,11 @@ const handleFinishDealerEnrollment = async () => {
                                   key={`se-proof-${i}`}
                                   style={{
                                     display: "flex",
-                                    gap: 10,
+                                    gap: 8,
                                     alignItems: "flex-start",
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     color: "#334155",
-                                    lineHeight: 1.45,
+                                    lineHeight: 1.4,
                                   }}
                                 >
                                   <span
@@ -11703,7 +11889,7 @@ const handleFinishDealerEnrollment = async () => {
                             <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#c2410c" }}>
                               CALL TO ACTION
                             </div>
-                            <div style={{ marginTop: 8, fontSize: 14, fontWeight: 800, color: "#0f172a", lineHeight: 1.45 }}>
+                            <div style={{ marginTop: 6, fontSize: 13, fontWeight: 800, color: "#0f172a", lineHeight: 1.4 }}>
                               {tplCtaFromKnowledge}
                             </div>
                           </div>
@@ -11789,18 +11975,18 @@ const handleFinishDealerEnrollment = async () => {
                             return (
                               <div
                                 style={{
-                                  padding: "12px 14px",
-                                  borderRadius: 12,
+                                  padding: "10px 12px",
+                                  borderRadius: 10,
                                   background: "#f8fafc",
                                   border: "1px solid rgba(226, 232, 240, 0.98)",
                                   display: "grid",
-                                  gap: 10,
+                                  gap: 8,
                                 }}
                               >
                                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#64748b" }}>
                                   OUTBOUND STATUS
                                 </div>
-                                <div style={{ display: "grid", gap: 8 }}>
+                                <div style={{ display: "grid", gap: 6 }}>
                                   <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
                                     <span
                                       style={{
@@ -11935,6 +12121,8 @@ const handleFinishDealerEnrollment = async () => {
                     </div>
                   </div>
 
+                </div>
+
                   <div
                     style={{
                       marginTop: 6,
@@ -11956,7 +12144,26 @@ const handleFinishDealerEnrollment = async () => {
                       <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#475569" }}>
                         KNOWLEDGE ENGINE PREVIEW
                       </div>
-                      <span
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                        {seGuidedKnowledgeToolsOpen ? (
+                          <button
+                            type="button"
+                            onClick={() => setSeGuidedKnowledgeToolsOpen(false)}
+                            style={{
+                              cursor: "pointer",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              border: "none",
+                              background: "transparent",
+                              color: "#64748b",
+                              textDecoration: "underline",
+                              padding: 0,
+                            }}
+                          >
+                            Hide tools
+                          </button>
+                        ) : null}
+                        <span
                         style={{
                           fontSize: 10,
                           fontWeight: 800,
@@ -11970,11 +12177,14 @@ const handleFinishDealerEnrollment = async () => {
                       >
                         Read-only · not send payload
                       </span>
+                      </div>
                     </div>
                     <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", lineHeight: 1.45, maxWidth: 720 }}>
                       Composed from overlay + profile + LFBB data files. Does not replace live spotlight rows or
                       Prepare Send content.
                     </p>
+                    {seGuidedKnowledgeToolsOpen ? (
+                      <>
 
                     <div
                       style={{
@@ -12320,7 +12530,26 @@ const handleFinishDealerEnrollment = async () => {
                         </div>
                       );
                     })()}
-                  </div>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setSeGuidedKnowledgeToolsOpen(true)}
+                      style={{
+                        cursor: "pointer",
+                        borderRadius: 10,
+                        padding: "10px 14px",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        border: "1px solid rgba(148, 163, 184, 0.55)",
+                        background: "#ffffff",
+                        color: "#475569",
+                        justifySelf: "start",
+                      }}
+                    >
+                      Open optional knowledge preview tools
+                    </button>
+                  )}
                 </div>
               </>
             );
@@ -12379,6 +12608,26 @@ const handleFinishDealerEnrollment = async () => {
               </p>
             </div>
 
+            <details
+              style={{
+                borderRadius: 12,
+                border: "1px solid rgba(148, 163, 184, 0.4)",
+                background: "rgba(255, 255, 255, 0.55)",
+                padding: "10px 14px",
+              }}
+            >
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: "#64748b",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                Optional · dealer spotlight shortcuts
+              </summary>
+              <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
             {salesEnablementDealerOrgId && salesEnablementPrimarySpotlightAction ? (
               <div
                 style={{
@@ -12486,6 +12735,8 @@ const handleFinishDealerEnrollment = async () => {
                 </p>
               </div>
             ) : null}
+              </div>
+            </details>
 
           <div
             style={{
@@ -13242,12 +13493,14 @@ const handleFinishDealerEnrollment = async () => {
           ) : null}
 
           <div
+            id="kl-se-advanced-library"
             style={{
-              marginTop: 28,
-              paddingTop: 22,
-              borderTop: "2px solid rgba(226, 232, 240, 0.98)",
+              marginTop: 22,
+              paddingTop: 18,
+              borderTop: "2px solid rgba(226, 232, 240, 0.85)",
               display: "grid",
-              gap: 14,
+              gap: 12,
+              opacity: 0.97,
             }}
           >
             <div
@@ -13329,10 +13582,11 @@ const handleFinishDealerEnrollment = async () => {
               ...styles.card,
               background: "#fafbfc",
               border: "1px solid rgba(148, 163, 184, 0.38)",
-              boxShadow: "0 8px 22px rgba(15, 23, 42, 0.05)",
-              padding: "20px 22px",
+              boxShadow: "0 6px 16px rgba(15, 23, 42, 0.04)",
+              padding: "18px 20px",
               display: "grid",
-              gap: 16,
+              gap: 14,
+              opacity: 0.96,
             }}
           >
             <div style={{ minWidth: 0 }}>
