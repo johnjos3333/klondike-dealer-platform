@@ -4526,6 +4526,8 @@ useEffect(() => {
   );
   const [seGuidedAttachPds, setSeGuidedAttachPds] = useState(true);
   const [seGuidedStageDraft, setSeGuidedStageDraft] = useState(true);
+  /** Phase 76.4 — preview-only; does not alter invoke payload. */
+  const [useFlagshipNarrativeForPreviewSend, setUseFlagshipNarrativeForPreviewSend] = useState(false);
   const [seGuidedPreviewLogoFailed, setSeGuidedPreviewLogoFailed] = useState(false);
   useEffect(() => {
     if (seGuidedIncludeBranding) setSeGuidedPreviewLogoFailed(false);
@@ -7807,7 +7809,7 @@ const handleFinishDealerEnrollment = async () => {
         break;
       }
     }
-    const flagshipNarrativeActive = Boolean(flagshipNarrative);
+    const flagshipNarrativeAvailable = Boolean(flagshipNarrative);
     const dealerName =
       (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : []).find(
         (d) => String(d.organization_id) === String(salesEnablementDealerOrgId)
@@ -7877,12 +7879,15 @@ const handleFinishDealerEnrollment = async () => {
         trainingAttachmentSuggested: salesEnablementLibraryTab === "training",
         pdsFileHint: "",
         pdsPreviewUrl: "",
-        flagshipNarrativeActive: false,
-        guidedPreviewBodyLead:
+        flagshipNarrativeAvailable: false,
+        standardGuidedPreviewBodyLead:
           "Pick an opportunity card above or browse the Advanced Library—this preview updates from your chosen spotlight.",
-        guidedPreviewTechnicalProofPoints: technicalProofPoints.slice(0, 4),
-        guidedPreviewDealerTalkingPoints: [],
-        guidedPreviewCustomerLanguageExamples: [],
+        flagshipGuidedPreviewBodyLead:
+          "Pick an opportunity card above or browse the Advanced Library—this preview updates from your chosen spotlight.",
+        standardGuidedPreviewTechnicalProofPoints: technicalProofPoints.slice(0, 4),
+        flagshipGuidedPreviewTechnicalProofPoints: [],
+        flagshipGuidedPreviewDealerTalkingPoints: [],
+        flagshipGuidedPreviewCustomerLanguageExamples: [],
       };
     }
     const mode = salesEnablementSpotlightMode === "product" ? "product" : "category";
@@ -7920,13 +7925,14 @@ const handleFinishDealerEnrollment = async () => {
       );
     const pdsFileHintResolved = getSalesEnablementPdsFileHintForLibrarySpotlight(sp);
     const pdsPreviewUrl = getSalesEnablementPdsUrl(pdsFileHintResolved);
-    const guidedPreviewBodyLead = flagshipNarrativeActive
-      ? String(flagshipNarrative.flagshipNarrativeParagraph || "").trim() ||
-        bodyLead ||
-        "Concise positioning notes will mirror the approved spotlight library entry when you send."
-      : bodyLead ||
-        "Concise positioning notes will mirror the approved spotlight library entry when you send.";
-    const guidedPreviewTechnicalProofPoints = flagshipNarrativeActive
+    const standardGuidedPreviewBodyLead =
+      bodyLead ||
+      "Concise positioning notes will mirror the approved spotlight library entry when you send.";
+    const flagshipGuidedPreviewBodyLead = flagshipNarrativeAvailable
+      ? String(flagshipNarrative.flagshipNarrativeParagraph || "").trim() || standardGuidedPreviewBodyLead
+      : standardGuidedPreviewBodyLead;
+    const standardGuidedPreviewTechnicalProofPoints = technicalProofPoints.slice(0, 4);
+    const flagshipGuidedPreviewTechnicalProofPoints = flagshipNarrativeAvailable
       ? (() => {
           const diffs = Array.isArray(flagshipNarrative.keyDifferentiators)
             ? flagshipNarrative.keyDifferentiators
@@ -7939,13 +7945,13 @@ const handleFinishDealerEnrollment = async () => {
             .filter(Boolean)
             .slice(0, 6);
         })()
-      : technicalProofPoints.slice(0, 4);
-    const guidedPreviewDealerTalkingPoints = flagshipNarrativeActive
+      : [];
+    const flagshipGuidedPreviewDealerTalkingPoints = flagshipNarrativeAvailable
       ? (Array.isArray(flagshipNarrative.dealerTalkingPoints) ? flagshipNarrative.dealerTalkingPoints : [])
           .map((x) => String(x || "").trim())
           .filter(Boolean)
       : [];
-    const guidedPreviewCustomerLanguageExamples = flagshipNarrativeActive
+    const flagshipGuidedPreviewCustomerLanguageExamples = flagshipNarrativeAvailable
       ? (Array.isArray(flagshipNarrative.customerLanguageExamples)
           ? flagshipNarrative.customerLanguageExamples.map((x) => String(x || "").trim()).filter(Boolean)
           : [])
@@ -7968,11 +7974,13 @@ const handleFinishDealerEnrollment = async () => {
       trainingAttachmentSuggested,
       pdsFileHint: pdsFileHintResolved,
       pdsPreviewUrl,
-      flagshipNarrativeActive,
-      guidedPreviewBodyLead,
-      guidedPreviewTechnicalProofPoints,
-      guidedPreviewDealerTalkingPoints,
-      guidedPreviewCustomerLanguageExamples,
+      flagshipNarrativeAvailable,
+      standardGuidedPreviewBodyLead,
+      flagshipGuidedPreviewBodyLead,
+      standardGuidedPreviewTechnicalProofPoints,
+      flagshipGuidedPreviewTechnicalProofPoints,
+      flagshipGuidedPreviewDealerTalkingPoints,
+      flagshipGuidedPreviewCustomerLanguageExamples,
     };
   }, [
     selectedSalesEnablementSpotlight,
@@ -7982,6 +7990,12 @@ const handleFinishDealerEnrollment = async () => {
     salesEnablementLibraryTab,
     seKnowledgeStagedTemplateSnapshot,
   ]);
+
+  useEffect(() => {
+    if (!salesEnablementGuidedTemplateLines.flagshipNarrativeAvailable) {
+      setUseFlagshipNarrativeForPreviewSend(false);
+    }
+  }, [salesEnablementGuidedTemplateLines.flagshipNarrativeAvailable]);
 
   const handleSendSalesEnablementSpotlight = useCallback(async () => {
     if (!salesEnablementDealerOrgId || !spotlightEmailSendPayload?.sections?.length) return;
@@ -10524,16 +10538,22 @@ const handleFinishDealerEnrollment = async () => {
               seTplStagedKnowledge && kTplSp.lfbb && typeof kTplSp.lfbb === "object"
                 ? kTplSp.lfbb
                 : salesEnablementGuidedTemplateLines.lfbb;
+            const previewSendUsesFlagship =
+              Boolean(salesEnablementGuidedTemplateLines.flagshipNarrativeAvailable) &&
+              useFlagshipNarrativeForPreviewSend;
+            const guidedPreviewMessageBodyLead = previewSendUsesFlagship
+              ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewBodyLead
+              : salesEnablementGuidedTemplateLines.standardGuidedPreviewBodyLead;
             const tplProofFromKnowledge = seTplStagedKnowledge
               ? Array.isArray(kTplSp.technicalProofPoints)
                 ? kTplSp.technicalProofPoints
                 : []
               : salesEnablementGuidedTemplateLines.technicalProofPoints || [];
             const tplProofDisplay =
-              salesEnablementGuidedTemplateLines.flagshipNarrativeActive &&
-              Array.isArray(salesEnablementGuidedTemplateLines.guidedPreviewTechnicalProofPoints) &&
-              salesEnablementGuidedTemplateLines.guidedPreviewTechnicalProofPoints.length > 0
-                ? salesEnablementGuidedTemplateLines.guidedPreviewTechnicalProofPoints
+              previewSendUsesFlagship &&
+              Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewTechnicalProofPoints) &&
+              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewTechnicalProofPoints.length > 0
+                ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewTechnicalProofPoints
                 : tplProofFromKnowledge;
             const tplCtaFromKnowledge = seTplStagedKnowledge
               ? String(kTplSp.suggestedCta || "").trim()
@@ -11532,7 +11552,7 @@ const handleFinishDealerEnrollment = async () => {
                               <span style={{ color: "#059669" }}> · Profile lens: {wizardProfileTitle}</span>
                             ) : null}
                           </div>
-                          {salesEnablementGuidedTemplateLines.flagshipNarrativeActive ? (
+                          {previewSendUsesFlagship ? (
                             <div style={{ marginTop: 6 }}>
                               <span
                                 style={{
@@ -11548,7 +11568,7 @@ const handleFinishDealerEnrollment = async () => {
                                   border: "1px solid rgba(139, 92, 246, 0.45)",
                                 }}
                               >
-                                Flagship narrative applied
+                                Approved send preview using flagship narrative
                               </span>
                             </div>
                           ) : null}
@@ -11572,6 +11592,53 @@ const handleFinishDealerEnrollment = async () => {
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8" }}>Neutral envelope</span>
                         )}
                       </div>
+
+                      {salesEnablementGuidedTemplateLines.flagshipNarrativeAvailable ? (
+                        <div
+                          style={{
+                            padding: "10px 12px",
+                            borderRadius: 12,
+                            background: "#ffffff",
+                            border: "1px solid rgba(226, 232, 240, 0.98)",
+                            display: "grid",
+                            gap: 6,
+                          }}
+                        >
+                          <label
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 10,
+                              cursor: "pointer",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#334155",
+                              lineHeight: 1.45,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={useFlagshipNarrativeForPreviewSend}
+                              onChange={(e) => setUseFlagshipNarrativeForPreviewSend(e.target.checked)}
+                              style={{ marginTop: 3, width: 16, height: 16, cursor: "pointer", flexShrink: 0 }}
+                            />
+                            <span>
+                              Use flagship narrative in approved send preview
+                              <span
+                                style={{
+                                  display: "block",
+                                  marginTop: 6,
+                                  fontSize: 10,
+                                  fontWeight: 600,
+                                  color: "#64748b",
+                                }}
+                              >
+                                Preview-only toggle — outbound payload unchanged
+                              </span>
+                            </span>
+                          </label>
+                        </div>
+                      ) : null}
 
                       <div
                         style={{
@@ -11864,7 +11931,7 @@ const handleFinishDealerEnrollment = async () => {
                               {String(salesEnablementPreparedIntro || "").trim()
                                 ? `${String(salesEnablementPreparedIntro || "").trim()}\n\n`
                                 : ""}
-                              {salesEnablementGuidedTemplateLines.guidedPreviewBodyLead}
+                              {guidedPreviewMessageBodyLead}
                             </div>
                           </div>
 
@@ -11988,9 +12055,9 @@ const handleFinishDealerEnrollment = async () => {
                             </div>
                           </div>
 
-                          {salesEnablementGuidedTemplateLines.flagshipNarrativeActive &&
-                          Array.isArray(salesEnablementGuidedTemplateLines.guidedPreviewDealerTalkingPoints) &&
-                          salesEnablementGuidedTemplateLines.guidedPreviewDealerTalkingPoints.length > 0 ? (
+                          {previewSendUsesFlagship &&
+                          Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewDealerTalkingPoints) &&
+                          salesEnablementGuidedTemplateLines.flagshipGuidedPreviewDealerTalkingPoints.length > 0 ? (
                             <div style={{ display: "grid", gap: 6 }}>
                               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
                                 DEALER TALKING POINTS (FLAGSHIP)
@@ -12005,7 +12072,8 @@ const handleFinishDealerEnrollment = async () => {
                                   border: "1px solid rgba(226, 232, 240, 0.98)",
                                 }}
                               >
-                                {salesEnablementGuidedTemplateLines.guidedPreviewDealerTalkingPoints.map((pt, i) => (
+                                {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewDealerTalkingPoints.map(
+                                  (pt, i) => (
                                   <div
                                     key={`se-dealer-tp-${i}`}
                                     style={{
@@ -12034,9 +12102,9 @@ const handleFinishDealerEnrollment = async () => {
                             </div>
                           ) : null}
 
-                          {salesEnablementGuidedTemplateLines.flagshipNarrativeActive &&
-                          Array.isArray(salesEnablementGuidedTemplateLines.guidedPreviewCustomerLanguageExamples) &&
-                          salesEnablementGuidedTemplateLines.guidedPreviewCustomerLanguageExamples.length > 0 ? (
+                          {previewSendUsesFlagship &&
+                          Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerLanguageExamples) &&
+                          salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerLanguageExamples.length > 0 ? (
                             <div style={{ display: "grid", gap: 6 }}>
                               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
                                 CUSTOMER-FACING LANGUAGE (OPTIONAL)
@@ -12051,7 +12119,7 @@ const handleFinishDealerEnrollment = async () => {
                                   border: "1px solid rgba(226, 232, 240, 0.98)",
                                 }}
                               >
-                                {salesEnablementGuidedTemplateLines.guidedPreviewCustomerLanguageExamples.map(
+                                {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerLanguageExamples.map(
                                   (pt, i) => (
                                     <div
                                       key={`se-cust-lang-${i}`}
