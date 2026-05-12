@@ -38,6 +38,7 @@ import {
 } from "./data/salesEnablement/salesEnablementPdsUrl";
 import { getSalesEnablementFlagshipNarrativeByProductName } from "./data/salesEnablement/salesEnablementFlagshipNarrativeLookup";
 import { getGuidedSpotlightBuilderRecommendation } from "./data/salesEnablement/guidedSpotlightBuilderRecommendations";
+import { getEnablementRecommendationForActionItem } from "./data/salesEnablement/actionItemEnablementRecommendations";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -7340,6 +7341,7 @@ const handleFinishDealerEnrollment = async () => {
         spotlightId: al.spotlightId,
         spotlightType: al.spotlightType,
         severityRank: typeof al.severityRank === "number" ? al.severityRank : 2,
+        enablementSignalKind: al.signalKind,
       });
     }
 
@@ -7372,7 +7374,7 @@ const handleFinishDealerEnrollment = async () => {
       if (ac.kind !== "spotlight" || typeof ac.severityRank === "number") return ac;
       const al = alerts.find((x) => `alert-${x.alertKey}` === ac.id);
       if (!al || typeof al.severityRank !== "number") return ac;
-      return { ...ac, severityRank: al.severityRank };
+      return { ...ac, severityRank: al.severityRank, enablementSignalKind: al.signalKind };
     });
   }, [
     klondikeDashboardEnablementAlerts,
@@ -7414,6 +7416,7 @@ const handleFinishDealerEnrollment = async () => {
         spotlightId: al.spotlightId,
         spotlightType: al.spotlightType,
         severityRank: typeof al.severityRank === "number" ? al.severityRank : 2,
+        enablementSignalKind: al.signalKind,
       });
     }
 
@@ -7446,7 +7449,7 @@ const handleFinishDealerEnrollment = async () => {
       if (ac.kind !== "spotlight" || typeof ac.severityRank === "number") return ac;
       const al = alerts.find((x) => `alert-${x.alertKey}` === ac.id);
       if (!al || typeof al.severityRank !== "number") return ac;
-      return { ...ac, severityRank: al.severityRank };
+      return { ...ac, severityRank: al.severityRank, enablementSignalKind: al.signalKind };
     });
   }, [
     klondikeDashboardEnablementAlertsKlDashboard,
@@ -7509,6 +7512,27 @@ const handleFinishDealerEnrollment = async () => {
     },
     []
   );
+
+  const applyGuidedWizardFromEnablementBridge = useCallback((bridge, dealerOrgId) => {
+    if (!bridge?.ok || !bridge.messageKind) return;
+    setKlondikeAdminTab("sales_enablement");
+    setSalesEnablementSendPanelOpen(false);
+    const oid = String(dealerOrgId || "").trim();
+    if (oid) setSalesEnablementDealerOrgId(oid);
+    setSeGuidedWizardMessageKind(bridge.messageKind);
+    setSeGuidedBuilderQuery(String(bridge.query || ""));
+    if (bridge.messageKind === "customer_profile" && bridge.customerProfileId) {
+      setSeGuidedWizardProfileRefId(String(bridge.customerProfileId));
+    }
+    const tid = String(bridge.targetSpotlightId || "").trim();
+    const tt = bridge.targetSpotlightType === "product" ? "product" : "category";
+    if (tid && (bridge.messageKind === "product" || bridge.messageKind === "category")) {
+      setSalesEnablementSpotlightMode(tt);
+      setSalesEnablementLibraryTab(tt);
+      setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
+      setSalesEnablementSelectedId(tid);
+    }
+  }, []);
 
   useEffect(() => {
     if (!salesEnablementDealerOrgId && salesEnablementSendPanelOpen) {
@@ -14480,6 +14504,40 @@ const handleFinishDealerEnrollment = async () => {
                             <strong style={{ color: "#0f172a" }}>Why suggested:</strong> {rec.why}
                           </div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {(() => {
+                              const recBridge = getEnablementRecommendationForActionItem({
+                                ...rec,
+                                kind: rec.spotlightId ? "spotlight" : "dealer_intel_rec",
+                                dealerOrgId: salesEnablementDealerOrgId,
+                                issue: rec.title,
+                                why: rec.why,
+                              });
+                              return recBridge.ok ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    applyGuidedWizardFromEnablementBridge(
+                                      recBridge,
+                                      salesEnablementDealerOrgId
+                                    );
+                                  }}
+                                  style={{
+                                    ...styles.workflowTab,
+                                    textTransform: "none",
+                                    padding: "8px 14px",
+                                    fontSize: 12,
+                                    borderRadius: 10,
+                                    cursor: "pointer",
+                                    border: "1px solid rgba(59, 130, 246, 0.55)",
+                                    background: "linear-gradient(135deg, #ffffff 0%, #eff6ff 100%)",
+                                    color: "#1e40af",
+                                    fontWeight: 900,
+                                  }}
+                                >
+                                  Open Guided Spotlight Wizard
+                                </button>
+                              ) : null;
+                            })()}
                             {rec.spotlightId ? (
                               <button
                                 type="button"
@@ -16372,6 +16430,7 @@ const handleFinishDealerEnrollment = async () => {
                     : completion === "handled"
                       ? "Opened"
                       : ac.buttonLabel;
+                const enBridge = getEnablementRecommendationForActionItem(ac);
                 return (
                   <div
                     key={ac.id}
@@ -16592,6 +16651,38 @@ const handleFinishDealerEnrollment = async () => {
                         </div>
                       </div>
                     </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                        alignItems: "stretch",
+                        flex: "0 0 auto",
+                      }}
+                    >
+                      {enBridge.ok ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            applyGuidedWizardFromEnablementBridge(enBridge, ac.dealerOrgId);
+                          }}
+                          style={{
+                            cursor: "pointer",
+                            borderRadius: 10,
+                            padding: "8px 14px",
+                            fontSize: 11,
+                            fontWeight: 900,
+                            letterSpacing: "0.04em",
+                            color: "#1e40af",
+                            border: "1px solid rgba(59, 130, 246, 0.55)",
+                            background: "linear-gradient(135deg, #ffffff 0%, #eff6ff 100%)",
+                            boxShadow: "0 4px 10px rgba(37, 99, 235, 0.1)",
+                            alignSelf: "flex-start",
+                          }}
+                        >
+                          Open Guided Spotlight Wizard
+                        </button>
+                      ) : null}
                     <button
                       type="button"
                       onClick={() => {
@@ -16690,6 +16781,7 @@ const handleFinishDealerEnrollment = async () => {
                     >
                       {completionBtnLabel}
                     </button>
+                    </div>
                   </div>
                 );
               })}

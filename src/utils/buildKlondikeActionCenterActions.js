@@ -222,6 +222,7 @@ export function buildKlondikeActionCenterActions({
       dealerOrgId: String(al.dealerOrgId || ""),
       spotlightId: al.spotlightId,
       spotlightType: al.spotlightType,
+      enablementSignalKind: al.signalKind,
     });
   });
 
