@@ -4528,6 +4528,8 @@ useEffect(() => {
   const [seGuidedStageDraft, setSeGuidedStageDraft] = useState(true);
   /** Phase 76.4 — preview-only; does not alter invoke payload. */
   const [useFlagshipNarrativeForPreviewSend, setUseFlagshipNarrativeForPreviewSend] = useState(false);
+  /** Phase 76.5 — Step 5 dry-run panel (read-only; does not alter invoke payload). */
+  const [seGuidedApprovedSendDryRunOpen, setSeGuidedApprovedSendDryRunOpen] = useState(false);
   const [seGuidedPreviewLogoFailed, setSeGuidedPreviewLogoFailed] = useState(false);
   useEffect(() => {
     if (seGuidedIncludeBranding) setSeGuidedPreviewLogoFailed(false);
@@ -7997,6 +7999,10 @@ const handleFinishDealerEnrollment = async () => {
     }
   }, [salesEnablementGuidedTemplateLines.flagshipNarrativeAvailable]);
 
+  useEffect(() => {
+    if (!salesEnablementSendPanelOpen) setSeGuidedApprovedSendDryRunOpen(false);
+  }, [salesEnablementSendPanelOpen]);
+
   const handleSendSalesEnablementSpotlight = useCallback(async () => {
     if (!salesEnablementDealerOrgId || !spotlightEmailSendPayload?.sections?.length) return;
     const dealerName =
@@ -10660,6 +10666,21 @@ const handleFinishDealerEnrollment = async () => {
               );
             const seWizardProductPicks = (filteredSalesProductSpotlights || []).slice(0, 8);
             const seWizardCategoryPicks = (filteredSalesCategorySpotlights || []).slice(0, 8);
+            const dryRunDealerDisplay = (() => {
+              const id = String(salesEnablementDealerOrgId || "").trim();
+              if (!id) return "— (no dealer organization selected)";
+              const row = seWizardDealerRows.find((d) => String(d.organization_id) === id);
+              const name = String(row?.name || "").trim();
+              return name ? `${name} · org ${id}` : `Organization ${id}`;
+            })();
+            const dryRunSpotlightTitle =
+              String(
+                salesEnablementGuidedTemplateLines.spotlightTitle ||
+                  spotlightEmailSendPayload?.title ||
+                  ""
+              ).trim() || "—";
+            const dryRunIntroBody = `${String(salesEnablementPreparedIntro || "").trim() ? `${String(salesEnablementPreparedIntro || "").trim()}\n\n` : ""}${guidedPreviewMessageBodyLead}`;
+            const dryRunCopyModeLabel = previewSendUsesFlagship ? "Flagship Narrative" : "Standard";
             return (
               <>
                 <div
@@ -12351,6 +12372,191 @@ const handleFinishDealerEnrollment = async () => {
                           Spotlight—same payloads and validation as before.
                         </p>
                       </div>
+
+                      {guidedStep === 5 ? (
+                        <div
+                          style={{
+                            padding: "12px 14px",
+                            borderRadius: 12,
+                            background: "#f8fafc",
+                            border: "1px solid rgba(148, 163, 184, 0.45)",
+                            display: "grid",
+                            gap: 10,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setSeGuidedApprovedSendDryRunOpen((v) => !v)}
+                            style={{
+                              cursor: "pointer",
+                              textAlign: "left",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 12,
+                              width: "100%",
+                              border: "none",
+                              background: "transparent",
+                              padding: 0,
+                              fontSize: 12,
+                              fontWeight: 900,
+                              letterSpacing: "0.08em",
+                              color: "#334155",
+                            }}
+                          >
+                            <span>Preview approved send payload</span>
+                            <span aria-hidden style={{ fontSize: 10, color: "#64748b" }}>
+                              {seGuidedApprovedSendDryRunOpen ? "▼" : "▶"}
+                            </span>
+                          </button>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b", lineHeight: 1.45 }}>
+                            Dry run only — actual outbound send payload unchanged.
+                          </div>
+                          {seGuidedApprovedSendDryRunOpen ? (
+                            <div
+                              style={{
+                                display: "grid",
+                                gap: 12,
+                                paddingTop: 6,
+                                borderTop: "1px solid rgba(226, 232, 240, 0.98)",
+                              }}
+                            >
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                AUDIENCE / DEALER
+                              </div>
+                              <div style={{ fontSize: 12, color: "#334155", lineHeight: 1.45 }}>
+                                <div style={{ fontWeight: 800 }}>{dryRunDealerDisplay}</div>
+                                <div style={{ marginTop: 6, color: "#475569" }}>
+                                  {salesEnablementGuidedTemplateLines.audience}
+                                </div>
+                              </div>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                SPOTLIGHT TITLE
+                              </div>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a" }}>{dryRunSpotlightTitle}</div>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                COPY MODE
+                              </div>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: "#5b21b6" }}>{dryRunCopyModeLabel}</div>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                INTRO + BODY (PREVIEW)
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: "#334155",
+                                  lineHeight: 1.5,
+                                  padding: "10px 12px",
+                                  borderRadius: 10,
+                                  background: "#ffffff",
+                                  border: "1px solid rgba(226, 232, 240, 0.98)",
+                                  whiteSpace: "pre-wrap",
+                                }}
+                              >
+                                {dryRunIntroBody}
+                              </div>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                LFBB
+                              </div>
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gap: 8,
+                                  padding: "10px 12px",
+                                  borderRadius: 10,
+                                  background: "#ffffff",
+                                  border: "1px solid rgba(226, 232, 240, 0.98)",
+                                  fontSize: 12,
+                                  color: "#334155",
+                                  lineHeight: 1.45,
+                                }}
+                              >
+                                <div>
+                                  <strong style={{ color: "#c2410c" }}>LINK</strong> {tplLfbbFromKnowledge?.link || "—"}
+                                </div>
+                                <div>
+                                  <strong style={{ color: "#c2410c" }}>FEATURE</strong>{" "}
+                                  {tplLfbbFromKnowledge?.feature || "—"}
+                                </div>
+                                <div>
+                                  <strong style={{ color: "#c2410c" }}>BRIDGE</strong>{" "}
+                                  {tplLfbbFromKnowledge?.bridge || "—"}
+                                </div>
+                                <div>
+                                  <strong style={{ color: "#c2410c" }}>BENEFIT</strong>{" "}
+                                  {tplLfbbFromKnowledge?.benefit || "—"}
+                                </div>
+                              </div>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                TECHNICAL PROOF POINTS
+                              </div>
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gap: 6,
+                                  padding: "8px 10px",
+                                  borderRadius: 10,
+                                  background: "#ffffff",
+                                  border: "1px solid rgba(226, 232, 240, 0.98)",
+                                }}
+                              >
+                                {(tplProofDisplay || []).length > 0 ? (
+                                  (tplProofDisplay || []).map((pt, i) => (
+                                    <div
+                                      key={`dry-proof-${i}`}
+                                      style={{
+                                        display: "flex",
+                                        gap: 8,
+                                        alignItems: "flex-start",
+                                        fontSize: 12,
+                                        color: "#334155",
+                                        lineHeight: 1.4,
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          marginTop: 5,
+                                          width: 6,
+                                          height: 6,
+                                          borderRadius: 999,
+                                          background: "#ea580c",
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                      <span>{pt}</span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <span style={{ fontSize: 12, color: "#94a3b8" }}>—</span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                CALL TO ACTION
+                              </div>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", lineHeight: 1.4 }}>
+                                {tplCtaFromKnowledge || "—"}
+                              </div>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                PDS URL
+                              </div>
+                              {guidedWizardPdsUrl ? (
+                                <div style={{ fontSize: 12, wordBreak: "break-all" }}>
+                                  <a
+                                    href={guidedWizardPdsUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{ fontWeight: 800, color: "#2563eb", textDecoration: "underline" }}
+                                  >
+                                    {guidedWizardPdsUrl}
+                                  </a>
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: 12, color: "#94a3b8" }}>— (none resolved)</div>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
 
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                         <button
