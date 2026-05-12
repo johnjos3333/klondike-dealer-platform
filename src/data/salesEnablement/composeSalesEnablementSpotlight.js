@@ -8,6 +8,7 @@ import { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./productSpotlightO
 import { SALES_ENABLEMENT_KNOWLEDGE } from "./salesEnablementKnowledge.js";
 import { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./customerProfiles.js";
 import { SALES_ENABLEMENT_LFBB_BLOCKS } from "./lfbbBlocks.js";
+import { getSalesEnablementPdsFileHintForComposerOverlay } from "./salesEnablementPdsUrl.js";
 
 /** @param {unknown} s */
 function norm(s) {
@@ -32,6 +33,7 @@ function buildEmptySpotlight() {
     suggestedCta: "",
     applicationTargets: [],
     imageAssetHint: "",
+    pdsFileHint: "",
   };
 }
 
@@ -277,6 +279,7 @@ export function composeSalesEnablementSpotlight(input) {
     suggestedCta: norm(overlay.suggestedCta),
     applicationTargets: copyStrings(overlay.applicationTargets),
     imageAssetHint: norm(overlay.imageAssetHint),
+    pdsFileHint: norm(getSalesEnablementPdsFileHintForComposerOverlay(overlayId)),
   };
 
   return {

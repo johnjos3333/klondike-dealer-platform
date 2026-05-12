@@ -32,6 +32,10 @@ import { SALES_ENABLEMENT_CATEGORY_SPOTLIGHT_OVERLAYS } from "./data/salesEnable
 import { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./data/salesEnablement/customerProfiles";
 import { composeSalesEnablementSpotlight } from "./data/salesEnablement/composeSalesEnablementSpotlight";
 import { composeSalesEnablementCategorySpotlight } from "./data/salesEnablement/composeSalesEnablementCategorySpotlight";
+import {
+  getSalesEnablementPdsUrl,
+  getSalesEnablementPdsFileHintForLibrarySpotlight,
+} from "./data/salesEnablement/salesEnablementPdsUrl";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -7845,6 +7849,8 @@ const handleFinishDealerEnrollment = async () => {
         lfbb: buildLfbb(),
         technicalProofPoints,
         trainingAttachmentSuggested: salesEnablementLibraryTab === "training",
+        pdsFileHint: "",
+        pdsPreviewUrl: "",
       };
     }
     const mode = salesEnablementSpotlightMode === "product" ? "product" : "category";
@@ -7880,6 +7886,8 @@ const handleFinishDealerEnrollment = async () => {
       ["cs-grease-program-growth", "cs-hydraulic-opportunity", "cs-synthetic-upgrade"].includes(
         String(sp.id || "")
       );
+    const pdsFileHintResolved = getSalesEnablementPdsFileHintForLibrarySpotlight(sp);
+    const pdsPreviewUrl = getSalesEnablementPdsUrl(pdsFileHintResolved);
     return {
       spotlightTitle: title,
       subject: `Klondike · ${title}`,
@@ -7896,6 +7904,8 @@ const handleFinishDealerEnrollment = async () => {
       lfbb: buildLfbb(),
       technicalProofPoints: technicalProofPoints.slice(0, 4),
       trainingAttachmentSuggested,
+      pdsFileHint: pdsFileHintResolved,
+      pdsPreviewUrl,
     };
   }, [
     selectedSalesEnablementSpotlight,
@@ -10523,6 +10533,12 @@ const handleFinishDealerEnrollment = async () => {
                 {label}
               </label>
             );
+            const stagedWizardPdsHint =
+              seTplStagedKnowledge && kTplSp ? String(kTplSp.pdsFileHint || "").trim() : "";
+            const mockWizardPdsHint = String(seGuidedKnowledgePreviewMock?.pdsFileHint || "").trim();
+            const guidedWizardPdsUrl =
+              getSalesEnablementPdsUrl(stagedWizardPdsHint || mockWizardPdsHint) ||
+              String(salesEnablementGuidedTemplateLines.pdsPreviewUrl || "").trim();
             const guidedPickSpotlight = (spotlightId, spotlightType, { syntheticIntro } = {}) => {
               if (!salesEnablementDealerOrgId) {
                 setSalesEnablementSendNotice({
@@ -11966,6 +11982,36 @@ const handleFinishDealerEnrollment = async () => {
                                 </span>
                               ) : null}
                             </div>
+                            {guidedWizardPdsUrl ? (
+                              <div style={{ marginTop: 4 }}>
+                                <a
+                                  href={guidedWizardPdsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    fontSize: 12,
+                                    fontWeight: 800,
+                                    color: "#2563eb",
+                                    textDecoration: "underline",
+                                    textUnderlineOffset: "2px",
+                                  }}
+                                >
+                                  View Product Data Sheet
+                                </a>
+                                <span
+                                  style={{
+                                    display: "block",
+                                    marginTop: 4,
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    color: "#94a3b8",
+                                    lineHeight: 1.35,
+                                  }}
+                                >
+                                  Opens the indexed PDF from site static files (/pds). Preview only—not added to send payload.
+                                </span>
+                              </div>
+                            ) : null}
                           </div>
 
                           {(() => {
@@ -12323,7 +12369,12 @@ const handleFinishDealerEnrollment = async () => {
                             const p2 = String(keSp.categoryTitle || "").trim();
                             const mockProductLabel = [p1, p2].filter(Boolean).join(" · ").slice(0, 72) || p1 || "—";
                             const spotlightContextLine = (isCat ? p1 || p2 : p1 || p2).slice(0, 52);
-                            setSeGuidedKnowledgePreviewMock({ mockProductLabel, spotlightContextLine });
+                            const pdsFileHint = String(keSp.pdsFileHint || "").trim();
+                            setSeGuidedKnowledgePreviewMock({
+                              mockProductLabel,
+                              spotlightContextLine,
+                              ...(pdsFileHint ? { pdsFileHint } : {}),
+                            });
                           } else {
                             setSeGuidedKnowledgePreviewMock(null);
                           }

@@ -50,6 +50,8 @@ function verify(result) {
 
   if (!nonEmpty(sp.suggestedCta)) failures.push("suggestedCta missing or empty");
 
+  if (!nonEmpty(sp.pdsFileHint)) failures.push("pdsFileHint missing or empty");
+
   return failures;
 }
 
