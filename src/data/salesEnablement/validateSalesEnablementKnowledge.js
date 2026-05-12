@@ -1,5 +1,6 @@
 /**
- * Phase 73.6 / 74.1 / 75.0 — Development-only integrity checks for Sales Enablement knowledge data.
+ * Phase 73.6 / 74.1 / 75.0 / 76.1A — Development-only integrity checks for Sales Enablement knowledge data.
+ * `flagshipNarratives.js` is imported only here (and consumed via `validateFlagshipNarrativesOnly` for smoke tests).
  * Does not throw by default. Not wired to UI or build pipeline.
  */
 
@@ -10,6 +11,97 @@ import { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./productSpotlightO
 import { GREASE_PDS_SPOTLIGHT_MAP } from "./greasePdsSpotlightMap.js";
 import { HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP } from "./hdEngineOilPdsSpotlightMap.js";
 import { HYDRAULIC_FLUID_PDS_SPOTLIGHT_MAP } from "./hydraulicFluidPdsSpotlightMap.js";
+import { SALES_ENABLEMENT_FLAGSHIP_NARRATIVES } from "./flagshipNarratives.js";
+
+/**
+ * @param {string[]} errors
+ * @param {string[]} warnings
+ */
+function appendFlagshipNarrativesValidation(errors, warnings) {
+  const root = SALES_ENABLEMENT_FLAGSHIP_NARRATIVES;
+  const rootLabel = "SALES_ENABLEMENT_FLAGSHIP_NARRATIVES";
+
+  if (!root || typeof root !== "object") {
+    errors.push(`${rootLabel} is missing or not an object`);
+    return;
+  }
+  if (root.version === undefined || root.version === null) {
+    errors.push(`${rootLabel}.version is missing`);
+  }
+
+  const flagships = Array.isArray(root.flagships) ? root.flagships : null;
+  if (!flagships || flagships.length === 0) {
+    errors.push(`${rootLabel}.flagships is missing or empty`);
+    return;
+  }
+
+  const arrayFields = [
+    "severeDutyUseCases",
+    "keyDifferentiators",
+    "emotionalSalesAngles",
+    "operationalWins",
+    "premiumProofPoints",
+    "whatMakesThisDifferent",
+    "customerLanguageExamples",
+    "dealerTalkingPoints",
+    "doNotSay",
+  ];
+
+  const seenIds = new Set();
+  for (let i = 0; i < flagships.length; i++) {
+    const f = flagships[i];
+    const loc = `${rootLabel}.flagships[${i}]`;
+    if (!f || typeof f !== "object") {
+      errors.push(`${loc} is not an object`);
+      continue;
+    }
+    const fid = String(f.id ?? "").trim();
+    const fname = String(f.productName ?? "").trim();
+    if (!fid) errors.push(`${loc} missing non-empty id`);
+    else {
+      if (seenIds.has(fid)) {
+        warnings.push(`Duplicate ${rootLabel} flagship id "${fid}"`);
+      }
+      seenIds.add(fid);
+    }
+    if (!fname) errors.push(`${loc} (${fid || "?"}) missing non-empty productName`);
+
+    for (const key of ["flagshipPositioning", "fieldIdentity", "flagshipNarrativeParagraph"]) {
+      if (!String(f[key] ?? "").trim()) {
+        errors.push(`${loc} (${fid || "?"}) missing non-empty ${key}`);
+      }
+    }
+
+    for (const key of arrayFields) {
+      const arr = f[key];
+      if (!Array.isArray(arr) || arr.length < 1) {
+        errors.push(`${loc} (${fid || "?"}) ${key} must be a non-empty array`);
+        continue;
+      }
+      const hasNonEmpty = arr.some((x) => String(x ?? "").trim().length > 0);
+      if (!hasNonEmpty) {
+        errors.push(`${loc} (${fid || "?"}) ${key} must contain at least one non-empty string`);
+      }
+    }
+  }
+}
+
+/**
+ * Phase 76.1A — Flagship narratives only (for smoke tests; `flagshipNarratives.js` imported here only).
+ * @returns {{ ok: boolean, errors: string[], warnings: string[] }}
+ */
+export function validateFlagshipNarrativesOnly() {
+  /** @type {string[]} */
+  const errors = [];
+  /** @type {string[]} */
+  const warnings = [];
+  appendFlagshipNarrativesValidation(errors, warnings);
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings,
+  };
+}
 
 /**
  * @returns {{ ok: boolean, errors: string[], warnings: string[] }}
@@ -561,6 +653,9 @@ export function validateSalesEnablementKnowledge() {
       }
     }
   }
+
+  // --- Phase 76.1A — SALES_ENABLEMENT_FLAGSHIP_NARRATIVES (validation tooling only; flagship import above) ---
+  appendFlagshipNarrativesValidation(errors, warnings);
 
   return {
     ok: errors.length === 0,
