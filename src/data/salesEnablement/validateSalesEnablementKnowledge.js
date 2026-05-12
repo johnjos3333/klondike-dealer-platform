@@ -44,6 +44,9 @@ function appendFlagshipNarrativesValidation(errors, warnings) {
     "whatMakesThisDifferent",
     "customerLanguageExamples",
     "dealerTalkingPoints",
+    "repTalkTrack",
+    "operationalConsequences",
+    "customerPainSignals",
     "doNotSay",
   ];
 
@@ -66,7 +69,7 @@ function appendFlagshipNarrativesValidation(errors, warnings) {
     }
     if (!fname) errors.push(`${loc} (${fid || "?"}) missing non-empty productName`);
 
-    for (const key of ["flagshipPositioning", "fieldIdentity", "flagshipNarrativeParagraph"]) {
+    for (const key of ["flagshipPositioning", "fieldIdentity", "flagshipNarrativeParagraph", "whyItWins"]) {
       if (!String(f[key] ?? "").trim()) {
         errors.push(`${loc} (${fid || "?"}) missing non-empty ${key}`);
       }

@@ -7890,6 +7890,10 @@ const handleFinishDealerEnrollment = async () => {
         flagshipGuidedPreviewTechnicalProofPoints: [],
         flagshipGuidedPreviewDealerTalkingPoints: [],
         flagshipGuidedPreviewCustomerLanguageExamples: [],
+        flagshipGuidedPreviewWhyItWins: "",
+        flagshipGuidedPreviewCustomerPainSignals: [],
+        flagshipGuidedPreviewOperationalConsequences: [],
+        flagshipGuidedPreviewRepTalkTrack: [],
       };
     }
     const mode = salesEnablementSpotlightMode === "product" ? "product" : "category";
@@ -7958,6 +7962,20 @@ const handleFinishDealerEnrollment = async () => {
           ? flagshipNarrative.customerLanguageExamples.map((x) => String(x || "").trim()).filter(Boolean)
           : [])
       : [];
+    const trimFlagshipList = (arr) =>
+      Array.isArray(arr) ? arr.map((x) => String(x || "").trim()).filter(Boolean) : [];
+    const flagshipGuidedPreviewWhyItWins = flagshipNarrativeAvailable
+      ? String(flagshipNarrative.whyItWins || "").trim()
+      : "";
+    const flagshipGuidedPreviewCustomerPainSignals = flagshipNarrativeAvailable
+      ? trimFlagshipList(flagshipNarrative.customerPainSignals)
+      : [];
+    const flagshipGuidedPreviewOperationalConsequences = flagshipNarrativeAvailable
+      ? trimFlagshipList(flagshipNarrative.operationalConsequences)
+      : [];
+    const flagshipGuidedPreviewRepTalkTrack = flagshipNarrativeAvailable
+      ? trimFlagshipList(flagshipNarrative.repTalkTrack)
+      : [];
     return {
       spotlightTitle: title,
       subject: `Klondike · ${title}`,
@@ -7983,6 +8001,10 @@ const handleFinishDealerEnrollment = async () => {
       flagshipGuidedPreviewTechnicalProofPoints,
       flagshipGuidedPreviewDealerTalkingPoints,
       flagshipGuidedPreviewCustomerLanguageExamples,
+      flagshipGuidedPreviewWhyItWins,
+      flagshipGuidedPreviewCustomerPainSignals,
+      flagshipGuidedPreviewOperationalConsequences,
+      flagshipGuidedPreviewRepTalkTrack,
     };
   }, [
     selectedSalesEnablementSpotlight,
@@ -10681,6 +10703,32 @@ const handleFinishDealerEnrollment = async () => {
               ).trim() || "—";
             const dryRunIntroBody = `${String(salesEnablementPreparedIntro || "").trim() ? `${String(salesEnablementPreparedIntro || "").trim()}\n\n` : ""}${guidedPreviewMessageBodyLead}`;
             const dryRunCopyModeLabel = previewSendUsesFlagship ? "Flagship Narrative" : "Standard";
+            const guidedFlagshipBulletRows = (items, keyPrefix, dotColor) =>
+              (Array.isArray(items) ? items : []).map((pt, i) => (
+                <div
+                  key={`${keyPrefix}-${i}`}
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "flex-start",
+                    fontSize: 12,
+                    color: "#334155",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <span
+                    style={{
+                      marginTop: 5,
+                      width: 6,
+                      height: 6,
+                      borderRadius: 999,
+                      background: dotColor,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span>{pt}</span>
+                </div>
+              ));
             return (
               <>
                 <div
@@ -11933,6 +11981,165 @@ const handleFinishDealerEnrollment = async () => {
                             <div style={{ marginTop: 6 }}>{salesEnablementGuidedTemplateLines.audience}</div>
                           </div>
 
+                          {previewSendUsesFlagship ? (
+                            <div
+                              style={{
+                                display: "grid",
+                                gap: 14,
+                                padding: "14px 14px 16px",
+                                borderRadius: 12,
+                                background: "linear-gradient(120deg, rgba(236, 253, 245, 0.95) 0%, rgba(240, 249, 255, 0.92) 100%)",
+                                border: "1px solid rgba(45, 212, 191, 0.35)",
+                              }}
+                            >
+                              {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewWhyItWins ? (
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.12em",
+                                      color: "#0f766e",
+                                    }}
+                                  >
+                                    WHY THIS PRODUCT WINS
+                                  </div>
+                                  <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", lineHeight: 1.5 }}>
+                                    {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewWhyItWins}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewTechnicalProofPoints) &&
+                              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewTechnicalProofPoints.length > 0 ? (
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.1em",
+                                      color: "#0e7490",
+                                    }}
+                                  >
+                                    PDS-BACKED PROOF · FIELD BULLETS
+                                  </div>
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gap: 6,
+                                      padding: "10px 12px",
+                                      borderRadius: 10,
+                                      background: "#ffffff",
+                                      border: "1px solid rgba(226, 232, 240, 0.98)",
+                                    }}
+                                  >
+                                    {guidedFlagshipBulletRows(
+                                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewTechnicalProofPoints,
+                                      "se-flag-proof",
+                                      "#0d9488"
+                                    )}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals) &&
+                              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals.length > 0 ? (
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.1em",
+                                      color: "#64748b",
+                                    }}
+                                  >
+                                    CUSTOMER PAIN SIGNALS
+                                  </div>
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gap: 6,
+                                      padding: "10px 12px",
+                                      borderRadius: 10,
+                                      background: "#ffffff",
+                                      border: "1px solid rgba(148, 163, 184, 0.45)",
+                                    }}
+                                  >
+                                    {guidedFlagshipBulletRows(
+                                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals,
+                                      "se-flag-pain",
+                                      "#64748b"
+                                    )}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewOperationalConsequences) &&
+                              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewOperationalConsequences.length > 0 ? (
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.1em",
+                                      color: "#9a3412",
+                                    }}
+                                  >
+                                    OPERATIONAL CONSEQUENCES ON THE JOB
+                                  </div>
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gap: 6,
+                                      padding: "10px 12px",
+                                      borderRadius: 10,
+                                      background: "#ffffff",
+                                      border: "1px solid rgba(251, 146, 60, 0.35)",
+                                    }}
+                                  >
+                                    {guidedFlagshipBulletRows(
+                                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewOperationalConsequences,
+                                      "se-flag-ops",
+                                      "#ea580c"
+                                    )}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack) &&
+                              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack.length > 0 ? (
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.1em",
+                                      color: "#5b21b6",
+                                    }}
+                                  >
+                                    REP TALK TRACK
+                                  </div>
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gap: 8,
+                                      padding: "10px 12px",
+                                      borderRadius: 10,
+                                      background: "#faf5ff",
+                                      border: "1px solid rgba(167, 139, 250, 0.45)",
+                                    }}
+                                  >
+                                    {guidedFlagshipBulletRows(
+                                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack,
+                                      "se-flag-rep",
+                                      "#7c3aed"
+                                    )}
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+
                           <div style={{ display: "grid", gap: 8 }}>
                             <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
                               MESSAGE BODY
@@ -12034,6 +12241,7 @@ const handleFinishDealerEnrollment = async () => {
                             </div>
                           </div>
 
+                          {!previewSendUsesFlagship ? (
                           <div style={{ display: "grid", gap: 6 }}>
                             <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
                               TECHNICAL PROOF POINTS (PREVIEW)
@@ -12075,6 +12283,7 @@ const handleFinishDealerEnrollment = async () => {
                               ))}
                             </div>
                           </div>
+                          ) : null}
 
                           {previewSendUsesFlagship &&
                           Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewDealerTalkingPoints) &&

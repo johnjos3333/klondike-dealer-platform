@@ -1,5 +1,5 @@
 /**
- * Phase 76.1 / 76.6 — Flagship dealer-facing narrative layer for Sales Enablement (data only).
+ * Phase 76.1 / 76.6 / 76.7 — Flagship dealer-facing narrative layer for Sales Enablement (data only).
  * Grounded on indexed PDS summaries in grease / HD oil / hydraulic spotlight maps; not wired to UI or sends.
  */
 
@@ -17,6 +17,10 @@
  *   whatMakesThisDifferent: string[],
  *   customerLanguageExamples: string[],
  *   dealerTalkingPoints: string[],
+ *   whyItWins: string,
+ *   customerPainSignals: string[],
+ *   operationalConsequences: string[],
+ *   repTalkTrack: string[],
  *   doNotSay: string[],
  *   flagshipNarrativeParagraph: string,
  * }} SalesEnablementFlagshipNarrative */
@@ -38,10 +42,10 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
         "Mine and plant shops that want one severe EP tier with NLGI 2 discipline (or NLGI 1 where the OEM chart calls for it) instead of a rainbow of “good enough” tubes.",
       ],
       keyDifferentiators: [
-        "Calcium sulfonate complex chemistry with indexed EP performance—this is a severe-duty program, not habit-stocked lithium EP-2.",
-        "Nano tungsten disulfide on the PDS for EP/wear positioning—name it on the counter and tie it to shock and sliding wear, not buzzwords.",
-        "Water spray-off on the indexed summary is vanishingly low; dropping point sits north of 300 °C class—field language: it stays put when things get hot and wet.",
-        "4-ball weld load and Timken OK on the sheet give maintenance managers numbers they respect on crushers, hammers, and kingpins.",
+        "Severe-duty film for shock, wet pins, and load spikes—the joints crushers, hammers, and loaders punish every shift.",
+        "Nano tungsten disulfide on the PDS ties EP/wear language to sliding and shock in the field, not buzzwords on a tube.",
+        "Water spray-off on the summary stays under 1%; dropping point sits near 316 °C class—hot, wet, nasty duty without guessing.",
+        "4-ball weld 800 kg and Timken OK on the sheet give maintenance managers numbers beside the zerk map.",
       ],
       emotionalSalesAngles: [
         "Quiet confidence when the night shift regrease has to count—washout and load numbers match the ugliest pins, not the best-case demo.",
@@ -53,9 +57,10 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
         "Less silent downgrading when every red tube stops being treated as interchangeable on million-dollar iron.",
       ],
       premiumProofPoints: [
-        "PDS-indexed 4-ball weld load 800 kg and Timken OK load 65+ lb—severe-duty proof you can point to beside the zerk map.",
-        "PDS references nano tungsten disulfide for EP/wear—keep customer wording aligned with the printed line.",
-        "PDS: NLGI 1 and 2 options, calcium sulfonate complex, low spray-off, high dropping point—premium headroom commodity EP rarely carries.",
+        "PDS-indexed 4-ball weld load 800 kg—anchor crushers, hammers, and kingpin talk to the number on the wall.",
+        "PDS-indexed water spray-off below 1%—wet yards, wash-down, and slurry without hand-waving.",
+        "PDS-indexed dropping point ~316 °C class—heat headroom when things run angry, not commodity-tube guesswork.",
+        "PDS references nano tungsten disulfide for EP/wear—repeat the printed wording customer-facing.",
       ],
       whatMakesThisDifferent: [
         "It earns the premium slot with published EP, Timken, washout, and temperature headroom—not with a louder “heavy duty” label.",
@@ -66,9 +71,29 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
         "“If we are arguing uptime with maintenance, I want Timken and 4-ball on the board, not another story about the cheapest tube.”",
       ],
       dealerTalkingPoints: [
-        "Walk the pin map: shock, water, load—then match NLGI 1 vs 2 to the OEM chart before dollars enter the room.",
-        "Pair trials with weld, Timken, spray-off, thickener family, and tungsten disulfide wording straight off the PDS—let the field crew read what they are standing behind.",
-        "Sell premium severe duty: this is not a commodity EP-2 conversation; it is crushers, hammers, bushings, and wet shifts that punish the wrong grease.",
+        "Walk the pin map: shock, water, load—then lock grade and product class to the OEM chart before price enters the room.",
+        "Pair trials with weld, Timken, spray-off, and tungsten disulfide wording straight off the PDS—let the crew read what they are standing behind.",
+        "Sell premium severe duty where downtime hurts: crushers, hammers, bushings, and wet shifts—not the shallow EP-2 aisle story.",
+      ],
+      flagshipNarrativeParagraph:
+        "Nano EP 2 is the grease story when the yard is loud, wet, and expensive to stop—crushers, hammers, loader pins, and bushings eating shock and slurry while pressure-wash routines strip films that were never built for the job. KLONDIKE nano Calcium Sulfonate EP Grease brings PDS-indexed 800 kg four-ball weld, water spray-off under one percent, dropping point near 316 °C on the index, and nano tungsten disulfide called out for EP and wear—field language for severe shock and wet exposure, not another commodity EP-2 tube sold on color. Position it where uptime and contamination are real, keep claims inside the printed lines, and help the rep sound like the specialist who has watched cheap grease cost hours.",
+      whyItWins:
+        "It wins where shock, water, and heat gang up: 800 kg four-ball weld, sub-1% spray-off, and ~316 °C dropping point on the index back a severe-duty film for crushers, hammers, and wet pins—not the commodity EP-2 habit that treats every red tube as interchangeable.",
+      customerPainSignals: [
+        "Crusher and hammer circuits that spike shock—then pins complain before the service window.",
+        "Wet shifts, slurry, and wash-down that strip marginal films and send crews back out for unplanned regreases.",
+        "Buyers burned by “EP-2 is EP-2” when uptime math said the cheapest tube was never cheap.",
+      ],
+      operationalConsequences: [
+        "Metal loss, heat, and contamination in the joint when load and washout numbers were never really there.",
+        "Lost tons and idle iron when regrease cycles turn into fire drills on the shift you needed clean.",
+        "Credibility hits when the grease board could not show Timken, weld, spray-off, and tungsten disulfide lines that match the duty.",
+      ],
+      repTalkTrack: [
+        "Start on hours: “Where are you bleeding time—crushers, hammers, wet booms, or pins that see shock every pass?”",
+        "Drop proof without drama: “Eight-hundred-kilogram weld on the index, washout under one percent, dropping point around three-sixteen—those are not commodity EP-2 behaviors.”",
+        "Bridge tungsten disulfide to wear: “The PDS calls out nano tungsten disulfide for EP and wear—say it the way it prints, then walk to their worst joint.”",
+        "Close on discipline: “Match the catalog, keep language inside the sheet, and put premium where shock, water, and load actually live.”",
       ],
       doNotSay: [
         "Do not call it interchangeable with every NLGI 2 lithium EP grease or central systems without a compatibility review.",
@@ -76,8 +101,6 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
         "Do not promise miracle life extension beyond OEM regrease intervals.",
         "Do not imply NLGI 2 without confirming OEM allows NLGI 2 calcium sulfonate EP on that joint.",
       ],
-      flagshipNarrativeParagraph:
-        "Nano EP 2 is the grease conversation when the job is loud, wet, and unforgiving—crushers, hammers, loader pins, and bushings that see shock, slurry, and pressure-wash routines that strip commodity films. KLONDIKE nano Calcium Sulfonate EP Grease is NLGI 2 severe EP (NLGI 1 where the chart allows) with calcium sulfonate complex chemistry, PDS-indexed weld and Timken performance, and nano tungsten disulfide called out for EP and wear—field language for sliding and shock loads, not a brighter tube. Water washout resistance on the summary is extremely low and the dropping point class is high-temperature serious, so the story is uptime and maintenance confidence in severe duty, not “another EP-2.” Match NLGI to the OEM map, keep claims inside the printed lines, and position it where downtime, contamination, and load spikes are real—not where price alone drives the pick.",
     },
     {
       id: "flagship-moly-tac-ep2-grease",
@@ -128,6 +151,24 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
       ],
       flagshipNarrativeParagraph:
         "Moly Tac EP-2 is for the yards where “any EP-2” already cost someone a weekend and a pin. KLONDIKE Moly Tac EP-2 Grease is lithium complex NLGI 2 with 3% molybdenum—indexed Timken, four-ball EP, and washout values that let you talk shock, load, and water like a field specialist, not a slogan. The win is honest film strength on implements and chassis points that see daily abuse, especially where non-moly or wrong-thickener greases taught a hard lesson. Match the PDS moly and soap lines to the OEM chart, keep central-lube compatibility explicit, and sell it as the moly EP-2 tier that earns uptime without overselling what the sheet does not say.",
+      whyItWins:
+        "It wins on moly-spec, shock-heavy iron: 3% moly with Timken, four-ball, and washout on the PDS—film and chemistry the cap sheet asked for, not “whatever red tube was cheapest.”",
+      customerPainSignals: [
+        "Pins that spall when the chart said moly EP-2 but the drum did not deliver the moly story.",
+        "Central systems that choke when soap family discipline never made it to the board.",
+        "Fleets tired of warranty noise after “any EP-2” met the zerk but not the duty.",
+      ],
+      operationalConsequences: [
+        "Metal in the joint and unplanned downtime when load and moly never matched the application.",
+        "Pump and line issues when thickener crossover shows up after a silent substitution.",
+        "Lost trust at the counter when numbers on the wall did not match what went in the gun.",
+      ],
+      repTalkTrack: [
+        "Anchor the pain: “Where did the last failure happen—implement, chassis, or auto-lube—and what did the cap actually call for?”",
+        "Prove moly with calm facts: “Three percent moly, lithium complex, Timken and four-ball on the index—hand them the lines, not a story.”",
+        "Guard systems: “Before we talk drums, confirm soap family for bulk and auto-lube—surprises there are downtime events.”",
+        "Win on uptime: “This is the disciplined moly tier when shock and environment say premium, not when price is the only filter.”",
+      ],
     },
     {
       id: "flagship-15w40-ck4-full-synthetic-hd",
@@ -178,6 +219,24 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
       ],
       flagshipNarrativeParagraph:
         "This is the 15W-40 you talk when diesel uptime—not drum cosmetics—is what closes the deal. KLONDIKE SAE 15W-40 Full Synthetic Heavy Duty Engine Oil is API CK-4 / SN with ACEA E9/E7 and OEM license rows that belong in the file cabinet, plus VI near 155 on the index for straight talk about cold starts, shear stability, and severe-cycle oxidation reserve. Field angle: fewer surprises on idle-heavy routes and winter mornings when the fluid matches the duty class the cap calls for. Position it when severe service or oil analysis justifies stepping above mineral or lower CK-4 tiers, keep drains inside OEM maximums, and lean on the printed VI and license package when price pushback shows up—no miracle claims, just documented headroom.",
+      whyItWins:
+        "It wins when severe diesel duty needs CK-4 proof with real VI headroom—oxidation and cold-flow language on the PDS tied to API and OEM rows buyers can file, not sticker shock alone.",
+      customerPainSignals: [
+        "Idle-heavy routes and cold mornings that punish the wrong 15W-40 with varnish trends and sluggish starts.",
+        "Buyers burned once by “synthetic” labels that were not full synthetic CK-4 where it mattered.",
+        "Bulk guns mixing categories—FA-4, natural gas, or bridge SKUs where the wrong cap creates downtime.",
+      ],
+      operationalConsequences: [
+        "Unplanned downtime and analysis churn when oxidation reserve never matched the duty cycle.",
+        "Driver complaints and reliability hits when cold flow and shear stability were assumed, not documented.",
+        "Audit risk when the drum story could not show the CK-4 and OEM lines the engine actually required.",
+      ],
+      repTalkTrack: [
+        "Start with the route: “Where does this engine live—idle-heavy, cold starts, or both—and what does the cap allow for 15W-40?”",
+        "Lay proof flat: “CK-4/SN with ACEA rows and VI near one-fifty-five on the index—synthetic upside with category receipts.”",
+        "Separate guns: “Keep FA-4 and niche categories off the same bulk line—this win is the right cap, right fluid.”",
+        "Finish on discipline: “Drains stay inside OEM max; use UOA when you talk longer intervals—no miracle drains.”",
+      ],
     },
     {
       id: "flagship-xvi-all-season-extreme-hydraulic",
@@ -228,6 +287,24 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
       ],
       flagshipNarrativeParagraph:
         "XVI is the hydraulic story when the machine does not get to pick nice weather. KLONDIKE XVI All Season Blend Extreme Hydraulic Fluid is ISO 46 HVLP with extreme viscosity index, cold pour performance, and high shear stability language on the PDS—built for wide-swing mobile and industrial circuits when OEM allows HVLP, not for fair-weather ISO habits. Field win: first-shift responsiveness when it is frosty, pump confidence when the circuit is hot, and less seasonal juggling when the fluid class matches how the site actually runs. Match ASTM HV / DIN Part 3 class to the pump chart, keep UTF and wet-brake categories out of the conversation, and let VI, pour, and the published operating band carry the premium when someone asks why XVI is not the cheapest AW drum.",
+      whyItWins:
+        "It wins on wide temperature swings: HVLP ISO 46 with VI near 210 and pour near −48 °C on the index—first-shift response and summer pump confidence when straight grades thin out or drag.",
+      customerPainSignals: [
+        "Morning sluggish booms after a cold night, then hot afternoon circuits that punish shear.",
+        "Seasonal ISO juggling that never matched how the site actually runs.",
+        "Buyers who watched “all season” mineral give up under load and paid in cycle time.",
+      ],
+      operationalConsequences: [
+        "Slow cycles and heat-related inefficiency when viscosity collapses or drags outside the pump chart.",
+        "Extra drum changes and labor when temperature strategy was calendar-based, not data-based.",
+        "Risk when HVLP class never matched the nameplate the engineer signed off on.",
+      ],
+      repTalkTrack: [
+        "Paint the swing: “What are your cold starts and afternoon tank temps telling you about this circuit?”",
+        "Prove wide band: “HVLP ISO forty-six, VI around two-ten, pour near minus forty-eight on the index—this is wide-swing duty, not a rebadged AW.”",
+        "Engineer respect: “Lay your min/max temps on the PDS operating band before drum count—operations managers like the overlay.”",
+        "Guard category: “Pump nameplate first—XVI is not a UTF or wet-brake shortcut.”",
+      ],
     },
     {
       id: "flagship-utf-full-synthetic-tractor",
@@ -277,6 +354,24 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
       ],
       flagshipNarrativeParagraph:
         "Universal Tractor Fluid Full Synthetic is how you sell common-sump tractors when “close enough UTF” is how downtime starts. KLONDIKE Universal Tractor Fluid Full Synthetic is full synthetic UTTO with John Deere J20C/J20D, API GL-4, and Allison C-4 on the PDS, plus Brookfield and pour values that translate to cold-yard mornings and confident first shifts. Field angle: one sump doing transmission, hydraulic, and wet-brake work needs category discipline—this is not a hydraulic AW drum shoved into the case for price. Position it when OEM allows synthetic UTF, keep J20 and Brookfield lines on the quote, and draw hard boundaries so nobody trades a short-term drum discount for chatter, slippage, or warranty heat.",
+      whyItWins:
+        "It wins on common-sump premium iron: J20C/J20D with Brookfield near thirteen thousand cP at −35 °C and pour near −51 °C on the index—cold starts and wet-brake feel that read like the OEM binder, not a bargain-bin carryover.",
+      customerPainSignals: [
+        "Frosty yard starts where operators feel drag before the day’s work begins.",
+        "Wet-brake chatter or inconsistent pedal after a fluid that never matched synthetic UTF approval.",
+        "Dealers tired of implied approvals when axle tags and work orders did not line up.",
+      ],
+      operationalConsequences: [
+        "Chatter, slippage, or warranty heat when the wrong category met one sump doing three jobs.",
+        "Seasonal bulk stretch where summer carryover meets winter starts the fluid was never built for.",
+        "Operator confidence lost when first engagement feels wrong at the pedal.",
+      ],
+      repTalkTrack: [
+        "Open at the axle tag: “What does this tractor actually call for in the sump—synthetic UTF allowed or not?”",
+        "Cold proof: “Brookfield at minus thirty-five and J20 lines on the PDS—operators trust what they feel at first engagement.”",
+        "Common-sump clarity: “Transmission, hydraulics, and wet brakes share one fluid—category discipline beats a hydraulic drum shortcut.”",
+        "Boundary close: “CNH red stays on MAT rows; this path is JD J20 class per the indexed sheet.”",
+      ],
     },
   ],
 };
