@@ -534,26 +534,43 @@ export const PRODUCT_SPOTLIGHTS = [
   {
     id: "ps-grease-ep2",
     type: "product",
-    title: "Multi-Purpose / EP-2 Grease (representative)",
+    title: "Nano EP 2 Grease",
     productLine: "Grease",
     category: "Grease",
-    targetMarkets: ["Fleet chassis", "Ag pivots", "Construction pins and bushings"],
-    marketReality: [
-      "Too many greases on a lube truck invites misapplication—especially with automatic greasers.",
-      "Price-per-tube shopping ignores thickener conflicts.",
+    targetMarkets: [
+      "Mining and aggregate pins, couplers, and slow-speed bearings",
+      "Construction buckets, booms, and shock-loaded pivot points",
+      "Agricultural pivots, PTO packs, and seasonal washdown yards",
+      "Fleet chassis and vocational routes where uptime beats carton price",
     ],
-    link: "Multi-purpose EP-2 discussions help reps consolidate SKUs only after compatibility rules are written.",
-    relatedProducts: ["High-temp options where OEM specifies"],
-    relatedSpecs: ["NLGI grade and thickener compatibility—confirm central grease systems."],
-    competitors: ["Consolidation conversations vs. many SKUs on the lube truck."],
-    useWhen: "Customer struggles with grease compatibility across mixed equipment.",
-    feature: "NLGI and thickener compatibility as the technical gate before consolidation.",
-    bridge: "From dozens of tubes to a rationalized spec sheet per site.",
-    benefit: "Fewer mis-greases and clearer training for technicians.",
-    expandedOpportunity: "Pair with auto-luber audits where applicable.",
-    salesAngle: "Start with high-failure components, not the warehouse shelf.",
-    closingLines: ["We'll trial one spec on the worst actors first, then scale."],
-    tags: ["grease", "ep-2", "fleet"],
+    marketReality: [
+      "Severe shock loading and contamination expose under-spec greases long before the tube price debate is settled.",
+      "Wash-down, rain, and slurry exposure turn thickener mistakes and skipped regreases into early wear at the zerk.",
+    ],
+    link: "Nano EP 2 gives reps a premium severe-duty NLGI 2 story—opened only after NLGI grade, thickener family, and EP scope are confirmed on the current PDS for the stocked SKU.",
+    relatedProducts: ["High-temp chassis options where the OEM calls for a different class", "Filtration and breather checks where contamination drives repeat greasing"],
+    relatedSpecs: [
+      "Verify load-carrying, water exposure, and washout-related language exactly as written on the PDS—avoid counter folklore.",
+      "Reconfirm thickener compatibility for central systems, auto-lubers, and mixed-fleet top-off programs.",
+    ],
+    competitors: [
+      "Commodity EP-2 priced on volume—differentiate with documented duty match, regrease discipline, and fewer emergency comebacks.",
+    ],
+    useWhen:
+      "Shops or fleets fight early wear at shock-loaded pins and bushings, need better moisture and wash-off resilience inside an NLGI 2 EP program the component supplier allows, or want one governed severe-duty grease story across mining, construction, agriculture, and mixed vocational iron.",
+    feature:
+      "Premium severe-duty NLGI 2 EP-2 positioning for high-shock, high-contamination duty cycles when published claims and applications align with the PDS.",
+    bridge: "Shift the conversation from “any red EP-2” to a written thickener, duty, and regrease checklist before drums or grease guns change hands.",
+    benefit:
+      "Helps protect uptime in severe mining, construction, agricultural, and fleet environments by reducing mis-greases, under-spec picks, and accidental thickener cross-over.",
+    expandedOpportunity:
+      "Bundle with central grease system walk-throughs, auto-luber labeling, and seasonal PM windows where washdown and production peaks collide.",
+    salesAngle:
+      "Start at the worst actors—loader pins, wet packs, and high-shock circles—then tie every claim to PDS wording the service manager can defend.",
+    closingLines: [
+      "We’ll trial Nano EP 2 on your highest-shock, highest-moisture points, confirm language on the PDS, then scale with a one-page spec note for the bay.",
+    ],
+    tags: ["grease", "ep-2", "severe-duty", "nano-ep2", "mining", "construction", "agriculture", "fleet"],
     status: "active",
   },
   {

@@ -4525,6 +4525,19 @@ useEffect(() => {
   useEffect(() => {
     if (seGuidedIncludeBranding) setSeGuidedPreviewLogoFailed(false);
   }, [seGuidedIncludeBranding]);
+  /** Phase 73.22 — Guided audience wizard (UI/local labels; send payloads unchanged). */
+  const [seGuidedWizardAudienceAll, setSeGuidedWizardAudienceAll] = useState(false);
+  const [seGuidedWizardMessageKind, setSeGuidedWizardMessageKind] = useState(null);
+  const [seGuidedWizardProfileRefId, setSeGuidedWizardProfileRefId] = useState(
+    () => String(SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles?.[0]?.id || "")
+  );
+  useEffect(() => {
+    if (klondikeAdminTab !== "sales_enablement") return;
+    setSeGuidedWizardMessageKind((prev) => {
+      if (prev != null) return prev;
+      return salesEnablementSpotlightMode === "category" ? "category" : "product";
+    });
+  }, [klondikeAdminTab, salesEnablementSpotlightMode]);
   /** Phase 73.17 — Knowledge Engine Preview (read-only; not wired to send payloads). */
   const [seKnowledgePreviewType, setSeKnowledgePreviewType] = useState("product");
   const [seKnowledgeProductOverlayId, setSeKnowledgeProductOverlayId] = useState(
@@ -10353,8 +10366,30 @@ const handleFinishDealerEnrollment = async () => {
       {klondikeAdminTab === "sales_enablement" && (
         <div style={{ display: "grid", gap: 18 }}>
           {(() => {
-            const guidedStep =
-              !salesEnablementDealerOrgId ? 1 : !salesEnablementSelectedId ? 2 : salesEnablementSendPanelOpen ? 4 : 3;
+            const audienceReady =
+              Boolean(seGuidedWizardAudienceAll) ||
+              Boolean(String(salesEnablementDealerOrgId || "").trim());
+            const messageKindReady = seGuidedWizardMessageKind != null;
+            const wizardBuildReady =
+              seGuidedWizardMessageKind === "customer_profile"
+                ? Boolean(String(seGuidedWizardProfileRefId || "").trim())
+                : salesEnablementSelectedId != null;
+            let guidedStep = 1;
+            if (audienceReady) guidedStep = 2;
+            if (audienceReady && messageKindReady) guidedStep = 3;
+            if (audienceReady && messageKindReady && wizardBuildReady) guidedStep = 4;
+            if (
+              audienceReady &&
+              messageKindReady &&
+              wizardBuildReady &&
+              salesEnablementSendPanelOpen
+            )
+              guidedStep = 5;
+            const wizardProfileRow =
+              (SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles || []).find(
+                (p) => String(p?.id) === String(seGuidedWizardProfileRefId)
+              ) || null;
+            const wizardProfileTitle = String(wizardProfileRow?.title || "").trim() || "—";
             const guidedMockProductLabel =
               SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.find((o) => o.id === seGuidedMockProductImageId)?.label || "—";
             const guidedPreviewProductLabel =
@@ -10405,7 +10440,7 @@ const handleFinishDealerEnrollment = async () => {
                     display: "flex",
                     alignItems: "center",
                     gap: 10,
-                    flex: "1 1 140px",
+                    flex: "1 1 100px",
                     minWidth: 0,
                     padding: "10px 12px",
                     borderRadius: 12,
@@ -10481,6 +10516,13 @@ const handleFinishDealerEnrollment = async () => {
                 );
               }
             };
+            const seWizardDealerRows = (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [])
+              .slice()
+              .sort((a, b) =>
+                String(a?.name || "").localeCompare(String(b?.name || ""), undefined, { sensitivity: "base" })
+              );
+            const seWizardProductPicks = (filteredSalesProductSpotlights || []).slice(0, 8);
+            const seWizardCategoryPicks = (filteredSalesCategorySpotlights || []).slice(0, 8);
             return (
               <>
                 <div
@@ -10505,16 +10547,27 @@ const handleFinishDealerEnrollment = async () => {
                     GUIDED WORKSPACE
                   </div>
                   <h3 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.02em" }}>
-                    Dealer spotlight journey
+                    Guided audience wizard
                   </h3>
-                  <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.55, maxWidth: 820 }}>
-                    Walk the steps below to align preview copy with an approved library spotlight. Outbound email still
-                    flows through Prepare Send and your existing send controls—nothing here replaces that workflow.
+                  <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.55, maxWidth: 900 }}>
+                    Follow the five steps in order: lock who you are planning for, pick the message shape, load library
+                    content, review the mock template, then use the same Prepare Send / staging controls as before.
                   </p>
-                  <p style={{ margin: 0, fontSize: 12, color: "#475569", fontWeight: 700, lineHeight: 1.5, maxWidth: 820 }}>
-                    Recommended cards jump-start content picks; the template preview and toggles stay mock-safe until you
-                    open the operational send panel.
-                  </p>
+                  <div
+                    style={{
+                      marginTop: 2,
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      background: "linear-gradient(120deg, rgba(239, 246, 255, 0.95) 0%, rgba(255, 247, 237, 0.9) 100%)",
+                      border: "1px solid rgba(59, 130, 246, 0.35)",
+                      maxWidth: 900,
+                    }}
+                  >
+                    <p style={{ margin: 0, fontSize: 12, color: "#334155", lineHeight: 1.55, fontWeight: 700 }}>
+                      Future spotlight quality will be powered by PDS data, product overlays, LFBB blocks, and customer
+                      profiles—this wizard only organizes today&apos;s preview; it does not change outbound payloads.
+                    </p>
+                  </div>
                   <div
                     style={{
                       display: "flex",
@@ -10522,22 +10575,514 @@ const handleFinishDealerEnrollment = async () => {
                       gap: 10,
                     }}
                   >
-                    {stepChip(1, "Pick opportunity")}
-                    {stepChip(2, "Choose content")}
-                    {stepChip(3, "Review template")}
-                    {stepChip(4, "Send / stage")}
+                    {stepChip(1, "Audience")}
+                    {stepChip(2, "Message type")}
+                    {stepChip(3, "Build spotlight")}
+                    {stepChip(4, "Preview")}
+                    {stepChip(5, "Send / stage")}
                   </div>
 
                   <div
                     style={{
-                      marginTop: 2,
+                      borderRadius: 14,
+                      padding: "16px 18px",
+                      border: "1px solid rgba(226, 232, 240, 0.98)",
+                      background: "#fafbfc",
+                      display: "grid",
+                      gap: 12,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#1e40af" }}>
+                      STEP 1 · AUDIENCE
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                      Choose a dealer organization for routing context (same list as Dealer Enablement Intelligence).{" "}
+                      <strong style={{ color: "#334155" }}>Send to all dealers</strong> is a planning flag only—Prepare
+                      Send still targets one org until broadcast send is approved.
+                    </p>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 12,
+                        alignItems: "flex-end",
+                      }}
+                    >
+                      <label style={{ display: "grid", gap: 6, flex: "1 1 260px", minWidth: 0 }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", color: "#64748b" }}>
+                          DEALER ORGANIZATION
+                        </span>
+                        <select
+                          value={salesEnablementDealerOrgId}
+                          onChange={(e) => {
+                            setSalesEnablementDealerOrgId(e.target.value);
+                            if (e.target.value) setSeGuidedWizardAudienceAll(false);
+                          }}
+                          style={{
+                            padding: "10px 14px",
+                            borderRadius: 12,
+                            border: "1px solid rgba(59, 130, 246, 0.45)",
+                            background: "#ffffff",
+                            color: "#0f172a",
+                            fontWeight: 600,
+                            fontSize: 14,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <option value="">Select dealer…</option>
+                          {seWizardDealerRows.map((d) => (
+                            <option key={String(d.organization_id)} value={String(d.organization_id)}>
+                              {d.name || "Dealer"}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        aria-pressed={seGuidedWizardAudienceAll}
+                        onClick={() => setSeGuidedWizardAudienceAll((v) => !v)}
+                        style={{
+                          cursor: "pointer",
+                          borderRadius: 12,
+                          padding: "11px 16px",
+                          fontSize: 12,
+                          fontWeight: 900,
+                          letterSpacing: "0.06em",
+                          border: seGuidedWizardAudienceAll
+                            ? "2px solid rgba(234, 88, 12, 0.85)"
+                            : "1px solid rgba(203, 213, 225, 0.95)",
+                          background: seGuidedWizardAudienceAll
+                            ? "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)"
+                            : "#ffffff",
+                          color: seGuidedWizardAudienceAll ? "#9a3412" : "#334155",
+                          boxShadow: seGuidedWizardAudienceAll ? "0 6px 16px rgba(234, 88, 12, 0.12)" : "none",
+                        }}
+                      >
+                        SEND TO ALL DEALERS
+                      </button>
+                    </div>
+                    <div
+                      style={{
+                        borderRadius: 12,
+                        padding: "12px 14px",
+                        background: "#ffffff",
+                        border: "1px solid rgba(226, 232, 240, 0.98)",
+                        fontSize: 12,
+                        color: "#334155",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                        SELECTED AUDIENCE SUMMARY
+                      </div>
+                      <div style={{ marginTop: 8, fontWeight: 800 }}>
+                        {seGuidedWizardAudienceAll ? (
+                          <>
+                            <span style={{ color: "#c2410c" }}>Territory-wide intent (UI only).</span>{" "}
+                            {salesEnablementDealerOrgId
+                              ? `Primary routing / preview org: ${
+                                  seWizardDealerRows.find(
+                                    (d) => String(d.organization_id) === String(salesEnablementDealerOrgId)
+                                  )?.name || "Selected org"
+                                }.`
+                              : "Pick a primary dealer above so preview copy can show a real org name."}
+                          </>
+                        ) : salesEnablementDealerOrgId ? (
+                          <>
+                            Single org:{" "}
+                            <strong style={{ color: "#0f172a" }}>
+                              {seWizardDealerRows.find(
+                                (d) => String(d.organization_id) === String(salesEnablementDealerOrgId)
+                              )?.name || "Dealer"}
+                            </strong>
+                          </>
+                        ) : (
+                          <>No dealer selected yet—required for quick picks and Prepare Send.</>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gap: 12 }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
+                      STEP 2 · MESSAGE TYPE
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 12,
+                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
+                      }}
+                    >
+                      {[
+                        {
+                          kind: "product",
+                          title: "PRODUCT SPOTLIGHT",
+                          sub: "SKU-level story, proof points, and spec callouts for a single hero product.",
+                          accent: "#1d4ed8",
+                          bg: "linear-gradient(160deg, #eff6ff 0%, #ffffff 55%)",
+                        },
+                        {
+                          kind: "category",
+                          title: "CATEGORY SPOTLIGHT",
+                          sub: "Vertical or category plays—fleet discipline, hydraulic programs, synthetic upgrades.",
+                          accent: "#c2410c",
+                          bg: "linear-gradient(160deg, #fff7ed 0%, #ffffff 55%)",
+                        },
+                        {
+                          kind: "customer_profile",
+                          title: "CUSTOMER PROFILE",
+                          sub: "Industry archetypes for coaching language—pairs with library spotlights for context only.",
+                          accent: "#047857",
+                          bg: "linear-gradient(160deg, #ecfdf5 0%, #ffffff 55%)",
+                        },
+                      ].map((mt) => {
+                        const active = seGuidedWizardMessageKind === mt.kind;
+                        return (
+                          <button
+                            key={mt.kind}
+                            type="button"
+                            onClick={() => {
+                              setSeGuidedWizardMessageKind(mt.kind);
+                              if (mt.kind === "customer_profile") {
+                                setSalesEnablementLibraryTab("customer_profiles");
+                              } else {
+                                setSalesEnablementSpotlightMode(mt.kind);
+                                setSalesEnablementLibraryTab(mt.kind);
+                                setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
+                              }
+                            }}
+                            style={{
+                              cursor: "pointer",
+                              textAlign: "left",
+                              borderRadius: 16,
+                              padding: "18px 18px 20px",
+                              minHeight: 148,
+                              border: active ? `2px solid ${mt.accent}` : "1px solid rgba(226, 232, 240, 0.98)",
+                              background: mt.bg,
+                              boxShadow: active ? "0 14px 28px rgba(15, 23, 42, 0.1)" : "0 8px 18px rgba(15, 23, 42, 0.05)",
+                              display: "grid",
+                              gap: 10,
+                            }}
+                          >
+                            <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: "0.06em", color: mt.accent }}>
+                              {mt.title}
+                            </div>
+                            <p style={{ margin: 0, fontSize: 12, color: "#475569", lineHeight: 1.5, fontWeight: 600 }}>
+                              {mt.sub}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      padding: "16px 18px",
+                      border: "1px solid rgba(226, 232, 240, 0.98)",
+                      background: "#ffffff",
+                      display: "grid",
+                      gap: 14,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
+                      STEP 3 · BUILD YOUR SPOTLIGHT / PROFILE
+                    </div>
+                    <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.55, maxWidth: 900 }}>
+                      Final dealer-facing sentences stay anchored to{" "}
+                      <strong style={{ color: "#334155" }}>approved PDS language</strong> in the library. Use the picks
+                      here to mirror what you will send—LFBB blocks and proof lines already respect that contract in
+                      curated rows.
+                    </p>
+                    {!messageKindReady ? (
+                      <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 700, lineHeight: 1.45 }}>
+                        Choose a message type in Step 2 to load the matching quick picks.
+                      </p>
+                    ) : null}
+                    {messageKindReady && seGuidedWizardMessageKind === "customer_profile" ? (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#475569" }}>
+                          Reference profile (preview lens · not a new send type)
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 8,
+                            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
+                          }}
+                        >
+                          {(SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles || []).slice(0, 10).map((p) => {
+                            const active = String(seGuidedWizardProfileRefId) === String(p.id);
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => setSeGuidedWizardProfileRefId(String(p.id))}
+                                style={{
+                                  cursor: "pointer",
+                                  textAlign: "left",
+                                  borderRadius: 12,
+                                  padding: "10px 12px",
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  lineHeight: 1.35,
+                                  border: active
+                                    ? "2px solid rgba(5, 150, 105, 0.75)"
+                                    : "1px solid rgba(203, 213, 225, 0.95)",
+                                  background: active ? "#ecfdf5" : "#f8fafc",
+                                  color: active ? "#065f46" : "#334155",
+                                }}
+                              >
+                                {String(p.title || p.id).slice(0, 80)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
+                          Spotlight email send still uses a library product or category row—this profile only sharpens
+                          how you read the preview and talk track alongside reps.
+                        </p>
+                      </div>
+                    ) : messageKindReady && seGuidedWizardMessageKind === "category" ? (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#475569" }}>
+                          Category spotlight quick picks
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 8,
+                            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
+                          }}
+                        >
+                          {seWizardCategoryPicks.map((row) => {
+                            const active = salesEnablementSelectedId === row.id;
+                            return (
+                              <button
+                                key={row.id}
+                                type="button"
+                                onClick={() => guidedPickSpotlight(row.id, "category")}
+                                style={{
+                                  cursor: "pointer",
+                                  textAlign: "left",
+                                  borderRadius: 12,
+                                  padding: "10px 12px",
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  lineHeight: 1.35,
+                                  border: active
+                                    ? "2px solid rgba(234, 88, 12, 0.85)"
+                                    : "1px solid rgba(203, 213, 225, 0.95)",
+                                  background: active ? "#fff7ed" : "#f8fafc",
+                                  color: active ? "#9a3412" : "#334155",
+                                }}
+                              >
+                                {String(row.title || row.id).slice(0, 72)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : messageKindReady ? (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#475569" }}>
+                          Product spotlight quick picks
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 8,
+                            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
+                          }}
+                        >
+                          {seWizardProductPicks.map((row) => {
+                            const active = salesEnablementSelectedId === row.id;
+                            return (
+                              <button
+                                key={row.id}
+                                type="button"
+                                onClick={() => guidedPickSpotlight(row.id, "product")}
+                                style={{
+                                  cursor: "pointer",
+                                  textAlign: "left",
+                                  borderRadius: 12,
+                                  padding: "10px 12px",
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  lineHeight: 1.35,
+                                  border: active
+                                    ? "2px solid rgba(37, 99, 235, 0.65)"
+                                    : "1px solid rgba(203, 213, 225, 0.95)",
+                                  background: active ? "#eff6ff" : "#f8fafc",
+                                  color: active ? "#1e3a8a" : "#334155",
+                                }}
+                              >
+                                {String(row.title || row.id).slice(0, 72)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div style={{ marginTop: 4 }}>
+                      <div
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 900,
+                          letterSpacing: "0.08em",
+                          color: "#64748b",
+                          marginBottom: 6,
+                        }}
+                      >
+                        QUICK LIBRARY SCENARIOS
+                      </div>
+                      <p style={{ margin: "0 0 10px", fontSize: 11, color: "#94a3b8", lineHeight: 1.45, maxWidth: 900 }}>
+                        One-tap applies a spotlight into this guided preview; “Open in Advanced Library” only switches the
+                        library tab—no automatic send.
+                      </p>
+                      <div
+                        style={{
+                          display: "grid",
+                          gap: 12,
+                          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
+                        }}
+                      >
+                        {[
+                          {
+                            title: "Send Nano EP 2 Grease Spotlight",
+                            blurb: "EP-2 grease consolidation narrative for mixed fleets and chassis PM.",
+                            onPrimary: () => guidedPickSpotlight("ps-grease-ep2", "product"),
+                            onSecondary: () => {
+                              setSalesEnablementSpotlightMode("product");
+                              setSalesEnablementLibraryTab("product");
+                              setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
+                              setSalesEnablementSelectedId("ps-grease-ep2");
+                            },
+                            primaryLabel: "Apply grease spotlight",
+                          },
+                          {
+                            title: "Send Hydraulic Efficiency Spotlight",
+                            blurb: "ISO VG discipline, filtration, and circuit-led hydraulic positioning.",
+                            onPrimary: () => guidedPickSpotlight("cs-hydraulic-opportunity", "category"),
+                            onSecondary: () => {
+                              setSalesEnablementSpotlightMode("category");
+                              setSalesEnablementLibraryTab("category");
+                              setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
+                              setSalesEnablementSelectedId("cs-hydraulic-opportunity");
+                            },
+                            primaryLabel: "Apply hydraulic spotlight",
+                          },
+                          {
+                            title: "Stage Synthetic Conversion Message",
+                            blurb: "Premium-tier framing aligned to OEM guidance—not mileage hype.",
+                            onPrimary: () =>
+                              guidedPickSpotlight("cs-synthetic-upgrade", "category", { syntheticIntro: true }),
+                            onSecondary: () => {
+                              setSalesEnablementSpotlightMode("category");
+                              setSalesEnablementLibraryTab("category");
+                              setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
+                              setSalesEnablementSelectedId("cs-synthetic-upgrade");
+                            },
+                            primaryLabel: "Stage synthetic template",
+                          },
+                          {
+                            title: "Request Dealer Training",
+                            blurb: "Mock scheduler banner—no invites or outbound automation.",
+                            onPrimary: () => {
+                              const dn =
+                                (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : []).find(
+                                  (d) => String(d.organization_id) === String(salesEnablementDealerOrgId)
+                                )?.name || "Territory";
+                              setSalesEnablementSendNotice({
+                                kind: "info",
+                                text: formatKlAdminTrainingSchedulerMockNotice({
+                                  topic: "Grease · hydraulic · synthetic enablement refresh",
+                                  audience: salesEnablementDealerOrgId ? dn : "Territory managers",
+                                  nextSuggestedAction:
+                                    "Align with dealer principals on attendees before enabling LMS hooks.",
+                                  detail: salesEnablementDealerOrgId
+                                    ? `Focused dealer context: ${dn}`
+                                    : "Select a dealer to personalize routing notes.",
+                                }),
+                              });
+                            },
+                            onSecondary: () => {
+                              setSalesEnablementLibraryTab("training");
+                            },
+                            primaryLabel: "Prepare training note",
+                          },
+                        ].map((card) => (
+                          <div
+                            key={card.title}
+                            style={{
+                              borderRadius: 14,
+                              padding: "16px 18px",
+                              background: "#fafbfc",
+                              border: "1px solid rgba(226, 232, 240, 0.95)",
+                              boxShadow: "0 6px 16px rgba(15, 23, 42, 0.04)",
+                              display: "grid",
+                              gap: 10,
+                              minHeight: 148,
+                            }}
+                          >
+                            <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
+                              {card.title}
+                            </div>
+                            <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
+                              {card.blurb}
+                            </p>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: "auto" }}>
+                              <button
+                                type="button"
+                                onClick={card.onPrimary}
+                                style={{
+                                  cursor: "pointer",
+                                  borderRadius: 10,
+                                  padding: "9px 14px",
+                                  fontSize: 12,
+                                  fontWeight: 800,
+                                  border: "1px solid rgba(234, 88, 12, 0.55)",
+                                  background: "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
+                                  color: "#ffffff",
+                                }}
+                              >
+                                {card.primaryLabel}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => card.onSecondary()}
+                                style={{
+                                  cursor: "pointer",
+                                  borderRadius: 10,
+                                  padding: "9px 14px",
+                                  fontSize: 12,
+                                  fontWeight: 800,
+                                  border: "1px solid rgba(37, 99, 235, 0.45)",
+                                  background: "#ffffff",
+                                  color: "#1d4ed8",
+                                }}
+                              >
+                                Open in Advanced Library
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
                       padding: "12px 14px",
                       borderRadius: 12,
                       background: "linear-gradient(135deg, rgba(248, 250, 252, 0.98) 0%, rgba(241, 245, 249, 0.92) 100%)",
                       border: "1px dashed rgba(148, 163, 184, 0.72)",
                       display: "grid",
                       gap: 8,
-                      maxWidth: 820,
+                      maxWidth: 900,
                     }}
                   >
                     <div
@@ -10563,151 +11108,6 @@ const handleFinishDealerEnrollment = async () => {
                     </p>
                   </div>
 
-                  <div style={{ marginTop: 2 }}>
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 900,
-                        letterSpacing: "0.1em",
-                        color: "#64748b",
-                        marginBottom: 6,
-                      }}
-                    >
-                      RECOMMENDED ENABLEMENT ACTIONS
-                    </div>
-                    <p style={{ margin: "0 0 10px", fontSize: 11, color: "#94a3b8", lineHeight: 1.45, maxWidth: 820 }}>
-                      One-tap applies a spotlight into this guided preview; “Open in Advanced Library” only switches the
-                      library tab—no automatic send.
-                    </p>
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 12,
-                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
-                      }}
-                    >
-                      {[
-                        {
-                          title: "Send Nano EP 2 Grease Spotlight",
-                          blurb: "EP-2 grease consolidation narrative for mixed fleets and chassis PM.",
-                          onPrimary: () => guidedPickSpotlight("ps-grease-ep2", "product"),
-                          onSecondary: () => {
-                            setSalesEnablementSpotlightMode("product");
-                            setSalesEnablementLibraryTab("product");
-                            setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
-                            setSalesEnablementSelectedId("ps-grease-ep2");
-                          },
-                          primaryLabel: "Apply grease spotlight",
-                        },
-                        {
-                          title: "Send Hydraulic Efficiency Spotlight",
-                          blurb: "ISO VG discipline, filtration, and circuit-led hydraulic positioning.",
-                          onPrimary: () => guidedPickSpotlight("cs-hydraulic-opportunity", "category"),
-                          onSecondary: () => {
-                            setSalesEnablementSpotlightMode("category");
-                            setSalesEnablementLibraryTab("category");
-                            setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
-                            setSalesEnablementSelectedId("cs-hydraulic-opportunity");
-                          },
-                          primaryLabel: "Apply hydraulic spotlight",
-                        },
-                        {
-                          title: "Stage Synthetic Conversion Message",
-                          blurb: "Premium-tier framing aligned to OEM guidance—not mileage hype.",
-                          onPrimary: () => guidedPickSpotlight("cs-synthetic-upgrade", "category", { syntheticIntro: true }),
-                          onSecondary: () => {
-                            setSalesEnablementSpotlightMode("category");
-                            setSalesEnablementLibraryTab("category");
-                            setSalesEnablementCategoryFilter(SPOTLIGHT_CATEGORY_ALL);
-                            setSalesEnablementSelectedId("cs-synthetic-upgrade");
-                          },
-                          primaryLabel: "Stage synthetic template",
-                        },
-                        {
-                          title: "Request Dealer Training",
-                          blurb: "Mock scheduler banner—no invites or outbound automation.",
-                          onPrimary: () => {
-                            const dn =
-                              (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : []).find(
-                                (d) => String(d.organization_id) === String(salesEnablementDealerOrgId)
-                              )?.name || "Territory";
-                            setSalesEnablementSendNotice({
-                              kind: "info",
-                              text: formatKlAdminTrainingSchedulerMockNotice({
-                                topic: "Grease · hydraulic · synthetic enablement refresh",
-                                audience: salesEnablementDealerOrgId ? dn : "Territory managers",
-                                nextSuggestedAction:
-                                  "Align with dealer principals on attendees before enabling LMS hooks.",
-                                detail: salesEnablementDealerOrgId
-                                  ? `Focused dealer context: ${dn}`
-                                  : "Select a dealer to personalize routing notes.",
-                              }),
-                            });
-                          },
-                          onSecondary: () => {
-                            setSalesEnablementLibraryTab("training");
-                          },
-                          primaryLabel: "Prepare training note",
-                        },
-                      ].map((card) => (
-                        <div
-                          key={card.title}
-                          style={{
-                            borderRadius: 14,
-                            padding: "16px 18px",
-                            background: "#ffffff",
-                            border: "1px solid rgba(226, 232, 240, 0.95)",
-                            boxShadow: "0 8px 22px rgba(15, 23, 42, 0.05)",
-                            display: "grid",
-                            gap: 10,
-                            minHeight: 148,
-                          }}
-                        >
-                          <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
-                            {card.title}
-                          </div>
-                          <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
-                            {card.blurb}
-                          </p>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: "auto" }}>
-                            <button
-                              type="button"
-                              onClick={card.onPrimary}
-                              style={{
-                                cursor: "pointer",
-                                borderRadius: 10,
-                                padding: "9px 14px",
-                                fontSize: 12,
-                                fontWeight: 800,
-                                border: "1px solid rgba(234, 88, 12, 0.55)",
-                                background: "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
-                                color: "#ffffff",
-                              }}
-                            >
-                              {card.primaryLabel}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => card.onSecondary()}
-                              style={{
-                                cursor: "pointer",
-                                borderRadius: 10,
-                                padding: "9px 14px",
-                                fontSize: 12,
-                                fontWeight: 800,
-                                border: "1px solid rgba(37, 99, 235, 0.45)",
-                                background: "#ffffff",
-                                color: "#1d4ed8",
-                              }}
-                            >
-                              Open in Advanced Library
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
                   <div
                     style={{
                       display: "grid",
@@ -10725,6 +11125,9 @@ const handleFinishDealerEnrollment = async () => {
                         gap: 12,
                       }}
                     >
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: "#94a3b8" }}>
+                        STEP 4 · PREVIEW OPTIONS
+                      </div>
                       <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: "#475569" }}>
                         MOCK PREVIEW OPTIONS (LOCAL ONLY)
                       </div>
@@ -10839,10 +11242,16 @@ const handleFinishDealerEnrollment = async () => {
                       >
                         <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
                           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.11em", color: "#64748b" }}>
-                            MESSAGE TEMPLATE PREVIEW
+                            STEP 4 · MESSAGE TEMPLATE PREVIEW
                           </div>
                           <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", lineHeight: 1.35 }}>
                             Library spotlight + guided toggles—compare before opening Prepare Send.
+                          </div>
+                          <div style={{ fontSize: 10, fontWeight: 800, color: "#64748b", lineHeight: 1.4 }}>
+                            Guided preview output · reflects Step 3 picks
+                            {seGuidedWizardMessageKind === "customer_profile" ? (
+                              <span style={{ color: "#059669" }}> · Profile lens: {wizardProfileTitle}</span>
+                            ) : null}
                           </div>
                         </div>
                         {seGuidedIncludeBranding ? (
@@ -11443,6 +11852,17 @@ const handleFinishDealerEnrollment = async () => {
                         </div>
                       </div>
 
+                      <div style={{ display: "grid", gap: 8 }}>
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: "#94a3b8" }}>
+                          STEP 5 · SEND / STAGE
+                        </div>
+                        <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.45, fontWeight: 600 }}>
+                          <strong style={{ color: "#c2410c" }}>Mock path:</strong> draft staging and notices stay local.{" "}
+                          <strong style={{ color: "#1d4ed8" }}>Approved path:</strong> unchanged Prepare Send / Send
+                          Spotlight—same payloads and validation as before.
+                        </p>
+                      </div>
+
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                         <button
                           type="button"
@@ -11939,7 +12359,7 @@ const handleFinishDealerEnrollment = async () => {
                 }}
               >
                 <strong style={{ color: "#0f172a" }}>Capability preserved:</strong> dealer signals, spotlight
-                library, and manual sends remain below—follow the guided strip above for the happy path, then use{" "}
+                library, and manual sends remain below—follow the guided audience wizard above for the happy path, then use{" "}
                 <strong style={{ color: "#1d4ed8" }}>Advanced Library</strong> for deep browsing.
               </p>
               <p
@@ -12930,7 +13350,7 @@ const handleFinishDealerEnrollment = async () => {
                 }}
               >
                 Full spotlight taxonomy, customer profiles, and training references live here—secondary to the guided
-                path above, same capabilities as before.
+                wizard above, same capabilities as before.
               </p>
             </div>
 
