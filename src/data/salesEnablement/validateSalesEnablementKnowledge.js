@@ -1,5 +1,5 @@
 /**
- * Phase 73.6 / 74.1 — Development-only integrity checks for Sales Enablement knowledge data.
+ * Phase 73.6 / 74.1 / 75.0 — Development-only integrity checks for Sales Enablement knowledge data.
  * Does not throw by default. Not wired to UI or build pipeline.
  */
 
@@ -8,6 +8,7 @@ import { SALES_ENABLEMENT_LFBB_BLOCKS } from "./lfbbBlocks.js";
 import { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./customerProfiles.js";
 import { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./productSpotlightOverlays.js";
 import { GREASE_PDS_SPOTLIGHT_MAP } from "./greasePdsSpotlightMap.js";
+import { HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP } from "./hdEngineOilPdsSpotlightMap.js";
 
 /**
  * @returns {{ ok: boolean, errors: string[], warnings: string[] }}
@@ -227,6 +228,170 @@ export function validateSalesEnablementKnowledge() {
           if (profileIds.size > 0 && !profileIds.has(key)) {
             errors.push(`${loc} (${gid || "?"}) references unknown customer profile id "${key}"`);
           }
+        }
+      }
+    }
+  }
+
+  // --- Phase 75.0 — HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP (validation tooling only; not App.js) ---
+  const hdMap = HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP;
+  if (!hdMap || typeof hdMap !== "object") {
+    errors.push("HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP is missing or not an object");
+  } else {
+    if (hdMap.version === undefined || hdMap.version === null) {
+      errors.push("HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP.version is missing");
+    }
+    const hCat = String(hdMap.categoryId ?? "").trim();
+    if (hCat !== "hd_engine_oils") {
+      errors.push(`HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP.categoryId must be "hd_engine_oils", got "${hCat || "(empty)"}"`);
+    }
+
+    const hdProducts = Array.isArray(hdMap.products) ? hdMap.products : null;
+    if (!hdProducts || hdProducts.length === 0) {
+      errors.push("HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP.products is missing or empty");
+    }
+
+    const hdProductIds = new Set();
+    if (hdProducts && hdProducts.length > 0) {
+      const seenHdProductIds = new Set();
+      for (let i = 0; i < hdProducts.length; i++) {
+        const pr = hdProducts[i];
+        const loc = `HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP.products[${i}]`;
+        if (!pr || typeof pr !== "object") {
+          errors.push(`${loc} is not an object`);
+          continue;
+        }
+        const pid = String(pr.id ?? "").trim();
+        const pname = String(pr.productName ?? "").trim();
+        const pcCat = String(pr.categoryId ?? "").trim();
+        const pdsHint = String(pr.pdsFileHint ?? "").trim();
+        const pos = String(pr.positioningTier ?? "").trim();
+        if (!pid) {
+          errors.push(`${loc} missing non-empty id`);
+        } else {
+          if (seenHdProductIds.has(pid)) {
+            warnings.push(`Duplicate HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP product id "${pid}"`);
+          }
+          seenHdProductIds.add(pid);
+          hdProductIds.add(pid);
+        }
+        if (!pname) errors.push(`${loc} (${pid || "?"}) missing non-empty productName`);
+        if (!pcCat) {
+          errors.push(`${loc} (${pid || "?"}) missing non-empty categoryId`);
+        } else if (pcCat !== "hd_engine_oils") {
+          errors.push(`${loc} (${pid || "?"}) categoryId must be "hd_engine_oils", got "${pcCat}"`);
+        }
+        if (!pdsHint) errors.push(`${loc} (${pid || "?"}) missing non-empty pdsFileHint`);
+        if (!pos) errors.push(`${loc} (${pid || "?"}) missing non-empty positioningTier`);
+
+        const lfbb = pr.lfbb && typeof pr.lfbb === "object" ? pr.lfbb : null;
+        if (!lfbb) {
+          errors.push(`${loc} (${pid || "?"}) missing lfbb object`);
+        } else {
+          for (const key of ["link", "feature", "bridge", "benefit"]) {
+            const v = String(lfbb[key] ?? "").trim();
+            if (!v) errors.push(`${loc} (${pid || "?"}) missing non-empty lfbb.${key}`);
+          }
+        }
+
+        const custRefs = Array.isArray(pr.recommendedCustomerProfileIds) ? pr.recommendedCustomerProfileIds : [];
+        for (const raw of custRefs) {
+          const key = String(raw ?? "").trim();
+          if (!key) {
+            warnings.push(`${loc} (${pid || "?"}) has empty recommendedCustomerProfileIds entry`);
+            continue;
+          }
+          if (profileIds.size > 0 && !profileIds.has(key)) {
+            errors.push(`${loc} (${pid || "?"}) references unknown customer profile id "${key}"`);
+          }
+        }
+      }
+    }
+
+    const hdCats = Array.isArray(hdMap.categorySpotlights) ? hdMap.categorySpotlights : null;
+    if (!hdCats || hdCats.length === 0) {
+      errors.push("HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP.categorySpotlights is missing or empty");
+    } else {
+      const seenCatSpotIds = new Set();
+      for (let i = 0; i < hdCats.length; i++) {
+        const cs = hdCats[i];
+        const loc = `HD_ENGINE_OIL_PDS_SPOTLIGHT_MAP.categorySpotlights[${i}]`;
+        if (!cs || typeof cs !== "object") {
+          errors.push(`${loc} is not an object`);
+          continue;
+        }
+        const cid = String(cs.id ?? "").trim();
+        const ctitle = String(cs.title ?? "").trim();
+        const ctier = String(cs.positioningTier ?? "").trim();
+        if (!cid) {
+          errors.push(`${loc} missing non-empty id`);
+        } else if (seenCatSpotIds.has(cid)) {
+          warnings.push(`Duplicate HD category spotlight id "${cid}"`);
+        } else {
+          seenCatSpotIds.add(cid);
+        }
+        if (!ctitle) errors.push(`${loc} (${cid || "?"}) missing non-empty title`);
+        if (!ctier) errors.push(`${loc} (${cid || "?"}) missing non-empty positioningTier`);
+
+        const rp = Array.isArray(cs.recommendedProducts) ? cs.recommendedProducts : [];
+        if (rp.length === 0) {
+          errors.push(`${loc} (${cid || "?"}) recommendedProducts must be non-empty`);
+        } else {
+          for (const raw of rp) {
+            const key = String(raw ?? "").trim();
+            if (!key) {
+              warnings.push(`${loc} (${cid || "?"}) has empty recommendedProducts entry`);
+              continue;
+            }
+            if (hdProductIds.size > 0 && !hdProductIds.has(key)) {
+              errors.push(`${loc} (${cid || "?"}) recommendedProducts references unknown product id "${key}"`);
+            }
+          }
+        }
+
+        const inds = Array.isArray(cs.industries) ? cs.industries : [];
+        if (inds.length < 1) errors.push(`${loc} (${cid || "?"}) industries must have at least one item`);
+
+        const cprof = Array.isArray(cs.customerProfiles) ? cs.customerProfiles : [];
+        const cprofNonEmpty = cprof.map((x) => String(x ?? "").trim()).filter(Boolean);
+        if (cprofNonEmpty.length < 1) {
+          errors.push(`${loc} (${cid || "?"}) customerProfiles must have at least one non-empty id`);
+        }
+        for (const raw of cprof) {
+          const key = String(raw ?? "").trim();
+          if (!key) {
+            warnings.push(`${loc} (${cid || "?"}) has empty customerProfiles entry`);
+            continue;
+          }
+          if (profileIds.size > 0 && !profileIds.has(key)) {
+            errors.push(`${loc} (${cid || "?"}) customerProfiles references unknown profile id "${key}"`);
+          }
+        }
+
+        const oc = Array.isArray(cs.operatingConditions) ? cs.operatingConditions : [];
+        if (oc.length < 1) errors.push(`${loc} (${cid || "?"}) operatingConditions must have at least one item`);
+
+        const pp = Array.isArray(cs.painPoints) ? cs.painPoints : [];
+        if (pp.length < 1) errors.push(`${loc} (${cid || "?"}) painPoints must have at least one item`);
+
+        const tp = Array.isArray(cs.technicalProofPoints) ? cs.technicalProofPoints : [];
+        if (tp.length < 1) errors.push(`${loc} (${cid || "?"}) technicalProofPoints must have at least one item`);
+
+        const clfbb = cs.lfbb && typeof cs.lfbb === "object" ? cs.lfbb : null;
+        if (!clfbb) {
+          errors.push(`${loc} (${cid || "?"}) missing lfbb object`);
+        } else {
+          for (const key of ["link", "feature", "bridge", "benefit"]) {
+            const v = String(clfbb[key] ?? "").trim();
+            if (!v) errors.push(`${loc} (${cid || "?"}) missing non-empty lfbb.${key}`);
+          }
+        }
+
+        if (!String(cs.recommendedCta ?? "").trim()) {
+          errors.push(`${loc} (${cid || "?"}) missing non-empty recommendedCta`);
+        }
+        if (!Array.isArray(cs.pdsSafeNotes)) {
+          errors.push(`${loc} (${cid || "?"}) pdsSafeNotes must be an array`);
         }
       }
     }
