@@ -10571,10 +10571,10 @@ const handleFinishDealerEnrollment = async () => {
                       color: "#64748b",
                     }}
                   >
-                    GUIDED WORKSPACE
+                    GUIDED SPOTLIGHT WIZARD
                   </div>
                   <h3 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.02em" }}>
-                    Guided audience wizard
+                    Guided Spotlight Wizard
                   </h3>
                   <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.55, maxWidth: 900 }}>
                     Follow the five steps in order: lock who you are planning for, pick the message shape, load library
@@ -10592,7 +10592,7 @@ const handleFinishDealerEnrollment = async () => {
                   >
                     <p style={{ margin: 0, fontSize: 12, color: "#334155", lineHeight: 1.55, fontWeight: 700 }}>
                       Future spotlight quality will be powered by PDS data, product overlays, LFBB blocks, and customer
-                      profiles—this wizard only organizes today&apos;s preview; it does not change outbound payloads.
+                      profiles—the Guided Spotlight Wizard only organizes today&apos;s preview; it does not change outbound payloads.
                     </p>
                   </div>
                   <div
@@ -11131,7 +11131,7 @@ const handleFinishDealerEnrollment = async () => {
                         QUICK LIBRARY SCENARIOS
                       </div>
                       <p style={{ margin: "0 0 10px", fontSize: 11, color: "#94a3b8", lineHeight: 1.45, maxWidth: 900 }}>
-                        One-tap applies a spotlight into this guided preview; “Open in Advanced Library” only switches the
+                        One-tap applies a spotlight into this Guided Spotlight Wizard preview; “Open in Advanced Library” only switches the
                         library tab—no automatic send.
                       </p>
                       <div
@@ -11434,10 +11434,10 @@ const handleFinishDealerEnrollment = async () => {
                             STEP 4 · MESSAGE TEMPLATE PREVIEW
                           </div>
                           <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", lineHeight: 1.35 }}>
-                            Library spotlight + guided toggles—compare before opening Prepare Send.
+                            Library spotlight + Guided Spotlight Wizard toggles—compare before opening Prepare Send.
                           </div>
                           <div style={{ fontSize: 10, fontWeight: 800, color: "#64748b", lineHeight: 1.4 }}>
-                            Guided preview output · reflects Step 3 picks
+                            Guided Spotlight Wizard · preview output (Step 3 picks)
                             {seGuidedWizardMessageKind === "customer_profile" ? (
                               <span style={{ color: "#059669" }}> · Profile lens: {wizardProfileTitle}</span>
                             ) : null}
@@ -12354,7 +12354,7 @@ const handleFinishDealerEnrollment = async () => {
                           color: "#0c4a6e",
                         }}
                       >
-                        Apply to guided preview
+                        Apply to Guided Spotlight Wizard preview
                       </button>
                       <button
                         type="button"
@@ -12547,7 +12547,7 @@ const handleFinishDealerEnrollment = async () => {
                         justifySelf: "start",
                       }}
                     >
-                      Open optional knowledge preview tools
+                      Open optional knowledge tools (Guided Spotlight Wizard)
                     </button>
                   )}
                 </div>
@@ -12588,7 +12588,7 @@ const handleFinishDealerEnrollment = async () => {
                 }}
               >
                 <strong style={{ color: "#0f172a" }}>Capability preserved:</strong> dealer signals, spotlight
-                library, and manual sends remain below—follow the guided audience wizard above for the happy path, then use{" "}
+                library, and manual sends remain below—follow the Guided Spotlight Wizard above for the happy path, then use{" "}
                 <strong style={{ color: "#1d4ed8" }}>Advanced Library</strong> for deep browsing.
               </p>
               <p
@@ -13603,8 +13603,8 @@ const handleFinishDealerEnrollment = async () => {
                   fontSize: 13,
                 }}
               >
-                Full spotlight taxonomy, customer profiles, and training references live here—secondary to the guided
-                wizard above, same capabilities as before.
+                Full spotlight taxonomy, customer profiles, and training references live here—secondary to the Guided
+                Spotlight Wizard above, same capabilities as before.
               </p>
             </div>
 
