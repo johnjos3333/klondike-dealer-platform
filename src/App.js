@@ -36,6 +36,7 @@ import {
   getSalesEnablementPdsUrl,
   getSalesEnablementPdsFileHintForLibrarySpotlight,
 } from "./data/salesEnablement/salesEnablementPdsUrl";
+import { getSalesEnablementFlagshipNarrativeByProductName } from "./data/salesEnablement/salesEnablementFlagshipNarrativeLookup";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -7782,6 +7783,31 @@ const handleFinishDealerEnrollment = async () => {
 
   const salesEnablementGuidedTemplateLines = React.useMemo(() => {
     const sp = selectedSalesEnablementSpotlight;
+    const stagedSpotlightForFlagship =
+      seKnowledgeStagedTemplateSnapshot?.snapshot?.spotlight &&
+      typeof seKnowledgeStagedTemplateSnapshot.snapshot.spotlight === "object"
+        ? seKnowledgeStagedTemplateSnapshot.snapshot.spotlight
+        : null;
+    const flagshipNameCandidates = [];
+    if (stagedSpotlightForFlagship) {
+      flagshipNameCandidates.push(
+        String(stagedSpotlightForFlagship.productName || "").trim(),
+        String(stagedSpotlightForFlagship.title || "").trim()
+      );
+    }
+    if (sp) {
+      flagshipNameCandidates.push(String(sp.title || "").trim());
+    }
+    let flagshipNarrative = null;
+    for (const cand of flagshipNameCandidates) {
+      if (!cand) continue;
+      const hit = getSalesEnablementFlagshipNarrativeByProductName(cand);
+      if (hit) {
+        flagshipNarrative = hit;
+        break;
+      }
+    }
+    const flagshipNarrativeActive = Boolean(flagshipNarrative);
     const dealerName =
       (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : []).find(
         (d) => String(d.organization_id) === String(salesEnablementDealerOrgId)
@@ -7851,6 +7877,12 @@ const handleFinishDealerEnrollment = async () => {
         trainingAttachmentSuggested: salesEnablementLibraryTab === "training",
         pdsFileHint: "",
         pdsPreviewUrl: "",
+        flagshipNarrativeActive: false,
+        guidedPreviewBodyLead:
+          "Pick an opportunity card above or browse the Advanced Library—this preview updates from your chosen spotlight.",
+        guidedPreviewTechnicalProofPoints: technicalProofPoints.slice(0, 4),
+        guidedPreviewDealerTalkingPoints: [],
+        guidedPreviewCustomerLanguageExamples: [],
       };
     }
     const mode = salesEnablementSpotlightMode === "product" ? "product" : "category";
@@ -7888,6 +7920,36 @@ const handleFinishDealerEnrollment = async () => {
       );
     const pdsFileHintResolved = getSalesEnablementPdsFileHintForLibrarySpotlight(sp);
     const pdsPreviewUrl = getSalesEnablementPdsUrl(pdsFileHintResolved);
+    const guidedPreviewBodyLead = flagshipNarrativeActive
+      ? String(flagshipNarrative.flagshipNarrativeParagraph || "").trim() ||
+        bodyLead ||
+        "Concise positioning notes will mirror the approved spotlight library entry when you send."
+      : bodyLead ||
+        "Concise positioning notes will mirror the approved spotlight library entry when you send.";
+    const guidedPreviewTechnicalProofPoints = flagshipNarrativeActive
+      ? (() => {
+          const diffs = Array.isArray(flagshipNarrative.keyDifferentiators)
+            ? flagshipNarrative.keyDifferentiators
+            : [];
+          const proofs = Array.isArray(flagshipNarrative.premiumProofPoints)
+            ? flagshipNarrative.premiumProofPoints
+            : [];
+          return [...diffs, ...proofs]
+            .map((x) => String(x || "").trim())
+            .filter(Boolean)
+            .slice(0, 6);
+        })()
+      : technicalProofPoints.slice(0, 4);
+    const guidedPreviewDealerTalkingPoints = flagshipNarrativeActive
+      ? (Array.isArray(flagshipNarrative.dealerTalkingPoints) ? flagshipNarrative.dealerTalkingPoints : [])
+          .map((x) => String(x || "").trim())
+          .filter(Boolean)
+      : [];
+    const guidedPreviewCustomerLanguageExamples = flagshipNarrativeActive
+      ? (Array.isArray(flagshipNarrative.customerLanguageExamples)
+          ? flagshipNarrative.customerLanguageExamples.map((x) => String(x || "").trim()).filter(Boolean)
+          : [])
+      : [];
     return {
       spotlightTitle: title,
       subject: `Klondike · ${title}`,
@@ -7906,6 +7968,11 @@ const handleFinishDealerEnrollment = async () => {
       trainingAttachmentSuggested,
       pdsFileHint: pdsFileHintResolved,
       pdsPreviewUrl,
+      flagshipNarrativeActive,
+      guidedPreviewBodyLead,
+      guidedPreviewTechnicalProofPoints,
+      guidedPreviewDealerTalkingPoints,
+      guidedPreviewCustomerLanguageExamples,
     };
   }, [
     selectedSalesEnablementSpotlight,
@@ -7913,6 +7980,7 @@ const handleFinishDealerEnrollment = async () => {
     salesEnablementDealerOrgId,
     dealerNetworkPerformance,
     salesEnablementLibraryTab,
+    seKnowledgeStagedTemplateSnapshot,
   ]);
 
   const handleSendSalesEnablementSpotlight = useCallback(async () => {
@@ -10461,6 +10529,12 @@ const handleFinishDealerEnrollment = async () => {
                 ? kTplSp.technicalProofPoints
                 : []
               : salesEnablementGuidedTemplateLines.technicalProofPoints || [];
+            const tplProofDisplay =
+              salesEnablementGuidedTemplateLines.flagshipNarrativeActive &&
+              Array.isArray(salesEnablementGuidedTemplateLines.guidedPreviewTechnicalProofPoints) &&
+              salesEnablementGuidedTemplateLines.guidedPreviewTechnicalProofPoints.length > 0
+                ? salesEnablementGuidedTemplateLines.guidedPreviewTechnicalProofPoints
+                : tplProofFromKnowledge;
             const tplCtaFromKnowledge = seTplStagedKnowledge
               ? String(kTplSp.suggestedCta || "").trim()
               : salesEnablementGuidedTemplateLines.cta;
@@ -11458,6 +11532,26 @@ const handleFinishDealerEnrollment = async () => {
                               <span style={{ color: "#059669" }}> · Profile lens: {wizardProfileTitle}</span>
                             ) : null}
                           </div>
+                          {salesEnablementGuidedTemplateLines.flagshipNarrativeActive ? (
+                            <div style={{ marginTop: 6 }}>
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  fontSize: 10,
+                                  fontWeight: 900,
+                                  letterSpacing: "0.08em",
+                                  padding: "4px 10px",
+                                  borderRadius: 999,
+                                  background: "rgba(91, 33, 182, 0.12)",
+                                  color: "#5b21b6",
+                                  border: "1px solid rgba(139, 92, 246, 0.45)",
+                                }}
+                              >
+                                Flagship narrative applied
+                              </span>
+                            </div>
+                          ) : null}
                         </div>
                         {seGuidedIncludeBranding ? (
                           <span
@@ -11770,7 +11864,7 @@ const handleFinishDealerEnrollment = async () => {
                               {String(salesEnablementPreparedIntro || "").trim()
                                 ? `${String(salesEnablementPreparedIntro || "").trim()}\n\n`
                                 : ""}
-                              {salesEnablementGuidedTemplateLines.bodyLead}
+                              {salesEnablementGuidedTemplateLines.guidedPreviewBodyLead}
                             </div>
                           </div>
 
@@ -11866,7 +11960,7 @@ const handleFinishDealerEnrollment = async () => {
                                 border: "1px solid rgba(226, 232, 240, 0.98)",
                               }}
                             >
-                              {(tplProofFromKnowledge || []).map((pt, i) => (
+                              {(tplProofDisplay || []).map((pt, i) => (
                                 <div
                                   key={`se-proof-${i}`}
                                   style={{
@@ -11893,6 +11987,101 @@ const handleFinishDealerEnrollment = async () => {
                               ))}
                             </div>
                           </div>
+
+                          {salesEnablementGuidedTemplateLines.flagshipNarrativeActive &&
+                          Array.isArray(salesEnablementGuidedTemplateLines.guidedPreviewDealerTalkingPoints) &&
+                          salesEnablementGuidedTemplateLines.guidedPreviewDealerTalkingPoints.length > 0 ? (
+                            <div style={{ display: "grid", gap: 6 }}>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                DEALER TALKING POINTS (FLAGSHIP)
+                              </div>
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gap: 6,
+                                  padding: "8px 10px",
+                                  borderRadius: 10,
+                                  background: "#fafafa",
+                                  border: "1px solid rgba(226, 232, 240, 0.98)",
+                                }}
+                              >
+                                {salesEnablementGuidedTemplateLines.guidedPreviewDealerTalkingPoints.map((pt, i) => (
+                                  <div
+                                    key={`se-dealer-tp-${i}`}
+                                    style={{
+                                      display: "flex",
+                                      gap: 8,
+                                      alignItems: "flex-start",
+                                      fontSize: 12,
+                                      color: "#334155",
+                                      lineHeight: 1.4,
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        marginTop: 5,
+                                        width: 6,
+                                        height: 6,
+                                        borderRadius: 999,
+                                        background: "#7c3aed",
+                                        flexShrink: 0,
+                                      }}
+                                    />
+                                    <span>{pt}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {salesEnablementGuidedTemplateLines.flagshipNarrativeActive &&
+                          Array.isArray(salesEnablementGuidedTemplateLines.guidedPreviewCustomerLanguageExamples) &&
+                          salesEnablementGuidedTemplateLines.guidedPreviewCustomerLanguageExamples.length > 0 ? (
+                            <div style={{ display: "grid", gap: 6 }}>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                                CUSTOMER-FACING LANGUAGE (OPTIONAL)
+                              </div>
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gap: 6,
+                                  padding: "8px 10px",
+                                  borderRadius: 10,
+                                  background: "#fafafa",
+                                  border: "1px solid rgba(226, 232, 240, 0.98)",
+                                }}
+                              >
+                                {salesEnablementGuidedTemplateLines.guidedPreviewCustomerLanguageExamples.map(
+                                  (pt, i) => (
+                                    <div
+                                      key={`se-cust-lang-${i}`}
+                                      style={{
+                                        display: "flex",
+                                        gap: 8,
+                                        alignItems: "flex-start",
+                                        fontSize: 12,
+                                        color: "#334155",
+                                        lineHeight: 1.4,
+                                        fontStyle: "italic",
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          marginTop: 5,
+                                          width: 6,
+                                          height: 6,
+                                          borderRadius: 999,
+                                          background: "#0d9488",
+                                          flexShrink: 0,
+                                        }}
+                                      />
+                                      <span>{pt}</span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
 
                           <div
                             style={{

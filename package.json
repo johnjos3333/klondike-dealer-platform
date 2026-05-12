@@ -22,7 +22,7 @@
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject",
     "validate:sales-enablement": "node src/data/salesEnablement/runKnowledgeValidation.js",
-    "test:sales-enablement": "npm run validate:sales-enablement && npm run test:sales-enablement-composer && npm run test:sales-enablement-category-composer && npm run test:grease-pds-spotlights && npm run test:hd-engine-oil-pds-spotlights && npm run test:hydraulic-fluid-pds-spotlights && npm run test:flagship-narratives",
+    "test:sales-enablement": "npm run validate:sales-enablement && npm run test:sales-enablement-composer && npm run test:sales-enablement-category-composer && npm run test:grease-pds-spotlights && npm run test:hd-engine-oil-pds-spotlights && npm run test:hydraulic-fluid-pds-spotlights && npm run test:flagship-narratives && npm run test:flagship-narrative-lookup",
     "demo:sales-enablement-composer": "node src/data/salesEnablement/runComposerDemo.js",
     "demo:grease-pds-spotlights": "node src/data/salesEnablement/runGreasePdsSpotlightDemo.js",
     "test:grease-pds-spotlights": "node src/data/salesEnablement/runGreasePdsSpotlightSmokeTests.js",
@@ -31,6 +31,7 @@
     "demo:hydraulic-fluid-pds-spotlights": "node src/data/salesEnablement/runHydraulicFluidPdsSpotlightDemo.js",
     "test:hydraulic-fluid-pds-spotlights": "node src/data/salesEnablement/runHydraulicFluidPdsSpotlightSmokeTests.js",
     "test:flagship-narratives": "node src/data/salesEnablement/runFlagshipNarrativeSmokeTests.js",
+    "test:flagship-narrative-lookup": "node src/data/salesEnablement/runSalesEnablementFlagshipNarrativeLookupSmokeTests.js",
     "test:sales-enablement-composer": "node src/data/salesEnablement/runComposerSmokeTests.js",
     "demo:sales-enablement-category-composer": "node src/data/salesEnablement/runCategoryComposerDemo.js",
     "test:sales-enablement-category-composer": "node src/data/salesEnablement/runCategoryComposerSmokeTests.js"
