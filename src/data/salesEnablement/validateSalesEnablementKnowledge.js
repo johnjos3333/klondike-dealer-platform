@@ -1,5 +1,5 @@
 /**
- * Phase 73.6 — Development-only integrity checks for Sales Enablement knowledge data.
+ * Phase 73.6 / 74.1 — Development-only integrity checks for Sales Enablement knowledge data.
  * Does not throw by default. Not wired to UI or build pipeline.
  */
 
@@ -7,6 +7,7 @@ import { SALES_ENABLEMENT_KNOWLEDGE } from "./salesEnablementKnowledge.js";
 import { SALES_ENABLEMENT_LFBB_BLOCKS } from "./lfbbBlocks.js";
 import { SALES_ENABLEMENT_CUSTOMER_PROFILES } from "./customerProfiles.js";
 import { SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS } from "./productSpotlightOverlays.js";
+import { GREASE_PDS_SPOTLIGHT_MAP } from "./greasePdsSpotlightMap.js";
 
 /**
  * @returns {{ ok: boolean, errors: string[], warnings: string[] }}
@@ -154,6 +155,81 @@ export function validateSalesEnablementKnowledge() {
 
   if (overlays.length === 0) {
     warnings.push("SALES_ENABLEMENT_PRODUCT_SPOTLIGHT_OVERLAYS.overlays is empty");
+  }
+
+  // --- Phase 74.1 — GREASE_PDS_SPOTLIGHT_MAP (validation tooling only; not App.js) ---
+  const greaseMap = GREASE_PDS_SPOTLIGHT_MAP;
+  if (!greaseMap || typeof greaseMap !== "object") {
+    errors.push("GREASE_PDS_SPOTLIGHT_MAP is missing or not an object");
+  } else {
+    if (greaseMap.version === undefined || greaseMap.version === null) {
+      errors.push("GREASE_PDS_SPOTLIGHT_MAP.version is missing");
+    }
+    const gCat = String(greaseMap.categoryId ?? "").trim();
+    if (gCat !== "grease") {
+      errors.push(`GREASE_PDS_SPOTLIGHT_MAP.categoryId must be "grease", got "${gCat || "(empty)"}"`);
+    }
+    const gProducts = Array.isArray(greaseMap.products) ? greaseMap.products : null;
+    if (!gProducts || gProducts.length === 0) {
+      errors.push("GREASE_PDS_SPOTLIGHT_MAP.products is missing or empty");
+    } else {
+      const seenGreaseProductIds = new Set();
+      for (let i = 0; i < gProducts.length; i++) {
+        const pr = gProducts[i];
+        const loc = `GREASE_PDS_SPOTLIGHT_MAP.products[${i}]`;
+        if (!pr || typeof pr !== "object") {
+          errors.push(`${loc} is not an object`);
+          continue;
+        }
+        const gid = String(pr.id ?? "").trim();
+        const gname = String(pr.productName ?? "").trim();
+        const pcCat = String(pr.categoryId ?? "").trim();
+        const pdsHint = String(pr.pdsFileHint ?? "").trim();
+        if (!gid) {
+          errors.push(`${loc} missing non-empty id`);
+        } else {
+          if (seenGreaseProductIds.has(gid)) {
+            warnings.push(`Duplicate GREASE_PDS_SPOTLIGHT_MAP product id "${gid}"`);
+          }
+          seenGreaseProductIds.add(gid);
+        }
+        if (!gname) {
+          errors.push(`${loc} (${gid || "?"}) missing non-empty productName`);
+        }
+        if (!pcCat) {
+          errors.push(`${loc} (${gid || "?"}) missing non-empty categoryId`);
+        } else if (pcCat !== "grease") {
+          errors.push(`${loc} (${gid || "?"}) categoryId must be "grease", got "${pcCat}"`);
+        }
+        if (!pdsHint) {
+          errors.push(`${loc} (${gid || "?"}) missing non-empty pdsFileHint`);
+        }
+
+        const lfbb = pr.lfbb && typeof pr.lfbb === "object" ? pr.lfbb : null;
+        if (!lfbb) {
+          errors.push(`${loc} (${gid || "?"}) missing lfbb object`);
+        } else {
+          for (const key of ["link", "feature", "bridge", "benefit"]) {
+            const v = String(lfbb[key] ?? "").trim();
+            if (!v) {
+              errors.push(`${loc} (${gid || "?"}) missing non-empty lfbb.${key}`);
+            }
+          }
+        }
+
+        const custRefs = Array.isArray(pr.recommendedCustomerProfileIds) ? pr.recommendedCustomerProfileIds : [];
+        for (const raw of custRefs) {
+          const key = String(raw ?? "").trim();
+          if (!key) {
+            warnings.push(`${loc} (${gid || "?"}) has empty recommendedCustomerProfileIds entry`);
+            continue;
+          }
+          if (profileIds.size > 0 && !profileIds.has(key)) {
+            errors.push(`${loc} (${gid || "?"}) references unknown customer profile id "${key}"`);
+          }
+        }
+      }
+    }
   }
 
   return {

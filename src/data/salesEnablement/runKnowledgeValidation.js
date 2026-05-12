@@ -1,5 +1,5 @@
 /**
- * Phase 73.7 — Development-only runner: prints validation result; throws if errors exist.
+ * Phase 73.7 / 74.1 — Development-only runner: prints validation result; throws if errors exist.
  * Run: npm run validate:sales-enablement
  */
 
