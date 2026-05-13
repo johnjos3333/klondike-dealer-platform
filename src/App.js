@@ -10972,6 +10972,11 @@ const handleFinishDealerEnrollment = async () => {
             const seProductImageHint = getSalesEnablementProductImageHint({
               spotlightId: salesEnablementSelectedId,
               spotlightMode: salesEnablementSpotlightMode,
+              categoryId:
+                salesEnablementSpotlightMode === "category" ? String(salesEnablementSelectedId || "").trim() : "",
+              productName: String(salesEnablementGuidedTemplateLines.spotlightTitle || "").trim(),
+              pdsProductName: "",
+              pdsFileHint: stagedWizardPdsHint || mockWizardPdsHint,
               mockImageId: seGuidedMockProductImageId,
             });
             const guidedPickSpotlight = (spotlightId, spotlightType, { syntheticIntro } = {}) => {
@@ -12520,7 +12525,7 @@ const handleFinishDealerEnrollment = async () => {
                                   >
                                     PRODUCT IMAGE
                                   </div>
-                                  {seProductImageHint.imageSrc && !seGuidedStep4ProductImgFailed ? (
+                                  {seProductImageHint.imageUrl && !seGuidedStep4ProductImgFailed ? (
                                     <div
                                       style={{
                                         width: "100%",
@@ -12536,7 +12541,7 @@ const handleFinishDealerEnrollment = async () => {
                                       }}
                                     >
                                       <img
-                                        src={seProductImageHint.imageSrc}
+                                        src={seProductImageHint.imageUrl}
                                         alt={seProductImageHint.alt}
                                         onError={() => setSeGuidedStep4ProductImgFailed(true)}
                                         style={{
@@ -12571,7 +12576,7 @@ const handleFinishDealerEnrollment = async () => {
                                     </div>
                                   )}
                                   <div style={{ fontSize: 9, fontWeight: 700, color: "#94a3b8", lineHeight: 1.3 }}>
-                                    {seProductImageHint.imageSrc && !seGuidedStep4ProductImgFailed
+                                    {seProductImageHint.imageUrl && !seGuidedStep4ProductImgFailed
                                       ? "Static preview asset · adjust in Preview settings"
                                       : "Mock hero · preview only · no file upload"}
                                   </div>
