@@ -44,6 +44,10 @@ import {
   buildProductAttributeResponse,
   detectProductAttributeIntent,
 } from "./productAttributeAdvisorHelpers.js";
+import {
+  buildVocabularyResponse,
+  detectVocabularyIntent,
+} from "./lubricationVocabularyHelpers.js";
 
 const MATCH_THRESHOLD = 6;
 /** Scores within this margin of the top score are treated as a tie for priority resolution. */
@@ -52,6 +56,7 @@ const TIE_SCORE_MARGIN = 8;
 const INTENT_PRIORITY = [
   "troubleshooting",
   "product_attribute",
+  "vocabulary",
   "discovery_question",
   "compatibility",
   "role_sales",
@@ -65,6 +70,7 @@ const INTENT_PRIORITY = [
 const INTENT_CONFIDENCE_DIVISOR = {
   troubleshooting: 32,
   product_attribute: 34,
+  vocabulary: 34,
   discovery_question: 34,
   compatibility: 34,
   role_sales: 34,
@@ -78,6 +84,7 @@ const INTENT_CONFIDENCE_DIVISOR = {
 const MATCHES_BY_INTENT = {
   troubleshooting: (matches) => matches.troubleshootingMatches,
   product_attribute: (matches) => matches.productAttributeMatches,
+  vocabulary: (matches) => matches.vocabularyMatches,
   discovery_question: (matches) => matches.discoveryQuestionMatches,
   compatibility: (matches) => matches.compatibilityMatches,
   role_sales: (matches) => matches.roleSalesMatches,
@@ -128,12 +135,13 @@ const FALLBACK_PROMPTS = [
 /**
  * @param {unknown} inputText
  * @returns {{
- *   intent: "troubleshooting" | "product_attribute" | "discovery_question" | "compatibility" | "role_sales" | "equipment" | "industry" | "oem_spec" | "product_category_selection" | "concept" | "general",
+ *   intent: "troubleshooting" | "product_attribute" | "vocabulary" | "discovery_question" | "compatibility" | "role_sales" | "equipment" | "industry" | "oem_spec" | "product_category_selection" | "concept" | "general",
  *   confidence: number,
  *   matchId: string | null,
  *   scores: {
  *     troubleshooting: number,
  *     product_attribute: number,
+ *     vocabulary: number,
  *     discovery_question: number,
  *     compatibility: number,
  *     role_sales: number,
@@ -149,6 +157,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
   const question = String(inputText ?? "").trim();
   const troubleshootingMatches = detectTroubleshootingIntent(question);
   const productAttributeMatches = detectProductAttributeIntent(question);
+  const vocabularyMatches = detectVocabularyIntent(question);
   const discoveryQuestionMatches = detectDiscoveryQuestionIntent(question);
   const compatibilityMatches = detectCompatibilityIntent(question);
   const roleSalesMatches = detectRoleBasedSalesIntent(question);
@@ -161,6 +170,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
   const scores = {
     troubleshooting: troubleshootingMatches[0]?.score || 0,
     product_attribute: productAttributeMatches[0]?.score || 0,
+    vocabulary: vocabularyMatches[0]?.score || 0,
     discovery_question: discoveryQuestionMatches[0]?.score || 0,
     compatibility: compatibilityMatches[0]?.score || 0,
     role_sales: roleSalesMatches[0]?.score || 0,
@@ -183,6 +193,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
   const matchLists = {
     troubleshootingMatches,
     productAttributeMatches,
+    vocabularyMatches,
     discoveryQuestionMatches,
     compatibilityMatches,
     roleSalesMatches,
@@ -294,6 +305,22 @@ export function buildLubricationAdvisorResponse(inputText) {
         followUpQuestions: productAttribute.followUpQuestions || [],
         sourceBadges: productAttribute.sourceBadges || ["Product attribute intelligence"],
         cautionNotes: productAttribute.cautionNotes || [],
+      };
+    }
+  }
+
+  if (classification.intent === "vocabulary") {
+    const vocabulary = buildVocabularyResponse(question);
+    if (vocabulary.ok) {
+      return {
+        intent: "vocabulary",
+        confidence: vocabulary.confidence,
+        title: vocabulary.title,
+        directAnswer: vocabulary.directAnswer,
+        sections: vocabulary.sections || [],
+        followUpQuestions: vocabulary.followUpQuestions || [],
+        sourceBadges: vocabulary.sourceBadges || ["Field vocabulary"],
+        cautionNotes: vocabulary.cautionNotes || [],
       };
     }
   }
