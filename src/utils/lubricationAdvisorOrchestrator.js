@@ -21,6 +21,53 @@ import {
 } from "./equipmentLubricationHelpers.js";
 
 const MATCH_THRESHOLD = 6;
+/** Scores within this margin of the top score are treated as a tie for priority resolution. */
+const TIE_SCORE_MARGIN = 8;
+
+const INTENT_PRIORITY = ["troubleshooting", "equipment", "industry", "concept"];
+
+const INTENT_CONFIDENCE_DIVISOR = {
+  troubleshooting: 32,
+  equipment: 34,
+  industry: 34,
+  concept: 28,
+};
+
+const MATCHES_BY_INTENT = {
+  troubleshooting: (matches) => matches.troubleshootingMatches,
+  equipment: (matches) => matches.equipmentMatches,
+  industry: (matches) => matches.industryMatches,
+  concept: (matches) => matches.conceptMatches,
+};
+
+/**
+ * @param {typeof INTENT_PRIORITY[number]} intent
+ * @param {number} score
+ */
+function intentConfidence(intent, score) {
+  const divisor = INTENT_CONFIDENCE_DIVISOR[intent] || 32;
+  return Math.min(1, score / divisor);
+}
+
+/**
+ * @param {Record<string, number>} scores
+ * @returns {typeof INTENT_PRIORITY[number] | "general"}
+ */
+function resolveIntentFromScores(scores) {
+  const eligible = INTENT_PRIORITY.filter((intent) => scores[intent] >= MATCH_THRESHOLD);
+  if (!eligible.length) return "general";
+
+  const topScore = Math.max(...eligible.map((intent) => scores[intent]));
+  const nearTop = eligible.filter((intent) => topScore - scores[intent] <= TIE_SCORE_MARGIN);
+
+  for (const intent of INTENT_PRIORITY) {
+    if (nearTop.includes(intent)) return intent;
+  }
+
+  return eligible.reduce((best, intent) =>
+    scores[intent] > scores[best] ? intent : best
+  );
+}
 
 const FALLBACK_PROMPTS = [
   "What grease should I use for wet pins and bushings?",
@@ -57,43 +104,25 @@ export function classifyLubricationAdvisorIntent(inputText) {
     return { intent: "general", confidence: 0, matchId: null, scores };
   }
 
-  if (scores.troubleshooting >= MATCH_THRESHOLD) {
-    return {
-      intent: "troubleshooting",
-      confidence: Math.min(1, scores.troubleshooting / 32),
-      matchId: troubleshootingMatches[0].id,
-      scores,
-    };
+  const intent = resolveIntentFromScores(scores);
+  if (intent === "general") {
+    return { intent: "general", confidence: 0, matchId: null, scores };
   }
 
-  if (scores.equipment >= MATCH_THRESHOLD) {
-    return {
-      intent: "equipment",
-      confidence: Math.min(1, scores.equipment / 34),
-      matchId: equipmentMatches[0].id,
-      scores,
-    };
-  }
+  const matchLists = {
+    troubleshootingMatches,
+    equipmentMatches,
+    industryMatches,
+    conceptMatches,
+  };
+  const topMatch = MATCHES_BY_INTENT[intent](matchLists)[0];
 
-  if (scores.industry >= MATCH_THRESHOLD) {
-    return {
-      intent: "industry",
-      confidence: Math.min(1, scores.industry / 34),
-      matchId: industryMatches[0].id,
-      scores,
-    };
-  }
-
-  if (scores.concept >= MATCH_THRESHOLD) {
-    return {
-      intent: "concept",
-      confidence: Math.min(1, scores.concept / 28),
-      matchId: conceptMatches[0].id,
-      scores,
-    };
-  }
-
-  return { intent: "general", confidence: 0, matchId: null, scores };
+  return {
+    intent,
+    confidence: intentConfidence(intent, scores[intent]),
+    matchId: topMatch?.id || null,
+    scores,
+  };
 }
 
 /**
