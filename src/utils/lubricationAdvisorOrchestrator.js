@@ -35,6 +35,10 @@ import {
   buildDiscoveryQuestionResponse,
   detectDiscoveryQuestionIntent,
 } from "./lubricationDiscoveryQuestionHelpers.js";
+import {
+  buildRoleBasedSalesResponse,
+  detectRoleBasedSalesIntent,
+} from "./roleBasedSalesTranslationHelpers.js";
 
 const MATCH_THRESHOLD = 6;
 /** Scores within this margin of the top score are treated as a tie for priority resolution. */
@@ -44,6 +48,7 @@ const INTENT_PRIORITY = [
   "troubleshooting",
   "discovery_question",
   "compatibility",
+  "role_sales",
   "equipment",
   "industry",
   "oem_spec",
@@ -55,6 +60,7 @@ const INTENT_CONFIDENCE_DIVISOR = {
   troubleshooting: 32,
   discovery_question: 34,
   compatibility: 34,
+  role_sales: 34,
   equipment: 34,
   industry: 34,
   oem_spec: 34,
@@ -66,6 +72,7 @@ const MATCHES_BY_INTENT = {
   troubleshooting: (matches) => matches.troubleshootingMatches,
   discovery_question: (matches) => matches.discoveryQuestionMatches,
   compatibility: (matches) => matches.compatibilityMatches,
+  role_sales: (matches) => matches.roleSalesMatches,
   equipment: (matches) => matches.equipmentMatches,
   industry: (matches) => matches.industryMatches,
   oem_spec: (matches) => matches.oemSpecMatches,
@@ -113,13 +120,14 @@ const FALLBACK_PROMPTS = [
 /**
  * @param {unknown} inputText
  * @returns {{
- *   intent: "troubleshooting" | "discovery_question" | "compatibility" | "equipment" | "industry" | "oem_spec" | "product_category_selection" | "concept" | "general",
+ *   intent: "troubleshooting" | "discovery_question" | "compatibility" | "role_sales" | "equipment" | "industry" | "oem_spec" | "product_category_selection" | "concept" | "general",
  *   confidence: number,
  *   matchId: string | null,
  *   scores: {
  *     troubleshooting: number,
  *     discovery_question: number,
  *     compatibility: number,
+ *     role_sales: number,
  *     equipment: number,
  *     industry: number,
  *     oem_spec: number,
@@ -133,6 +141,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
   const troubleshootingMatches = detectTroubleshootingIntent(question);
   const discoveryQuestionMatches = detectDiscoveryQuestionIntent(question);
   const compatibilityMatches = detectCompatibilityIntent(question);
+  const roleSalesMatches = detectRoleBasedSalesIntent(question);
   const equipmentMatches = detectEquipmentIntent(question);
   const industryMatches = detectIndustryIntent(question);
   const oemSpecMatches = detectOemSpecIntent(question);
@@ -143,6 +152,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
     troubleshooting: troubleshootingMatches[0]?.score || 0,
     discovery_question: discoveryQuestionMatches[0]?.score || 0,
     compatibility: compatibilityMatches[0]?.score || 0,
+    role_sales: roleSalesMatches[0]?.score || 0,
     equipment: equipmentMatches[0]?.score || 0,
     industry: industryMatches[0]?.score || 0,
     oem_spec: oemSpecMatches[0]?.score || 0,
@@ -163,6 +173,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
     troubleshootingMatches,
     discoveryQuestionMatches,
     compatibilityMatches,
+    roleSalesMatches,
     equipmentMatches,
     industryMatches,
     oemSpecMatches,
@@ -272,6 +283,22 @@ export function buildLubricationAdvisorResponse(inputText) {
         followUpQuestions: compatibility.followUpQuestions || [],
         sourceBadges: compatibility.sourceBadges || ["Compatibility guidance"],
         cautionNotes: compatibility.cautionNotes || [],
+      };
+    }
+  }
+
+  if (classification.intent === "role_sales") {
+    const roleSales = buildRoleBasedSalesResponse(question);
+    if (roleSales.ok) {
+      return {
+        intent: "role_sales",
+        confidence: roleSales.confidence,
+        title: roleSales.title,
+        directAnswer: roleSales.directAnswer,
+        sections: roleSales.sections || [],
+        followUpQuestions: roleSales.followUpQuestions || [],
+        sourceBadges: roleSales.sourceBadges || ["Sales translation"],
+        cautionNotes: roleSales.cautionNotes || [],
       };
     }
   }
