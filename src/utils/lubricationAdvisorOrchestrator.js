@@ -23,18 +23,30 @@ import {
   buildOemSpecAdvisorResponse,
   detectOemSpecIntent,
 } from "./oemSpecAdvisorHelpers.js";
+import {
+  buildProductCategorySelectionResponse,
+  detectProductCategorySelectionIntent,
+} from "./productCategorySelectionHelpers.js";
 
 const MATCH_THRESHOLD = 6;
 /** Scores within this margin of the top score are treated as a tie for priority resolution. */
 const TIE_SCORE_MARGIN = 8;
 
-const INTENT_PRIORITY = ["troubleshooting", "equipment", "industry", "oem_spec", "concept"];
+const INTENT_PRIORITY = [
+  "troubleshooting",
+  "equipment",
+  "industry",
+  "oem_spec",
+  "product_category_selection",
+  "concept",
+];
 
 const INTENT_CONFIDENCE_DIVISOR = {
   troubleshooting: 32,
   equipment: 34,
   industry: 34,
   oem_spec: 34,
+  product_category_selection: 34,
   concept: 28,
 };
 
@@ -43,6 +55,7 @@ const MATCHES_BY_INTENT = {
   equipment: (matches) => matches.equipmentMatches,
   industry: (matches) => matches.industryMatches,
   oem_spec: (matches) => matches.oemSpecMatches,
+  product_category_selection: (matches) => matches.productCategoryMatches,
   concept: (matches) => matches.conceptMatches,
 };
 
@@ -86,10 +99,17 @@ const FALLBACK_PROMPTS = [
 /**
  * @param {unknown} inputText
  * @returns {{
- *   intent: "troubleshooting" | "equipment" | "industry" | "oem_spec" | "concept" | "general",
+ *   intent: "troubleshooting" | "equipment" | "industry" | "oem_spec" | "product_category_selection" | "concept" | "general",
  *   confidence: number,
  *   matchId: string | null,
- *   scores: { troubleshooting: number, equipment: number, industry: number, oem_spec: number, concept: number },
+ *   scores: {
+ *     troubleshooting: number,
+ *     equipment: number,
+ *     industry: number,
+ *     oem_spec: number,
+ *     product_category_selection: number,
+ *     concept: number,
+ *   },
  * }}
  */
 export function classifyLubricationAdvisorIntent(inputText) {
@@ -98,6 +118,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
   const equipmentMatches = detectEquipmentIntent(question);
   const industryMatches = detectIndustryIntent(question);
   const oemSpecMatches = detectOemSpecIntent(question);
+  const productCategoryMatches = detectProductCategorySelectionIntent(question);
   const conceptMatches = detectLubricationConcepts(question);
 
   const scores = {
@@ -105,6 +126,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
     equipment: equipmentMatches[0]?.score || 0,
     industry: industryMatches[0]?.score || 0,
     oem_spec: oemSpecMatches[0]?.score || 0,
+    product_category_selection: productCategoryMatches[0]?.score || 0,
     concept: conceptMatches[0]?.score || 0,
   };
 
@@ -122,6 +144,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
     equipmentMatches,
     industryMatches,
     oemSpecMatches,
+    productCategoryMatches,
     conceptMatches,
   };
   const topMatch = MATCHES_BY_INTENT[intent](matchLists)[0];
@@ -332,6 +355,22 @@ export function buildLubricationAdvisorResponse(inputText) {
             ? ["OEM/spec profile", "PDS library match"]
             : ["OEM/spec profile", "Needs technical confirmation"],
         cautionNotes,
+      };
+    }
+  }
+
+  if (classification.intent === "product_category_selection") {
+    const categorySelection = buildProductCategorySelectionResponse(question);
+    if (categorySelection.ok) {
+      return {
+        intent: "product_category_selection",
+        confidence: categorySelection.confidence,
+        title: categorySelection.title,
+        directAnswer: categorySelection.directAnswer,
+        sections: categorySelection.sections || [],
+        followUpQuestions: categorySelection.followUpQuestions || [],
+        sourceBadges: categorySelection.sourceBadges || ["Product category selection"],
+        cautionNotes: categorySelection.cautionNotes || [],
       };
     }
   }
