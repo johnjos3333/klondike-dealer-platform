@@ -31,6 +31,10 @@ import {
   buildCompatibilityResponse,
   detectCompatibilityIntent,
 } from "./lubricantCompatibilityHelpers.js";
+import {
+  buildDiscoveryQuestionResponse,
+  detectDiscoveryQuestionIntent,
+} from "./lubricationDiscoveryQuestionHelpers.js";
 
 const MATCH_THRESHOLD = 6;
 /** Scores within this margin of the top score are treated as a tie for priority resolution. */
@@ -38,6 +42,7 @@ const TIE_SCORE_MARGIN = 8;
 
 const INTENT_PRIORITY = [
   "troubleshooting",
+  "discovery_question",
   "compatibility",
   "equipment",
   "industry",
@@ -48,6 +53,7 @@ const INTENT_PRIORITY = [
 
 const INTENT_CONFIDENCE_DIVISOR = {
   troubleshooting: 32,
+  discovery_question: 34,
   compatibility: 34,
   equipment: 34,
   industry: 34,
@@ -58,6 +64,7 @@ const INTENT_CONFIDENCE_DIVISOR = {
 
 const MATCHES_BY_INTENT = {
   troubleshooting: (matches) => matches.troubleshootingMatches,
+  discovery_question: (matches) => matches.discoveryQuestionMatches,
   compatibility: (matches) => matches.compatibilityMatches,
   equipment: (matches) => matches.equipmentMatches,
   industry: (matches) => matches.industryMatches,
@@ -106,11 +113,12 @@ const FALLBACK_PROMPTS = [
 /**
  * @param {unknown} inputText
  * @returns {{
- *   intent: "troubleshooting" | "compatibility" | "equipment" | "industry" | "oem_spec" | "product_category_selection" | "concept" | "general",
+ *   intent: "troubleshooting" | "discovery_question" | "compatibility" | "equipment" | "industry" | "oem_spec" | "product_category_selection" | "concept" | "general",
  *   confidence: number,
  *   matchId: string | null,
  *   scores: {
  *     troubleshooting: number,
+ *     discovery_question: number,
  *     compatibility: number,
  *     equipment: number,
  *     industry: number,
@@ -123,6 +131,7 @@ const FALLBACK_PROMPTS = [
 export function classifyLubricationAdvisorIntent(inputText) {
   const question = String(inputText ?? "").trim();
   const troubleshootingMatches = detectTroubleshootingIntent(question);
+  const discoveryQuestionMatches = detectDiscoveryQuestionIntent(question);
   const compatibilityMatches = detectCompatibilityIntent(question);
   const equipmentMatches = detectEquipmentIntent(question);
   const industryMatches = detectIndustryIntent(question);
@@ -132,6 +141,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
 
   const scores = {
     troubleshooting: troubleshootingMatches[0]?.score || 0,
+    discovery_question: discoveryQuestionMatches[0]?.score || 0,
     compatibility: compatibilityMatches[0]?.score || 0,
     equipment: equipmentMatches[0]?.score || 0,
     industry: industryMatches[0]?.score || 0,
@@ -151,6 +161,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
 
   const matchLists = {
     troubleshootingMatches,
+    discoveryQuestionMatches,
     compatibilityMatches,
     equipmentMatches,
     industryMatches,
@@ -229,6 +240,22 @@ export function buildLubricationAdvisorResponse(inputText) {
         followUpQuestions: guidance.questionsToAsk || [],
         sourceBadges: ["Troubleshooting guidance", "Training guidance"],
         cautionNotes: guidance.cautionNotes || [],
+      };
+    }
+  }
+
+  if (classification.intent === "discovery_question") {
+    const discovery = buildDiscoveryQuestionResponse(question);
+    if (discovery.ok) {
+      return {
+        intent: "discovery_question",
+        confidence: discovery.confidence,
+        title: discovery.title,
+        directAnswer: discovery.directAnswer,
+        sections: discovery.sections || [],
+        followUpQuestions: discovery.followUpQuestions || [],
+        sourceBadges: discovery.sourceBadges || ["Discovery questions"],
+        cautionNotes: discovery.cautionNotes || [],
       };
     }
   }
