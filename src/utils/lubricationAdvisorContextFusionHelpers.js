@@ -21,6 +21,60 @@ import { detectRoleBasedSalesIntent } from "./roleBasedSalesTranslationHelpers.j
 
 const CONTEXT_MATCH_THRESHOLD = 6;
 
+/** Additional fusion-layer flagship aliases (longest-match wins). */
+const FUSION_FLAGSHIP_PRODUCT_ALIASES = {
+  "flagship-nano-ep-2-grease": [
+    "klondike nano calcium sulfonate ep",
+    "klondike nano calcium sulfonate",
+    "nano calcium sulfonate",
+    "calcium sulfonate nano",
+    "klondike nano ep2",
+    "klondike nano ep 2",
+    "klondike nano",
+    "nano ep 2",
+    "nano ep2",
+    "nano ep",
+    "nano grease",
+    "nano",
+    "what is nano grease",
+    "explain nano ep2",
+    "explain nano ep 2",
+  ],
+};
+
+/** Product-specific education supplements for fusion responses (fusion layer only). */
+const PRODUCT_EDUCATION_SUPPLEMENTS = {
+  "flagship-nano-ep-2-grease": {
+    whatItIsIntro:
+      "KLONDIKE Nano Calcium Sulfonate EP Grease (Nano EP 2) is a premium severe-duty NLGI 2 grease built on calcium sulfonate thickener chemistry—not the commodity lithium or lithium complex EP-2 tier sold on price alone.",
+    whatItIsDetails: [
+      "Calcium sulfonate thickener with EP package designed for shock, wet exposure, and load spikes on pins and bushings.",
+      "PDS calls out nano tungsten disulfide for EP and wear—use the printed wording customer-facing, not extrapolated marketing.",
+      "Positioned for severe duty where washout resistance and film strength matter more than the cheapest red tube on the shelf.",
+      "Different from commodity lithium/lithium complex greases in thickener chemistry, washout performance, and published severe-service proof points.",
+    ],
+    whereItFits: [
+      "Crusher frames, hammer mills, and slow-turn pins with shock loads.",
+      "Shovel, loader, and excavator bushings in wet mining and construction yards.",
+      "Pins and bushings on haul roads, slurry exposure, and pressure-wash routines.",
+      "Industrial and plant applications needing documented EP, Timken, and washout numbers—not tribal grease-board guesses.",
+    ],
+    questionsToAsk: [
+      "What thickener and NLGI grade is in the pin or auto-lube line today?",
+      "Which joints see the worst shock, water, or wash-down—crushers, hammers, or loader booms?",
+      "Does the OEM chart allow NLGI 2 calcium sulfonate EP on these points?",
+      "Manual regrease, gun, or centralized auto-lube—and any compatibility restrictions?",
+      "What failure are you fighting—wash-off, metal loss, or line plugging after a product change?",
+    ],
+    confirmBeforeUse: [
+      "Confirm OEM and application allow NLGI 2 calcium sulfonate EP on each point before recommending.",
+      "Do not assume interchangeability with lithium or lithium complex greases without a compatibility review.",
+      "Centralized lube systems need thickener compatibility sign-off before bulk conversion.",
+      "Keep all claims inside the current PDS—do not extrapolate nano or drain-life beyond printed statements.",
+    ],
+  },
+};
+
 const FUSION_PHRASES = [
   "how do i explain",
   "how to explain",
@@ -63,6 +117,34 @@ function detectFlagshipProductContext(inputText) {
     matchedLabel: null,
   };
   if (!normalized) return empty;
+
+  /** @type {Array<{ alias: string, id: string }>} */
+  const fusionAliasEntries = [];
+  for (const [id, aliases] of Object.entries(FUSION_FLAGSHIP_PRODUCT_ALIASES)) {
+    for (const alias of aliases) {
+      fusionAliasEntries.push({ alias: normalizeFusionText(alias), id });
+    }
+  }
+  fusionAliasEntries.sort((a, b) => b.alias.length - a.alias.length);
+
+  const tokens = normalized.split(" ").filter(Boolean);
+  for (const { alias, id } of fusionAliasEntries) {
+    if (!alias) continue;
+    const tokenHit = alias.length <= 4 && (tokens.includes(alias) || normalized === alias);
+    const phraseHit = alias.length > 4 && normalized.includes(alias);
+    if (!tokenHit && !phraseHit) continue;
+
+    const narrative = getSalesEnablementFlagshipNarrativeById(id);
+    if (narrative) {
+      return {
+        matched: true,
+        score: 16 + alias.length,
+        id: narrative.id,
+        narrative,
+        matchedLabel: alias,
+      };
+    }
+  }
 
   const direct = getSalesEnablementFlagshipNarrativeByProductName(question);
   if (direct) {
@@ -241,10 +323,97 @@ export function detectAdvisorContexts(inputText) {
  * @param {ReturnType<typeof detectAdvisorContexts>} contexts
  */
 function shouldFuse(contexts) {
-  if (contexts.product.matched && contexts.role.matched) return true;
+  if (contexts.product.matched) return true;
   if (contexts.fusionCue && contexts.activeCount >= 2) return true;
   if (contexts.activeCount >= 3) return true;
   return false;
+}
+
+/**
+ * @param {import("../data/salesEnablement/flagshipNarratives.js").SalesEnablementFlagshipNarrative} product
+ */
+function getProductEducationSupplement(product) {
+  return PRODUCT_EDUCATION_SUPPLEMENTS[product.id] || null;
+}
+
+/**
+ * @param {ReturnType<typeof detectAdvisorContexts>} contexts
+ */
+function buildProductCentricSections(contexts) {
+  const product = contexts.product.narrative;
+  const role = contexts.role.profile;
+  if (!product) return [];
+
+  const supplement = getProductEducationSupplement(product);
+  /** @type {Array<{ id: string, title: string, body?: string, items?: string[] }>} */
+  const sections = [];
+
+  sections.push(
+    section(
+      "whatItIs",
+      "What It Is",
+      supplement?.whatItIsIntro || product.fieldIdentity || product.flagshipNarrativeParagraph,
+      uniqueItems(
+        supplement?.whatItIsDetails,
+        product.whatMakesThisDifferent,
+        product.keyDifferentiators?.filter((line) =>
+          /lithium|calcium sulfonate|tungsten|thickener|commodity/i.test(line)
+        )
+      )
+    ),
+    section(
+      "whyItWins",
+      "Why It Wins",
+      product.whyItWins || product.flagshipPositioning,
+      uniqueItems(
+        product.keyDifferentiators?.filter((line) =>
+          /shock|washout|weld|timken|tungsten|severe/i.test(line)
+        ),
+        product.whatMakesThisDifferent
+      )
+    ),
+    section(
+      "whereItFits",
+      "Where It Fits",
+      product.fieldIdentity,
+      uniqueItems(supplement?.whereItFits, product.severeDutyUseCases)
+    )
+  );
+
+  if (product.premiumProofPoints?.length) {
+    sections.push(section("pdsBackedProof", "PDS-Backed Proof", "", product.premiumProofPoints));
+  }
+
+  const talkTrackItems = uniqueItems(product.repTalkTrack, product.dealerTalkingPoints);
+  if (role?.exampleTalkTracks?.length) {
+    talkTrackItems.push(...role.exampleTalkTracks.slice(0, 2));
+  }
+  if (talkTrackItems.length) {
+    sections.push(section("repTalkTrack", "Rep Talk Track", "", talkTrackItems));
+  }
+
+  const questionItems = uniqueItems(
+    supplement?.questionsToAsk,
+    role?.questionsToAsk,
+    ["What OEM or thickener is approved for this pin or auto-lube system?"]
+  );
+  if (questionItems.length) {
+    sections.push(section("questionsToAsk", "Questions to Ask", "", questionItems));
+  }
+
+  const confirmItems = uniqueItems(supplement?.confirmBeforeUse, product.doNotSay);
+  if (confirmItems.length) {
+    sections.push(section("confirmBeforeUse", "Confirm Before Use", "", confirmItems));
+  }
+
+  if (role) {
+    sections.push(
+      section("whatThisRoleCaresAbout", "What This Role Cares About", "", role.whatTheyCareAbout),
+      section("howToFrameValue", "How to Frame Value", "", role.howToFrameValue)
+    );
+  }
+
+  return sections.filter((s) => s.body || (s.items && s.items.length > 0));
 }
 
 /**
@@ -252,12 +421,15 @@ function shouldFuse(contexts) {
  * @param {string} question
  */
 function buildFusionTitle(contexts, question) {
+  if (contexts.product.narrative?.productName) {
+    const parts = [contexts.product.narrative.productName];
+    if (contexts.role.profile?.role) parts.push(`for ${contexts.role.profile.role}`);
+    return parts.join(" ");
+  }
   const parts = [];
-  if (contexts.product.narrative?.productName) parts.push(contexts.product.narrative.productName);
-  if (contexts.role.profile?.role) parts.push(`for ${contexts.role.profile.role}`);
-  else if (contexts.industry.title) parts.push(`— ${contexts.industry.title}`);
-  else if (contexts.equipment.title) parts.push(`— ${contexts.equipment.title}`);
-  if (parts.length) return parts.join(" ");
+  if (contexts.industry.title) parts.push(contexts.industry.title);
+  if (contexts.equipment.title) parts.push(contexts.equipment.title);
+  if (parts.length) return parts.join(" — ");
   if (contexts.troubleshooting.title) return `Guidance: ${contexts.troubleshooting.title}`;
   return question ? "Multi-context lubrication guidance" : "Context fusion";
 }
@@ -274,7 +446,11 @@ function buildFusionDirectAnswer(contexts) {
   }
 
   if (product) {
-    return product.flagshipPositioning || product.whyItWins || product.flagshipNarrativeParagraph || "";
+    const supplement = getProductEducationSupplement(product);
+    if (supplement?.whatItIsIntro) {
+      return `${supplement.whatItIsIntro} ${product.whyItWins || product.flagshipPositioning}`;
+    }
+    return product.flagshipNarrativeParagraph || product.flagshipPositioning || product.whyItWins || "";
   }
 
   if (role) {
@@ -302,23 +478,13 @@ function buildFusionDirectAnswer(contexts) {
 function buildFusionSections(contexts) {
   const product = contexts.product.narrative;
   const role = contexts.role.profile;
-  /** @type {Array<{ id: string, title: string, body?: string, items?: string[] }>} */
-  const sections = [];
 
   if (product) {
-    sections.push(
-      section(
-        "whyThisProductWins",
-        "Why This Product Wins",
-        product.whyItWins || product.flagshipPositioning,
-        uniqueItems(
-          product.keyDifferentiators,
-          product.whatMakesThisDifferent,
-          product.severeDutyUseCases
-        )
-      )
-    );
+    return buildProductCentricSections(contexts);
   }
+
+  /** @type {Array<{ id: string, title: string, body?: string, items?: string[] }>} */
+  const sections = [];
 
   if (role) {
     sections.push(
@@ -495,6 +661,9 @@ export function buildContextFusionResponse(inputText) {
   const directAnswer = buildFusionDirectAnswer(contexts);
   const sections = buildFusionSections(contexts);
   const followUpQuestions = uniqueItems(
+    contexts.product.narrative
+      ? getProductEducationSupplement(contexts.product.narrative)?.questionsToAsk
+      : [],
     contexts.role.profile?.questionsToAsk,
     contexts.troubleshooting.profile?.questionsToAsk,
     contexts.equipment.profile?.commonQuestionsToAsk,
