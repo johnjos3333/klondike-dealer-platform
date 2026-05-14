@@ -41,6 +41,7 @@ import { getGuidedSpotlightBuilderRecommendation } from "./data/salesEnablement/
 import { getEnablementRecommendationForActionItem } from "./data/salesEnablement/actionItemEnablementRecommendations";
 import { getSalesEnablementProductImageHint } from "./data/salesEnablement/salesEnablementProductImageHints";
 import { getKlAdminIntelligenceRecommendation } from "./data/salesEnablement/klAdminIntelligenceAssistant";
+import { LubricationConceptAdvisorPanel } from "./components/LubricationConceptAdvisorPanel";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -25419,6 +25420,9 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                 )}
               </div>
             )}
+            <div style={{ marginTop: 24 }}>
+              <LubricationConceptAdvisorPanel />
+            </div>
           </div>
         )}
 
