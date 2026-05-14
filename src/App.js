@@ -4431,6 +4431,8 @@ const [dealerEnrollmentStarted, setDealerEnrollmentStarted] = React.useState(fal
   const [dealerClosingStatement, setDealerClosingStatement] = useState("");
   const [useDefaultIntro, setUseDefaultIntro] = useState(true);
 const [useDefaultClosing, setUseDefaultClosing] = useState(true);
+const [dealerEnablementCommsOptIn, setDealerEnablementCommsOptIn] = useState(true);
+const [dealerCoMarketingCommsOptIn, setDealerCoMarketingCommsOptIn] = useState(false);
 const [dealerAdminTab, setDealerAdminTab] = useState("dashboard");
 const [dealerPerformance, setDealerPerformance] = useState({
   quotesCreated: 0,
@@ -5449,6 +5451,12 @@ useEffect(() => {
     setDealerPostalCode(dealerProfile?.postal_code || "");
     setDealerIntroStatement(dealerProfile?.intro_statement || "");
     setDealerClosingStatement(dealerProfile?.closing_statement || "");
+    if (dealerProfile?.enablement_comms_opt_in != null) {
+      setDealerEnablementCommsOptIn(Boolean(dealerProfile.enablement_comms_opt_in));
+    }
+    if (dealerProfile?.co_marketing_comms_opt_in != null) {
+      setDealerCoMarketingCommsOptIn(Boolean(dealerProfile.co_marketing_comms_opt_in));
+    }
   }, [dealerProfile]);
 
   const handleLogin = async (e) => {
@@ -5939,6 +5947,9 @@ closing_statement: useDefaultClosing ? DEFAULT_CLOSING : dealerClosingStatement,
 
 use_default_intro: useDefaultIntro,
 use_default_closing: useDefaultClosing,
+
+// TODO(Phase 80): Persist dealerEnablementCommsOptIn and dealerCoMarketingCommsOptIn
+// when dealer_profiles columns exist (e.g. enablement_comms_opt_in, co_marketing_comms_opt_in).
 
 setup_completed: true,
         setup_completed: true,
@@ -20160,11 +20171,167 @@ const renderDealerAdminView = () => (
               onChange={(e) => setDealerClosingStatement(e.target.value)}
               disabled={useDefaultClosing}
             />
+          </div>
+
+          <div style={styles.card}>
+            <div style={styles.eyebrow}>DEALER GROWTH &amp; COMMUNICATION</div>
+            <h3 style={styles.cardTitle}>Dealer Growth &amp; Communication Preferences</h3>
+            <p style={{ ...styles.cardBody, marginBottom: 20 }}>
+              Klondike&apos;s Dealer Growth Platform is designed to help participating
+              dealers increase customer engagement, improve product awareness, support
+              field sales conversations, and identify growth opportunities across their
+              territory.
+            </p>
+            <p style={{ ...styles.cardBody, marginBottom: 24 }}>
+              The communication preferences below help define how Klondike may support
+              your organization through product spotlights, training opportunities,
+              customer education, lubrication best practices, and co-branded dealer
+              growth initiatives.
+            </p>
+
+            <div
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "18px 20px",
+                marginBottom: 16,
+                background: "#fff",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "#64748b",
+                  marginBottom: 12,
+                }}
+              >
+                Dealer Enablement Communications
+              </div>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  fontWeight: 700,
+                  color: "#0f172a",
+                  lineHeight: 1.45,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={dealerEnablementCommsOptIn}
+                  onChange={(e) => setDealerEnablementCommsOptIn(e.target.checked)}
+                  style={{ marginTop: 3, flexShrink: 0 }}
+                />
+                <span>
+                  Allow Klondike to support our organization with dealer enablement
+                  communications.
+                </span>
+              </label>
+              <div style={{ ...styles.listMeta, marginTop: 12, lineHeight: 1.55 }}>
+                This allows Klondike to provide:
+                <ul style={{ margin: "8px 0 0", paddingLeft: 20 }}>
+                  <li>product spotlight resources</li>
+                  <li>lubrication best practices</li>
+                  <li>training opportunities</li>
+                  <li>business review coordination</li>
+                  <li>field support recommendations</li>
+                  <li>customer education materials</li>
+                  <li>product update notifications</li>
+                  <li>proposal and quoting assistance</li>
+                </ul>
+                <p style={{ margin: "12px 0 0" }}>
+                  These communications are intended to support dealer growth, customer
+                  engagement, and lubrication program success.
+                </p>
+              </div>
+            </div>
+
+            <div
+              style={{
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "18px 20px",
+                marginBottom: 20,
+                background: "#fff",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "#64748b",
+                  marginBottom: 12,
+                }}
+              >
+                Promotional / Co-Marketing Communications
+              </div>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 12,
+                  fontWeight: 700,
+                  color: "#0f172a",
+                  lineHeight: 1.45,
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={dealerCoMarketingCommsOptIn}
+                  onChange={(e) => setDealerCoMarketingCommsOptIn(e.target.checked)}
+                  style={{ marginTop: 3, flexShrink: 0 }}
+                />
+                <span>
+                  Allow Klondike to support our business with customer-facing
+                  promotional and co-marketing campaigns.
+                </span>
+              </label>
+              <div style={{ ...styles.listMeta, marginTop: 12, lineHeight: 1.55 }}>
+                This allows Klondike to help generate customer awareness and demand for
+                lubrication solutions available through your dealership.
+                <p style={{ margin: "10px 0 6px" }}>Examples may include:</p>
+                <ul style={{ margin: 0, paddingLeft: 20 }}>
+                  <li>product spotlights</li>
+                  <li>seasonal lubrication campaigns</li>
+                  <li>severe-duty grease promotions</li>
+                  <li>hydraulic reliability campaigns</li>
+                  <li>training invitations</li>
+                  <li>lubrication best-practice resources</li>
+                  <li>customer education content</li>
+                  <li>co-branded marketing initiatives</li>
+                </ul>
+                <p style={{ margin: "12px 0 0" }}>
+                  Where applicable, communications may direct customers back to your
+                  dealership for purchasing and support.
+                </p>
+              </div>
+            </div>
+
+            <p
+              style={{
+                ...styles.muted,
+                fontSize: 13,
+                lineHeight: 1.6,
+                marginBottom: 20,
+              }}
+            >
+              Dealer customer relationships remain dealer-managed. Klondike uses
+              customer communication data solely to support dealer growth, product
+              education, and lubrication-related business development activities.
+            </p>
 
             <button
               type="submit"
               disabled={dealerSaving}
-              style={{ ...styles.primaryButton, marginTop: 16 }}
+              style={{ ...styles.primaryButton, marginTop: 4 }}
             >
               {dealerSaving ? "Saving..." : "Save Dealer Profile / Continue"}
             </button>
