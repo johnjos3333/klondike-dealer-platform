@@ -15,6 +15,10 @@ import {
   buildIndustryLubricationResponse,
   detectIndustryIntent,
 } from "./industryLubricationHelpers.js";
+import {
+  buildEquipmentLubricationResponse,
+  detectEquipmentIntent,
+} from "./equipmentLubricationHelpers.js";
 
 const MATCH_THRESHOLD = 6;
 
@@ -29,20 +33,22 @@ const FALLBACK_PROMPTS = [
 /**
  * @param {unknown} inputText
  * @returns {{
- *   intent: "troubleshooting" | "industry" | "concept" | "general",
+ *   intent: "troubleshooting" | "equipment" | "industry" | "concept" | "general",
  *   confidence: number,
  *   matchId: string | null,
- *   scores: { troubleshooting: number, industry: number, concept: number },
+ *   scores: { troubleshooting: number, equipment: number, industry: number, concept: number },
  * }}
  */
 export function classifyLubricationAdvisorIntent(inputText) {
   const question = String(inputText ?? "").trim();
   const troubleshootingMatches = detectTroubleshootingIntent(question);
+  const equipmentMatches = detectEquipmentIntent(question);
   const industryMatches = detectIndustryIntent(question);
   const conceptMatches = detectLubricationConcepts(question);
 
   const scores = {
     troubleshooting: troubleshootingMatches[0]?.score || 0,
+    equipment: equipmentMatches[0]?.score || 0,
     industry: industryMatches[0]?.score || 0,
     concept: conceptMatches[0]?.score || 0,
   };
@@ -56,6 +62,15 @@ export function classifyLubricationAdvisorIntent(inputText) {
       intent: "troubleshooting",
       confidence: Math.min(1, scores.troubleshooting / 32),
       matchId: troubleshootingMatches[0].id,
+      scores,
+    };
+  }
+
+  if (scores.equipment >= MATCH_THRESHOLD) {
+    return {
+      intent: "equipment",
+      confidence: Math.min(1, scores.equipment / 34),
+      matchId: equipmentMatches[0].id,
       scores,
     };
   }
@@ -146,6 +161,49 @@ export function buildLubricationAdvisorResponse(inputText) {
     }
   }
 
+  if (classification.intent === "equipment") {
+    const equipment = buildEquipmentLubricationResponse(question);
+    if (equipment.ok) {
+      return {
+        intent: "equipment",
+        confidence: equipment.confidence,
+        title: equipment.equipment,
+        directAnswer:
+          (equipment.salesOpportunities || [])[0] ||
+          equipment.message ||
+          `Lubrication guidance for ${equipment.equipment}.`,
+        sections: [
+          section("lubricationSystems", "Lubrication Systems", "", equipment.lubricationSystems),
+          section("operatingConditions", "Operating Conditions", "", equipment.operatingConditions),
+          section("commonPainPoints", "Common Pain Points", "", equipment.commonPainPoints),
+          section("commonFailures", "Common Failures", "", equipment.commonFailures),
+          section(
+            "likelyLubricantCategories",
+            "Likely Lubricant Categories",
+            "",
+            (equipment.likelyLubricantCategories || []).map((c) => c.replace(/_/g, " "))
+          ),
+          section("salesOpportunities", "Sales Opportunities", "", equipment.salesOpportunities),
+          section(
+            "relatedConcepts",
+            "Related Concepts",
+            "",
+            equipment.relatedConcepts || []
+          ),
+          section(
+            "troubleshootingLinks",
+            "Related Troubleshooting Topics",
+            "",
+            (equipment.troubleshootingLinks || []).map((t) => t.replace(/([A-Z])/g, " $1").trim())
+          ),
+        ].filter((s) => s.body || (s.items && s.items.length > 0)),
+        followUpQuestions: equipment.commonQuestionsToAsk || [],
+        sourceBadges: ["Equipment profile", "Product intelligence match"],
+        cautionNotes: equipment.cautionNotes || [],
+      };
+    }
+  }
+
   if (classification.intent === "industry") {
     const industry = buildIndustryLubricationResponse(question);
     if (industry.ok) {
@@ -231,8 +289,8 @@ export function buildLubricationAdvisorResponse(inputText) {
     confidence: 0,
     title: "Need more detail",
     directAnswer: question
-      ? "I need a little more detail to route this question. Try a specific symptom, industry, or concept from the prompts below."
-      : "I need a little more detail. Ask about a symptom, industry, or lubrication concept to get started.",
+      ? "I need a little more detail to route this question. Try a specific symptom, equipment type, industry, or concept from the prompts below."
+      : "I need a little more detail. Ask about a symptom, equipment, industry, or lubrication concept to get started.",
     sections: [],
     followUpQuestions: [...FALLBACK_PROMPTS],
     sourceBadges: ["Needs technical confirmation"],
