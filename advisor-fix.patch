@@ -1,0 +1,14 @@
+--- a/src/App.js
++++ b/src/App.js
+@@ -25162,11 +25162,6 @@
+               Source: Current Klondike PDS/spec library
+             </p>
+             <LubricationConceptAdvisorPanel />
+-                        <div>
+-                          </div>
+-                          </div>
+-                        </div>
+-              </div>
+-            )}
+           </div>
+         )}
