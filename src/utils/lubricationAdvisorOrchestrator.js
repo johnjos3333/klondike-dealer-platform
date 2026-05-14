@@ -48,8 +48,19 @@ import {
   buildVocabularyResponse,
   detectVocabularyIntent,
 } from "./lubricationVocabularyHelpers.js";
+import {
+  buildKlondikeProductRetrievalResponse,
+  searchKlondikeProducts,
+} from "./klondikeProductRetrievalHelpers.js";
 
 const MATCH_THRESHOLD = 6;
+/** Top PDS-map retrieval score considered strong enough to answer catalog-style questions. */
+const PRODUCT_RETRIEVAL_STRONG_TOP = 28;
+/** Alternate strength: good score with several rows. */
+const PRODUCT_RETRIEVAL_STRONG_ALT = 22;
+const PRODUCT_RETRIEVAL_ALT_MIN_COUNT = 3;
+/** Skip product retrieval when these intents are already clearly firing. */
+const PRODUCT_RETRIEVAL_EXCLUDE_SCORE = 10;
 /** Scores within this margin of the top score are treated as a tie for priority resolution. */
 const TIE_SCORE_MARGIN = 8;
 
@@ -224,6 +235,100 @@ function section(id, title, body, items) {
 }
 
 /**
+ * Broad Klondike / rep catalog questions ("what do we carry", etc.).
+ * @param {string} question
+ */
+function isProductCarryingKlondikeQuery(question) {
+  const q = String(question ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  if (q.length < 6) return false;
+
+  const hardPhrases = [
+    "what does klondike carry",
+    "what does klondike have",
+    "what products",
+    "do we carry",
+    "do we have",
+    "do we offer",
+    "does klondike offer",
+    "does klondike have",
+    "does klondike carry",
+    "does klondike stock",
+    "klondike offer",
+    "what klondike carry",
+    "what klondike have",
+    "what klondike offer",
+  ];
+  if (hardPhrases.some((p) => q.includes(p))) return true;
+
+  if (
+    /what\s+.+\s+does\s+klondike\s+(carry|have|offer|stock)\b/.test(q) ||
+    /what\s+.+\s+do\s+we\s+(carry|have|offer|stock)\b/.test(q)
+  ) {
+    return true;
+  }
+
+  if (
+    q.includes("klondike") &&
+    /\b(what|which|any)\b/.test(q) &&
+    /\b(carry|carries|carrying|have|has|offer|offers|stock|stocks|products?|line|range)\b/.test(q)
+  ) {
+    return true;
+  }
+
+  if (
+    /\b(do|does)\s+we\b/.test(q) &&
+    /\b(carry|carries|carrying|have|has|offer|offers|stock|get|sell)\b/.test(q)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Definition-style concept questions — do not route to product retrieval.
+ * @param {string} question
+ */
+function shouldDeferProductRetrievalForConcept(question) {
+  const q = String(question ?? "").toLowerCase();
+  const conceptTop = detectLubricationConcepts(question)[0]?.score || 0;
+  if (conceptTop < MATCH_THRESHOLD) return false;
+  if (/\b(carry|carries|carrying|do\s+we\s+(have|carry|offer)|does\s+klondike|what\s+products|klondike\s+(have|carry|offer|stock))\b/.test(q)) {
+    return false;
+  }
+  return /\b(what\s+is|what\s+are|define|meaning\s+of|explain(\s+what)?)\b/.test(q);
+}
+
+/**
+ * @param {{ matches: Array<{ score: number }> }} searchResult
+ */
+function hasStrongKlondikeProductSearch(searchResult) {
+  const matches = searchResult?.matches;
+  if (!matches?.length) return false;
+  const top = matches[0].score;
+  if (top >= PRODUCT_RETRIEVAL_STRONG_TOP) return true;
+  if (top >= PRODUCT_RETRIEVAL_STRONG_ALT && matches.length >= PRODUCT_RETRIEVAL_ALT_MIN_COUNT) return true;
+  return false;
+}
+
+/**
+ * @param {string} question
+ */
+function shouldSkipProductRetrievalRouting(question) {
+  const t = detectTroubleshootingIntent(question)[0]?.score || 0;
+  if (t >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
+  const r = detectRoleBasedSalesIntent(question)[0]?.score || 0;
+  if (r >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
+  const d = detectDiscoveryQuestionIntent(question)[0]?.score || 0;
+  if (d >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
+  if (shouldDeferProductRetrievalForConcept(question)) return true;
+  return false;
+}
+
+/**
  * @param {unknown} inputText
  * @returns {{
  *   intent: string,
@@ -234,6 +339,7 @@ function section(id, title, body, items) {
  *   followUpQuestions: string[],
  *   sourceBadges: string[],
  *   cautionNotes: string[],
+ *   matchedProducts?: Array<Record<string, unknown>>,
  * }}
  */
 export function buildLubricationAdvisorResponse(inputText) {
@@ -251,6 +357,27 @@ export function buildLubricationAdvisorResponse(inputText) {
       sourceBadges: fusionResponse.sourceBadges || ["Context fusion"],
       cautionNotes: fusionResponse.cautionNotes || [],
     };
+  }
+
+  if (isProductCarryingKlondikeQuery(question) && !shouldSkipProductRetrievalRouting(question)) {
+    const productSearch = searchKlondikeProducts(question);
+    if (hasStrongKlondikeProductSearch(productSearch)) {
+      const retrieval = buildKlondikeProductRetrievalResponse(question);
+      if (retrieval.ok) {
+        const topScore = productSearch.matches[0]?.score || 0;
+        return {
+          intent: "product_retrieval",
+          confidence: Math.min(0.95, 0.35 + topScore / 72),
+          title: retrieval.title,
+          directAnswer: retrieval.directAnswer,
+          sections: retrieval.sections || [],
+          followUpQuestions: retrieval.followUpQuestions || [],
+          sourceBadges: retrieval.sourceBadges || ["PDS map retrieval"],
+          cautionNotes: retrieval.cautionNotes || [],
+          matchedProducts: retrieval.matchedProducts || [],
+        };
+      }
+    }
   }
 
   const classification = classifyLubricationAdvisorIntent(question);
