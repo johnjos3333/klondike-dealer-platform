@@ -19,17 +19,22 @@ import {
   buildEquipmentLubricationResponse,
   detectEquipmentIntent,
 } from "./equipmentLubricationHelpers.js";
+import {
+  buildOemSpecAdvisorResponse,
+  detectOemSpecIntent,
+} from "./oemSpecAdvisorHelpers.js";
 
 const MATCH_THRESHOLD = 6;
 /** Scores within this margin of the top score are treated as a tie for priority resolution. */
 const TIE_SCORE_MARGIN = 8;
 
-const INTENT_PRIORITY = ["troubleshooting", "equipment", "industry", "concept"];
+const INTENT_PRIORITY = ["troubleshooting", "equipment", "industry", "oem_spec", "concept"];
 
 const INTENT_CONFIDENCE_DIVISOR = {
   troubleshooting: 32,
   equipment: 34,
   industry: 34,
+  oem_spec: 34,
   concept: 28,
 };
 
@@ -37,6 +42,7 @@ const MATCHES_BY_INTENT = {
   troubleshooting: (matches) => matches.troubleshootingMatches,
   equipment: (matches) => matches.equipmentMatches,
   industry: (matches) => matches.industryMatches,
+  oem_spec: (matches) => matches.oemSpecMatches,
   concept: (matches) => matches.conceptMatches,
 };
 
@@ -80,10 +86,10 @@ const FALLBACK_PROMPTS = [
 /**
  * @param {unknown} inputText
  * @returns {{
- *   intent: "troubleshooting" | "equipment" | "industry" | "concept" | "general",
+ *   intent: "troubleshooting" | "equipment" | "industry" | "oem_spec" | "concept" | "general",
  *   confidence: number,
  *   matchId: string | null,
- *   scores: { troubleshooting: number, equipment: number, industry: number, concept: number },
+ *   scores: { troubleshooting: number, equipment: number, industry: number, oem_spec: number, concept: number },
  * }}
  */
 export function classifyLubricationAdvisorIntent(inputText) {
@@ -91,12 +97,14 @@ export function classifyLubricationAdvisorIntent(inputText) {
   const troubleshootingMatches = detectTroubleshootingIntent(question);
   const equipmentMatches = detectEquipmentIntent(question);
   const industryMatches = detectIndustryIntent(question);
+  const oemSpecMatches = detectOemSpecIntent(question);
   const conceptMatches = detectLubricationConcepts(question);
 
   const scores = {
     troubleshooting: troubleshootingMatches[0]?.score || 0,
     equipment: equipmentMatches[0]?.score || 0,
     industry: industryMatches[0]?.score || 0,
+    oem_spec: oemSpecMatches[0]?.score || 0,
     concept: conceptMatches[0]?.score || 0,
   };
 
@@ -113,6 +121,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
     troubleshootingMatches,
     equipmentMatches,
     industryMatches,
+    oemSpecMatches,
     conceptMatches,
   };
   const topMatch = MATCHES_BY_INTENT[intent](matchLists)[0];
@@ -276,6 +285,53 @@ export function buildLubricationAdvisorResponse(inputText) {
         followUpQuestions,
         sourceBadges: ["Industry profile", "Product intelligence match"],
         cautionNotes: industry.cautionNotes || [],
+      };
+    }
+  }
+
+  if (classification.intent === "oem_spec") {
+    const oemSpec = buildOemSpecAdvisorResponse(question);
+    if (oemSpec.ok) {
+      const productItems = (oemSpec.products || []).map((product) => {
+        const specs = (product.matchedSpecs || []).join("; ");
+        return specs ? `${product.productName} — ${specs}` : product.productName;
+      });
+
+      const cautionNotes = [...(oemSpec.cautionNotes || [])];
+      if (oemSpec.productMatchStatus === "needs_confirmation") {
+        cautionNotes.push(
+          "No Klondike product in the current PDS index explicitly lists this OEM/spec—needs confirmation before quoting."
+        );
+      }
+
+      return {
+        intent: "oem_spec",
+        confidence: oemSpec.confidence,
+        title: oemSpec.name,
+        directAnswer: oemSpec.explanation || oemSpec.repTalkTrack || oemSpec.message,
+        sections: [
+          section(
+            "applicationCategory",
+            "Application Category",
+            (oemSpec.applicationCategory || "").replace(/_/g, " ")
+          ),
+          section("relatedSpecs", "Related Specs", "", oemSpec.relatedSpecs),
+          section(
+            "productCategories",
+            "Product Categories to Consider",
+            "",
+            (oemSpec.productCategoriesToConsider || []).map((c) => c.replace(/_/g, " "))
+          ),
+          section("pdsProducts", "PDS-Matched Products", "", productItems),
+          section("repTalkTrack", "Rep Talk Track", oemSpec.repTalkTrack),
+          section("aliases", "Also Known As", "", oemSpec.aliases),
+        ].filter((s) => s.body || (s.items && s.items.length > 0)),
+        followUpQuestions: oemSpec.questionsToAsk || [],
+        sourceBadges:
+          oemSpec.productMatchStatus === "confirmed"
+            ? ["OEM/spec profile", "PDS library match"]
+            : ["OEM/spec profile", "Needs technical confirmation"],
+        cautionNotes,
       };
     }
   }
