@@ -39,6 +39,7 @@ import {
   buildRoleBasedSalesResponse,
   detectRoleBasedSalesIntent,
 } from "./roleBasedSalesTranslationHelpers.js";
+import { buildContextFusionResponse } from "./lubricationAdvisorContextFusionHelpers.js";
 
 const MATCH_THRESHOLD = 6;
 /** Scores within this margin of the top score are treated as a tie for priority resolution. */
@@ -215,6 +216,21 @@ function section(id, title, body, items) {
  */
 export function buildLubricationAdvisorResponse(inputText) {
   const question = String(inputText ?? "").trim();
+
+  const fusionResponse = buildContextFusionResponse(question);
+  if (fusionResponse.ok) {
+    return {
+      intent: "context_fusion",
+      confidence: fusionResponse.confidence ?? 1,
+      title: fusionResponse.title,
+      directAnswer: fusionResponse.directAnswer,
+      sections: fusionResponse.sections || [],
+      followUpQuestions: fusionResponse.followUpQuestions || [],
+      sourceBadges: fusionResponse.sourceBadges || ["Context fusion"],
+      cautionNotes: fusionResponse.cautionNotes || [],
+    };
+  }
+
   const classification = classifyLubricationAdvisorIntent(question);
 
   if (classification.intent === "troubleshooting") {
