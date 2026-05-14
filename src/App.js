@@ -40,6 +40,7 @@ import { getSalesEnablementFlagshipNarrativeByProductName } from "./data/salesEn
 import { getGuidedSpotlightBuilderRecommendation } from "./data/salesEnablement/guidedSpotlightBuilderRecommendations";
 import { getEnablementRecommendationForActionItem } from "./data/salesEnablement/actionItemEnablementRecommendations";
 import { getSalesEnablementProductImageHint } from "./data/salesEnablement/salesEnablementProductImageHints";
+import { getKlAdminIntelligenceRecommendation } from "./data/salesEnablement/klAdminIntelligenceAssistant";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -14583,6 +14584,63 @@ const handleFinishDealerEnrollment = async () => {
                 and auditable—no scoring fabrications.
               </p>
             </div>
+
+            <details
+              style={{
+                borderRadius: 12,
+                border: "1px solid rgba(226, 232, 240, 0.95)",
+                background: "#fafafa",
+                padding: "12px 14px",
+              }}
+            >
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 900,
+                  color: "#1e3a8a",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                KL Admin Intelligence Assistant
+              </summary>
+              <p style={{ margin: "10px 0 12px", fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
+                Sample next-best enablement paths (deterministic preview only—no routing or payload changes).
+              </p>
+              <div style={{ display: "grid", gap: 10 }}>
+                {(
+                  [
+                    getKlAdminIntelligenceRecommendation({
+                      performanceTrend: "slight_decline",
+                      categoryGap: "light",
+                      assistantMode: "dealer",
+                    }),
+                    getKlAdminIntelligenceRecommendation({
+                      performanceTrend: "stable",
+                      categoryGap: "none",
+                      assistantMode: "territory",
+                      territoryLabel: "Sample territory",
+                    }),
+                  ] || []
+                ).map((rec, recIdx) => (
+                  <div
+                    key={`kl-admin-intel-sample-${recIdx}`}
+                    style={{
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      background: "#ffffff",
+                      border: "1px solid rgba(226, 232, 240, 0.98)",
+                    }}
+                  >
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
+                      {rec.priority} · {String(rec.recommendedActionType || "").toUpperCase()}
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", marginTop: 4 }}>{rec.title}</div>
+                    <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.45 }}>{rec.reason}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
 
             <div
               style={{
