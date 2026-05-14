@@ -38,7 +38,8 @@
     "test:flagship-narrative-lookup": "node src/data/salesEnablement/runSalesEnablementFlagshipNarrativeLookupSmokeTests.js",
     "test:sales-enablement-composer": "node src/data/salesEnablement/runComposerSmokeTests.js",
     "demo:sales-enablement-category-composer": "node src/data/salesEnablement/runCategoryComposerDemo.js",
-    "test:sales-enablement-category-composer": "node src/data/salesEnablement/runCategoryComposerSmokeTests.js"
+    "test:sales-enablement-category-composer": "node src/data/salesEnablement/runCategoryComposerSmokeTests.js",
+    "test:lubrication-knowledge": "node src/data/salesEnablement/runLubricationKnowledgeSmokeTests.js"
   },
   "browserslist": [
     ">0.2%",
