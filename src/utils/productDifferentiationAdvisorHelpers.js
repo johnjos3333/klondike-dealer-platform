@@ -12,17 +12,39 @@ import {
 } from "../data/salesEnablement/salesEnablementFlagshipNarrativeLookup.js";
 import { PDS_MAP } from "../data/pdsMap.js";
 import { normalizeProductQuery, searchKlondikeProducts } from "./klondikeProductRetrievalHelpers.js";
+import { buildAdvisorProductExplanation, buildProductNarrative } from "./productNarrativeComposer.js";
 
 const DETECTION_MIN_SCORE = 16;
 
+/** @param {string[]} arr */
+function uniqStrings(arr) {
+  const out = [];
+  const seen = new Set();
+  for (const s of arr) {
+    const t = String(s ?? "").trim();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
 /**
- * Normalize common shorthand so flagship / PDS substring checks still hit.
- * @param {string} n
+ * @param {{ id?: string, body?: string, items?: string[] } | null | undefined} sec
  */
-function relaxNormalizedProductQuery(n) {
-  return String(n ?? "")
-    .replace(/\bnano ep2\b/g, "nano ep 2")
-    .replace(/\bep2\b/g, "ep 2");
+function pickSectionStrings(sec) {
+  if (!sec) return [];
+  const items = Array.isArray(sec.items) ? sec.items.map((x) => String(x).trim()).filter(Boolean) : [];
+  const b = sec.body ? [String(sec.body).trim()].filter(Boolean) : [];
+  return uniqStrings([...b, ...items]);
+}
+
+/**
+ * @param {{ body?: string, items?: string[] } | null | undefined} sec
+ */
+function pickItemsOnly(sec) {
+  if (!sec) return [];
+  return Array.isArray(sec.items) ? sec.items.map((x) => String(x).trim()).filter(Boolean) : [];
 }
 
 /**
@@ -33,6 +55,160 @@ function relaxNormalizedProductQuery(n) {
  */
 function section(id, title, body, items) {
   return { id, title, ...(body ? { body } : {}), ...(items?.length ? { items } : {}) };
+}
+
+/**
+ * Map composer narrative sections (whatItIs / pdsBackedProof / …) into differentiation section ids.
+ * @param {Array<{ id: string, title: string, body?: string, items?: string[] }>} narrativeSections
+ */
+function mapNarrativeSectionsToDifferentiationSections(narrativeSections) {
+  const list = Array.isArray(narrativeSections) ? narrativeSections : [];
+  const byId = Object.fromEntries(list.map((s) => [s.id, s]));
+
+  const whatItIs = byId.whatItIs;
+  const whyItWins = byId.whyItWins;
+  const opCon = byId.operationalConsequences;
+  const pdsBacked = byId.pdsBackedProof;
+  const where = byId.whereItFits;
+  const upgrade = byId.upgradeStory;
+  const rep = byId.repTalkTrack;
+  const questions = byId.questionsToAsk;
+  const confirm = byId.confirmBeforeUse;
+
+  const wmidItems = uniqStrings([...pickSectionStrings(whatItIs), ...pickSectionStrings(whyItWins)]).slice(0, 14);
+
+  const whyBody = [String(whyItWins?.body ?? "").trim(), String(opCon?.body ?? "").trim()].filter(Boolean).join(" ").trim();
+  const whyItems = pickSectionStrings(opCon);
+
+  /** @type {Array<{ id: string, title: string, body?: string, items?: string[] }>} */
+  const out = [];
+
+  if (wmidItems.length) {
+    out.push(section("whatMakesItDifferent", "What Makes It Different", "", wmidItems));
+  }
+  if (whyBody || whyItems.length) {
+    out.push(section("whyItMatters", "Why It Matters", whyBody, whyItems));
+  }
+  if (pdsBacked) {
+    const pdsBody =
+      String(pdsBacked.body ?? "").trim() ||
+      "Below are narrative proof points that reference indexed PDS language—repeat only what is printed and current for the customer’s revision.";
+    const pdsItems = uniqStrings([...pickItemsOnly(pdsBacked), ...pickSectionStrings(pdsBacked)]).filter((line) => line && line !== pdsBody);
+    out.push(section("pdsSpecProof", "PDS / Spec Proof", pdsBody, pdsItems));
+  }
+  if (where && (where.body || (where.items && where.items.length))) {
+    out.push(section("whereItFits", "Where It Fits", String(where.body ?? "").trim(), pickItemsOnly(where)));
+  }
+  if (upgrade && (upgrade.body || (upgrade.items && upgrade.items.length))) {
+    out.push(section("upgradeStory", "Upgrade Story", String(upgrade.body ?? "").trim(), pickItemsOnly(upgrade)));
+  }
+  if (rep && (rep.body || (rep.items && rep.items.length))) {
+    out.push(section("repTalkTrack", "Rep Talk Track", String(rep.body ?? "").trim(), pickItemsOnly(rep)));
+  }
+  if (questions && (questions.body || (questions.items && questions.items.length))) {
+    out.push(section("questionsToAsk", "Questions to Ask", String(questions.body ?? "").trim(), pickItemsOnly(questions)));
+  }
+  if (confirm && (confirm.body || (confirm.items && confirm.items.length))) {
+    out.push(section("confirmBeforeUse", "Confirm Before Use", String(confirm.body ?? "").trim(), pickItemsOnly(confirm)));
+  }
+
+  return out.filter((s) => s.body || (s.items && s.items.length > 0));
+}
+
+/**
+ * @param {{ ok?: boolean, directAnswer?: string, sections?: unknown[] }} r
+ */
+function isComposerResultUsable(r) {
+  if (!r || r.ok !== true) return false;
+  const da = String(r.directAnswer ?? "").trim();
+  if (da.length >= 24) return true;
+  const secs = Array.isArray(r.sections) ? r.sections : [];
+  return secs.some((s) => {
+    if (!s || typeof s !== "object") return false;
+    const body = String(/** @type {{ body?: string }} */ (s).body ?? "").trim();
+    const items = /** @type {{ items?: string[] }} */ (s).items;
+    return Boolean(body) || (Array.isArray(items) && items.some((x) => String(x ?? "").trim()));
+  });
+}
+
+/**
+ * @param {string} question
+ * @param {{
+ *   source: "flagship" | "pds" | "search" | "none",
+ *   label: string,
+ *   flagship: import("../data/salesEnablement/flagshipNarratives.js").SalesEnablementFlagshipNarrative | null,
+ *   productKey: string | null,
+ * }} resolved
+ * @param {string[]} cautionNotes
+ * @param {string[]} followUpQuestions
+ */
+function tryDifferentiationFromComposer(question, resolved, cautionNotes, followUpQuestions) {
+  /** @type {{ ok?: boolean, title?: string, directAnswer?: string, sections?: unknown[], followUpQuestions?: string[], sourceBadges?: string[], cautionNotes?: string[], message?: string } | null} */
+  let composed = null;
+  try {
+    composed = buildAdvisorProductExplanation(question);
+  } catch {
+    composed = null;
+  }
+  if (!isComposerResultUsable(composed)) {
+    try {
+      composed = buildProductNarrative(question);
+    } catch {
+      composed = null;
+    }
+  }
+  if (!isComposerResultUsable(composed) || !composed) return null;
+
+  const sections = mapNarrativeSectionsToDifferentiationSections(
+    /** @type {Array<{ id: string, title: string, body?: string, items?: string[] }>} */ (composed.sections || [])
+  );
+  if (!sections.length && !String(composed.directAnswer ?? "").trim()) return null;
+
+  const titleBase = resolved.label || String(composed.title ?? "").replace(/^Advisor — /, "").trim() || "Product";
+  const directAnswer =
+    String(composed.directAnswer ?? "").trim() ||
+    "Use the sections below and keep proof points tied to indexed PDS language and internal narrative text only.";
+
+  const mergedFollowUps = uniqStrings([
+    ...(Array.isArray(composed.followUpQuestions) ? composed.followUpQuestions.map(String) : []),
+    ...followUpQuestions,
+  ]).slice(0, 12);
+
+  const mergedCautions = uniqStrings([...cautionNotes, ...(Array.isArray(composed.cautionNotes) ? composed.cautionNotes.map(String) : [])]);
+
+  const resolutionMsg =
+    resolved.source === "flagship" && resolved.flagship
+      ? `Anchored on flagship profile: ${resolved.flagship.id}.`
+      : `Anchored on PDS map row: ${resolved.productKey || resolved.label}.`;
+
+  const sourceBadges = uniqStrings([
+    ...(Array.isArray(composed.sourceBadges) ? composed.sourceBadges.map(String) : []),
+    "Product differentiation",
+    resolved.source === "flagship" ? "Flagship product intelligence" : "",
+    resolved.source === "search" || resolved.source === "pds" ? "PDS map index" : "",
+    resolved.source === "search" ? "Retrieval-assisted match" : "",
+  ]).filter(Boolean);
+
+  return {
+    ok: true,
+    title: `${titleBase} — differentiation`,
+    directAnswer,
+    sections,
+    followUpQuestions: mergedFollowUps.length ? mergedFollowUps : followUpQuestions,
+    sourceBadges: sourceBadges.length ? sourceBadges : ["Product differentiation", "Deterministic coaching"],
+    cautionNotes: mergedCautions,
+    message: `${resolutionMsg} ${String(composed.message ?? "").trim()}`.trim(),
+  };
+}
+
+/**
+ * Normalize common shorthand so flagship / PDS substring checks still hit.
+ * @param {string} n
+ */
+function relaxNormalizedProductQuery(n) {
+  return String(n ?? "")
+    .replace(/\bnano ep2\b/g, "nano ep 2")
+    .replace(/\bep2\b/g, "ep 2");
 }
 
 /** @returns {import("../data/salesEnablement/flagshipNarratives.js").SalesEnablementFlagshipNarrative[]} */
@@ -254,6 +430,9 @@ export function buildProductDifferentiationResponse(inputText) {
     "What does their incumbent product claim on the data sheet—and where does ours win on paper?",
     "What proof does the buyer need for their file (PDS, trial, OEM letter)?",
   ];
+
+  const fromComposer = tryDifferentiationFromComposer(question, resolved, cautionNotes, followUpQuestions);
+  if (fromComposer) return fromComposer;
 
   if (resolved.source === "flagship" && resolved.flagship) {
     const f = resolved.flagship;
