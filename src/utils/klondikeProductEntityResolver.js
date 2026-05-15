@@ -51,6 +51,11 @@ import {
   getIndustrialSpecialtyOilCanonicalProductIntelligenceById,
   listIndustrialSpecialtyOilCanonicalProductIntelligence,
 } from "../data/industrialSpecialtyOilCanonicalProductIntelligence.js";
+import {
+  AGRI_OEM_CANONICAL_PRODUCT_INTELLIGENCE,
+  getAgriOemCanonicalProductIntelligenceById,
+  listAgriOemCanonicalProductIntelligence,
+} from "../data/agriOemCanonicalProductIntelligence.js";
 import { normalizeProductQuery, searchKlondikeProducts } from "./klondikeProductRetrievalHelpers.js";
 
 const ENTITY_EXACT_MIN_SCORE = 34;
@@ -60,6 +65,8 @@ const ENTITY_AMBIGUOUS_GAP = 6;
 const GEAR_OIL_EXACT_PRODUCT_NUMBER_SCORE = 100;
 /** Exact KL-IO#### industrial/specialty oil SKU match outranks other canonical families. */
 const INDUSTRIAL_SPECIALTY_OIL_EXACT_PRODUCT_NUMBER_SCORE = 100;
+/** Exact KL-AG#### / KL-GR#### Ag OEM SKU match outranks other canonical families. */
+const AGRI_OEM_EXACT_PRODUCT_NUMBER_SCORE = 100;
 
 /** @type {Readonly<Record<string, string>>} */
 const GREASE_CANONICAL_FLAGSHIP_BY_ID = Object.freeze({
@@ -200,6 +207,7 @@ const PRODUCT_ENTITY_REGISTRY = [
     flagshipId: "flagship-moly-tac-ep2-grease",
     pdsKeys: ["Moly Tac EP-2", "Moly Tac EP-1", "Moly Tac Bentone EP-2", "Moly Tac Arctic EP-0"],
     scoreQuery(normQ) {
+      if (hasStrongAgriPolyTacCue(normQ)) return 0;
       if (isNanoEp2ProductQuery(normQ) || (/\bnano\b/.test(normQ) && !normQ.includes("full synthetic"))) {
         return 0;
       }
@@ -339,7 +347,31 @@ function relaxNormalizedProductQuery(n) {
     .replace(/\bchainsaw\b/g, "chain saw")
     .replace(/\bhi[\s-]?tack\b/g, "hi tack")
     .replace(/\bnon[\s-]?detergent\b/g, "non detergent")
-    .replace(/\bnd30\b/g, "nd 30");
+    .replace(/\bnd30\b/g, "nd 30")
+    .replace(/\bagrimax\b/g, "agrimax")
+    .replace(/\bagri\s+max\b/g, "agrimax")
+    .replace(/\bcoolgard\b/g, "cool gard")
+    .replace(/\bcool[\s-]?gard\b/g, "cool gard")
+    .replace(/\bplus50\b/g, "plus 50")
+    .replace(/\bplus[\s-]?50\b/g, "plus 50")
+    .replace(/\bj20c\b/g, "j20c")
+    .replace(/\bj[\s-]?20c\b/g, "j20c")
+    .replace(/\bjdm\s+j[\s-]?20c\b/g, "jdm j20c")
+    .replace(/\bmat3724\b/g, "mat 3724")
+    .replace(/\bmat\s*3724\b/g, "mat 3724")
+    .replace(/\bmat3624\b/g, "mat 3624")
+    .replace(/\bmat\s*3624\b/g, "mat 3624")
+    .replace(/\bmat3572\b/g, "mat 3572")
+    .replace(/\bmat\s*3572\b/g, "mat 3572")
+    .replace(/\bmat3544\b/g, "mat 3544")
+    .replace(/\bmat\s*3544\b/g, "mat 3544")
+    .replace(/\bmat3540\b/g, "mat 3540")
+    .replace(/\bmat\s*3540\b/g, "mat 3540")
+    .replace(/\bcaseih\b/g, "case ih")
+    .replace(/\bcase[\s-]?ih\b/g, "case ih")
+    .replace(/\b15w40\b/g, "15w 40")
+    .replace(/\bzf\b/g, "zf")
+    .replace(/\bzinc[\s-]?free\b/g, "zinc free");
 }
 
 /**
@@ -387,7 +419,18 @@ function isNanoGreaseQuery(normQ) {
  * @param {import("../data/greaseCanonicalProductIntelligence.js").GreaseCanonicalProductIntelligence} grease
  * @param {string} normQ
  */
+function hasStrongAgriPolyTacCue(normQ) {
+  return (
+    normQ.includes("poly tac") ||
+    normQ.includes("agrimax poly") ||
+    (normQ.includes("gc-lb") && normQ.includes("polyurea")) ||
+    (normQ.includes("green ag") && normQ.includes("grease") && normQ.includes("polyurea")) ||
+    normQ.includes("jdm grease")
+  );
+}
+
 function scoreGreaseCanonicalProduct(grease, normQ) {
+  if (hasStrongAgriPolyTacCue(normQ) && grease.id.includes("moly-tac")) return 0;
   if (isNanoGreaseQuery(normQ)) {
     if (grease.id.includes("moly-tac") && !isMolyGreaseQuery(normQ)) return 0;
     if (grease.id === "grease-canonical-nano-full-synthetic-ep-1-5") return 0;
@@ -1049,6 +1092,7 @@ function isSae50ManualQuery(normQ) {
  * @param {string} normQ
  */
 function scoreTransmissionCanonicalProduct(tx, normQ) {
+  if (shouldSuppressTransmissionForAgriOemMatTransDrive(normQ)) return 0;
   if (isGreaseOnlyProductQuery(normQ) && !isTransmissionDrivetrainProductQuery(normQ)) return 0;
   if (isXviHydraulicQuery(normQ) && !isTransmissionDrivetrainProductQuery(normQ)) return 0;
   if (isPlainUtfQuery(normQ) || isArcticTractorFluidQuery(normQ)) return 0;
@@ -2534,6 +2578,619 @@ function buildEntitySectionsFromIndustrialSpecialtyOilCanonical(product) {
 }
 
 /**
+ * @param {unknown} text
+ * @returns {Set<string>}
+ */
+function extractAgriOemProductNumberKeysFromText(text) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  const raw = String(text ?? "");
+  if (!raw.trim()) return keys;
+  const upper = raw.toUpperCase();
+  for (const re of [/\bKL\s*[-]?\s*AG\s*(\d{4})\b/g, /\bKLAG(\d{4})\b/g]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(upper))) {
+      keys.add(`KLAG${m[1]}`);
+    }
+  }
+  for (const re of [/\bKL\s*[-]?\s*GR\s*(\d{4})\b/g, /\bKLGR(\d{4})\b/g]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(upper))) {
+      keys.add(`KLGR${m[1]}`);
+    }
+  }
+  return keys;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {Set<string>}
+ */
+function extractAgriOemProductNumberKeysFromNormQ(normQ) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  const agSpaced = /\bkl\s+ag\s*(\d{4})\b/g;
+  let m;
+  while ((m = agSpaced.exec(normQ))) {
+    keys.add(`KLAG${m[1]}`);
+  }
+  const grSpaced = /\bkl\s+gr\s*(\d{4})\b/g;
+  while ((m = grSpaced.exec(normQ))) {
+    keys.add(`KLGR${m[1]}`);
+  }
+  const compact = normQ.replace(/\s+/g, "");
+  const agCm = compact.match(/\bklag(\d{4})\b/);
+  if (agCm) keys.add(`KLAG${agCm[1]}`);
+  const grCm = compact.match(/\bklgr(\d{4})\b/);
+  if (grCm) keys.add(`KLGR${grCm[1]}`);
+  return keys;
+}
+
+/**
+ * @param {unknown} productNumbers
+ * @returns {Set<string>}
+ */
+function collectAgriOemProductNumberKeys(productNumbers) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  /** @param {unknown} val */
+  const visit = (val) => {
+    if (val == null) return;
+    if (typeof val === "string") {
+      extractAgriOemProductNumberKeysFromText(val).forEach((k) => keys.add(k));
+      return;
+    }
+    if (Array.isArray(val)) {
+      val.forEach(visit);
+      return;
+    }
+    if (typeof val === "object") {
+      Object.values(val).forEach(visit);
+    }
+  };
+  visit(productNumbers);
+  return keys;
+}
+
+/** @type {Map<string, import("../data/agriOemCanonicalProductIntelligence.js").AgriOemCanonicalProductIntelligence> | null} */
+let agriOemProductNumberIndex = null;
+
+/**
+ * @returns {Map<string, import("../data/agriOemCanonicalProductIntelligence.js").AgriOemCanonicalProductIntelligence>}
+ */
+function getAgriOemProductNumberIndex() {
+  if (agriOemProductNumberIndex) return agriOemProductNumberIndex;
+  agriOemProductNumberIndex = new Map();
+  for (const product of listAgriOemCanonicalProductIntelligence()) {
+    for (const key of collectAgriOemProductNumberKeys(product.productNumbers)) {
+      if (!agriOemProductNumberIndex.has(key)) {
+        agriOemProductNumberIndex.set(key, product);
+      }
+    }
+  }
+  return agriOemProductNumberIndex;
+}
+
+/**
+ * @param {unknown} inputText
+ * @returns {{ keys: Set<string>, normQ: string }}
+ */
+function gatherAgriOemProductNumberKeysFromQuery(inputText) {
+  const raw = String(inputText ?? "");
+  const normQ = relaxNormalizedProductQuery(normalizeProductQuery(raw));
+  /** @type {Set<string>} */
+  const keys = new Set([
+    ...extractAgriOemProductNumberKeysFromText(raw),
+    ...extractAgriOemProductNumberKeysFromNormQ(normQ),
+  ]);
+  return { keys, normQ };
+}
+
+/**
+ * @param {unknown} inputText
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectExactAgriOemProductNumberMatch(inputText) {
+  const { keys } = gatherAgriOemProductNumberKeysFromQuery(inputText);
+  if (keys.size === 0) return [];
+
+  const index = getAgriOemProductNumberIndex();
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const key of keys) {
+    const product = index.get(key);
+    if (product) {
+      hits.push({ id: product.id, score: AGRI_OEM_EXACT_PRODUCT_NUMBER_SCORE, label: product.productName });
+    }
+  }
+  return hits;
+}
+
+/**
+ * @param {import("../data/agriOemCanonicalProductIntelligence.js").AgriOemCanonicalProductIntelligence} product
+ * @param {unknown} inputText
+ */
+function scoreExactAgriOemProductNumberForRow(product, inputText) {
+  const { keys } = gatherAgriOemProductNumberKeysFromQuery(inputText);
+  if (keys.size === 0) return 0;
+  const index = getAgriOemProductNumberIndex();
+  for (const key of keys) {
+    const match = index.get(key);
+    if (match && match.id === product.id) return AGRI_OEM_EXACT_PRODUCT_NUMBER_SCORE;
+  }
+  return 0;
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasJohnDeereAgCue(normQ) {
+  return (
+    normQ.includes("john deere") ||
+    /\bdeere\b/.test(normQ) ||
+    normQ.includes("cool gard") ||
+    normQ.includes("plus 50") ||
+    normQ.includes("j20c") ||
+    normQ.includes("jdm j20c")
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasCnhAgCue(normQ) {
+  return (
+    normQ.includes("cnh") ||
+    normQ.includes("case ih") ||
+    /\bmat\s*(3724|3624|3572|3544|3540)\b/.test(normQ) ||
+    normQ.includes("zinc free trans drive") ||
+    normQ.includes("zf trans drive")
+  );
+}
+
+/** @param {string} normQ */
+const AGRI_OEM_CNH_RED_TRANS_DRIVE_ID =
+  "agri-oem-canonical-agrimax-cnh-case-ih-zinc-free-trans-drive-hydraulic-red";
+
+/**
+ * CNH / Case IH MAT trans-drive / UTTO context (hydraulic+transmission language without "trans drive").
+ * @param {string} normQ
+ */
+function hasCnhAgTransDriveContext(normQ) {
+  return (
+    normQ.includes("trans drive") ||
+    normQ.includes("zinc free trans drive") ||
+    normQ.includes("zf trans drive") ||
+    normQ.includes("hydraulic transmission fluid") ||
+    normQ.includes("transmission hydraulic fluid") ||
+    normQ.includes("drivetrain hydraulic") ||
+    normQ.includes("wet brake") ||
+    normQ.includes("pto") ||
+    /\bcvt\b/.test(normQ) ||
+    /\bivt\b/.test(normQ)
+  );
+}
+
+/**
+ * Strong CNH Ag OEM trans-drive intent — MAT 3540/3544 alone, or CNH/Case IH + UTTO/trans-hydraulic cues.
+ * @param {string} normQ
+ */
+function hasStrongCnhAgTransDriveCue(normQ) {
+  if (/\bmat\s*(3540|3544)\b/.test(normQ)) return true;
+  const hasCnh = normQ.includes("cnh") || normQ.includes("case ih");
+  if (!hasCnh) return false;
+  return hasCnhAgTransDriveContext(normQ);
+}
+
+/**
+ * @param {string} normQ
+ */
+function shouldSuppressTransmissionForAgriOemMatTransDrive(normQ) {
+  return hasStrongAgriOemIntent(normQ) && hasStrongCnhAgTransDriveCue(normQ);
+}
+
+/**
+ * Prepend high-confidence Ag OEM MAT trans-drive hits (before transmission canonical in merge order).
+ * @param {unknown} inputText
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectStrongAgriOemMatTransDriveEntityHits(inputText) {
+  const normQ = relaxNormalizedProductQuery(normalizeProductQuery(inputText));
+  if (!normQ || !hasStrongCnhAgTransDriveCue(normQ)) return [];
+
+  const product = getAgriOemCanonicalProductIntelligenceById(AGRI_OEM_CNH_RED_TRANS_DRIVE_ID);
+  if (!product) return [];
+
+  const score = scoreAgriOemCanonicalProduct(product, normQ, inputText);
+  if (score < ENTITY_DETECT_MIN_SCORE) {
+    return [{ id: product.id, score: 60, label: product.productName }];
+  }
+  return [{ id: product.id, score: Math.max(score, 60), label: product.productName }];
+}
+
+/**
+ * @param {string} normQ
+ */
+function hasStrongAgriOemIntent(normQ) {
+  if (normQ.includes("agrimax") || normQ.includes("agri max")) return true;
+  if (normQ.includes("agriculture oem") || normQ.includes("ag oem")) return true;
+  if (queryHasJohnDeereAgCue(normQ) || queryHasCnhAgCue(normQ)) return true;
+  if (normQ.includes("poly tac") || normQ.includes("agrimax poly")) return true;
+  if (normQ.includes("gc-lb") && (normQ.includes("poly tac") || normQ.includes("polyurea"))) return true;
+  if (normQ.includes("green ag") && normQ.includes("grease") && normQ.includes("polyurea")) return true;
+  if (normQ.includes("jdm grease")) return true;
+  if (gatherAgriOemProductNumberKeysFromQuery(normQ).keys.size > 0) return true;
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isAgriOemProductQuery(normQ) {
+  if (!hasStrongAgriOemIntent(normQ)) return false;
+  if (isGearOilTerritoryBlockingSpecialty(normQ) && !normQ.includes("agrimax")) return false;
+  if (isIndustrialSpecialtyOilProductQuery(normQ) && !normQ.includes("agrimax")) return false;
+  if (isTwoCycleSmallEngineQuery(normQ)) return false;
+
+  const hasAgriBrand = normQ.includes("agrimax") || gatherAgriOemProductNumberKeysFromQuery(normQ).keys.size > 0;
+  const hasOemCue = queryHasJohnDeereAgCue(normQ) || queryHasCnhAgCue(normQ);
+  const hasPolyTacAgCue =
+    normQ.includes("poly tac") ||
+    normQ.includes("gc-lb") ||
+    normQ.includes("jdm grease") ||
+    (normQ.includes("green ag") && normQ.includes("grease"));
+
+  if (!hasAgriBrand && !hasOemCue && !hasPolyTacAgCue) return false;
+
+  if (!normQ.includes("agrimax") && gatherAgriOemProductNumberKeysFromQuery(normQ).keys.size === 0) {
+    if (isHdEngineOilProductQuery(normQ) && !hasOemCue) return false;
+    if (isCoolantAntifreezeProductQuery(normQ) && !hasOemCue) return false;
+    if (
+      (isPlainUtfQuery(normQ) || (normQ.includes("wet brake") && normQ.includes("hydraulic"))) &&
+      !normQ.includes("trans drive") &&
+      !normQ.includes("j20c") &&
+      !normQ.includes("agrimax")
+    ) {
+      return false;
+    }
+    if (
+      normQ.includes("polyurea") &&
+      !normQ.includes("poly tac") &&
+      !normQ.includes("agrimax") &&
+      !normQ.includes("jdm grease") &&
+      !hasPolyTacAgCue
+    ) {
+      return false;
+    }
+  }
+
+  if (
+    isClearTransmissionFluidOnlyQuery(normQ) &&
+    !normQ.includes("trans drive") &&
+    !normQ.includes("j20c") &&
+    !hasStrongCnhAgTransDriveCue(normQ)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+/**
+ * @param {import("../data/agriOemCanonicalProductIntelligence.js").AgriOemCanonicalProductIntelligence} product
+ * @param {string} normQ
+ * @param {unknown} inputText
+ */
+function scoreAgriOemCanonicalProduct(product, normQ, inputText) {
+  if (scoreExactAgriOemProductNumberForRow(product, inputText) >= AGRI_OEM_EXACT_PRODUCT_NUMBER_SCORE) {
+    return AGRI_OEM_EXACT_PRODUCT_NUMBER_SCORE;
+  }
+  if (!isAgriOemProductQuery(normQ)) return 0;
+
+  const isJd = product.oemAlignment === "John Deere";
+  const isCnh = product.oemAlignment === "CNH / Case IH";
+  const isElc = product.productFamily === "agrimax_elc_premix";
+  const isHd = product.productFamily === "agrimax_hd_engine_oil";
+  const isTrans = product.productFamily === "agrimax_trans_drive_hydraulic";
+  const isPoly = product.id === "agri-oem-canonical-agrimax-poly-tac-ep2-polyurea-grease";
+
+  if (isJd && queryHasCnhAgCue(normQ) && !queryHasJohnDeereAgCue(normQ)) return 0;
+  if (isCnh && queryHasJohnDeereAgCue(normQ) && !queryHasCnhAgCue(normQ)) return 0;
+
+  let score = 0;
+
+  if (product.id && normQ.includes(product.id.replace(/^agri-oem-canonical-agrimax-/, "").replace(/-/g, " "))) {
+    score = Math.max(score, 46);
+  }
+
+  const productNorm = normalizeProductQuery(product.productName);
+  if (productNorm.length >= 12 && normQ.includes(productNorm)) {
+    score = Math.max(score, 44);
+  }
+
+  if (product.pdsMapKey) {
+    const mapKeyNorm = normalizeProductQuery(product.pdsMapKey);
+    if (mapKeyNorm.length >= 6 && normQ.includes(mapKeyNorm)) {
+      score = Math.max(score, 34);
+    }
+  }
+
+  for (const alias of product.aliases) {
+    const a = normalizeProductQuery(alias);
+    if (a.length < 4) continue;
+    if (normQ === a) score = Math.max(score, 48);
+    else if (a.length >= 12 && normQ.includes(a)) score = Math.max(score, 42);
+    else if (normQ.includes(a)) score = Math.max(score, 30 + Math.min(12, a.length));
+  }
+
+  for (const kw of product.routingKeywords) {
+    const k = normalizeProductQuery(kw);
+    if (k.length < 4) continue;
+    if (normQ.includes(k)) score = Math.max(score, 22 + Math.min(10, k.length));
+  }
+
+  const querySkuKeys = gatherAgriOemProductNumberKeysFromQuery(inputText).keys;
+  for (const pn of product.productNumbers) {
+    for (const key of collectAgriOemProductNumberKeys(pn)) {
+      if (querySkuKeys.has(key)) score = Math.max(score, 52);
+    }
+  }
+
+  if (isElc && isJd) {
+    if (normQ.includes("cool gard") || (normQ.includes("agrimax") && normQ.includes("coolant") && normQ.includes("green"))) {
+      score = Math.max(score, 52);
+    }
+    if (queryHasJohnDeereAgCue(normQ) && (normQ.includes("coolant") || normQ.includes("antifreeze") || normQ.includes("elc"))) {
+      score = Math.max(score, 50);
+    }
+    if (normQ.includes("agrimax") && normQ.includes("coolant") && !queryHasCnhAgCue(normQ) && !/\bred\b/.test(normQ)) {
+      score = Math.max(score, 42);
+    }
+  }
+
+  if (isElc && isCnh) {
+    if (/\bmat\s*(3724|3624)\b/.test(normQ) || (normQ.includes("agrimax") && normQ.includes("coolant") && normQ.includes("red"))) {
+      score = Math.max(score, 52);
+    }
+    if (queryHasCnhAgCue(normQ) && (normQ.includes("coolant") || normQ.includes("antifreeze") || normQ.includes("elc"))) {
+      score = Math.max(score, 50);
+    }
+    if (normQ.includes("agrimax") && normQ.includes("coolant") && !queryHasJohnDeereAgCue(normQ) && !normQ.includes("green")) {
+      score = Math.max(score, 42);
+    }
+  }
+
+  if (isHd && isJd) {
+    if (normQ.includes("plus 50") || (normQ.includes("agrimax") && normQ.includes("15w 40") && normQ.includes("green"))) {
+      score = Math.max(score, 52);
+    }
+    if (queryHasJohnDeereAgCue(normQ) && normQ.includes("15w 40") && normQ.includes("ck-4")) {
+      score = Math.max(score, 50);
+    }
+    if (normQ.includes("agrimax") && normQ.includes("15w 40") && !queryHasCnhAgCue(normQ) && !/\bred\b/.test(normQ)) {
+      score = Math.max(score, 42);
+    }
+  }
+
+  if (isHd && isCnh) {
+    if (/\bmat\s*3572\b/.test(normQ) || (normQ.includes("agrimax") && normQ.includes("15w 40") && normQ.includes("red"))) {
+      score = Math.max(score, 52);
+    }
+    if (queryHasCnhAgCue(normQ) && normQ.includes("15w 40") && normQ.includes("ck-4")) {
+      score = Math.max(score, 50);
+    }
+    if (normQ.includes("agrimax") && normQ.includes("15w 40") && !queryHasJohnDeereAgCue(normQ) && !normQ.includes("green")) {
+      score = Math.max(score, 42);
+    }
+  }
+
+  if (isTrans && isJd) {
+    if (normQ.includes("j20c") || normQ.includes("jdm j20c") || (normQ.includes("agrimax") && normQ.includes("trans drive") && normQ.includes("green"))) {
+      score = Math.max(score, 52);
+    }
+    if (queryHasJohnDeereAgCue(normQ) && normQ.includes("trans drive")) {
+      score = Math.max(score, 50);
+    }
+    if (normQ.includes("agrimax") && normQ.includes("trans drive") && !queryHasCnhAgCue(normQ) && !/\bred\b/.test(normQ)) {
+      score = Math.max(score, 42);
+    }
+  }
+
+  if (isTrans && isCnh) {
+    if (
+      /\bmat\s*(3544|3540)\b/.test(normQ) ||
+      normQ.includes("zinc free trans drive") ||
+      normQ.includes("zf trans drive") ||
+      (normQ.includes("agrimax") && normQ.includes("trans drive") && normQ.includes("red"))
+    ) {
+      score = Math.max(score, 52);
+    }
+    if (queryHasCnhAgCue(normQ) && normQ.includes("trans drive")) {
+      score = Math.max(score, 50);
+    }
+    if (normQ.includes("agrimax") && normQ.includes("trans drive") && !queryHasJohnDeereAgCue(normQ) && !normQ.includes("green")) {
+      score = Math.max(score, 42);
+    }
+    if (product.id === AGRI_OEM_CNH_RED_TRANS_DRIVE_ID && hasStrongCnhAgTransDriveCue(normQ)) {
+      score = Math.max(score, 62);
+    }
+    if (
+      product.id === AGRI_OEM_CNH_RED_TRANS_DRIVE_ID &&
+      (normQ.includes("hydraulic transmission fluid") || normQ.includes("transmission hydraulic fluid")) &&
+      queryHasCnhAgCue(normQ)
+    ) {
+      score = Math.max(score, 58);
+    }
+  }
+
+  if (isPoly) {
+    const polyCue =
+      normQ.includes("poly tac") ||
+      normQ.includes("agrimax poly") ||
+      normQ.includes("jdm grease") ||
+      normQ.includes("gc-lb") ||
+      (normQ.includes("agrimax") && normQ.includes("grease"));
+    if (polyCue) score = Math.max(score, 50);
+    if (hasStrongAgriPolyTacCue(normQ)) {
+      score = Math.max(score, 58);
+    }
+    if (normQ.includes("polyurea") && !normQ.includes("agrimax") && !normQ.includes("poly tac")) {
+      if (!(normQ.includes("gc-lb") || normQ.includes("green ag") || normQ.includes("jdm grease"))) {
+        return 0;
+      }
+    }
+  }
+
+  if (normQ.includes("agrimax") && !queryHasJohnDeereAgCue(normQ) && !queryHasCnhAgCue(normQ)) {
+    if (isElc || isHd || isTrans) {
+      score = Math.max(score, 40);
+    }
+  }
+
+  return score;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} key
+ */
+function resolveAgriOemFromPdsRetrievalKey(normQ, key) {
+  /** @type {import("../data/agriOemCanonicalProductIntelligence.js").AgriOemCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const product of listAgriOemCanonicalProductIntelligence()) {
+    if (product.pdsMapKey !== key) continue;
+    const score = scoreAgriOemCanonicalProduct(product, normQ, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = product;
+    }
+  }
+  return best && bestScore >= ENTITY_DETECT_MIN_SCORE ? best : null;
+}
+
+/**
+ * @param {unknown} inputText
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectAgriOemCanonicalProductEntities(inputText) {
+  const normQ = relaxNormalizedProductQuery(normalizeProductQuery(inputText));
+  if (!normQ) return [];
+
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const product of listAgriOemCanonicalProductIntelligence()) {
+    const score = scoreAgriOemCanonicalProduct(product, normQ, inputText);
+    if (score < ENTITY_DETECT_MIN_SCORE) continue;
+    hits.push({ id: product.id, score, label: product.productName });
+  }
+  return hits;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} detectId
+ */
+function resolveAgriOemCanonicalFromDetectId(normQ, detectId) {
+  const id = String(detectId ?? "").trim();
+  if (!id) return null;
+
+  /** @type {import("../data/agriOemCanonicalProductIntelligence.js").AgriOemCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const product of AGRI_OEM_CANONICAL_PRODUCT_INTELLIGENCE.products) {
+    if (product.id !== id) continue;
+    const score = scoreAgriOemCanonicalProduct(product, normQ, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = product;
+    }
+  }
+  if (best) return best;
+  if (id.startsWith("agri-oem-canonical-")) {
+    return getAgriOemCanonicalProductIntelligenceById(id);
+  }
+  return null;
+}
+
+/**
+ * @param {import("../data/agriOemCanonicalProductIntelligence.js").AgriOemCanonicalProductIntelligence} product
+ */
+function buildEntitySectionsFromAgriOemCanonical(product) {
+  const gradeLabel = product.saeGrade
+    ? `SAE ${product.saeGrade}`
+    : product.isoGrade
+      ? `ISO VG ${product.isoGrade}`
+      : product.nlgiGrade
+        ? `NLGI ${product.nlgiGrade}`
+        : product.viscosityGrade;
+  const whatItIs = uniqStrings([
+    product.productName,
+    product.salesPositioning,
+    product.formulation,
+    product.oemAlignment ? `OEM alignment: ${product.oemAlignment}` : "",
+    product.oemColorIdentity ? `Color identity: ${product.oemColorIdentity}` : "",
+    product.equipmentSegment ? `Equipment segment: ${product.equipmentSegment}` : "",
+    product.applicationSegment ? `Application segment: ${product.applicationSegment}` : "",
+    product.coolantChemistry ? `Coolant chemistry: ${product.coolantChemistry}` : "",
+    product.thickenerType ? `Thickener: ${product.thickenerType}` : "",
+    gradeLabel ? `${gradeLabel} — ${product.productFamily}` : product.productFamily,
+  ]);
+  const whyItWins = uniqStrings([
+    product.salesPositioning,
+    ...product.differentiators,
+    ...product.salesEnablementAngles,
+  ]);
+  const proof = uniqStrings([...product.specifications, ...product.approvals]);
+  const whereFits = uniqStrings([
+    ...product.applications,
+    ...product.bestFit,
+    ...product.crossSellSignals,
+  ]);
+  const repTalk = uniqStrings([product.salesPositioning, ...product.productSpotlightAngles.slice(0, 3)]);
+  const questions = uniqStrings([
+    ...product.customerProfileQuestions,
+    ...product.customerProfileSignals.map((s) => `Customer profile signal: ${s}`),
+    ...product.oemConquestSignals.map((s) => `OEM conquest signal: ${s}`),
+    "Is this account primarily John Deere, CNH/Case IH, or mixed fleet?",
+    "What product number is on the drum or purchase order?",
+  ]);
+  const techLines = Object.entries(product.technicalProperties || {}).map(([k, v]) => `${k}: ${v}`);
+  const confirm = uniqStrings([
+    ...product.cautions,
+    ...product.notBestFit.map((n) => `Not best fit: ${n}`),
+    ...product.sourceNotes,
+    ...product.operationalPainPoints.map((p) => `Operational pain point: ${p}`),
+    ...product.accountSegmentationSignals.map((s) => `Account segmentation: ${s}`),
+    product.pdsMapKey ? `Confirm the indexed row “${product.pdsMapKey}” matches the drum label before quoting.` : "",
+    product.pdsFileName ? `PDS file: ${product.pdsFileName}` : "",
+    ...(product.productNumbers.length ? [`Product numbers: ${product.productNumbers.join("; ")}`] : []),
+    ...techLines.slice(0, 10),
+  ]);
+
+  const proofIntro = proof.length
+    ? "Use indexed PDS map lines and the live PDS PDF—quote only printed spec rows."
+    : "Open the current PDS PDF for authoritative proof; the map index is a pointer only.";
+
+  return [
+    narrativeSection("whatItIs", "What It Is", product.category ? String(product.category) : "", whatItIs),
+    narrativeSection("whyItWins", "Why It Wins", "", whyItWins.length ? whyItWins : []),
+    narrativeSection("pdsBackedProof", "PDS-Backed Proof", proofIntro, proof.length ? proof.slice(0, 10) : []),
+    narrativeSection(
+      "whereItFits",
+      "Where It Fits",
+      product.categorySpotlightAngles?.[0] ? String(product.categorySpotlightAngles[0]) : gradeLabel || "",
+      whereFits
+    ),
+    narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk),
+    narrativeSection("questionsToAsk", "Questions to Ask", "", questions),
+    narrativeSection("confirmBeforeUse", "Confirm Before Use", "", confirm),
+  ].filter((s) => s.body || (s.items && s.items.length > 0));
+}
+
+/**
  * @param {string} normQ
  */
 function isCoolantAntifreezeProductQuery(normQ) {
@@ -2679,7 +3336,19 @@ function scoreCoolantCanonicalProduct(cool, normQ) {
     if (normQ.includes("green") && (normQ.includes("oat") || normQ.includes("elc") || normQ.includes("noat"))) return 0;
   }
   if (!yellow && cool.id === "coolant-canonical-yellow-oat-elc") return 0;
-  if (!gold && cool.id === "coolant-canonical-gold-nf-oat-elc") return 0;
+  if (!gold && cool.id === "coolant-canonical-gold-nf-oat-elc") {
+    const genericExtendedLifeCoolant =
+      normQ.includes("extended life") &&
+      normQ.includes("coolant") &&
+      !normQ.includes("gold") &&
+      !normQ.includes("yellow") &&
+      !normQ.includes("red") &&
+      !normQ.includes("green") &&
+      !hasStrongAgriOemIntent(normQ) &&
+      !queryHasJohnDeereAgCue(normQ) &&
+      !queryHasCnhAgCue(normQ);
+    if (!genericExtendedLifeCoolant) return 0;
+  }
   if (!red && cool.id === "coolant-canonical-red-noat-elc") return 0;
   if (!hoat && cool.id === "coolant-canonical-commercial-hd-hoat-elc") return 0;
 
@@ -2721,6 +3390,21 @@ function scoreCoolantCanonicalProduct(cool, normQ) {
       score = Math.max(score, 36);
     } else {
       score = Math.max(score, 34);
+    }
+  }
+
+  if (
+    normQ.includes("extended life") &&
+    normQ.includes("coolant") &&
+    !isSpecificNamedCoolantProductQuery(normQ) &&
+    !hasStrongAgriOemIntent(normQ) &&
+    !queryHasJohnDeereAgCue(normQ) &&
+    !queryHasCnhAgCue(normQ)
+  ) {
+    if (cool.id === "coolant-canonical-gold-nf-oat-elc") {
+      score = Math.max(score, 42);
+    } else if (cool.hierarchyBranch.includes("oat") || cool.hierarchyBranch.includes("elc")) {
+      score = Math.max(score, 32);
     }
   }
 
@@ -2878,11 +3562,15 @@ export function detectKlondikeProductEntity(inputText) {
 
   const exactGearSkuHits = detectExactGearOilProductNumberMatch(inputText);
   const exactSpecialtySkuHits = detectExactIndustrialSpecialtyOilProductNumberMatch(inputText);
+  const exactAgriOemSkuHits = detectExactAgriOemProductNumberMatch(inputText);
+  const strongAgriMatTransDriveHits = detectStrongAgriOemMatTransDriveEntityHits(inputText);
 
   /** @type {Array<{ id: string, score: number, label: string }>} */
   const hits = [
     ...exactGearSkuHits,
     ...exactSpecialtySkuHits,
+    ...exactAgriOemSkuHits,
+    ...strongAgriMatTransDriveHits,
     ...detectGreaseCanonicalProductEntities(normQ),
     ...detectHydraulicCanonicalProductEntities(normQ),
     ...detectHdEngineOilCanonicalProductEntities(normQ),
@@ -2890,6 +3578,7 @@ export function detectKlondikeProductEntity(inputText) {
     ...detectCoolantCanonicalProductEntities(normQ),
     ...detectGearOilCanonicalProductEntities(normQ),
     ...detectIndustrialSpecialtyOilCanonicalProductEntities(normQ),
+    ...detectAgriOemCanonicalProductEntities(inputText),
   ];
 
   hits.sort((a, b) => b.score - a.score);
@@ -3023,12 +3712,20 @@ export function detectKlondikeProductEntity(inputText) {
             if (existing) existing.score = Math.max(existing.score, boost);
             else hits.push({ id: specialtyFromKey.id, score: boost, label: specialtyFromKey.productName });
           } else {
+            const agriFromKey = resolveAgriOemFromPdsRetrievalKey(normQ, key);
+            if (agriFromKey) {
+              const existing = hits.find((h) => h.id === agriFromKey.id);
+              const boost = Math.min(72, top.score + 6);
+              if (existing) existing.score = Math.max(existing.score, boost);
+              else hits.push({ id: agriFromKey.id, score: boost, label: agriFromKey.productName });
+            } else {
             for (const entity of PRODUCT_ENTITY_REGISTRY) {
               if (entity.pdsKeys.includes(key)) {
                 const existing = hits.find((h) => h.id === entity.id);
                 if (existing) existing.score = Math.min(72, existing.score + 10);
                 else hits.push({ id: entity.id, score: Math.min(72, top.score + 8), label: entity.label });
               }
+            }
             }
           }
         }
@@ -3098,6 +3795,7 @@ export function resolveKlondikeProductEntity(inputText) {
   const coolantCanonical = resolveCoolantCanonicalFromDetectId(normQ, top.id);
   const gearOilCanonical = resolveGearOilCanonicalFromDetectId(normQ, top.id);
   const industrialSpecialtyCanonical = resolveIndustrialSpecialtyOilCanonicalFromDetectId(normQ, top.id);
+  const agriOemCanonical = resolveAgriOemCanonicalFromDetectId(normQ, top.id);
   const entity = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === top.id);
   if (
     !entity &&
@@ -3107,7 +3805,8 @@ export function resolveKlondikeProductEntity(inputText) {
     !transmissionCanonical &&
     !coolantCanonical &&
     !gearOilCanonical &&
-    !industrialSpecialtyCanonical
+    !industrialSpecialtyCanonical &&
+    !agriOemCanonical
   ) {
     return empty;
   }
@@ -3120,6 +3819,7 @@ export function resolveKlondikeProductEntity(inputText) {
     coolantCanonical?.pdsMapKey ??
     gearOilCanonical?.pdsMapKey ??
     industrialSpecialtyCanonical?.pdsMapKey ??
+    agriOemCanonical?.pdsMapKey ??
     entity?.pickPdsKey(normQ) ??
     null;
   if (!pdsKey && entity?.pdsKeys.length === 1) pdsKey = entity.pdsKeys[0];
@@ -3138,7 +3838,8 @@ export function resolveKlondikeProductEntity(inputText) {
       (gearOilCanonical?.pdsMapKey && PDS_MAP[gearOilCanonical.pdsMapKey] ? gearOilCanonical.pdsMapKey : null) ||
       (industrialSpecialtyCanonical?.pdsMapKey && PDS_MAP[industrialSpecialtyCanonical.pdsMapKey]
         ? industrialSpecialtyCanonical.pdsMapKey
-        : null);
+        : null) ||
+      (agriOemCanonical?.pdsMapKey && PDS_MAP[agriOemCanonical.pdsMapKey] ? agriOemCanonical.pdsMapKey : null);
   }
 
   const label =
@@ -3149,6 +3850,7 @@ export function resolveKlondikeProductEntity(inputText) {
     coolantCanonical?.productName ??
     gearOilCanonical?.productName ??
     industrialSpecialtyCanonical?.productName ??
+    agriOemCanonical?.productName ??
     entity?.label ??
     top.label;
   const flagshipId =
@@ -3268,6 +3970,16 @@ function mapDetectedToLikelyMatches(detected, normQ) {
         entityId: d.id,
         pdsKey: key && PDS_MAP[key] ? key : null,
         label: specialty.productName,
+        score: d.score,
+      };
+    }
+    const agri = resolveAgriOemCanonicalFromDetectId(normQ, d.id);
+    if (agri) {
+      const key = agri.pdsMapKey;
+      return {
+        entityId: d.id,
+        pdsKey: key && PDS_MAP[key] ? key : null,
+        label: agri.productName,
         score: d.score,
       };
     }
@@ -3737,6 +4449,10 @@ export function buildProductEntityAdvisorResponse(inputText) {
     relaxNormalizedProductQuery(normalizeProductQuery(question)),
     resolved.entityId || ""
   );
+  const agriOemCanonical = resolveAgriOemCanonicalFromDetectId(
+    relaxNormalizedProductQuery(normalizeProductQuery(question)),
+    resolved.entityId || ""
+  );
 
   if (resolved.entityId === "entity-deep-well-pump-oil") {
     const matchedProducts = (searchKlondikeProducts(question).matches || []).slice(0, 6).map((m) => ({
@@ -3787,7 +4503,8 @@ export function buildProductEntityAdvisorResponse(inputText) {
     !transmissionCanonical &&
     !coolantCanonical &&
     !gearOilCanonical &&
-    !industrialSpecialtyCanonical
+    !industrialSpecialtyCanonical &&
+    !agriOemCanonical
   ) {
     return {
       ...empty,
@@ -3813,6 +4530,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
     !coolantCanonical &&
     !gearOilCanonical &&
     !industrialSpecialtyCanonical &&
+    !agriOemCanonical &&
     flagship &&
     isNanoEp2FlagshipId(flagship.id)
       ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE
@@ -3825,6 +4543,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
     coolantCanonical?.productName ||
     gearOilCanonical?.productName ||
     industrialSpecialtyCanonical?.productName ||
+    agriOemCanonical?.productName ||
     nanoIntel?.canonicalProductLabel ||
     flagship?.productName ||
     pdsKey ||
@@ -3844,11 +4563,13 @@ export function buildProductEntityAdvisorResponse(inputText) {
               ? gearOilCanonical.salesPositioning
               : industrialSpecialtyCanonical
                 ? industrialSpecialtyCanonical.salesPositioning
-                : nanoIntel
-                  ? nanoIntel.whyItWins
-                  : flagship?.whyItWins ||
-                    (pdsRow?.why ? String(pdsRow.why) : "") ||
-                    `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
+                : agriOemCanonical
+                  ? agriOemCanonical.salesPositioning
+                  : nanoIntel
+                    ? nanoIntel.whyItWins
+                    : flagship?.whyItWins ||
+                      (pdsRow?.why ? String(pdsRow.why) : "") ||
+                      `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
 
   const sections = greaseCanonical
     ? buildEntitySectionsFromGreaseCanonical(greaseCanonical)
@@ -3864,7 +4585,9 @@ export function buildProductEntityAdvisorResponse(inputText) {
               ? buildEntitySectionsFromGearOilCanonical(gearOilCanonical)
               : industrialSpecialtyCanonical
                 ? buildEntitySectionsFromIndustrialSpecialtyOilCanonical(industrialSpecialtyCanonical)
-                : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
+                : agriOemCanonical
+                  ? buildEntitySectionsFromAgriOemCanonical(agriOemCanonical)
+                  : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
   const followUpQuestions = sections.find((s) => s.id === "questionsToAsk")?.items || [];
   const cautionNotes =
     greaseCanonical?.cautionNotes?.length
@@ -3899,7 +4622,12 @@ export function buildProductEntityAdvisorResponse(inputText) {
                       ...industrialSpecialtyCanonical.cautions,
                       ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
                     ])
-                  : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
+                  : agriOemCanonical?.cautions?.length
+                    ? uniqStrings([
+                        ...agriOemCanonical.cautions,
+                        ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
+                      ])
+                    : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
 
   /** @type {string[]} */
   const sourceBadges = ["Product entity resolver", "PDS map index"];
@@ -3911,6 +4639,9 @@ export function buildProductEntityAdvisorResponse(inputText) {
   if (gearOilCanonical) sourceBadges.push("Gear oil canonical product intelligence");
   if (industrialSpecialtyCanonical) {
     sourceBadges.push("Industrial specialty oil canonical product intelligence");
+  }
+  if (agriOemCanonical) {
+    sourceBadges.push("Ag OEM canonical product intelligence");
   }
   if (flagship) sourceBadges.push("Flagship product intelligence");
   if (nanoIntel) sourceBadges.push("Nano EP 2 canonical intelligence");
