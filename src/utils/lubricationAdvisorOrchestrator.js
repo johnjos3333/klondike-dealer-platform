@@ -56,8 +56,15 @@ import {
   buildProductDifferentiationResponse,
   detectProductDifferentiationIntent,
 } from "./productDifferentiationAdvisorHelpers.js";
+import {
+  buildProductEntityAdvisorResponse,
+  detectKlondikeProductEntity,
+} from "./klondikeProductEntityResolver.js";
 
 const MATCH_THRESHOLD = 6;
+/** Named product entity early-route (aligns with `klondikeProductEntityResolver` exact threshold). */
+const PRODUCT_ENTITY_STRONG_MIN_SCORE = 34;
+const PRODUCT_ENTITY_AMBIGUOUS_GAP = 6;
 /** Differentiation early-route: require anchored cue score from `detectProductDifferentiationIntent`. */
 const PRODUCT_DIFFERENTIATION_STRONG_MIN_SCORE = 26;
 /** Minimum top `searchKlondikeProducts` score to answer catalog questions (aligns with PDS map search floor). */
@@ -410,6 +417,28 @@ export function buildLubricationAdvisorResponse(inputText) {
       followUpQuestions: fusionResponse.followUpQuestions || [],
       sourceBadges: fusionResponse.sourceBadges || ["Context fusion"],
       cautionNotes: fusionResponse.cautionNotes || [],
+    };
+  }
+
+  const entityDetected = detectKlondikeProductEntity(question);
+  const entityTop = entityDetected[0];
+  const entitySecond = entityDetected[1];
+  const strongProductEntity =
+    entityTop &&
+    entityTop.score >= PRODUCT_ENTITY_STRONG_MIN_SCORE &&
+    (!entitySecond || entityTop.score - entitySecond.score >= PRODUCT_ENTITY_AMBIGUOUS_GAP);
+  if (strongProductEntity) {
+    const entityResp = buildProductEntityAdvisorResponse(question);
+    return {
+      intent: "product_entity",
+      confidence: Math.min(0.95, (entityTop?.score || PRODUCT_ENTITY_STRONG_MIN_SCORE) / 48),
+      title: entityResp.title,
+      directAnswer: entityResp.directAnswer,
+      sections: entityResp.sections || [],
+      followUpQuestions: entityResp.followUpQuestions || [],
+      sourceBadges: entityResp.sourceBadges || ["Product entity resolver"],
+      cautionNotes: entityResp.cautionNotes || [],
+      matchedProducts: entityResp.matchedProducts || [],
     };
   }
 

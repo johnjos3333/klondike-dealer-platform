@@ -23,9 +23,7 @@ const ENTITY_AMBIGUOUS_GAP = 6;
  *   label: string,
  *   flagshipId: string | null,
  *   pdsKeys: string[],
- *   /** @param {string} normQ @returns {number} */
  *   scoreQuery: (normQ: string) => number,
- *   /** @param {string} normQ @returns {string | null} */
  *   pickPdsKey: (normQ: string) => string | null,
  * }} ProductEntityDefinition
  */
