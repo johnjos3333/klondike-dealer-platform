@@ -29,6 +29,19 @@ import {
   buildProductDifferentiationResponse,
   detectProductDifferentiationIntent,
 } from "./productDifferentiationAdvisorHelpers.js";
+import {
+  isNanoEp2Anchored,
+  isNanoEp2ProductQuery,
+  NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE,
+} from "../data/flagshipProductIntelligence.js";
+
+const NANO_FORBIDDEN_DESC_RX = /\b(lithium|lithium complex|molybdenum[- ]?disulfide|molybdenum|moly[- ]?fortified|\bmoly\b)/i;
+
+/** @param {string[]} lines */
+function filterNanoForbiddenWording(lines, nanoAnchored) {
+  if (!nanoAnchored) return lines;
+  return lines.filter((line) => !NANO_FORBIDDEN_DESC_RX.test(String(line ?? "")));
+}
 
 /**
  * Normalize caller `context` (supports `role`, `industry`, `equipment`, `troubleshooting`, `operatingConditions`
@@ -218,12 +231,14 @@ function resolvePdsRowFromQuery(keyOrQuery) {
  * @param {unknown} query
  */
 function matchAttributeProfile(query) {
-  const normQ = normalizeProductQuery(query);
+  const normQ = relaxNormalizedProductQuery(normalizeProductQuery(query));
   if (!normQ) return null;
+  if (isNanoEp2ProductQuery(normQ)) return null;
   let best = null;
   let bestScore = 0;
   for (const profile of Object.values(productAttributeKnowledge)) {
     if (!profile || typeof profile !== "object") continue;
+    if (String(profile.id || "") === "molyGrease") continue;
     let score = 0;
     const idn = normalizeProductQuery(String(profile.id || ""));
     if (idn && normQ.includes(idn)) score += 24;
@@ -541,7 +556,19 @@ function composeProductNarrativeSections(opts) {
   if (roleProfile?.cautionNotes?.length) confirm.push(...roleProfile.cautionNotes.map(String));
   if (troubleProfile?.cautionNotes?.length) confirm.push(...troubleProfile.cautionNotes.map(String));
 
-  const trim = (arr) => uniqStrings(arr).slice(0, limit);
+  const nanoAnchored = isNanoEp2Anchored(flagship, "");
+  if (nanoAnchored) {
+    const intel = NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE;
+    whatItIs.unshift(intel.whatItIsIntro, ...intel.whatItIsDetails);
+    whyItWins.unshift(intel.whyItWins, ...intel.keyDifferentiators);
+    translatedProof.unshift(...intel.premiumProofPoints);
+    whereFits.unshift(...intel.severeDutyUseCases);
+    repLines.unshift(...intel.repTalkTrack);
+    questions.unshift(...intel.questionsToAsk);
+    confirm.push(...intel.confirmBeforeUse, ...intel.doNotSay);
+  }
+
+  const trim = (arr) => filterNanoForbiddenWording(uniqStrings(arr), nanoAnchored).slice(0, limit);
 
   const sections = [
     narrativeSection(
@@ -609,14 +636,17 @@ function composeProductNarrativeSections(opts) {
  */
 export function buildProductNarrative(productKeyOrQuery, context = {}) {
   const q = String(productKeyOrQuery ?? "").trim();
+  const normQ = relaxNormalizedProductQuery(normalizeProductQuery(q));
   const ctx = normalizeCompositionContext(context);
   const flagship = resolveFlagshipFromQuery(q);
   const pds = resolvePdsRowFromQuery(q);
-  const attributeProfile =
-    (ctx.raw.attributeKey && productAttributeKnowledge[String(ctx.raw.attributeKey)]) ||
-    (context.attributeKey && productAttributeKnowledge[String(context.attributeKey)]) ||
-    matchAttributeProfile(q) ||
-    null;
+  const nanoAnchored = isNanoEp2Anchored(flagship, normQ);
+  const attributeProfile = nanoAnchored
+    ? null
+    : (ctx.raw.attributeKey && productAttributeKnowledge[String(ctx.raw.attributeKey)]) ||
+      (context.attributeKey && productAttributeKnowledge[String(context.attributeKey)]) ||
+      matchAttributeProfile(q) ||
+      null;
   const industryProfile =
     (ctx.industryRef && industryLubricationKnowledge[ctx.industryRef]) ||
     (context.industryKey && industryLubricationKnowledge[String(context.industryKey)]) ||
@@ -640,6 +670,12 @@ export function buildProductNarrative(productKeyOrQuery, context = {}) {
         : matchTroubleshootingProfile(`${q} ${ctx.troubleshootingRef}`.trim());
 
   if (!flagship && !pds?.row) {
+    if (isNanoEp2ProductQuery(normQ)) {
+      const nanoFlagship = resolveFlagshipFromQuery("Nano EP 2 Grease");
+      if (nanoFlagship) {
+        return buildProductNarrative("Nano EP 2 Grease", context);
+      }
+    }
     const attrOnly = attributeProfile || matchAttributeProfile(q);
     if (attrOnly) {
       return buildCategoryNarrative(String(attrOnly.id), context);
@@ -662,17 +698,18 @@ export function buildProductNarrative(productKeyOrQuery, context = {}) {
   }
 
   const title = flagship?.productName || pds?.key || "Product narrative";
-  const directAnswer =
-    flagship?.whyItWins ||
-    (pds?.row?.why ? String(pds.row.why) : "") ||
-    attributeProfile?.directAnswer ||
-    "Narrative is grounded on indexed flagship and PDS map fields—expand with live PDS review before customer send.";
+  const directAnswer = nanoAnchored
+    ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE.whyItWins
+    : flagship?.whyItWins ||
+      (pds?.row?.why ? String(pds.row.why) : "") ||
+      attributeProfile?.directAnswer ||
+      "Narrative is grounded on indexed flagship and PDS map fields—expand with live PDS review before customer send.";
 
   const { sections, sourcesUsed } = composeProductNarrativeSections({
     flagship,
     pdsKey: pds?.key || null,
     pdsRow: pds?.row || null,
-    attributeProfile,
+    attributeProfile: nanoAnchored ? null : attributeProfile,
     industryProfile,
     equipmentProfile,
     roleProfile,
@@ -965,14 +1002,17 @@ export function buildAdvisorProductExplanation(productKeyOrQuery, context = {}) 
   if (!base.ok) return base;
 
   const q = String(productKeyOrQuery ?? "").trim();
+  const normQ = relaxNormalizedProductQuery(normalizeProductQuery(q));
   const ctx = normalizeCompositionContext(context);
   const flagship = resolveFlagshipFromQuery(q);
   const pds = resolvePdsRowFromQuery(q);
-  const attributeProfile =
-    (ctx.raw.attributeKey && productAttributeKnowledge[String(ctx.raw.attributeKey)]) ||
-    (context.attributeKey && productAttributeKnowledge[String(context.attributeKey)]) ||
-    matchAttributeProfile(q) ||
-    null;
+  const nanoAnchored = isNanoEp2Anchored(flagship, normQ);
+  const attributeProfile = nanoAnchored
+    ? null
+    : (ctx.raw.attributeKey && productAttributeKnowledge[String(ctx.raw.attributeKey)]) ||
+      (context.attributeKey && productAttributeKnowledge[String(context.attributeKey)]) ||
+      matchAttributeProfile(q) ||
+      null;
   const industryProfile =
     (ctx.industryRef && industryLubricationKnowledge[ctx.industryRef]) ||
     (context.industryKey && industryLubricationKnowledge[String(context.industryKey)]) ||

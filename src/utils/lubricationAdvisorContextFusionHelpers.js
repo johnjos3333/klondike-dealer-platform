@@ -19,6 +19,10 @@ import { detectCompatibilityIntent } from "./lubricantCompatibilityHelpers.js";
 import { detectProductCategorySelectionIntent } from "./productCategorySelectionHelpers.js";
 import { detectRoleBasedSalesIntent } from "./roleBasedSalesTranslationHelpers.js";
 import { detectProductAttributeIntent } from "./productAttributeAdvisorHelpers.js";
+import {
+  NANO_EP_2_FLAGSHIP_PRODUCT_ID,
+  NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE,
+} from "../data/flagshipProductIntelligence.js";
 
 const CONTEXT_MATCH_THRESHOLD = 6;
 
@@ -45,34 +49,12 @@ const FUSION_FLAGSHIP_PRODUCT_ALIASES = {
 
 /** Product-specific education supplements for fusion responses (fusion layer only). */
 const PRODUCT_EDUCATION_SUPPLEMENTS = {
-  "flagship-nano-ep-2-grease": {
-    whatItIsIntro:
-      "KLONDIKE Nano Calcium Sulfonate EP Grease (Nano EP 2) is a premium severe-duty NLGI 2 grease built on calcium sulfonate thickener chemistry—not the commodity lithium or lithium complex EP-2 tier sold on price alone.",
-    whatItIsDetails: [
-      "Calcium sulfonate thickener with EP package designed for shock, wet exposure, and load spikes on pins and bushings.",
-      "PDS calls out nano tungsten disulfide for EP and wear—use the printed wording customer-facing, not extrapolated marketing.",
-      "Positioned for severe duty where washout resistance and film strength matter more than the cheapest red tube on the shelf.",
-      "Different from commodity lithium/lithium complex greases in thickener chemistry, washout performance, and published severe-service proof points.",
-    ],
-    whereItFits: [
-      "Crusher frames, hammer mills, and slow-turn pins with shock loads.",
-      "Shovel, loader, and excavator bushings in wet mining and construction yards.",
-      "Pins and bushings on haul roads, slurry exposure, and pressure-wash routines.",
-      "Industrial and plant applications needing documented EP, Timken, and washout numbers—not tribal grease-board guesses.",
-    ],
-    questionsToAsk: [
-      "What thickener and NLGI grade is in the pin or auto-lube line today?",
-      "Which joints see the worst shock, water, or wash-down—crushers, hammers, or loader booms?",
-      "Does the OEM chart allow NLGI 2 calcium sulfonate EP on these points?",
-      "Manual regrease, gun, or centralized auto-lube—and any compatibility restrictions?",
-      "What failure are you fighting—wash-off, metal loss, or line plugging after a product change?",
-    ],
-    confirmBeforeUse: [
-      "Confirm OEM and application allow NLGI 2 calcium sulfonate EP on each point before recommending.",
-      "Do not assume interchangeability with lithium or lithium complex greases without a compatibility review.",
-      "Centralized lube systems need thickener compatibility sign-off before bulk conversion.",
-      "Keep all claims inside the current PDS—do not extrapolate nano or drain-life beyond printed statements.",
-    ],
+  [NANO_EP_2_FLAGSHIP_PRODUCT_ID]: {
+    whatItIsIntro: NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE.whatItIsIntro,
+    whatItIsDetails: [...NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE.whatItIsDetails],
+    whereItFits: [...NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE.severeDutyUseCases],
+    questionsToAsk: [...NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE.questionsToAsk],
+    confirmBeforeUse: [...NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE.confirmBeforeUse],
   },
 };
 
@@ -500,7 +482,7 @@ function buildProductCentricSections(contexts) {
         supplement?.whatItIsDetails,
         product.whatMakesThisDifferent,
         product.keyDifferentiators?.filter((line) =>
-          /lithium|calcium sulfonate|tungsten|thickener|commodity/i.test(line)
+          /calcium sulfonate|tungsten|thickener|commodity|shock|washout|weld|dropping/i.test(line)
         )
       )
     ),

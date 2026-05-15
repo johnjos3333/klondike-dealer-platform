@@ -33,19 +33,19 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
       id: "flagship-nano-ep-2-grease",
       productName: "Nano EP 2 Grease",
       flagshipPositioning:
-        "Premium severe-duty grease film for shock, wet pins, and real wash-down—not the commodity EP-2 drum sold on price alone.",
+        "Calcium sulfonate complex grease with proprietary tungsten disulfide nanotechnology for severe-duty shock-load protection and wet-environment washout resistance—not commodity EP grease sold on price alone.",
       fieldIdentity:
-        "What you reach for when hammers, crushers, and loader pins are eating shock, slurry is in every joint, and downtime from washout or metal loss is not an abstract risk.",
+        "What you reach for when hammers, crushers, and loader pins need calcium sulfonate complex chemistry, 800 kg 4-ball weld headroom, high dropping point, and washout resistance—not commodity EP grease on the grease board.",
       severeDutyUseCases: [
         "Crusher frames, hammer mills, and slow-turn pins where shock loads spike and a thin film has to survive until the next service window.",
         "Shovels, loaders, and excavator bushings in wet yards—pressure-wash routines, haul roads, and seasonal mud that strip marginal greases.",
         "Mine and plant shops that want one severe EP tier with NLGI 2 discipline (or NLGI 1 where the OEM chart calls for it) instead of a rainbow of “good enough” tubes.",
       ],
       keyDifferentiators: [
-        "Severe-duty film for shock, wet pins, and load spikes—the joints crushers, hammers, and loaders punish every shift.",
-        "Nano tungsten disulfide on the PDS ties EP/wear language to sliding and shock in the field, not buzzwords on a tube.",
-        "Water spray-off on the summary stays under 1%; dropping point sits near 316 °C class—hot, wet, nasty duty without guessing.",
-        "4-ball weld 800 kg and Timken OK on the sheet give maintenance managers numbers beside the zerk map.",
+        "Calcium sulfonate complex grease with proprietary tungsten disulfide nanotechnology for severe-duty shock-load protection.",
+        "800 kg 4-ball weld and Timken OK on the PDS give maintenance managers numbers beside the zerk map.",
+        "Wet-environment washout resistance with water spray-off under 1% on the indexed summary.",
+        "High dropping point near 316 °C class on the index—hot, wet, nasty duty without commodity EP grease guesswork.",
       ],
       emotionalSalesAngles: [
         "Quiet confidence when the night shift regrease has to count—washout and load numbers match the ugliest pins, not the best-case demo.",
@@ -58,9 +58,9 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
       ],
       premiumProofPoints: [
         "PDS-indexed 4-ball weld load 800 kg—anchor crushers, hammers, and kingpin talk to the number on the wall.",
-        "PDS-indexed water spray-off below 1%—wet yards, wash-down, and slurry without hand-waving.",
-        "PDS-indexed dropping point ~316 °C class—heat headroom when things run angry, not commodity-tube guesswork.",
-        "PDS references nano tungsten disulfide for EP/wear—repeat the printed wording customer-facing.",
+        "PDS-indexed water spray-off below 1%—wet-environment washout resistance without hand-waving.",
+        "PDS-indexed high dropping point ~316 °C class—heat headroom versus commodity EP grease guesswork.",
+        "PDS references proprietary tungsten disulfide nanotechnology for EP/wear—repeat the printed wording customer-facing.",
       ],
       whatMakesThisDifferent: [
         "It earns the premium slot with published EP, Timken, washout, and temperature headroom—not with a louder “heavy duty” label.",
@@ -76,9 +76,9 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
         "Sell premium severe duty where downtime hurts: crushers, hammers, bushings, and wet shifts—not the shallow EP-2 aisle story.",
       ],
       flagshipNarrativeParagraph:
-        "Nano EP 2 is the grease story when the yard is loud, wet, and expensive to stop—crushers, hammers, loader pins, and bushings eating shock and slurry while pressure-wash routines strip films that were never built for the job. KLONDIKE nano Calcium Sulfonate EP Grease brings PDS-indexed 800 kg four-ball weld, water spray-off under one percent, dropping point near 316 °C on the index, and nano tungsten disulfide called out for EP and wear—field language for severe shock and wet exposure, not another commodity EP-2 tube sold on color. Position it where uptime and contamination are real, keep claims inside the printed lines, and help the rep sound like the specialist who has watched cheap grease cost hours.",
+        "Nano EP 2 is calcium sulfonate complex grease with proprietary tungsten disulfide nanotechnology for severe-duty shock-load protection when the yard is loud, wet, and expensive to stop—crushers, hammers, loader pins, and bushings eating shock and slurry while pressure-wash routines strip commodity EP grease films. KLONDIKE nano Calcium Sulfonate EP Grease brings PDS-indexed 800 kg four-ball weld, water spray-off under one percent, high dropping point near 316 °C on the index, and proprietary tungsten disulfide nanotechnology called out for EP and wear—field language for wet-environment duty, not another commodity EP grease tube sold on color.",
       whyItWins:
-        "It wins where shock, water, and heat gang up: 800 kg four-ball weld, sub-1% spray-off, and ~316 °C dropping point on the index back a severe-duty film for crushers, hammers, and wet pins—not the commodity EP-2 habit that treats every red tube as interchangeable.",
+        "It wins where shock, water, and heat gang up: 800 kg 4-ball weld, sub-1% spray-off, and high dropping point on the index back calcium sulfonate complex chemistry with proprietary tungsten disulfide nanotechnology for crushers, hammers, and wet pins—not commodity EP grease sold on habit.",
       customerPainSignals: [
         "Crusher and hammer circuits that spike shock—then pins complain before the service window.",
         "Wet shifts, slurry, and wash-down that strip marginal films and send crews back out for unplanned regreases.",
@@ -92,14 +92,14 @@ export const SALES_ENABLEMENT_FLAGSHIP_NARRATIVES = {
       repTalkTrack: [
         "Start on hours: “Where are you bleeding time—crushers, hammers, wet booms, or pins that see shock every pass?”",
         "Drop proof without drama: “Eight-hundred-kilogram weld on the index, washout under one percent, dropping point around three-sixteen—those are not commodity EP-2 behaviors.”",
-        "Bridge tungsten disulfide to wear: “The PDS calls out nano tungsten disulfide for EP and wear—say it the way it prints, then walk to their worst joint.”",
+        "Bridge proprietary tungsten disulfide nanotechnology to wear: “The PDS calls out proprietary tungsten disulfide nanotechnology for EP and wear—say it the way it prints, then walk to their worst joint.”",
         "Close on discipline: “Match the catalog, keep language inside the sheet, and put premium where shock, water, and load actually live.”",
       ],
       doNotSay: [
-        "Do not call it interchangeable with every NLGI 2 lithium EP grease or central systems without a compatibility review.",
-        "Do not extrapolate “nano” beyond the published PDS statements.",
+        "Do not call it interchangeable with every NLGI 2 EP grease or central systems without a compatibility review.",
+        "Do not extrapolate proprietary tungsten disulfide nanotechnology beyond the published PDS statements.",
         "Do not promise miracle life extension beyond OEM regrease intervals.",
-        "Do not imply NLGI 2 without confirming OEM allows NLGI 2 calcium sulfonate EP on that joint.",
+        "Do not imply NLGI 2 without confirming OEM allows NLGI 2 calcium sulfonate complex EP on that joint.",
       ],
     },
     {

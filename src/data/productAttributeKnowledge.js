@@ -456,7 +456,7 @@ export const productAttributeKnowledge = {
     directAnswer:
       "Yes—KLONDIKE indexes nano Calcium Sulfonate EP Grease on PDS with calcium sulfonate complex thickener, severe-duty EP positioning, and published weld, Timken, washout, and nano tungsten disulfide language on the grease spotlight map.",
     whatItMeans:
-      "Grease built on calcium sulfonate thickener chemistry—often selected for water resistance, corrosion protection, and EP performance on pins and bushings versus commodity lithium EP-2.",
+      "Grease built on calcium sulfonate complex thickener chemistry—severe-duty EP, washout resistance, and shock-load protection on pins and bushings versus commodity EP-2 greases sold on price alone.",
     whyCustomersAsk:
       "Mining, construction, and quarry accounts want calcium sulfonate for wet pins and shock load—but need PDS proof and thickener compatibility before fleet conversion.",
     likelyProductCategories: ["grease", "severe_duty_grease"],
@@ -477,8 +477,8 @@ export const productAttributeKnowledge = {
     repTalkTrack:
       "KLONDIKE’s indexed calcium sulfonate severe-duty story is nano Calcium Sulfonate EP on PDS—with weld, washout, and tungsten disulfide lines for wet, shock-loaded pins. Before bulk change we confirm thickener compatibility and OEM NLGI.",
     cautionNotes: [
-      "Do not interchange with lithium or polyurea without compatibility chart review.",
-      "Keep nano claims inside published PDS wording.",
+      "Do not interchange with incompatible thickener families (polyurea and other soap types) without compatibility chart review.",
+      "Keep proprietary tungsten disulfide nanotechnology claims inside published PDS wording.",
     ],
     keywords: ["calcium sulfonate", "sulfonate grease", "nano calcium", "calcium complex"],
   },

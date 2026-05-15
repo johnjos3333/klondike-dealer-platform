@@ -2,7 +2,7 @@
  * Deterministic narrative composition templates (KL Admin Sales Enablement + Dealer Rep Lubricant Advisor).
  * Data only — no runtime I/O. Pair with `productNarrativeComposer.js`.
  *
- * Flagship “product intelligence” is provided by `salesEnablement/flagshipNarratives.js` (indexed narratives + PDS-backed proof lines).
+ * Flagship “product intelligence” is provided by `flagshipProductIntelligence.js` (canonical Nano EP 2 copy) and `salesEnablement/flagshipNarratives.js` (indexed narratives + PDS-backed proof lines).
  */
 
 /** @type {number} */

@@ -13,6 +13,10 @@ import {
 import { PDS_MAP } from "../data/pdsMap.js";
 import { normalizeProductQuery, searchKlondikeProducts } from "./klondikeProductRetrievalHelpers.js";
 import { buildAdvisorProductExplanation, buildProductNarrative } from "./productNarrativeComposer.js";
+import {
+  isNanoEp2FlagshipId,
+  NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE,
+} from "../data/flagshipProductIntelligence.js";
 
 const DETECTION_MIN_SCORE = 16;
 
@@ -436,61 +440,76 @@ export function buildProductDifferentiationResponse(inputText) {
 
   if (resolved.source === "flagship" && resolved.flagship) {
     const f = resolved.flagship;
+    const nanoIntel = isNanoEp2FlagshipId(f.id) ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE : null;
+    const whatDifferent = nanoIntel
+      ? [...nanoIntel.keyDifferentiators]
+      : [...(f.whatMakesThisDifferent || []), ...(f.keyDifferentiators || [])].filter(Boolean).slice(0, 12);
+    const whyMattersBody = nanoIntel
+      ? nanoIntel.whyItWins
+      : [f.whyItWins, f.flagshipPositioning].filter(Boolean).join(" ");
+    const proofItems = nanoIntel
+      ? [...nanoIntel.premiumProofPoints]
+      : [...(f.premiumProofPoints || [])].filter(Boolean).slice(0, 10);
+    const whereItems = nanoIntel
+      ? [...nanoIntel.severeDutyUseCases]
+      : [...(f.severeDutyUseCases || []), ...(f.operationalConsequences || [])].filter(Boolean).slice(0, 10);
+    const repItems = nanoIntel
+      ? [...nanoIntel.repTalkTrack]
+      : [...(f.repTalkTrack || [])].filter(Boolean).slice(0, 8);
+    const confirmItems = nanoIntel
+      ? [...nanoIntel.confirmBeforeUse, ...nanoIntel.doNotSay, ...cautionNotes]
+      : [...(f.doNotSay || []), ...cautionNotes].filter(Boolean);
+    const nanoFollowUps = nanoIntel ? [...nanoIntel.questionsToAsk] : followUpQuestions;
+
     const sections = [
-      section(
-        "whatMakesItDifferent",
-        "What Makes It Different",
-        "",
-        [...(f.whatMakesThisDifferent || []), ...(f.keyDifferentiators || [])].filter(Boolean).slice(0, 12)
-      ),
+      section("whatMakesItDifferent", "What Makes It Different", nanoIntel?.whatItIsIntro || "", whatDifferent),
       section(
         "whyItMatters",
         "Why It Matters",
-        [f.whyItWins, f.flagshipPositioning].filter(Boolean).join(" "),
-        [...(f.operationalWins || []), ...(f.customerPainSignals || [])].filter(Boolean).slice(0, 10)
+        whyMattersBody,
+        nanoIntel
+          ? []
+          : [...(f.operationalWins || []), ...(f.customerPainSignals || [])].filter(Boolean).slice(0, 10)
       ),
       section(
         "pdsSpecProof",
         "PDS / Spec Proof",
         "Below are narrative proof points that reference indexed PDS language—repeat only what is printed and current for the customer’s revision.",
-        [...(f.premiumProofPoints || [])].filter(Boolean).slice(0, 10)
+        proofItems
       ),
-      section(
-        "whereItFits",
-        "Where It Fits",
-        "",
-        [...(f.severeDutyUseCases || []), ...(f.operationalConsequences || [])].filter(Boolean).slice(0, 10)
-      ),
+      section("whereItFits", "Where It Fits", "", whereItems),
       section(
         "upgradeStory",
         "Upgrade Story",
         "",
-        [...(f.emotionalSalesAngles || []), ...(f.dealerTalkingPoints || [])].filter(Boolean).slice(0, 10)
+        nanoIntel
+          ? []
+          : [...(f.emotionalSalesAngles || []), ...(f.dealerTalkingPoints || [])].filter(Boolean).slice(0, 10)
       ),
-      section("repTalkTrack", "Rep Talk Track", "", [...(f.repTalkTrack || [])].filter(Boolean).slice(0, 8)),
-      section("questionsToAsk", "Questions to Ask", "", followUpQuestions),
-      section(
-        "confirmBeforeUse",
-        "Confirm Before Use",
-        "",
-        [...(f.doNotSay || []), ...cautionNotes].filter(Boolean)
-      ),
+      section("repTalkTrack", "Rep Talk Track", "", repItems),
+      section("questionsToAsk", "Questions to Ask", "", nanoFollowUps),
+      section("confirmBeforeUse", "Confirm Before Use", "", confirmItems),
     ].filter((s) => s.body || (s.items && s.items.length > 0));
 
     return {
       ok: true,
       title: `${f.productName} — differentiation`,
-      directAnswer:
-        f.whyItWins ||
-        (f.whatMakesThisDifferent && f.whatMakesThisDifferent[0]) ||
-        f.flagshipNarrativeParagraph ||
-        f.flagshipPositioning ||
-        `Use the flagship narrative for ${f.productName} and keep proof points tied to indexed PDS language.`,
+      directAnswer: nanoIntel
+        ? nanoIntel.whyItWins
+        : f.whyItWins ||
+          (f.whatMakesThisDifferent && f.whatMakesThisDifferent[0]) ||
+          f.flagshipNarrativeParagraph ||
+          f.flagshipPositioning ||
+          `Use the flagship narrative for ${f.productName} and keep proof points tied to indexed PDS language.`,
       sections,
-      followUpQuestions,
-      sourceBadges: ["Flagship product intelligence", "PDS-indexed narrative"],
-      cautionNotes,
-      message: `Anchored on flagship profile: ${f.id}.`,
+      followUpQuestions: nanoFollowUps,
+      sourceBadges: nanoIntel
+        ? ["Flagship product intelligence", "Nano EP 2 canonical intelligence", "PDS-indexed narrative"]
+        : ["Flagship product intelligence", "PDS-indexed narrative"],
+      cautionNotes: nanoIntel ? [...nanoIntel.confirmBeforeUse] : cautionNotes,
+      message: nanoIntel
+        ? `Anchored on flagship profile: ${f.id} (canonical Nano EP 2 intelligence).`
+        : `Anchored on flagship profile: ${f.id}.`,
     };
   }
 
