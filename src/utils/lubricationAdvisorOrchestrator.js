@@ -388,16 +388,22 @@ function hasReasonableKlondikeProductSearch(searchResult) {
 /**
  * @param {string} question
  */
+function isCatalogCarryWithoutTroubleshootingAdmission(question) {
+  return isProductCarryingKlondikeQuery(question) && !hasHydraulicTroubleshootingAdmission(question);
+}
+
 function shouldSkipProductRetrievalRouting(question) {
   if (shouldRouteGreaseThickenerCompatibility(question)) return true;
   if (shouldRouteHydraulicTroubleshooting(question)) return true;
-  if (shouldRouteDeterministicRecommendation(question)) return true;
-  const catalogWithoutTroubleshootingAdmission =
-    isProductCarryingKlondikeQuery(question) && !hasHydraulicTroubleshootingAdmission(question);
-  if (!catalogWithoutTroubleshootingAdmission) {
-    const t = detectTroubleshootingIntent(question)[0]?.score || 0;
-    if (t >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
+  if (isCatalogCarryWithoutTroubleshootingAdmission(question)) {
+    if (shouldRouteDeterministicRecommendation(question) && isExplicitRecommendationQuery(question)) {
+      return true;
+    }
+    return shouldDeferProductRetrievalForConcept(question);
   }
+  if (shouldRouteDeterministicRecommendation(question)) return true;
+  const t = detectTroubleshootingIntent(question)[0]?.score || 0;
+  if (t >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
   const r = detectRoleBasedSalesIntent(question)[0]?.score || 0;
   if (r >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
   if (shouldDeferProductRetrievalForConcept(question)) return true;
@@ -713,6 +719,11 @@ function deterministicRecommendationOrchestratorConfidence(detected) {
 export function buildLubricationAdvisorResponse(inputText) {
   const question = String(inputText ?? "").trim();
 
+  if (!hasHydraulicTroubleshootingAdmission(question)) {
+    const priorityCatalogRetrieval = tryRouteProductRetrievalResponse(question);
+    if (priorityCatalogRetrieval) return priorityCatalogRetrieval;
+  }
+
   const fusionResponse = buildContextFusionResponse(question);
   if (fusionResponse.ok) {
     return {
@@ -748,14 +759,13 @@ export function buildLubricationAdvisorResponse(inputText) {
     if (earlyRecommendation) return earlyRecommendation;
   }
 
-  if (isProductIdentityQuery(question) && !hasHydraulicTroubleshootingAdmission(question)) {
+  if (
+    isProductIdentityQuery(question) &&
+    !hasHydraulicTroubleshootingAdmission(question) &&
+    !isCatalogCarryWithoutTroubleshootingAdmission(question)
+  ) {
     const earlyProductEntity = tryRouteStrongProductEntityResponse(question);
     if (earlyProductEntity) return earlyProductEntity;
-  }
-
-  if (!hasHydraulicTroubleshootingAdmission(question)) {
-    const earlyCatalogRetrieval = tryRouteProductRetrievalResponse(question);
-    if (earlyCatalogRetrieval) return earlyCatalogRetrieval;
   }
 
   const hydraulicDetected = detectHydraulicTroubleshootingIntent(question);
@@ -776,8 +786,10 @@ export function buildLubricationAdvisorResponse(inputText) {
     };
   }
 
-  const productEntityResponse = tryRouteStrongProductEntityResponse(question);
-  if (productEntityResponse) return productEntityResponse;
+  if (!isCatalogCarryWithoutTroubleshootingAdmission(question)) {
+    const productEntityResponse = tryRouteStrongProductEntityResponse(question);
+    if (productEntityResponse) return productEntityResponse;
+  }
 
   const differentiationMatches = detectProductDifferentiationIntent(question);
   const diffTop = differentiationMatches[0];

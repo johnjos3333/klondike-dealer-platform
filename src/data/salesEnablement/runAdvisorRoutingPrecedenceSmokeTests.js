@@ -85,6 +85,19 @@ try {
   );
   console.log("PASS  What turbine oils does Klondike carry? => product_retrieval OR product_entity");
 
+  runRoutingCase(
+    "HD coolants catalog",
+    "What heavy duty coolants does Klondike carry?",
+    "product_retrieval"
+  );
+  console.log("PASS  What heavy duty coolants does Klondike carry? => product_retrieval");
+
+  runRoutingCase("ATFs catalog", "What ATFs does Klondike have?", "product_retrieval");
+  console.log("PASS  What ATFs does Klondike have? => product_retrieval");
+
+  runRoutingCase("Gear oils catalog", "What gear oils does Klondike carry?", "product_retrieval");
+  console.log("PASS  What gear oils does Klondike carry? => product_retrieval");
+
   console.log("=".repeat(56));
   console.log("All advisor routing precedence smoke tests passed.\n");
 } catch (e) {
