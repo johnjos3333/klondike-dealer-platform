@@ -52,8 +52,14 @@ import {
   buildKlondikeProductRetrievalResponse,
   searchKlondikeProducts,
 } from "./klondikeProductRetrievalHelpers.js";
+import {
+  buildProductDifferentiationResponse,
+  detectProductDifferentiationIntent,
+} from "./productDifferentiationAdvisorHelpers.js";
 
 const MATCH_THRESHOLD = 6;
+/** Differentiation early-route: require anchored cue score from `detectProductDifferentiationIntent`. */
+const PRODUCT_DIFFERENTIATION_STRONG_MIN_SCORE = 26;
 /** Minimum top `searchKlondikeProducts` score to answer catalog questions (aligns with PDS map search floor). */
 const PRODUCT_RETRIEVAL_REASONABLE_MIN_SCORE = 10;
 /** Skip product retrieval when these intents are already clearly firing. */
@@ -63,6 +69,7 @@ const TIE_SCORE_MARGIN = 8;
 
 const INTENT_PRIORITY = [
   "troubleshooting",
+  "product_differentiation",
   "product_attribute",
   "vocabulary",
   "discovery_question",
@@ -77,6 +84,7 @@ const INTENT_PRIORITY = [
 
 const INTENT_CONFIDENCE_DIVISOR = {
   troubleshooting: 32,
+  product_differentiation: 36,
   product_attribute: 34,
   vocabulary: 34,
   discovery_question: 34,
@@ -91,6 +99,7 @@ const INTENT_CONFIDENCE_DIVISOR = {
 
 const MATCHES_BY_INTENT = {
   troubleshooting: (matches) => matches.troubleshootingMatches,
+  product_differentiation: (matches) => matches.productDifferentiationMatches,
   product_attribute: (matches) => matches.productAttributeMatches,
   vocabulary: (matches) => matches.vocabularyMatches,
   discovery_question: (matches) => matches.discoveryQuestionMatches,
@@ -143,11 +152,12 @@ const FALLBACK_PROMPTS = [
 /**
  * @param {unknown} inputText
  * @returns {{
- *   intent: "troubleshooting" | "product_attribute" | "vocabulary" | "discovery_question" | "compatibility" | "role_sales" | "equipment" | "industry" | "oem_spec" | "product_category_selection" | "concept" | "general",
+ *   intent: "troubleshooting" | "product_differentiation" | "product_attribute" | "vocabulary" | "discovery_question" | "compatibility" | "role_sales" | "equipment" | "industry" | "oem_spec" | "product_category_selection" | "concept" | "general",
  *   confidence: number,
  *   matchId: string | null,
  *   scores: {
  *     troubleshooting: number,
+ *     product_differentiation: number,
  *     product_attribute: number,
  *     vocabulary: number,
  *     discovery_question: number,
@@ -164,6 +174,7 @@ const FALLBACK_PROMPTS = [
 export function classifyLubricationAdvisorIntent(inputText) {
   const question = String(inputText ?? "").trim();
   const troubleshootingMatches = detectTroubleshootingIntent(question);
+  const productDifferentiationMatches = detectProductDifferentiationIntent(question);
   const productAttributeMatches = detectProductAttributeIntent(question);
   const vocabularyMatches = detectVocabularyIntent(question);
   const discoveryQuestionMatches = detectDiscoveryQuestionIntent(question);
@@ -177,6 +188,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
 
   const scores = {
     troubleshooting: troubleshootingMatches[0]?.score || 0,
+    product_differentiation: productDifferentiationMatches[0]?.score || 0,
     product_attribute: productAttributeMatches[0]?.score || 0,
     vocabulary: vocabularyMatches[0]?.score || 0,
     discovery_question: discoveryQuestionMatches[0]?.score || 0,
@@ -207,6 +219,7 @@ export function classifyLubricationAdvisorIntent(inputText) {
 
   const matchLists = {
     troubleshootingMatches,
+    productDifferentiationMatches,
     productAttributeMatches,
     vocabularyMatches,
     discoveryQuestionMatches,
@@ -400,6 +413,24 @@ export function buildLubricationAdvisorResponse(inputText) {
     };
   }
 
+  const differentiationMatches = detectProductDifferentiationIntent(question);
+  const diffTop = differentiationMatches[0];
+  if (diffTop && diffTop.score >= PRODUCT_DIFFERENTIATION_STRONG_MIN_SCORE) {
+    const diffResp = buildProductDifferentiationResponse(question);
+    if (diffResp.ok) {
+      return {
+        intent: "product_differentiation",
+        confidence: Math.min(0.95, intentConfidence("product_differentiation", diffTop.score)),
+        title: diffResp.title,
+        directAnswer: diffResp.directAnswer,
+        sections: diffResp.sections || [],
+        followUpQuestions: diffResp.followUpQuestions || [],
+        sourceBadges: diffResp.sourceBadges || ["Product differentiation"],
+        cautionNotes: diffResp.cautionNotes || [],
+      };
+    }
+  }
+
   if (isProductCarryingKlondikeQuery(question) && !shouldSkipProductRetrievalRouting(question)) {
     const productSearch = searchKlondikeProducts(question);
     if (hasReasonableKlondikeProductSearch(productSearch)) {
@@ -457,6 +488,22 @@ export function buildLubricationAdvisorResponse(inputText) {
         followUpQuestions: guidance.questionsToAsk || [],
         sourceBadges: ["Troubleshooting guidance", "Training guidance"],
         cautionNotes: guidance.cautionNotes || [],
+      };
+    }
+  }
+
+  if (classification.intent === "product_differentiation") {
+    const diffResp = buildProductDifferentiationResponse(question);
+    if (diffResp.ok) {
+      return {
+        intent: "product_differentiation",
+        confidence: intentConfidence("product_differentiation", classification.scores.product_differentiation),
+        title: diffResp.title,
+        directAnswer: diffResp.directAnswer,
+        sections: diffResp.sections || [],
+        followUpQuestions: diffResp.followUpQuestions || [],
+        sourceBadges: diffResp.sourceBadges || ["Product differentiation"],
+        cautionNotes: diffResp.cautionNotes || [],
       };
     }
   }
