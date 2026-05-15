@@ -11,11 +11,36 @@ import {
   isNanoEp2ProductQuery,
 } from "../data/flagshipProductIntelligence.js";
 import { getSalesEnablementFlagshipNarrativeById } from "../data/salesEnablement/salesEnablementFlagshipNarrativeLookup.js";
+import {
+  GREASE_CANONICAL_PRODUCT_INTELLIGENCE,
+  getGreaseCanonicalProductIntelligenceById,
+  getGreaseCanonicalProductIntelligenceByPdsKey,
+  listGreaseCanonicalProductIntelligence,
+} from "../data/greaseCanonicalProductIntelligence.js";
 import { normalizeProductQuery, searchKlondikeProducts } from "./klondikeProductRetrievalHelpers.js";
 
 const ENTITY_EXACT_MIN_SCORE = 34;
 const ENTITY_DETECT_MIN_SCORE = 14;
 const ENTITY_AMBIGUOUS_GAP = 6;
+
+/** @type {Readonly<Record<string, string>>} */
+const GREASE_CANONICAL_FLAGSHIP_BY_ID = Object.freeze({
+  "grease-canonical-nano-calcium-sulfonate-ep": NANO_EP_2_FLAGSHIP_PRODUCT_ID,
+  "grease-canonical-moly-tac-ep-2": "flagship-moly-tac-ep2-grease",
+  "grease-canonical-moly-tac-ep-1": "flagship-moly-tac-ep2-grease",
+  "grease-canonical-moly-tac-arctic-ep-0": "flagship-moly-tac-ep2-grease",
+  "grease-canonical-moly-tac-bentone-ep-2": "flagship-moly-tac-ep2-grease",
+});
+
+/** Registry entity id when grease canonical row maps to an existing entity bucket. */
+/** @type {Readonly<Record<string, string>>} */
+const GREASE_CANONICAL_REGISTRY_ENTITY_ID = Object.freeze({
+  "grease-canonical-nano-calcium-sulfonate-ep": "entity-nano-ep-2",
+  "grease-canonical-moly-tac-ep-2": "entity-moly-tac-ep-2",
+  "grease-canonical-moly-tac-ep-1": "entity-moly-tac-ep-2",
+  "grease-canonical-moly-tac-arctic-ep-0": "entity-moly-tac-ep-2",
+  "grease-canonical-moly-tac-bentone-ep-2": "entity-moly-tac-ep-2",
+});
 
 /**
  * @typedef {{
@@ -108,6 +133,9 @@ const PRODUCT_ENTITY_REGISTRY = [
     flagshipId: "flagship-moly-tac-ep2-grease",
     pdsKeys: ["Moly Tac EP-2", "Moly Tac EP-1", "Moly Tac Bentone EP-2", "Moly Tac Arctic EP-0"],
     scoreQuery(normQ) {
+      if (isNanoEp2ProductQuery(normQ) || (/\bnano\b/.test(normQ) && !normQ.includes("full synthetic"))) {
+        return 0;
+      }
       if (normQ.includes("moly tac")) {
         if (normQ.includes("ep 1") || normQ.includes("ep1")) return 38;
         if (normQ.includes("bentone")) return 38;
@@ -115,6 +143,7 @@ const PRODUCT_ENTITY_REGISTRY = [
         return 44;
       }
       if (normQ.includes("moly tac ep 2") || normQ.includes("moly tac ep2")) return 46;
+      if (/\bmoly\b/.test(normQ) || normQ.includes("molybdenum")) return 36;
       return 0;
     },
     pickPdsKey(normQ) {
@@ -129,13 +158,10 @@ const PRODUCT_ENTITY_REGISTRY = [
     label: "Open Gear (Grease or Lubricant)",
     flagshipId: null,
     pdsKeys: ["Open Gear Grease", "Open Gear Lubricant"],
-    scoreQuery(normQ) {
-      if (normQ.includes("open gear")) return 40;
+    scoreQuery() {
       return 0;
     },
-    pickPdsKey(normQ) {
-      if (normQ.includes("lubricant") && !normQ.includes("grease")) return "Open Gear Lubricant";
-      if (normQ.includes("grease")) return "Open Gear Grease";
+    pickPdsKey() {
       return null;
     },
   },
@@ -256,6 +282,129 @@ function uniqStrings(arr) {
 }
 
 /**
+ * @param {string} normQ
+ */
+function isMolyGreaseQuery(normQ) {
+  return /\bmoly\b/.test(normQ) || normQ.includes("molybdenum") || normQ.includes("moly tac");
+}
+
+/**
+ * @param {string} normQ
+ */
+function isNanoGreaseQuery(normQ) {
+  if (isNanoEp2ProductQuery(normQ)) return true;
+  if (normQ.includes("nano calcium sulfonate")) return true;
+  if (normQ.includes("nano grease") && !normQ.includes("full synthetic")) return true;
+  if (/\bnano\b/.test(normQ) && !normQ.includes("full synthetic") && !isMolyGreaseQuery(normQ)) return true;
+  return false;
+}
+
+/**
+ * @param {import("../data/greaseCanonicalProductIntelligence.js").GreaseCanonicalProductIntelligence} grease
+ * @param {string} normQ
+ */
+function scoreGreaseCanonicalProduct(grease, normQ) {
+  if (isNanoGreaseQuery(normQ)) {
+    if (grease.id.includes("moly-tac") && !isMolyGreaseQuery(normQ)) return 0;
+    if (grease.id === "grease-canonical-nano-full-synthetic-ep-1-5") return 0;
+  }
+  if (isMolyGreaseQuery(normQ) && !isNanoGreaseQuery(normQ)) {
+    if (grease.id.includes("nano")) return 0;
+  }
+  if (normQ.includes("open gear")) {
+    if (normQ.includes("lubricant") && !normQ.includes("grease")) {
+      if (grease.pdsMapKey !== "Open Gear Lubricant") return 0;
+    } else if (normQ.includes("grease") && !normQ.includes("lubricant")) {
+      if (grease.pdsMapKey !== "Open Gear Grease") return 0;
+    }
+  }
+
+  let score = 0;
+  const productNorm = normalizeProductQuery(grease.productName);
+  if (productNorm.length >= 8 && normQ.includes(productNorm)) {
+    score = Math.max(score, 42);
+  }
+  const mapKeyNorm = normalizeProductQuery(grease.pdsMapKey);
+  if (mapKeyNorm.length >= 6 && normQ.includes(mapKeyNorm)) {
+    score = Math.max(score, 40);
+  }
+
+  for (const alias of grease.aliases) {
+    const a = normalizeProductQuery(alias);
+    if (a.length < 3) continue;
+    if (normQ === a) score = Math.max(score, 48);
+    else if (a.length >= 10 && normQ.includes(a)) score = Math.max(score, 40 + Math.min(12, a.length - 8));
+    else if (normQ.includes(a)) score = Math.max(score, 30 + Math.min(14, a.length));
+  }
+
+  if (grease.id === "grease-canonical-nano-calcium-sulfonate-ep" && isNanoGreaseQuery(normQ)) {
+    score = Math.max(score, 50);
+  }
+  if (grease.id.startsWith("grease-canonical-moly-tac") && isMolyGreaseQuery(normQ) && !isNanoGreaseQuery(normQ)) {
+    if (grease.id === "grease-canonical-moly-tac-ep-2" && !normQ.includes("ep 1") && !normQ.includes("bentone") && !normQ.includes("arctic")) {
+      score = Math.max(score, 46);
+    } else if (normQ.includes("ep 1") && grease.id === "grease-canonical-moly-tac-ep-1") {
+      score = Math.max(score, 46);
+    } else if (normQ.includes("bentone") && grease.id === "grease-canonical-moly-tac-bentone-ep-2") {
+      score = Math.max(score, 46);
+    } else if (normQ.includes("arctic") && grease.id === "grease-canonical-moly-tac-arctic-ep-0") {
+      score = Math.max(score, 46);
+    }
+  }
+  if (grease.id === "grease-canonical-open-gear-grease" && normQ.includes("open gear") && normQ.includes("grease") && !normQ.includes("lubricant")) {
+    score = Math.max(score, 44);
+  }
+  if (grease.id === "grease-canonical-open-gear-lubricant" && normQ.includes("open gear") && normQ.includes("lubricant")) {
+    score = Math.max(score, 44);
+  }
+
+  return score;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectGreaseCanonicalProductEntities(normQ) {
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const grease of listGreaseCanonicalProductIntelligence()) {
+    const score = scoreGreaseCanonicalProduct(grease, normQ);
+    if (score < ENTITY_DETECT_MIN_SCORE) continue;
+    const registryId = GREASE_CANONICAL_REGISTRY_ENTITY_ID[grease.id] || grease.id;
+    hits.push({ id: registryId, score, label: grease.productName });
+  }
+  return hits;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} detectId
+ */
+function resolveGreaseCanonicalFromDetectId(normQ, detectId) {
+  const id = String(detectId ?? "").trim();
+  if (!id) return null;
+
+  /** @type {import("../data/greaseCanonicalProductIntelligence.js").GreaseCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const grease of GREASE_CANONICAL_PRODUCT_INTELLIGENCE.products) {
+    const registryId = GREASE_CANONICAL_REGISTRY_ENTITY_ID[grease.id] || grease.id;
+    if (registryId !== id && grease.id !== id) continue;
+    const score = scoreGreaseCanonicalProduct(grease, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = grease;
+    }
+  }
+  if (best) return best;
+  if (id.startsWith("grease-canonical-")) {
+    return getGreaseCanonicalProductIntelligenceById(id);
+  }
+  return null;
+}
+
+/**
  * @param {unknown} inputText
  * @returns {Array<{ id: string, score: number, label: string }>}
  */
@@ -264,22 +413,45 @@ export function detectKlondikeProductEntity(inputText) {
   if (!normQ) return [];
 
   /** @type {Array<{ id: string, score: number, label: string }>} */
-  const hits = [];
+  const hits = [...detectGreaseCanonicalProductEntities(normQ)];
+
+  const strongGreaseCanonical = hits.length > 0 && hits[0].score >= ENTITY_EXACT_MIN_SCORE;
+
   for (const entity of PRODUCT_ENTITY_REGISTRY) {
     const score = entity.scoreQuery(normQ);
     if (score >= ENTITY_DETECT_MIN_SCORE) {
-      hits.push({ id: entity.id, score, label: entity.label });
+      const existing = hits.find((h) => h.id === entity.id);
+      if (existing) existing.score = Math.max(existing.score, score);
+      else hits.push({ id: entity.id, score, label: entity.label });
     }
   }
 
-  const retrieval = searchKlondikeProducts(String(inputText ?? ""));
-  const top = retrieval.matches?.[0];
-  if (top?.productKey && top.score >= 14) {
-    for (const entity of PRODUCT_ENTITY_REGISTRY) {
-      if (entity.pdsKeys.includes(top.productKey)) {
-        const existing = hits.find((h) => h.id === entity.id);
-        if (existing) existing.score = Math.min(72, existing.score + 10);
-        else hits.push({ id: entity.id, score: Math.min(72, top.score + 8), label: entity.label });
+  if (!strongGreaseCanonical) {
+    const retrieval = searchKlondikeProducts(String(inputText ?? ""));
+    const top = retrieval.matches?.[0];
+    if (top?.productKey && top.score >= 14) {
+      const key = String(top.productKey);
+      if (isNanoGreaseQuery(normQ) && /moly/i.test(key)) {
+        /* skip retrieval mis-route to Moly Tac on nano grease asks */
+      } else if (isMolyGreaseQuery(normQ) && !isNanoGreaseQuery(normQ) && /nano/i.test(key) && !/moly/i.test(key)) {
+        /* skip */
+      } else {
+        const greaseFromKey = getGreaseCanonicalProductIntelligenceByPdsKey(key);
+        if (greaseFromKey) {
+          const registryId = GREASE_CANONICAL_REGISTRY_ENTITY_ID[greaseFromKey.id] || greaseFromKey.id;
+          const existing = hits.find((h) => h.id === registryId);
+          const boost = Math.min(72, top.score + 6);
+          if (existing) existing.score = Math.max(existing.score, boost);
+          else hits.push({ id: registryId, score: boost, label: greaseFromKey.productName });
+        } else {
+          for (const entity of PRODUCT_ENTITY_REGISTRY) {
+            if (entity.pdsKeys.includes(key)) {
+              const existing = hits.find((h) => h.id === entity.id);
+              if (existing) existing.score = Math.min(72, existing.score + 10);
+              else hits.push({ id: entity.id, score: Math.min(72, top.score + 8), label: entity.label });
+            }
+          }
+        }
       }
     }
   }
@@ -340,12 +512,21 @@ export function resolveKlondikeProductEntity(inputText) {
 
   const top = detected[0];
   const second = detected[1];
+  const greaseCanonical = resolveGreaseCanonicalFromDetectId(normQ, top.id);
   const entity = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === top.id);
-  if (!entity) return empty;
+  if (!entity && !greaseCanonical) return empty;
 
-  let pdsKey = entity.pickPdsKey(normQ);
-  if (!pdsKey && entity.pdsKeys.length === 1) pdsKey = entity.pdsKeys[0];
-  if (pdsKey && !PDS_MAP[pdsKey]) pdsKey = entity.pdsKeys.find((k) => PDS_MAP[k]) || null;
+  let pdsKey = greaseCanonical?.pdsMapKey ?? entity?.pickPdsKey(normQ) ?? null;
+  if (!pdsKey && entity?.pdsKeys.length === 1) pdsKey = entity.pdsKeys[0];
+  if (pdsKey && !PDS_MAP[pdsKey]) {
+    pdsKey = entity?.pdsKeys.find((k) => PDS_MAP[k]) || (greaseCanonical?.pdsMapKey && PDS_MAP[greaseCanonical.pdsMapKey] ? greaseCanonical.pdsMapKey : null);
+  }
+
+  const label = greaseCanonical?.productName ?? entity?.label ?? top.label;
+  const flagshipId =
+    (greaseCanonical && GREASE_CANONICAL_FLAGSHIP_BY_ID[greaseCanonical.id]) ||
+    entity?.flagshipId ||
+    null;
 
   const gap = second ? top.score - second.score : top.score;
   let confidence = /** @type {"exact" | "likely" | "ambiguous" | "none"} */ ("none");
@@ -356,6 +537,16 @@ export function resolveKlondikeProductEntity(inputText) {
 
   if (confidence === "ambiguous" && !pdsKey) {
     const likelyMatches = detected.slice(0, 5).map((d) => {
+      const grease = resolveGreaseCanonicalFromDetectId(normQ, d.id);
+      if (grease) {
+        const key = grease.pdsMapKey;
+        return {
+          entityId: d.id,
+          pdsKey: key && PDS_MAP[key] ? key : null,
+          label: grease.productName,
+          score: d.score,
+        };
+      }
       const def = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === d.id);
       return {
         entityId: d.id,
@@ -367,9 +558,9 @@ export function resolveKlondikeProductEntity(inputText) {
     return {
       confidence: "ambiguous",
       entityId: top.id,
-      label: top.label,
+      label,
       pdsKey: null,
-      flagshipId: entity.flagshipId,
+      flagshipId,
       likelyMatches,
       message: "Multiple product entities or SKUs match—confirm the exact name on the PDS title block.",
     };
@@ -377,6 +568,16 @@ export function resolveKlondikeProductEntity(inputText) {
 
   /** @type {Array<{ entityId: string | null, pdsKey: string | null, label: string, score: number }>} */
   const likelyMatches = detected.slice(0, 5).map((d) => {
+    const grease = resolveGreaseCanonicalFromDetectId(normQ, d.id);
+    if (grease) {
+      const key = grease.pdsMapKey;
+      return {
+        entityId: d.id,
+        pdsKey: key && PDS_MAP[key] ? key : null,
+        label: grease.productName,
+        score: d.score,
+      };
+    }
     const def = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === d.id);
     const key = def?.pickPdsKey(normQ) || def?.pdsKeys[0] || null;
     return {
@@ -390,15 +591,53 @@ export function resolveKlondikeProductEntity(inputText) {
   return {
     confidence,
     entityId: top.id,
-    label: entity.label,
+    label,
     pdsKey,
-    flagshipId: entity.flagshipId,
+    flagshipId,
     likelyMatches,
     message:
       confidence === "exact"
-        ? `Resolved product entity: ${entity.label}.`
-        : `Likely product entity: ${entity.label}—confirm SKU on the PDS before customer-facing claims.`,
+        ? `Resolved product entity: ${label}.`
+        : `Likely product entity: ${label}—confirm SKU on the PDS before customer-facing claims.`,
   };
+}
+
+/**
+ * @param {import("../data/greaseCanonicalProductIntelligence.js").GreaseCanonicalProductIntelligence} grease
+ */
+function buildEntitySectionsFromGreaseCanonical(grease) {
+  const whatItIs = uniqStrings([grease.whatItIs, grease.productPositioning]);
+  const whyItWins = uniqStrings([grease.whyItWins]);
+  const proof = [...grease.pdsProofPoints];
+  const whereFits = uniqStrings([
+    ...grease.applications,
+    ...grease.equipmentTargets,
+    ...grease.operatingConditions,
+  ]);
+  const repTalk = [...grease.repTalkTrack];
+  const questions = uniqStrings([
+    ...grease.customerPainSignals.map((p) => `Customer pain to probe: ${p}`),
+    "What NLGI grade and thickener class does the OEM chart require?",
+    "What duty cycle, temperature band, and regrease interval apply?",
+  ]);
+  const confirm = uniqStrings([
+    ...grease.cautionNotes,
+    ...grease.doNotConfuseWith.map((name) => `Do not confuse with ${name}—confirm the PDS title block.`),
+    grease.pdsMapKey ? `Confirm the indexed row “${grease.pdsMapKey}” matches the drum label before quoting.` : "",
+  ]);
+  const proofIntro = proof.length
+    ? "Use indexed PDS map lines and the live PDS PDF—quote only printed spec rows."
+    : "Open the current PDS PDF for authoritative proof; the map index is a pointer only.";
+
+  return [
+    narrativeSection("whatItIs", "What It Is", "", whatItIs.length ? whatItIs : ["Name the product exactly as on the PDS title block, then recompose."]),
+    narrativeSection("whyItWins", "Why It Wins", "", whyItWins.length ? whyItWins : ["Anchor wins to indexed PDS grease intelligence only."]),
+    narrativeSection("pdsBackedProof", "PDS-Backed Proof", proofIntro, proof.length ? proof.slice(0, 10) : []),
+    narrativeSection("whereItFits", "Where It Fits", grease.greaseFamily ? String(grease.greaseFamily) : "", whereFits),
+    narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk.length ? repTalk.slice(0, 8) : []),
+    narrativeSection("questionsToAsk", "Questions to Ask", "", questions),
+    narrativeSection("confirmBeforeUse", "Confirm Before Use", "", confirm),
+  ].filter((s) => s.body || (s.items && s.items.length > 0));
 }
 
 /**
@@ -538,6 +777,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
   const flagship = resolved.flagshipId ? getSalesEnablementFlagshipNarrativeById(resolved.flagshipId) : null;
   const pdsKey = resolved.pdsKey;
   const pdsRow = pdsKey && PDS_MAP[pdsKey] ? PDS_MAP[pdsKey] : null;
+  const greaseCanonical = pdsKey ? getGreaseCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
 
   if (resolved.entityId === "entity-deep-well-pump-oil") {
     const matchedProducts = (searchKlondikeProducts(question).matches || []).slice(0, 6).map((m) => ({
@@ -579,7 +819,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
     };
   }
 
-  if (!flagship && !pdsRow) {
+  if (!flagship && !pdsRow && !greaseCanonical) {
     return {
       ...empty,
       title: resolved.label || "Klondike product",
@@ -596,25 +836,35 @@ export function buildProductEntityAdvisorResponse(inputText) {
     };
   }
 
-  const nanoIntel = flagship && isNanoEp2FlagshipId(flagship.id) ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE : null;
+  const nanoIntel =
+    !greaseCanonical && flagship && isNanoEp2FlagshipId(flagship.id) ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE : null;
   const titleLabel =
+    greaseCanonical?.productName ||
     nanoIntel?.canonicalProductLabel ||
     flagship?.productName ||
     pdsKey ||
     resolved.label;
 
-  const directAnswer = nanoIntel
-    ? nanoIntel.whyItWins
-    : flagship?.whyItWins ||
-      (pdsRow?.why ? String(pdsRow.why) : "") ||
-      `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
+  const directAnswer = greaseCanonical
+    ? greaseCanonical.whyItWins
+    : nanoIntel
+      ? nanoIntel.whyItWins
+      : flagship?.whyItWins ||
+        (pdsRow?.why ? String(pdsRow.why) : "") ||
+        `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
 
-  const sections = buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
+  const sections = greaseCanonical
+    ? buildEntitySectionsFromGreaseCanonical(greaseCanonical)
+    : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
   const followUpQuestions = sections.find((s) => s.id === "questionsToAsk")?.items || [];
-  const cautionNotes = sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
+  const cautionNotes =
+    greaseCanonical?.cautionNotes?.length
+      ? uniqStrings([...greaseCanonical.cautionNotes, ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || [])])
+      : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
 
   /** @type {string[]} */
   const sourceBadges = ["Product entity resolver", "PDS map index"];
+  if (greaseCanonical) sourceBadges.push("Grease canonical product intelligence");
   if (flagship) sourceBadges.push("Flagship product intelligence");
   if (nanoIntel) sourceBadges.push("Nano EP 2 canonical intelligence");
 
