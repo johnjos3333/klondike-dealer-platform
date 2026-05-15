@@ -64,6 +64,10 @@ import {
   buildHydraulicTroubleshootingResponse,
   detectHydraulicTroubleshootingIntent,
 } from "./hydraulicTroubleshootingAdvisorHelpers.js";
+import {
+  buildDeterministicRecommendationResponse,
+  detectDeterministicRecommendationIntent,
+} from "./deterministicRecommendationAdvisorHelpers.js";
 
 const MATCH_THRESHOLD = 6;
 /** Named product entity early-route (aligns with `klondikeProductEntityResolver` exact threshold). */
@@ -387,6 +391,7 @@ function hasReasonableKlondikeProductSearch(searchResult) {
 function shouldSkipProductRetrievalRouting(question) {
   if (shouldRouteGreaseThickenerCompatibility(question)) return true;
   if (shouldRouteHydraulicTroubleshooting(question)) return true;
+  if (shouldRouteDeterministicRecommendation(question)) return true;
   const t = detectTroubleshootingIntent(question)[0]?.score || 0;
   if (t >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
   const r = detectRoleBasedSalesIntent(question)[0]?.score || 0;
@@ -463,6 +468,25 @@ function hydraulicTroubleshootingOrchestratorConfidence(detected) {
   const topScore = detected.matches[0]?.score || 0;
   if (detected.confidence === "exact") return Math.min(0.95, 0.78 + topScore / 48);
   if (detected.confidence === "likely") return Math.min(0.88, 0.58 + topScore / 48);
+  return 0;
+}
+
+/**
+ * Deterministic recommendation — after product differentiation; defers product identity and troubleshooting in helper.
+ * @param {string} question
+ */
+function shouldRouteDeterministicRecommendation(question) {
+  const detected = detectDeterministicRecommendationIntent(question);
+  return detected.confidence === "exact" || detected.confidence === "likely";
+}
+
+/**
+ * @param {ReturnType<typeof detectDeterministicRecommendationIntent>} detected
+ */
+function deterministicRecommendationOrchestratorConfidence(detected) {
+  const topScore = detected.matches[0]?.score || 0;
+  if (detected.confidence === "exact") return Math.min(0.95, 0.76 + topScore / 52);
+  if (detected.confidence === "likely") return Math.min(0.88, 0.56 + topScore / 52);
   return 0;
 }
 
@@ -566,6 +590,21 @@ export function buildLubricationAdvisorResponse(inputText) {
         cautionNotes: diffResp.cautionNotes || [],
       };
     }
+  }
+
+  const recommendationDetected = detectDeterministicRecommendationIntent(question);
+  if (recommendationDetected.confidence === "exact" || recommendationDetected.confidence === "likely") {
+    const recommendationResp = buildDeterministicRecommendationResponse(question);
+    return {
+      intent: "deterministic_recommendation",
+      confidence: deterministicRecommendationOrchestratorConfidence(recommendationDetected),
+      title: recommendationResp.title,
+      directAnswer: recommendationResp.directAnswer,
+      sections: recommendationResp.sections || [],
+      followUpQuestions: recommendationResp.followUpQuestions || [],
+      sourceBadges: recommendationResp.sourceBadges || ["Deterministic recommendation intelligence"],
+      cautionNotes: recommendationResp.cautionNotes || [],
+    };
   }
 
   if (isProductCarryingKlondikeQuery(question) && !shouldSkipProductRetrievalRouting(question)) {
