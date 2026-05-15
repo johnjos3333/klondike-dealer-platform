@@ -17050,7 +17050,7 @@ const handleFinishDealerEnrollment = async () => {
                 color: "#94a3b8",
               }}
             >
-              ACTION CENTER
+              KL ADMIN · NEXT BEST ACTIONS
             </div>
             <h3
               style={{
@@ -17062,7 +17062,7 @@ const handleFinishDealerEnrollment = async () => {
                 lineHeight: 1.2,
               }}
             >
-              Daily action list
+              Action Center
             </h3>
             <p
               style={{
@@ -17074,10 +17074,10 @@ const handleFinishDealerEnrollment = async () => {
               }}
             >
               <span style={{ color: "#f8fafc", fontWeight: 800 }}>
-                System-prioritized BDM actions for today.
+                Prioritized next-best actions for KL Admin follow-up.
               </span>{" "}
-              Scan ranked rows first—deeper territory intelligence follows below (up to{" "}
-              {KL_ADMIN_ACTION_CENTER_LIMIT} queued).
+              Work the queue top-down—full territory intelligence continues below (up to{" "}
+              {KL_ADMIN_ACTION_CENTER_LIMIT} items).
             </p>
             {klAdminDashboardDemoFallbackActive ? (
               <div
@@ -17105,12 +17105,26 @@ const handleFinishDealerEnrollment = async () => {
               else if (st === "handled") handledCount += 1;
             });
             const remainingCount = Math.max(0, totalShown - preparedCount - handledCount);
-            const dealerRisksFlagged = klondikeActionCenterActionsKlDashboard.filter(
-              (a) =>
-                a.kind === "dealer_activation" ||
-                (a.kind === "spotlight" &&
-                  typeof a.severityRank === "number" &&
-                  a.severityRank === 0)
+            const queueActions = klondikeActionCenterActionsKlDashboard;
+            const actionIsHighPriority = (a) => {
+              const sev = typeof a.severityRank === "number" ? a.severityRank : null;
+              if (a.kind === "dealer_activation") return true;
+              if (a.kind === "spotlight" && sev === 0) return true;
+              if (sev === 0 || sev === 1) return true;
+              if (a.accent === "orange") return true;
+              return false;
+            };
+            const highPriorityCount = queueActions.filter(actionIsHighPriority).length;
+            const trainingOpportunityCount = queueActions.filter((a) => {
+              if (a.kind !== "sales_enablement") return false;
+              const blob = `${a.issue || ""} ${a.recommended || ""} ${a.buttonLabel || ""}`;
+              return /training|walkthrough|visit|enablement session|course|university|coaching/i.test(blob);
+            }).length;
+            const spotlightOpportunityCount = queueActions.filter((a) => a.kind === "spotlight").length;
+            const fieldReviewCount = queueActions.filter((a) =>
+              ["dealer_activation", "inventory_intel", "dealers_tab", "dealers_select", "workflow_notice"].includes(
+                a.kind
+              )
             ).length;
             const tileBase = {
               padding: "8px 12px",
@@ -17127,10 +17141,10 @@ const handleFinishDealerEnrollment = async () => {
                     marginBottom: 10,
                     display: "grid",
                     gap: 8,
-                    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 108px), 1fr))",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 96px), 1fr))",
                   }}
                 >
-                  <div style={{ ...tileBase, borderLeft: "3px solid #ea580c" }}>
+                  <div style={{ ...tileBase, borderLeft: "3px solid #dc2626" }}>
                     <div
                       style={{
                         fontSize: 9,
@@ -17139,7 +17153,7 @@ const handleFinishDealerEnrollment = async () => {
                         color: "#64748b",
                       }}
                     >
-                      ACTIONS READY
+                      HIGH PRIORITY
                     </div>
                     <div
                       style={{
@@ -17151,10 +17165,37 @@ const handleFinishDealerEnrollment = async () => {
                         lineHeight: 1.15,
                       }}
                     >
-                      {remainingCount}
+                      {highPriorityCount}
                     </div>
                     <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
-                      Open queue · awaiting click
+                      Critical / urgent queue
+                    </div>
+                  </div>
+                  <div style={{ ...tileBase, borderLeft: "3px solid #7c3aed" }}>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 900,
+                        letterSpacing: "0.1em",
+                        color: "#64748b",
+                      }}
+                    >
+                      TRAINING
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 2,
+                        fontSize: 20,
+                        fontWeight: 900,
+                        color: "#0f172a",
+                        letterSpacing: "-0.02em",
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      {trainingOpportunityCount}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
+                      Enablement / coaching hooks
                     </div>
                   </div>
                   <div style={{ ...tileBase, borderLeft: "3px solid #2563eb" }}>
@@ -17166,7 +17207,7 @@ const handleFinishDealerEnrollment = async () => {
                         color: "#64748b",
                       }}
                     >
-                      FOLLOW-UPS STAGED
+                      SPOTLIGHTS
                     </div>
                     <div
                       style={{
@@ -17178,13 +17219,13 @@ const handleFinishDealerEnrollment = async () => {
                         lineHeight: 1.15,
                       }}
                     >
-                      {preparedCount}
+                      {spotlightOpportunityCount}
                     </div>
                     <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
-                      Mock banners · this session
+                      Product / category sends
                     </div>
                   </div>
-                  <div style={{ ...tileBase, borderLeft: "3px solid #64748b" }}>
+                  <div style={{ ...tileBase, borderLeft: "3px solid #0d9488" }}>
                     <div
                       style={{
                         fontSize: 9,
@@ -17193,7 +17234,7 @@ const handleFinishDealerEnrollment = async () => {
                         color: "#64748b",
                       }}
                     >
-                      DEALER RISKS FLAGGED
+                      FIELD / REVIEW
                     </div>
                     <div
                       style={{
@@ -17205,10 +17246,10 @@ const handleFinishDealerEnrollment = async () => {
                         lineHeight: 1.15,
                       }}
                     >
-                      {dealerRisksFlagged}
+                      {fieldReviewCount}
                     </div>
                     <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
-                      Activation / critical spotlight signals
+                      Activation · roster · demand
                     </div>
                   </div>
                 </div>
@@ -17387,6 +17428,45 @@ const handleFinishDealerEnrollment = async () => {
                   };
                 }
                 const whyText = String(ac.why || "").trim();
+                const acSentences = whyText
+                  .split(/(?<=[.!?])\s+/)
+                  .map((s) => s.trim())
+                  .filter(Boolean);
+                const scopeLine = String(ac.scope || "").trim();
+                const issueLine = String(ac.issue || "").trim();
+                let whatChangedBlock;
+                let whyMattersBriefDisplay;
+                let supportingWhyTail = "";
+                if (acSentences.length === 0) {
+                  whatChangedBlock =
+                    [scopeLine, issueLine].filter(Boolean).join(" · ") || "Territory signal surfaced for KL Admin.";
+                  const r = String(ac.recommended || "").trim();
+                  whyMattersBriefDisplay = r
+                    ? (r.split(/(?<=[.!?])\s+/)[0] || r).trim().slice(0, 280)
+                    : "Prioritize follow-up while the signal is fresh.";
+                } else if (acSentences.length === 1) {
+                  whatChangedBlock = acSentences[0];
+                  const r = String(ac.recommended || "").trim();
+                  whyMattersBriefDisplay = r
+                    ? (r.split(/(?<=[.!?])\s+/)[0] || r).trim().slice(0, 280)
+                    : acSentences[0].length > 160
+                      ? `${acSentences[0].slice(0, 157)}…`
+                      : "Connects rule-based intelligence to dealer-facing motion.";
+                } else if (acSentences.length === 2) {
+                  whatChangedBlock = acSentences[0];
+                  whyMattersBriefDisplay = acSentences[1];
+                } else {
+                  whatChangedBlock = acSentences.slice(0, 2).join(" ");
+                  whyMattersBriefDisplay = acSentences.slice(2, 4).join(" ");
+                  supportingWhyTail = acSentences.slice(4).join(" ");
+                }
+                if (whyMattersBriefDisplay.length > 320) {
+                  whyMattersBriefDisplay = `${whyMattersBriefDisplay.slice(0, 317)}…`;
+                }
+                if (whatChangedBlock.length > 360) {
+                  whatChangedBlock = `${whatChangedBlock.slice(0, 357)}…`;
+                }
+
                 const oid = String(ac.dealerOrgId || "");
                 const dealerRowMatch = (klAdminDashboardDealersForView || []).find(
                   (d) => String(d.organization_id) === oid
@@ -17507,12 +17587,14 @@ const handleFinishDealerEnrollment = async () => {
                     ...prev,
                     [ac.id]: "handled",
                   }));
-                const completionBtnLabel =
+                const primaryCtaDisplayLabel =
                   completion === "prepared"
                     ? "Staged (mock)"
                     : completion === "handled"
                       ? "Opened"
-                      : ac.buttonLabel;
+                      : ac.kind === "spotlight" && /send spotlight/i.test(String(ac.buttonLabel || ""))
+                        ? "Build Spotlight Draft"
+                        : String(ac.buttonLabel || "Act");
                 const enBridge = getEnablementRecommendationForActionItem(ac);
                 return (
                   <div
@@ -17537,8 +17619,16 @@ const handleFinishDealerEnrollment = async () => {
                       opacity: completion ? 0.94 : 1,
                     }}
                   >
-                    <div style={{ flex: "1 1 240px", minWidth: 0 }}>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 6,
+                          alignItems: "center",
+                          marginBottom: 8,
+                        }}
+                      >
                         <span
                           style={{
                             flex: "0 0 auto",
@@ -17555,7 +17645,7 @@ const handleFinishDealerEnrollment = async () => {
                           }}
                           title="Queue order — displayed sequence only"
                         >
-                          PRIORITY {queuePriorityRank} · {queueTierLabel.toUpperCase()}
+                          #{queuePriorityRank} · {queueTierLabel.toUpperCase()}
                         </span>
                         <span
                           style={{
@@ -17569,7 +17659,7 @@ const handleFinishDealerEnrollment = async () => {
                             color: surf.tagColor,
                           }}
                         >
-                          {surf.tag}
+                          {String(surf.tag || "").toUpperCase()}
                         </span>
                         {completion ? (
                           <span
@@ -17592,147 +17682,288 @@ const handleFinishDealerEnrollment = async () => {
                             {completion === "prepared" ? "PREPARED" : "HANDLED"}
                           </span>
                         ) : null}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 900,
+                          color: "#1e3a8a",
+                          lineHeight: 1.25,
+                          letterSpacing: "-0.01em",
+                        }}
+                      >
+                        {issueLine || "Action item"}
+                      </div>
+                      {scopeLine ? (
                         <div
                           style={{
-                            fontSize: 13,
-                            fontWeight: 900,
-                            color: "#0f172a",
+                            marginTop: 4,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#64748b",
                             lineHeight: 1.35,
-                            minWidth: 0,
                           }}
                         >
-                          <span style={{ fontWeight: 800, color: "#475569" }}>
-                            {String(ac.scope || "Territory").trim()}
-                          </span>
-                          <span style={{ color: "#cbd5e1", margin: "0 5px" }}>—</span>
-                          <span>{ac.issue}</span>
+                          {scopeLine}
                         </div>
-                      </div>
-                      {whyText ? (
+                      ) : null}
+                      <div style={{ marginTop: 10 }}>
+                        <div
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 900,
+                            letterSpacing: "0.11em",
+                            color: "#1e3a8a",
+                            marginBottom: 4,
+                          }}
+                        >
+                          WHAT CHANGED
+                        </div>
                         <div
                           style={{
                             fontSize: 12,
-                            color: "#64748b",
-                            marginTop: 8,
+                            fontWeight: 600,
+                            color: "#334155",
                             lineHeight: 1.45,
                           }}
                         >
-                          <span style={{ fontWeight: 800, color: "#94a3b8" }}>Why it matters:</span>{" "}
-                          {whyText}
+                          {whatChangedBlock}
                         </div>
-                      ) : null}
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "#334155",
-                          marginTop: whyText ? 6 : 8,
-                          lineHeight: 1.45,
-                          fontWeight: 600,
-                        }}
-                      >
-                        <span style={{ fontWeight: 800, color: "#94a3b8" }}>Recommended:</span>{" "}
-                        {ac.recommended}
                       </div>
-                      {showSpotlightOpportunityDetail ? (
+                      <div style={{ marginTop: 10 }}>
                         <div
                           style={{
-                            marginTop: 6,
-                            padding: "7px 10px",
-                            borderRadius: 8,
-                            background: "#fffbeb",
-                            border: "1px solid rgba(251, 191, 36, 0.42)",
-                            fontSize: 11,
-                            color: "#78350f",
-                            lineHeight: 1.32,
+                            fontSize: 9,
+                            fontWeight: 900,
+                            letterSpacing: "0.11em",
+                            color: "#1e3a8a",
+                            marginBottom: 4,
                           }}
                         >
-                          <div style={{ fontWeight: 800, color: "#b45309", marginBottom: 4 }}>
-                            Product opportunity · intelligence
-                          </div>
-                          <div>
-                            <span style={{ color: "#b45309", fontWeight: 800 }}>Focus </span>
-                            {spotlightFocus.length > 96
-                              ? `${spotlightFocus.slice(0, 93)}…`
-                              : spotlightFocus}
-                          </div>
-                          <div>
-                            <span style={{ color: "#b45309", fontWeight: 800 }}>Signal </span>
-                            {spotlightOpportunitySignal.length > 118
-                              ? `${spotlightOpportunitySignal.slice(0, 115)}…`
-                              : spotlightOpportunitySignal}
-                          </div>
-                          <div>
-                            <span style={{ color: "#b45309", fontWeight: 800 }}>BDM move </span>
-                            {spotlightBdmMove.length > 118
-                              ? `${spotlightBdmMove.slice(0, 115)}…`
-                              : spotlightBdmMove}
-                          </div>
-                          <div>
-                            <span style={{ color: "#b45309", fontWeight: 800 }}>Prepared </span>
-                            {spotlightPreparedContentStatus}
-                          </div>
+                          WHY IT MATTERS
                         </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            color: "#475569",
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          {whyMattersBriefDisplay}
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          marginTop: 12,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          background: "#fafafa",
+                          border: "1px solid rgba(30, 64, 175, 0.18)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 900,
+                            letterSpacing: "0.1em",
+                            color: "#c2410c",
+                            marginBottom: 6,
+                          }}
+                        >
+                          RECOMMENDED NEXT STEP
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 800,
+                            color: "#0f172a",
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {String(ac.recommended || "").trim() || "Review routing and pick the next accountable move."}
+                        </div>
+                      </div>
+                      {supportingWhyTail ? (
+                        <details style={{ marginTop: 8 }}>
+                          <summary
+                            style={{
+                              cursor: "pointer",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: "#64748b",
+                              listStyle: "none",
+                            }}
+                          >
+                            Supporting signals
+                          </summary>
+                          <div
+                            style={{
+                              marginTop: 6,
+                              fontSize: 11,
+                              color: "#64748b",
+                              lineHeight: 1.45,
+                            }}
+                          >
+                            {supportingWhyTail}
+                          </div>
+                        </details>
+                      ) : whyText.length > 220 ? (
+                        <details style={{ marginTop: 8 }}>
+                          <summary
+                            style={{
+                              cursor: "pointer",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: "#64748b",
+                              listStyle: "none",
+                            }}
+                          >
+                            Full rationale (collapsed)
+                          </summary>
+                          <div
+                            style={{
+                              marginTop: 6,
+                              fontSize: 11,
+                              color: "#64748b",
+                              lineHeight: 1.45,
+                            }}
+                          >
+                            {whyText}
+                          </div>
+                        </details>
+                      ) : null}
+                      {showSpotlightOpportunityDetail ? (
+                        <details style={{ marginTop: 8 }}>
+                          <summary
+                            style={{
+                              cursor: "pointer",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: "#b45309",
+                              listStyle: "none",
+                            }}
+                          >
+                            Spotlight routing detail
+                          </summary>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              padding: "8px 10px",
+                              borderRadius: 8,
+                              background: "#fffbeb",
+                              border: "1px solid rgba(251, 191, 36, 0.42)",
+                              fontSize: 11,
+                              color: "#78350f",
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            <div>
+                              <span style={{ color: "#b45309", fontWeight: 800 }}>Focus </span>
+                              {spotlightFocus.length > 96
+                                ? `${spotlightFocus.slice(0, 93)}…`
+                                : spotlightFocus}
+                            </div>
+                            <div style={{ marginTop: 4 }}>
+                              <span style={{ color: "#b45309", fontWeight: 800 }}>Signal </span>
+                              {spotlightOpportunitySignal.length > 220
+                                ? `${spotlightOpportunitySignal.slice(0, 217)}…`
+                                : spotlightOpportunitySignal}
+                            </div>
+                            <div style={{ marginTop: 4 }}>
+                              <span style={{ color: "#b45309", fontWeight: 800 }}>BDM move </span>
+                              {spotlightBdmMove.length > 220
+                                ? `${spotlightBdmMove.slice(0, 217)}…`
+                                : spotlightBdmMove}
+                            </div>
+                            <div style={{ marginTop: 4 }}>
+                              <span style={{ color: "#b45309", fontWeight: 800 }}>Prepared </span>
+                              {spotlightPreparedContentStatus}
+                            </div>
+                          </div>
+                        </details>
                       ) : null}
                       {showDealerRiskDetail ? (
+                        <details style={{ marginTop: 8 }}>
+                          <summary
+                            style={{
+                              cursor: "pointer",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: "#475569",
+                              listStyle: "none",
+                            }}
+                          >
+                            Dealer / roster context
+                          </summary>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              padding: "8px 10px",
+                              borderRadius: 8,
+                              background: "#f8fafc",
+                              border: "1px solid rgba(226, 232, 240, 0.95)",
+                              fontSize: 11,
+                              color: "#475569",
+                              lineHeight: 1.35,
+                            }}
+                          >
+                            <div>
+                              <span style={{ color: "#94a3b8", fontWeight: 800 }}>Dealer </span>
+                              {dealerRiskName}
+                            </div>
+                            <div style={{ marginTop: 4 }}>
+                              <span style={{ color: "#94a3b8", fontWeight: 800 }}>Last signal </span>
+                              {dealerRiskActivitySignal.length > 220
+                                ? `${dealerRiskActivitySignal.slice(0, 217)}…`
+                                : dealerRiskActivitySignal}
+                            </div>
+                            <div style={{ marginTop: 4 }}>
+                              <span style={{ color: "#94a3b8", fontWeight: 800 }}>Risk </span>
+                              {dealerRiskReason.length > 220
+                                ? `${dealerRiskReason.slice(0, 217)}…`
+                                : dealerRiskReason}
+                            </div>
+                            <div style={{ marginTop: 4 }}>
+                              <span style={{ color: "#94a3b8", fontWeight: 800 }}>BDM move </span>
+                              {dealerRiskBdmMove.length > 220
+                                ? `${dealerRiskBdmMove.slice(0, 217)}…`
+                                : dealerRiskBdmMove}
+                            </div>
+                          </div>
+                        </details>
+                      ) : null}
+                      <details style={{ marginTop: 8 }}>
+                        <summary
+                          style={{
+                            cursor: "pointer",
+                            fontSize: 11,
+                            fontWeight: 800,
+                            color: "#64748b",
+                            listStyle: "none",
+                          }}
+                        >
+                          Hand-off preview
+                        </summary>
                         <div
                           style={{
                             marginTop: 6,
-                            padding: "7px 10px",
-                            borderRadius: 8,
-                            background: "#f8fafc",
-                            border: "1px solid rgba(226, 232, 240, 0.95)",
                             fontSize: 11,
-                            color: "#475569",
-                            lineHeight: 1.32,
+                            color: "#64748b",
+                            lineHeight: 1.38,
                           }}
                         >
-                          <div style={{ fontWeight: 800, color: "#94a3b8", marginBottom: 4 }}>
-                            Dealer risk · BDM context
+                          <div style={{ color: "#2563eb", fontWeight: 800 }}>{followHeadline}</div>
+                          <div style={{ marginTop: 4 }}>
+                            <span style={{ fontWeight: 800, color: "#94a3b8" }}>On click:</span>{" "}
+                            {followClick}
                           </div>
-                          <div>
-                            <span style={{ color: "#94a3b8", fontWeight: 800 }}>Dealer </span>
-                            {dealerRiskName}
-                          </div>
-                          <div>
-                            <span style={{ color: "#94a3b8", fontWeight: 800 }}>Last signal </span>
-                            {dealerRiskActivitySignal.length > 112
-                              ? `${dealerRiskActivitySignal.slice(0, 109)}…`
-                              : dealerRiskActivitySignal}
-                          </div>
-                          <div>
-                            <span style={{ color: "#94a3b8", fontWeight: 800 }}>Risk </span>
-                            {dealerRiskReason.length > 120
-                              ? `${dealerRiskReason.slice(0, 117)}…`
-                              : dealerRiskReason}
-                          </div>
-                          <div>
-                            <span style={{ color: "#94a3b8", fontWeight: 800 }}>BDM move </span>
-                            {dealerRiskBdmMove.length > 120
-                              ? `${dealerRiskBdmMove.slice(0, 117)}…`
-                              : dealerRiskBdmMove}
+                          <div style={{ marginTop: 3 }}>
+                            <span style={{ fontWeight: 800, color: "#94a3b8" }}>Affects:</span>{" "}
+                            {followAffects}
                           </div>
                         </div>
-                      ) : null}
-                      <div
-                        style={{
-                          marginTop: 8,
-                          paddingTop: 8,
-                          borderTop: "1px solid rgba(241, 245, 249, 0.95)",
-                          fontSize: 11,
-                          color: "#64748b",
-                          lineHeight: 1.38,
-                        }}
-                      >
-                        <div style={{ color: "#2563eb", fontWeight: 800 }}>{followHeadline}</div>
-                        <div style={{ marginTop: 3 }}>
-                          <span style={{ fontWeight: 800, color: "#94a3b8" }}>On click:</span>{" "}
-                          {followClick}
-                        </div>
-                        <div style={{ marginTop: 2 }}>
-                          <span style={{ fontWeight: 800, color: "#94a3b8" }}>Affects:</span>{" "}
-                          {followAffects}
-                        </div>
-                      </div>
+                      </details>
                     </div>
                     <div
                       style={{
@@ -17741,33 +17972,11 @@ const handleFinishDealerEnrollment = async () => {
                         gap: 8,
                         alignItems: "stretch",
                         flex: "0 0 auto",
+                        minWidth: 160,
                       }}
                     >
-                      {enBridge.ok ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            applyGuidedWizardFromEnablementBridge(enBridge, ac.dealerOrgId);
-                          }}
-                          style={{
-                            cursor: "pointer",
-                            borderRadius: 10,
-                            padding: "8px 14px",
-                            fontSize: 11,
-                            fontWeight: 900,
-                            letterSpacing: "0.04em",
-                            color: "#1e40af",
-                            border: "1px solid rgba(59, 130, 246, 0.55)",
-                            background: "linear-gradient(135deg, #ffffff 0%, #eff6ff 100%)",
-                            boxShadow: "0 4px 10px rgba(37, 99, 235, 0.1)",
-                            alignSelf: "flex-start",
-                          }}
-                        >
-                          Open Guided Spotlight Wizard
-                        </button>
-                      ) : null}
-                    <button
-                      type="button"
+                      <button
+                        type="button"
                       onClick={() => {
                         if (ac.kind === "workflow_notice") {
                           setProductStrategyWorkflowNotice(
@@ -17858,12 +18067,35 @@ const handleFinishDealerEnrollment = async () => {
                         boxShadow: completion
                           ? "0 4px 10px rgba(15, 23, 42, 0.08)"
                           : "0 6px 14px rgba(15, 23, 42, 0.12)",
-                        alignSelf: "flex-start",
+                        alignSelf: "stretch",
                         opacity: completion ? 0.88 : 1,
                       }}
                     >
-                      {completionBtnLabel}
+                      {primaryCtaDisplayLabel}
                     </button>
+                      {enBridge.ok ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            applyGuidedWizardFromEnablementBridge(enBridge, ac.dealerOrgId);
+                          }}
+                          style={{
+                            cursor: "pointer",
+                            borderRadius: 10,
+                            padding: "7px 12px",
+                            fontSize: 11,
+                            fontWeight: 800,
+                            letterSpacing: "0.03em",
+                            color: "#475569",
+                            border: "1px solid rgba(148, 163, 184, 0.85)",
+                            background: "#f8fafc",
+                            boxShadow: "none",
+                            alignSelf: "stretch",
+                          }}
+                        >
+                          Open Guided Draft
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 );
