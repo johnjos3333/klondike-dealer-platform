@@ -23,6 +23,12 @@ import {
   getHydraulicCanonicalProductIntelligenceByPdsKey,
   listHydraulicCanonicalProductIntelligence,
 } from "../data/hydraulicCanonicalProductIntelligence.js";
+import {
+  HD_ENGINE_OIL_CANONICAL_PRODUCT_INTELLIGENCE,
+  getHdEngineOilCanonicalProductIntelligenceById,
+  getHdEngineOilCanonicalProductIntelligenceByPdsKey,
+  listHdEngineOilCanonicalProductIntelligence,
+} from "../data/heavyDutyEngineOilCanonicalIntelligence.js";
 import { normalizeProductQuery, searchKlondikeProducts } from "./klondikeProductRetrievalHelpers.js";
 
 const ENTITY_EXACT_MIN_SCORE = 34;
@@ -58,6 +64,17 @@ const HYDRAULIC_CANONICAL_FLAGSHIP_BY_ID = Object.freeze({
 const HYDRAULIC_CANONICAL_REGISTRY_ENTITY_ID = Object.freeze({
   "hydr-canonical-xvi-all-season": "entity-xvi-hydraulic",
   "hydr-canonical-wet-brake-fluid-full-synthetic": "entity-wet-brake-fluid",
+});
+
+/** @type {Readonly<Record<string, string>>} */
+const HD_CANONICAL_FLAGSHIP_BY_ID = Object.freeze({
+  "hd-canonical-full-synthetic-15w40": "flagship-15w40-ck4-full-synthetic-hd",
+});
+
+/** Registry entity id when HD canonical row maps to an existing entity bucket. */
+/** @type {Readonly<Record<string, string>>} */
+const HD_CANONICAL_REGISTRY_ENTITY_ID = Object.freeze({
+  "hd-canonical-full-synthetic-15w40": "entity-full-synthetic-15w-40",
 });
 
 /**
@@ -273,7 +290,12 @@ function relaxNormalizedProductQuery(n) {
     .replace(/\b0w20\b/g, "0w 20")
     .replace(/\b0w30\b/g, "0w 30")
     .replace(/\b5w30\b/g, "5w 30")
-    .replace(/\b5w40\b/g, "5w 40");
+    .replace(/\b5w40\b/g, "5w 40")
+    .replace(/\b10w30\b/g, "10w 30")
+    .replace(/\b10w40\b/g, "10w 40")
+    .replace(/\b15w30\b/g, "15w 30")
+    .replace(/\b0w30\b/g, "0w 30")
+    .replace(/\b0w40\b/g, "0w 40");
 }
 
 /**
@@ -534,6 +556,294 @@ function scoreHydraulicCanonicalProduct(hydr, normQ) {
 
 /**
  * @param {string} normQ
+ */
+function isHdEngineOilProductQuery(normQ) {
+  if (normQ.includes("engine oil") || normQ.includes("hd oil") || normQ.includes("heavy duty engine")) return true;
+  if (normQ.includes("professional formula") || normQ.includes("advanced formula")) return true;
+  if (normQ.includes("ck4") || normQ.includes("ck 4") || normQ.includes("fa4") || normQ.includes("fa 4")) return true;
+  if (normQ.includes("natural gas") && (normQ.includes("oil") || normQ.includes("engine") || normQ.includes("ash"))) {
+    return true;
+  }
+  if (normQ.includes("sour gas") || normQ.includes("sour natural gas")) return true;
+  if (normQ.includes("railroad") || normQ.includes("9tbn") || normQ.includes("9 tbn")) return true;
+  if (normQ.includes("single grade diesel") || normQ.includes("cf2 diesel")) return true;
+  if (
+    /\b(0w|5w|10w|15w)\s*\d{2}\b/.test(normQ) &&
+    !normQ.includes("grease") &&
+    !normQ.includes("hydraulic") &&
+    !normQ.includes("utf") &&
+    !normQ.includes("tractor fluid") &&
+    !normQ.includes("euro")
+  ) {
+    if (
+      normQ.includes("diesel") ||
+      normQ.includes("ck") ||
+      normQ.includes("fa") ||
+      normQ.includes("synthetic") ||
+      normQ.includes("professional") ||
+      normQ.includes("advanced") ||
+      normQ.includes("arctic") ||
+      normQ.includes("natural gas") ||
+      normQ.includes("railroad") ||
+      normQ.includes("blend")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isFa4EngineOilQuery(normQ) {
+  return normQ.includes("fa4") || normQ.includes("fa 4") || normQ.includes("fa-4");
+}
+
+/**
+ * @param {string} normQ
+ */
+function isCk4EngineOilQuery(normQ) {
+  return normQ.includes("ck4") || normQ.includes("ck 4") || normQ.includes("ck-4");
+}
+
+/**
+ * @param {string} normQ
+ */
+function isNaturalGasEngineOilQuery(normQ) {
+  if (normQ.includes("sour gas") || normQ.includes("sour natural gas")) return true;
+  if (normQ.includes("mid ash sour") || normQ.includes("low ash sour")) return true;
+  if (normQ.includes("pipeline gas") || normQ.includes("low ash natural gas")) return true;
+  if (normQ.includes("natural gas") && (normQ.includes("engine") || normQ.includes("oil") || normQ.includes("ash"))) {
+    return true;
+  }
+  if ((normQ.includes(" ng ") || normQ.startsWith("ng ")) && normQ.includes("oil")) return true;
+  if (normQ.includes("ces 20074") || normQ.includes("pgos 93k216")) return true;
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isRailroadEngineOilQuery(normQ) {
+  return (
+    normQ.includes("railroad") ||
+    normQ.includes("9tbn") ||
+    normQ.includes("9 tbn") ||
+    normQ.includes("zinc free") ||
+    normQ.includes("zinc-free") ||
+    normQ.includes("lmao")
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isProfessionalFormulaHdQuery(normQ) {
+  return (
+    normQ.includes("professional formula") ||
+    normQ.includes("15w40 professional") ||
+    normQ.includes("professional 15w40") ||
+    normQ.includes("professional 10w30") ||
+    normQ.includes("10w30 professional") ||
+    normQ.includes("klondike professional formula")
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isAdvancedFormulaHdQuery(normQ) {
+  return normQ.includes("advanced formula") || normQ.includes("15w40 advanced") || normQ.includes("advanced 15w40");
+}
+
+/**
+ * @param {string} normQ
+ */
+function isFullSynthetic15w40HdQuery(normQ) {
+  return (normQ.includes("15w 40") || normQ.includes("15w40")) && normQ.includes("full synthetic");
+}
+
+/**
+ * @param {string} normQ
+ */
+function has15w40InQuery(normQ) {
+  return normQ.includes("15w 40") || normQ.includes("15w40");
+}
+
+/**
+ * @param {import("../data/heavyDutyEngineOilCanonicalIntelligence.js").HdEngineOilCanonicalProductIntelligence} hd
+ * @param {string} normQ
+ */
+function scoreHdEngineOilCanonicalProduct(hd, normQ) {
+  if (isGreaseOnlyProductQuery(normQ) && !isHdEngineOilProductQuery(normQ)) return 0;
+  if (isXviHydraulicQuery(normQ) && !normQ.includes("engine oil")) return 0;
+  if (isPlainUtfQuery(normQ) || isArcticTractorFluidQuery(normQ)) return 0;
+  if (normQ.includes("euro") && !isHdEngineOilProductQuery(normQ)) return 0;
+
+  const has10w30 = normQ.includes("10w 30") || normQ.includes("10w30");
+  const has15w40 = normQ.includes("15w 40") || normQ.includes("15w40");
+  const fa4 = isFa4EngineOilQuery(normQ);
+  const ck4 = isCk4EngineOilQuery(normQ);
+  const ng = isNaturalGasEngineOilQuery(normQ);
+  const railroad = isRailroadEngineOilQuery(normQ);
+  const professional = isProfessionalFormulaHdQuery(normQ);
+  const advanced = isAdvancedFormulaHdQuery(normQ);
+  const fullSyn15w40 = isFullSynthetic15w40HdQuery(normQ);
+
+  if (ng && !hd.hierarchyBranch.includes("natural_gas") && !hd.hierarchyBranch.includes("sour")) return 0;
+  if (railroad && hd.id !== "hd-canonical-9tbn-railroad") return 0;
+  if (!ng && !railroad && (hd.hierarchyBranch.includes("natural_gas") || hd.hierarchyBranch.includes("sour"))) {
+    if (!isHdEngineOilProductQuery(normQ)) return 0;
+    if (!ng) return 0;
+  }
+  if (!railroad && hd.id === "hd-canonical-9tbn-railroad" && !isHdEngineOilProductQuery(normQ)) return 0;
+
+  if (fa4 && hd.id !== "hd-canonical-10w30-fa4") {
+    if (has10w30) return 0;
+  }
+  if (!fa4 && hd.id === "hd-canonical-10w30-fa4") return 0;
+
+  if (has10w30 && ck4 && !fa4) {
+    if (hd.id === "hd-canonical-10w30-fa4") return 0;
+  }
+
+  if (advanced && hd.id !== "hd-canonical-advanced-15w40") {
+    if (has15w40 && (hd.id === "hd-canonical-professional-15w40" || hd.id === "hd-canonical-full-synthetic-15w40")) {
+      return 0;
+    }
+  }
+  if (fullSyn15w40 && hd.id !== "hd-canonical-full-synthetic-15w40") {
+    if (has15w40 && (hd.id === "hd-canonical-advanced-15w40" || hd.id === "hd-canonical-professional-15w40")) {
+      return 0;
+    }
+  }
+  if (professional && has15w40 && hd.id === "hd-canonical-advanced-15w40") return 0;
+  if (professional && has15w40 && hd.id === "hd-canonical-full-synthetic-15w40") return 0;
+  if (advanced && hd.id === "hd-canonical-professional-15w40") return 0;
+  if (fullSyn15w40 && hd.id === "hd-canonical-advanced-15w40") return 0;
+
+  if (has10w30 && professional && !fa4) {
+    if (hd.id === "hd-canonical-10w30-synthetic-blend-ck4" && !normQ.includes("synthetic blend") && !normQ.includes("blend ck4")) {
+      return 0;
+    }
+    if (hd.id === "hd-canonical-10w30-fa4") return 0;
+  }
+  if (has10w30 && normQ.includes("synthetic blend") && ck4 && !fa4) {
+    if (hd.id === "hd-canonical-professional-10w30" && !professional) {
+      /* allow blend row */
+    } else if (hd.id === "hd-canonical-professional-10w30" && !normQ.includes("professional")) {
+      return 0;
+    }
+  }
+
+  if (ng) {
+    if (normQ.includes("mid ash") && normQ.includes("sour") && hd.id !== "hd-canonical-40-mid-ash-sour-ng") return 0;
+    if (normQ.includes("low ash") && normQ.includes("sour") && hd.id !== "hd-canonical-40-low-ash-sour-ng") return 0;
+    if (normQ.includes("low ash") && normQ.includes("sour") && hd.id === "hd-canonical-40-mid-ash-sour-ng") return 0;
+    if (normQ.includes("mid ash") && normQ.includes("sour") && hd.id === "hd-canonical-40-low-ash-sour-ng") return 0;
+  }
+
+  let score = 0;
+  const productNorm = normalizeProductQuery(hd.productName);
+  if (productNorm.length >= 8 && normQ.includes(productNorm)) {
+    score = Math.max(score, 42);
+  }
+  const mapKeyNorm = normalizeProductQuery(hd.pdsMapKey);
+  if (mapKeyNorm.length >= 6 && normQ.includes(mapKeyNorm)) {
+    score = Math.max(score, 40);
+  }
+
+  for (const alias of hd.aliases) {
+    const a = normalizeProductQuery(alias);
+    if (a.length < 3) continue;
+    if (normQ === a) score = Math.max(score, 48);
+    else if (a.length >= 10 && normQ.includes(a)) score = Math.max(score, 40 + Math.min(12, a.length - 8));
+    else if (normQ.includes(a)) score = Math.max(score, 30 + Math.min(14, a.length));
+  }
+
+  if (hd.id === "hd-canonical-professional-15w40" && professional && has15w40) {
+    score = Math.max(score, 50);
+  }
+  if (hd.id === "hd-canonical-professional-10w30" && has10w30 && (professional || normQ.includes("commercial formula 10w30")) && !fa4) {
+    score = Math.max(score, 50);
+  }
+  if (hd.id === "hd-canonical-advanced-15w40" && advanced && has15w40) {
+    score = Math.max(score, 50);
+  }
+  if (hd.id === "hd-canonical-full-synthetic-15w40" && fullSyn15w40) {
+    score = Math.max(score, 50);
+  }
+  if (hd.id === "hd-canonical-10w30-fa4" && fa4 && has10w30) {
+    score = Math.max(score, 50);
+  }
+  if (hd.id === "hd-canonical-10w30-synthetic-blend-ck4" && has10w30 && normQ.includes("synthetic blend") && ck4 && !fa4) {
+    score = Math.max(score, 48);
+  }
+  if (hd.id === "hd-canonical-40-mid-ash-sour-ng" && ng && normQ.includes("mid ash")) {
+    score = Math.max(score, 50);
+  }
+  if (hd.id === "hd-canonical-40-low-ash-sour-ng" && ng && normQ.includes("low ash") && normQ.includes("sour")) {
+    score = Math.max(score, 50);
+  }
+  if (hd.id === "hd-canonical-9tbn-railroad" && railroad) {
+    score = Math.max(score, 50);
+  }
+  if (hd.id === "hd-canonical-15w40-low-ash-ng" && ng && has15w40 && normQ.includes("natural gas")) {
+    score = Math.max(score, 48);
+  }
+  if (hd.id === "hd-canonical-10w40-low-ash-ng" && ng && (normQ.includes("10w 40") || normQ.includes("10w40")) && normQ.includes("natural gas")) {
+    score = Math.max(score, 48);
+  }
+
+  return score;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectHdEngineOilCanonicalProductEntities(normQ) {
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const hd of listHdEngineOilCanonicalProductIntelligence()) {
+    const score = scoreHdEngineOilCanonicalProduct(hd, normQ);
+    if (score < ENTITY_DETECT_MIN_SCORE) continue;
+    const registryId = HD_CANONICAL_REGISTRY_ENTITY_ID[hd.id] || hd.id;
+    hits.push({ id: registryId, score, label: hd.productName });
+  }
+  return hits;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} detectId
+ */
+function resolveHdEngineOilCanonicalFromDetectId(normQ, detectId) {
+  const id = String(detectId ?? "").trim();
+  if (!id) return null;
+
+  /** @type {import("../data/heavyDutyEngineOilCanonicalIntelligence.js").HdEngineOilCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const hd of HD_ENGINE_OIL_CANONICAL_PRODUCT_INTELLIGENCE.products) {
+    const registryId = HD_CANONICAL_REGISTRY_ENTITY_ID[hd.id] || hd.id;
+    if (registryId !== id && hd.id !== id) continue;
+    const score = scoreHdEngineOilCanonicalProduct(hd, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = hd;
+    }
+  }
+  if (best) return best;
+  if (id.startsWith("hd-canonical-")) {
+    return getHdEngineOilCanonicalProductIntelligenceById(id);
+  }
+  return null;
+}
+
+/**
+ * @param {string} normQ
  * @returns {Array<{ id: string, score: number, label: string }>}
  */
 function detectHydraulicCanonicalProductEntities(normQ) {
@@ -627,7 +937,11 @@ export function detectKlondikeProductEntity(inputText) {
   if (!normQ) return [];
 
   /** @type {Array<{ id: string, score: number, label: string }>} */
-  const hits = [...detectGreaseCanonicalProductEntities(normQ), ...detectHydraulicCanonicalProductEntities(normQ)];
+  const hits = [
+    ...detectGreaseCanonicalProductEntities(normQ),
+    ...detectHydraulicCanonicalProductEntities(normQ),
+    ...detectHdEngineOilCanonicalProductEntities(normQ),
+  ];
 
   hits.sort((a, b) => b.score - a.score);
 
@@ -655,9 +969,20 @@ export function detectKlondikeProductEntity(inputText) {
         /* skip non-XVI hydraulic retrieval on XVI asks */
       } else if (isPlainUtfQuery(normQ) && /full synthetic/i.test(key)) {
         /* skip UTF Full Synthetic retrieval on plain UTF asks */
+      } else if (isFa4EngineOilQuery(normQ) && !/fa[\s-]?4/i.test(key) && /10w[\s-]?30/i.test(key)) {
+        /* skip CK-4 10W-30 retrieval on FA-4 asks */
+      } else if (isAdvancedFormulaHdQuery(normQ) && /full synthetic/i.test(key) && /15w[\s-]?40/i.test(key)) {
+        /* skip Full Synthetic retrieval on Advanced 15W-40 asks */
+      } else if (isProfessionalFormulaHdQuery(normQ) && has15w40InQuery(normQ) && /advanced|full synthetic/i.test(key)) {
+        /* skip Advanced/FS retrieval on Professional 15W-40 asks */
+      } else if (isNaturalGasEngineOilQuery(normQ) && !/natural gas|sour|railroad|9tbn/i.test(key)) {
+        /* skip diesel retrieval on NG/sour/railroad asks */
+      } else if (isRailroadEngineOilQuery(normQ) && !/railroad|9tbn/i.test(key)) {
+        /* skip non-railroad retrieval on railroad asks */
       } else {
         const greaseFromKey = getGreaseCanonicalProductIntelligenceByPdsKey(key);
         const hydrFromKey = getHydraulicCanonicalProductIntelligenceByPdsKey(key);
+        const hdFromKey = getHdEngineOilCanonicalProductIntelligenceByPdsKey(key);
         if (greaseFromKey) {
           const registryId = GREASE_CANONICAL_REGISTRY_ENTITY_ID[greaseFromKey.id] || greaseFromKey.id;
           const existing = hits.find((h) => h.id === registryId);
@@ -670,6 +995,12 @@ export function detectKlondikeProductEntity(inputText) {
           const boost = Math.min(72, top.score + 6);
           if (existing) existing.score = Math.max(existing.score, boost);
           else hits.push({ id: registryId, score: boost, label: hydrFromKey.productName });
+        } else if (hdFromKey) {
+          const registryId = HD_CANONICAL_REGISTRY_ENTITY_ID[hdFromKey.id] || hdFromKey.id;
+          const existing = hits.find((h) => h.id === registryId);
+          const boost = Math.min(72, top.score + 6);
+          if (existing) existing.score = Math.max(existing.score, boost);
+          else hits.push({ id: registryId, score: boost, label: hdFromKey.productName });
         } else {
           for (const entity of PRODUCT_ENTITY_REGISTRY) {
             if (entity.pdsKeys.includes(key)) {
@@ -741,11 +1072,16 @@ export function resolveKlondikeProductEntity(inputText) {
   const second = detected[1];
   const greaseCanonical = resolveGreaseCanonicalFromDetectId(normQ, top.id);
   const hydraulicCanonical = resolveHydraulicCanonicalFromDetectId(normQ, top.id);
+  const hdCanonical = resolveHdEngineOilCanonicalFromDetectId(normQ, top.id);
   const entity = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === top.id);
-  if (!entity && !greaseCanonical && !hydraulicCanonical) return empty;
+  if (!entity && !greaseCanonical && !hydraulicCanonical && !hdCanonical) return empty;
 
   let pdsKey =
-    greaseCanonical?.pdsMapKey ?? hydraulicCanonical?.pdsMapKey ?? entity?.pickPdsKey(normQ) ?? null;
+    greaseCanonical?.pdsMapKey ??
+    hydraulicCanonical?.pdsMapKey ??
+    hdCanonical?.pdsMapKey ??
+    entity?.pickPdsKey(normQ) ??
+    null;
   if (!pdsKey && entity?.pdsKeys.length === 1) pdsKey = entity.pdsKeys[0];
   if (pdsKey && !PDS_MAP[pdsKey]) {
     pdsKey =
@@ -753,13 +1089,16 @@ export function resolveKlondikeProductEntity(inputText) {
       (greaseCanonical?.pdsMapKey && PDS_MAP[greaseCanonical.pdsMapKey] ? greaseCanonical.pdsMapKey : null) ||
       (hydraulicCanonical?.pdsMapKey && PDS_MAP[hydraulicCanonical.pdsMapKey]
         ? hydraulicCanonical.pdsMapKey
-        : null);
+        : null) ||
+      (hdCanonical?.pdsMapKey && PDS_MAP[hdCanonical.pdsMapKey] ? hdCanonical.pdsMapKey : null);
   }
 
-  const label = greaseCanonical?.productName ?? hydraulicCanonical?.productName ?? entity?.label ?? top.label;
+  const label =
+    greaseCanonical?.productName ?? hydraulicCanonical?.productName ?? hdCanonical?.productName ?? entity?.label ?? top.label;
   const flagshipId =
     (greaseCanonical && GREASE_CANONICAL_FLAGSHIP_BY_ID[greaseCanonical.id]) ||
     (hydraulicCanonical && HYDRAULIC_CANONICAL_FLAGSHIP_BY_ID[hydraulicCanonical.id]) ||
+    (hdCanonical && HD_CANONICAL_FLAGSHIP_BY_ID[hdCanonical.id]) ||
     entity?.flagshipId ||
     null;
 
@@ -826,6 +1165,16 @@ function mapDetectedToLikelyMatches(detected, normQ) {
         score: d.score,
       };
     }
+    const hd = resolveHdEngineOilCanonicalFromDetectId(normQ, d.id);
+    if (hd) {
+      const key = hd.pdsMapKey;
+      return {
+        entityId: d.id,
+        pdsKey: key && PDS_MAP[key] ? key : null,
+        label: hd.productName,
+        score: d.score,
+      };
+    }
     const def = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === d.id);
     const key = def?.pickPdsKey(normQ) || def?.pdsKeys[0] || null;
     return {
@@ -881,6 +1230,61 @@ function buildEntitySectionsFromHydraulicCanonical(hydr) {
       "whereItFits",
       "Where It Fits",
       hydr.categorySpotlightRole ? String(hydr.categorySpotlightRole) : "",
+      whereFits
+    ),
+    narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk.length ? repTalk.slice(0, 8) : []),
+    narrativeSection("questionsToAsk", "Questions to Ask", "", questions),
+    narrativeSection("confirmBeforeUse", "Confirm Before Use", "", confirm),
+  ].filter((s) => s.body || (s.items && s.items.length > 0));
+}
+
+/**
+ * @param {import("../data/heavyDutyEngineOilCanonicalIntelligence.js").HdEngineOilCanonicalProductIntelligence} hd
+ */
+function buildEntitySectionsFromHdCanonical(hd) {
+  const whatItIs = uniqStrings([hd.whatItIs, hd.productPositioning, hd.viscosityPositioning]);
+  const whyItWins = uniqStrings([hd.whyItWins]);
+  const proof = [
+    ...hd.proofPoints,
+    hd.emissionsPositioning,
+    hd.TBNStrategy,
+    hd.OEMPositioning,
+  ].filter(Boolean);
+  const whereFits = uniqStrings([
+    ...hd.applications,
+    ...hd.industries,
+    hd.severeDutyPositioning,
+    hd.naturalGasPositioning,
+    hd.railroadPositioning,
+    hd.coldStartPositioning,
+    hd.fuelEconomyPositioning,
+  ]);
+  const repTalk = [...hd.repTalkTrack];
+  const questions = uniqStrings([
+    ...hd.customerPainSignals.map((p) => `Customer pain to probe: ${p}`),
+    ...hd.troubleshootingAssociations.map((t) => `Related troubleshooting topic: ${t}`),
+    "What API category and SAE grade does the engine nameplate require?",
+    "Is this CK-4 diesel, FA-4, natural gas, railroad zinc-free, or legacy CF family?",
+  ]);
+  const confirm = uniqStrings([
+    ...hd.cautionNotes,
+    ...hd.doNotConfuseWith.map((name) => `Do not confuse with ${name}—confirm the PDS title block.`),
+    hd.pdsMapKey ? `Confirm the indexed row “${hd.pdsMapKey}” matches the drum label before quoting.` : "",
+    hd.catalystCompatibility,
+  ]);
+
+  const proofIntro = proof.length
+    ? "Use indexed PDS map lines and the live PDS PDF—quote only printed spec rows."
+    : "Open the current PDS PDF for authoritative proof; the map index is a pointer only.";
+
+  return [
+    narrativeSection("whatItIs", "What It Is", "", whatItIs.length ? whatItIs : ["Name the product exactly as on the PDS title block, then recompose."]),
+    narrativeSection("whyItWins", "Why It Wins", "", whyItWins.length ? whyItWins : ["Anchor wins to indexed HD engine oil canonical intelligence only."]),
+    narrativeSection("pdsBackedProof", "PDS-Backed Proof", proofIntro, proof.length ? proof.slice(0, 10) : []),
+    narrativeSection(
+      "whereItFits",
+      "Where It Fits",
+      hd.categorySpotlightRole ? String(hd.categorySpotlightRole) : "",
       whereFits
     ),
     narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk.length ? repTalk.slice(0, 8) : []),
@@ -1066,6 +1470,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
   const pdsRow = pdsKey && PDS_MAP[pdsKey] ? PDS_MAP[pdsKey] : null;
   const greaseCanonical = pdsKey ? getGreaseCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
   const hydraulicCanonical = pdsKey ? getHydraulicCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
+  const hdCanonical = pdsKey ? getHdEngineOilCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
 
   if (resolved.entityId === "entity-deep-well-pump-oil") {
     const matchedProducts = (searchKlondikeProducts(question).matches || []).slice(0, 6).map((m) => ({
@@ -1107,7 +1512,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
     };
   }
 
-  if (!flagship && !pdsRow && !greaseCanonical && !hydraulicCanonical) {
+  if (!flagship && !pdsRow && !greaseCanonical && !hydraulicCanonical && !hdCanonical) {
     return {
       ...empty,
       title: resolved.label || "Klondike product",
@@ -1125,12 +1530,13 @@ export function buildProductEntityAdvisorResponse(inputText) {
   }
 
   const nanoIntel =
-    !greaseCanonical && !hydraulicCanonical && flagship && isNanoEp2FlagshipId(flagship.id)
+    !greaseCanonical && !hydraulicCanonical && !hdCanonical && flagship && isNanoEp2FlagshipId(flagship.id)
       ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE
       : null;
   const titleLabel =
     greaseCanonical?.productName ||
     hydraulicCanonical?.productName ||
+    hdCanonical?.productName ||
     nanoIntel?.canonicalProductLabel ||
     flagship?.productName ||
     pdsKey ||
@@ -1140,17 +1546,21 @@ export function buildProductEntityAdvisorResponse(inputText) {
     ? greaseCanonical.whyItWins
     : hydraulicCanonical
       ? hydraulicCanonical.whyItWins
-      : nanoIntel
-        ? nanoIntel.whyItWins
-        : flagship?.whyItWins ||
-          (pdsRow?.why ? String(pdsRow.why) : "") ||
-          `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
+      : hdCanonical
+        ? hdCanonical.whyItWins
+        : nanoIntel
+          ? nanoIntel.whyItWins
+          : flagship?.whyItWins ||
+            (pdsRow?.why ? String(pdsRow.why) : "") ||
+            `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
 
   const sections = greaseCanonical
     ? buildEntitySectionsFromGreaseCanonical(greaseCanonical)
     : hydraulicCanonical
       ? buildEntitySectionsFromHydraulicCanonical(hydraulicCanonical)
-      : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
+      : hdCanonical
+        ? buildEntitySectionsFromHdCanonical(hdCanonical)
+        : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
   const followUpQuestions = sections.find((s) => s.id === "questionsToAsk")?.items || [];
   const cautionNotes =
     greaseCanonical?.cautionNotes?.length
@@ -1160,12 +1570,18 @@ export function buildProductEntityAdvisorResponse(inputText) {
             ...hydraulicCanonical.cautionNotes,
             ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
           ])
-        : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
+        : hdCanonical?.cautionNotes?.length
+          ? uniqStrings([
+              ...hdCanonical.cautionNotes,
+              ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
+            ])
+          : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
 
   /** @type {string[]} */
   const sourceBadges = ["Product entity resolver", "PDS map index"];
   if (greaseCanonical) sourceBadges.push("Grease canonical product intelligence");
   if (hydraulicCanonical) sourceBadges.push("Hydraulic canonical product intelligence");
+  if (hdCanonical) sourceBadges.push("HD engine oil canonical product intelligence");
   if (flagship) sourceBadges.push("Flagship product intelligence");
   if (nanoIntel) sourceBadges.push("Nano EP 2 canonical intelligence");
 
