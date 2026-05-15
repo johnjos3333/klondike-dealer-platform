@@ -392,8 +392,12 @@ function shouldSkipProductRetrievalRouting(question) {
   if (shouldRouteGreaseThickenerCompatibility(question)) return true;
   if (shouldRouteHydraulicTroubleshooting(question)) return true;
   if (shouldRouteDeterministicRecommendation(question)) return true;
-  const t = detectTroubleshootingIntent(question)[0]?.score || 0;
-  if (t >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
+  const catalogWithoutTroubleshootingAdmission =
+    isProductCarryingKlondikeQuery(question) && !hasHydraulicTroubleshootingAdmission(question);
+  if (!catalogWithoutTroubleshootingAdmission) {
+    const t = detectTroubleshootingIntent(question)[0]?.score || 0;
+    if (t >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
+  }
   const r = detectRoleBasedSalesIntent(question)[0]?.score || 0;
   if (r >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
   if (shouldDeferProductRetrievalForConcept(question)) return true;
@@ -489,13 +493,42 @@ const DIRECT_TROUBLESHOOTING_SYMPTOM_PHRASES = Object.freeze([
   "pump noise",
   "sluggish",
   "varnish",
-  "water in oil",
+  "water contamination",
   "filter plugging",
   "cylinder drift",
-  "erratic",
-  "leaking",
-  "failure",
+  "erratic hydraulics",
+  "erratic hydraulic",
+  "seal failure",
   "worn pump",
+  "brake fade",
+  "hard shifting",
+  "no movement",
+  "slipping",
+  "high temperature",
+  "slow response",
+]);
+
+/** Operational failure language — not generic product/category words (heavy duty, coolant, fleet). */
+const TROUBLESHOOTING_OPERATIONAL_PHRASES = Object.freeze([
+  "after top off",
+  "after topoff",
+  "after fill",
+  "won t work",
+  "wont work",
+  "not working",
+  "problem with",
+  "issue with",
+  "failure mode",
+  "troubleshoot",
+  "troubleshooting",
+  "what s wrong",
+  "whats wrong",
+  "why is my",
+  "why does my",
+  "keeps failing",
+  "started after",
+  "symptom",
+  "symptoms",
 ]);
 
 /**
@@ -516,6 +549,24 @@ export function hasDirectTroubleshootingSymptom(question) {
   const norm = normalizeOrchestratorText(question);
   if (!norm) return false;
   return DIRECT_TROUBLESHOOTING_SYMPTOM_PHRASES.some((phrase) => norm.includes(phrase));
+}
+
+/**
+ * @param {string} question
+ * @returns {boolean}
+ */
+export function hasTroubleshootingOperationalPhrase(question) {
+  const norm = normalizeOrchestratorText(question);
+  if (!norm) return false;
+  return TROUBLESHOOTING_OPERATIONAL_PHRASES.some((phrase) => norm.includes(phrase));
+}
+
+/**
+ * @param {string} question
+ * @returns {boolean}
+ */
+function hasHydraulicTroubleshootingAdmission(question) {
+  return hasDirectTroubleshootingSymptom(question) || hasTroubleshootingOperationalPhrase(question);
 }
 
 /**
@@ -583,8 +634,37 @@ function tryRouteDeterministicRecommendationResponse(question) {
  * @param {string} question
  */
 function shouldRouteHydraulicTroubleshooting(question) {
+  if (!hasHydraulicTroubleshootingAdmission(question)) return false;
   const detected = detectHydraulicTroubleshootingIntent(question);
   return detected.confidence === "exact" || detected.confidence === "likely";
+}
+
+/**
+ * @param {string} question
+ * @returns {ReturnType<typeof buildLubricationAdvisorResponse> | null}
+ */
+function tryRouteProductRetrievalResponse(question) {
+  if (!isProductCarryingKlondikeQuery(question)) return null;
+  if (shouldSkipProductRetrievalRouting(question)) return null;
+
+  const productSearch = searchKlondikeProducts(question);
+  if (!hasReasonableKlondikeProductSearch(productSearch)) return null;
+
+  const retrieval = buildKlondikeProductRetrievalResponse(question);
+  if (!retrieval.ok) return null;
+
+  const topScore = productSearch.matches[0]?.score || 0;
+  return {
+    intent: "product_retrieval",
+    confidence: Math.min(0.95, 0.35 + topScore / 72),
+    title: retrieval.title,
+    directAnswer: retrieval.directAnswer,
+    sections: retrieval.sections || [],
+    followUpQuestions: retrieval.followUpQuestions || [],
+    sourceBadges: retrieval.sourceBadges || ["PDS map retrieval"],
+    cautionNotes: retrieval.cautionNotes || [],
+    matchedProducts: retrieval.matchedProducts || [],
+  };
 }
 
 /**
@@ -668,13 +748,21 @@ export function buildLubricationAdvisorResponse(inputText) {
     if (earlyRecommendation) return earlyRecommendation;
   }
 
-  if (isProductIdentityQuery(question) && !hasDirectTroubleshootingSymptom(question)) {
+  if (isProductIdentityQuery(question) && !hasHydraulicTroubleshootingAdmission(question)) {
     const earlyProductEntity = tryRouteStrongProductEntityResponse(question);
     if (earlyProductEntity) return earlyProductEntity;
   }
 
+  if (!hasHydraulicTroubleshootingAdmission(question)) {
+    const earlyCatalogRetrieval = tryRouteProductRetrievalResponse(question);
+    if (earlyCatalogRetrieval) return earlyCatalogRetrieval;
+  }
+
   const hydraulicDetected = detectHydraulicTroubleshootingIntent(question);
-  if (hydraulicDetected.confidence === "exact" || hydraulicDetected.confidence === "likely") {
+  if (
+    hasHydraulicTroubleshootingAdmission(question) &&
+    (hydraulicDetected.confidence === "exact" || hydraulicDetected.confidence === "likely")
+  ) {
     const hydraulicResp = buildHydraulicTroubleshootingResponse(question);
     return {
       intent: "hydraulic_troubleshooting",
@@ -712,26 +800,8 @@ export function buildLubricationAdvisorResponse(inputText) {
   const lateRecommendation = tryRouteDeterministicRecommendationResponse(question);
   if (lateRecommendation) return lateRecommendation;
 
-  if (isProductCarryingKlondikeQuery(question) && !shouldSkipProductRetrievalRouting(question)) {
-    const productSearch = searchKlondikeProducts(question);
-    if (hasReasonableKlondikeProductSearch(productSearch)) {
-      const retrieval = buildKlondikeProductRetrievalResponse(question);
-      if (retrieval.ok) {
-        const topScore = productSearch.matches[0]?.score || 0;
-        return {
-          intent: "product_retrieval",
-          confidence: Math.min(0.95, 0.35 + topScore / 72),
-          title: retrieval.title,
-          directAnswer: retrieval.directAnswer,
-          sections: retrieval.sections || [],
-          followUpQuestions: retrieval.followUpQuestions || [],
-          sourceBadges: retrieval.sourceBadges || ["PDS map retrieval"],
-          cautionNotes: retrieval.cautionNotes || [],
-          matchedProducts: retrieval.matchedProducts || [],
-        };
-      }
-    }
-  }
+  const lateCatalogRetrieval = tryRouteProductRetrievalResponse(question);
+  if (lateCatalogRetrieval) return lateCatalogRetrieval;
 
   const classification = classifyLubricationAdvisorIntent(question);
 
