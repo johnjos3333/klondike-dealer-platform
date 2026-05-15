@@ -8,8 +8,10 @@ import {
   EMPTY_NARRATIVE_HINTS,
   NARRATIVE_SECTION_BLUEPRINT,
   NARRATIVE_SOURCE_BADGE_LABELS,
+  PDS_BACKED_PROOF_INTRO,
   PRODUCT_NARRATIVE_COMPOSITION_VERSION,
   SALES_ENABLEMENT_SPOTLIGHT_TYPES,
+  UPGRADE_REASONING_INTRO,
 } from "../data/productNarrativeTemplates.js";
 import { SALES_ENABLEMENT_FLAGSHIP_NARRATIVES } from "../data/salesEnablement/flagshipNarratives.js";
 import {
@@ -23,6 +25,100 @@ import { equipmentLubricationKnowledge } from "../data/equipmentLubricationKnowl
 import { roleBasedSalesTranslationKnowledge } from "../data/roleBasedSalesTranslationKnowledge.js";
 import { lubricationTroubleshootingKnowledge } from "../data/lubricationTroubleshootingKnowledge.js";
 import { normalizeProductQuery, searchKlondikeProducts } from "./klondikeProductRetrievalHelpers.js";
+import {
+  buildProductDifferentiationResponse,
+  detectProductDifferentiationIntent,
+} from "./productDifferentiationAdvisorHelpers.js";
+
+/**
+ * Normalize caller `context` (supports `role`, `industry`, `equipment`, `troubleshooting`, `operatingConditions`
+ * plus legacy `roleKey` / `roleQuery`, `industryKey`, `equipmentKey` / `equipmentQuery`, `troubleshootingKey`).
+ * @param {Record<string, unknown>} [context]
+ */
+function normalizeCompositionContext(context) {
+  const c = context && typeof context === "object" ? context : {};
+  const roleQ = c.role ?? c.roleKey ?? c.roleQuery;
+  const industryRef = c.industry ?? c.industryKey;
+  const equipRef = c.equipment ?? c.equipmentKey ?? c.equipmentQuery;
+  const troubleRef = c.troubleshooting ?? c.troubleshootingKey;
+  const operatingConditions = Array.isArray(c.operatingConditions)
+    ? c.operatingConditions.map((x) => String(x).trim()).filter(Boolean)
+    : [];
+  return {
+    roleQuery: roleQ != null ? String(roleQ).trim() : "",
+    industryRef: industryRef != null ? String(industryRef).trim() : "",
+    equipmentRef: equipRef != null ? String(equipRef).trim() : "",
+    troubleshootingRef: troubleRef != null ? String(troubleRef).trim() : "",
+    operatingConditions,
+    includeTroubleshooting: c.includeTroubleshooting,
+    attributeKey: c.attributeKey,
+    raw: c,
+  };
+}
+
+/**
+ * Map differentiation advisor response into the nine-section narrative blueprint.
+ * @param {{ sections?: Array<{ id: string, title?: string, body?: string, items?: string[] }>, directAnswer?: string, followUpQuestions?: string[], cautionNotes?: string[] }} diff
+ */
+function mapDifferentiationResponseToNarrative(diff) {
+  const sectionsIn = Array.isArray(diff.sections) ? diff.sections : [];
+  const byId = Object.fromEntries(sectionsIn.map((s) => [s.id, s]));
+
+  const pickItems = (sec) => {
+    if (!sec) return [];
+    const items = Array.isArray(sec.items) ? sec.items.map(String) : [];
+    const b = sec.body ? [String(sec.body)] : [];
+    return uniqStrings([...b, ...items]).filter(Boolean);
+  };
+
+  const whatMakes = pickItems(byId.whatMakesItDifferent);
+  const whyMatters = pickItems(byId.whyItMatters);
+  const pdsProof = pickItems(byId.pdsSpecProof);
+  const where = pickItems(byId.whereItFits);
+  const upgrade = pickItems(byId.upgradeStory);
+  const rep = pickItems(byId.repTalkTrack);
+  const questions = pickItems(byId.questionsToAsk);
+  const confirm = pickItems(byId.confirmBeforeUse);
+
+  const direct = String(diff.directAnswer || "").trim();
+
+  return [
+    narrativeSection("whatItIs", "What It Is", direct || EMPTY_NARRATIVE_HINTS.whatItIs),
+    narrativeSection(
+      "whyItWins",
+      "Why It Wins",
+      "",
+      whatMakes.length ? whatMakes : [EMPTY_NARRATIVE_HINTS.whyItWins]
+    ),
+    narrativeSection("operationalConsequences", "Operational Consequences", "", whyMatters.length ? whyMatters : [EMPTY_NARRATIVE_HINTS.operationalConsequences]),
+    narrativeSection(
+      "pdsBackedProof",
+      "PDS-Backed Proof",
+      PDS_BACKED_PROOF_INTRO.translatedFirst,
+      pdsProof.length ? pdsProof : [EMPTY_NARRATIVE_HINTS.pdsBackedProof]
+    ),
+    narrativeSection("whereItFits", "Where It Fits", "", where.length ? where : [EMPTY_NARRATIVE_HINTS.whereItFits]),
+    narrativeSection(
+      "upgradeStory",
+      "Upgrade Story",
+      UPGRADE_REASONING_INTRO.default,
+      upgrade.length ? upgrade : [EMPTY_NARRATIVE_HINTS.upgradeStory]
+    ),
+    narrativeSection("repTalkTrack", "Rep Talk Track", "", rep.length ? rep : [EMPTY_NARRATIVE_HINTS.repTalkTrack]),
+    narrativeSection(
+      "questionsToAsk",
+      "Questions to Ask",
+      "",
+      questions.length ? questions : (diff.followUpQuestions || []).map(String)
+    ),
+    narrativeSection(
+      "confirmBeforeUse",
+      "Confirm Before Use",
+      "",
+      uniqStrings([...CONFIRM_BEFORE_USE_DEFAULTS, ...(diff.cautionNotes || []).map(String), ...confirm])
+    ),
+  ].filter((s) => s.body || (s.items && s.items.length > 0));
+}
 
 /**
  * @param {string} id
@@ -291,6 +387,7 @@ function composeProductNarrativeSections(opts) {
     roleProfile,
     troubleProfile,
     mode,
+    operatingConditionLines = [],
   } = opts;
 
   const limit = mode === "advisor" ? 5 : mode === "repTalkHeavy" ? 10 : 8;
@@ -336,13 +433,25 @@ function composeProductNarrativeSections(opts) {
   }
 
   /** @type {string[]} */
+  const translatedProof = [];
+  if (flagship?.premiumProofPoints?.length) translatedProof.push(...flagship.premiumProofPoints.map(String));
+  if (flagship?.keyDifferentiators?.length) translatedProof.push(...flagship.keyDifferentiators.map(String));
+  const rawSpecs = Array.isArray(pdsRow?.specs) ? pdsRow.specs.map((s) => String(s)) : [];
+  /** @type {string[]} */
   const proof = [];
-  if (flagship?.premiumProofPoints?.length) proof.push(...flagship.premiumProofPoints.map(String));
-  if (Array.isArray(pdsRow?.specs)) {
-    proof.push(...pdsRow.specs.map((s) => String(s)).slice(0, limitProof));
+  if (translatedProof.length) {
+    proof.push(...translatedProof.slice(0, limitProof));
+    if (rawSpecs.length && mode !== "advisor") proof.push(...rawSpecs.slice(0, 2));
+  } else {
+    proof.push(...rawSpecs.slice(0, limitProof));
   }
   if (attributeProfile?.confirmedKlondikeProducts?.length) {
     proof.push(...attributeProfile.confirmedKlondikeProducts.map(String).slice(0, 4));
+  }
+
+  let proofIntro = PDS_BACKED_PROOF_INTRO.unanchored;
+  if (flagship || pdsRow) {
+    proofIntro = translatedProof.length ? PDS_BACKED_PROOF_INTRO.translatedFirst : PDS_BACKED_PROOF_INTRO.rawOnly;
   }
 
   /** @type {string[]} */
@@ -357,6 +466,9 @@ function composeProductNarrativeSections(opts) {
   if (Array.isArray(pdsRow?.aliases) && pdsRow.aliases.length && mode !== "advisor") {
     whereFits.push(`Indexed aliases include: ${pdsRow.aliases.slice(0, 4).map(String).join("; ")}`);
   }
+  if (operatingConditionLines.length) {
+    whereFits.push(...operatingConditionLines.map((x) => `Operating condition (context): ${x}`));
+  }
 
   /** @type {string[]} */
   const upgrade = [];
@@ -365,9 +477,22 @@ function composeProductNarrativeSections(opts) {
   if (flagship?.operationalWins?.length && mode !== "repTalkHeavy") {
     upgrade.push(...flagship.operationalWins.map(String));
   }
+  if (flagship?.customerLanguageExamples?.length && mode !== "advisor") {
+    upgrade.push(...flagship.customerLanguageExamples.map(String).slice(0, 2));
+  }
   if (equipmentProfile?.salesOpportunities?.length) {
     upgrade.push(...equipmentProfile.salesOpportunities.map(String));
   }
+  if (operatingConditionLines.length) {
+    upgrade.push(
+      ...operatingConditionLines.map((x) => `Upgrade filter (context operating condition): ${x}`)
+    );
+  }
+
+  const upgradeIntro =
+    flagship?.operationalWins?.length || flagship?.dealerTalkingPoints?.length
+      ? UPGRADE_REASONING_INTRO.withOperationalWins
+      : UPGRADE_REASONING_INTRO.default;
 
   /** @type {string[]} */
   const repLines = [];
@@ -380,6 +505,9 @@ function composeProductNarrativeSections(opts) {
   if (attributeProfile?.repTalkTrack) repLines.push(String(attributeProfile.repTalkTrack));
   if (roleProfile?.exampleTalkTracks?.length) {
     repLines.push(...roleProfile.exampleTalkTracks.map(String).slice(0, 2));
+  }
+  if (roleProfile?.howToFrameValue?.length) {
+    repLines.push(...roleProfile.howToFrameValue.map(String).slice(0, 2));
   }
 
   /** @type {string[]} */
@@ -437,9 +565,7 @@ function composeProductNarrativeSections(opts) {
     narrativeSection(
       "pdsBackedProof",
       "PDS-Backed Proof",
-      flagship || pdsRow
-        ? "Only repeat language that appears in flagship narrative or indexed PDS map lines—no new lab claims."
-        : "No flagship or PDS row anchored—proof must wait on a named SKU and its PDS.",
+      proofIntro,
       trim(proof).length ? trim(proof) : [EMPTY_NARRATIVE_HINTS.pdsBackedProof]
     ),
     narrativeSection(
@@ -451,7 +577,7 @@ function composeProductNarrativeSections(opts) {
     narrativeSection(
       "upgradeStory",
       "Upgrade Story",
-      "",
+      upgradeIntro,
       trim(upgrade).length ? trim(upgrade) : [EMPTY_NARRATIVE_HINTS.upgradeStory]
     ),
     narrativeSection(
@@ -483,29 +609,35 @@ function composeProductNarrativeSections(opts) {
  */
 export function buildProductNarrative(productKeyOrQuery, context = {}) {
   const q = String(productKeyOrQuery ?? "").trim();
+  const ctx = normalizeCompositionContext(context);
   const flagship = resolveFlagshipFromQuery(q);
   const pds = resolvePdsRowFromQuery(q);
   const attributeProfile =
+    (ctx.raw.attributeKey && productAttributeKnowledge[String(ctx.raw.attributeKey)]) ||
     (context.attributeKey && productAttributeKnowledge[String(context.attributeKey)]) ||
     matchAttributeProfile(q) ||
     null;
   const industryProfile =
+    (ctx.industryRef && industryLubricationKnowledge[ctx.industryRef]) ||
     (context.industryKey && industryLubricationKnowledge[String(context.industryKey)]) ||
-    matchIndustryProfile(q) ||
+    matchIndustryProfile(ctx.industryRef || q) ||
     null;
   const equipmentProfile =
+    (ctx.equipmentRef && equipmentLubricationKnowledge[ctx.equipmentRef]) ||
     (context.equipmentKey && equipmentLubricationKnowledge[String(context.equipmentKey)]) ||
-    matchEquipmentProfile(q) ||
+    matchEquipmentProfile(ctx.equipmentRef || q) ||
     null;
   const roleProfile =
+    (ctx.roleQuery && roleBasedSalesTranslationKnowledge[ctx.roleQuery]) ||
     (context.roleKey && roleBasedSalesTranslationKnowledge[String(context.roleKey)]) ||
+    (ctx.roleQuery ? matchRoleProfile(ctx.roleQuery) : null) ||
     (context.roleQuery ? matchRoleProfile(context.roleQuery) : null);
   const troubleProfile =
-    context.troubleshootingKey && lubricationTroubleshootingKnowledge[String(context.troubleshootingKey)]
-      ? lubricationTroubleshootingKnowledge[String(context.troubleshootingKey)]
-      : context.includeTroubleshooting === false
+    ctx.troubleshootingRef && lubricationTroubleshootingKnowledge[ctx.troubleshootingRef]
+      ? lubricationTroubleshootingKnowledge[ctx.troubleshootingRef]
+      : ctx.includeTroubleshooting === false || context.includeTroubleshooting === false
         ? null
-        : matchTroubleshootingProfile(q);
+        : matchTroubleshootingProfile(`${q} ${ctx.troubleshootingRef}`.trim());
 
   if (!flagship && !pds?.row) {
     const attrOnly = attributeProfile || matchAttributeProfile(q);
@@ -546,6 +678,7 @@ export function buildProductNarrative(productKeyOrQuery, context = {}) {
     roleProfile,
     troubleProfile,
     mode: "full",
+    operatingConditionLines: ctx.operatingConditions,
   });
 
   return {
@@ -665,10 +798,13 @@ export function buildCategoryNarrative(categoryKeyOrQuery, context = {}) {
  */
 export function buildCustomerProfileNarrative(industryKeyOrQuery, context = {}) {
   const raw = String(industryKeyOrQuery ?? "").trim();
+  const ctx = normalizeCompositionContext(context);
   const industryProfile =
     (industryLubricationKnowledge[raw] || null) ||
+    (ctx.industryRef && industryLubricationKnowledge[ctx.industryRef]) ||
     (context.industryKey ? industryLubricationKnowledge[String(context.industryKey)] : null) ||
-    matchIndustryProfile(raw);
+    matchIndustryProfile(ctx.industryRef || raw) ||
+    null;
 
   if (!industryProfile) {
     return {
@@ -688,11 +824,15 @@ export function buildCustomerProfileNarrative(industryKeyOrQuery, context = {}) 
   }
 
   const roleProfile =
+    (ctx.roleQuery && roleBasedSalesTranslationKnowledge[ctx.roleQuery]) ||
     (context.roleKey && roleBasedSalesTranslationKnowledge[String(context.roleKey)]) ||
+    (ctx.roleQuery ? matchRoleProfile(ctx.roleQuery) : null) ||
     (context.roleQuery ? matchRoleProfile(context.roleQuery) : null);
   const equipmentProfile =
+    (ctx.equipmentRef && equipmentLubricationKnowledge[ctx.equipmentRef]) ||
     (context.equipmentKey && equipmentLubricationKnowledge[String(context.equipmentKey)]) ||
-    (context.equipmentQuery ? matchEquipmentProfile(context.equipmentQuery) : null);
+    (context.equipmentQuery ? matchEquipmentProfile(String(context.equipmentQuery)) : null) ||
+    (ctx.equipmentRef ? matchEquipmentProfile(ctx.equipmentRef) : null);
 
   const useAreas = (industryProfile.lubricantUseAreas || [])
     .flatMap((a) => [
@@ -702,9 +842,20 @@ export function buildCustomerProfileNarrative(industryKeyOrQuery, context = {}) 
     .filter(Boolean);
 
   const painItems = (industryProfile.commonPainSignals || []).map(String).filter(Boolean);
+  const trouble =
+    ctx.troubleshootingRef && lubricationTroubleshootingKnowledge[ctx.troubleshootingRef]
+      ? lubricationTroubleshootingKnowledge[ctx.troubleshootingRef]
+      : ctx.includeTroubleshooting === false || context.includeTroubleshooting === false
+        ? null
+        : matchTroubleshootingProfile(`${raw} ${ctx.troubleshootingRef}`.trim());
+  const painMerged = uniqStrings([
+    ...painItems,
+    ...((trouble?.operationalConsequences || []) || []).map(String),
+  ]);
   const whereItems = uniqStrings([
     ...(industryProfile.commonEquipment || []).map(String),
     ...(equipmentProfile?.lubricationSystems || []).map(String),
+    ...ctx.operatingConditions.map((x) => `Operating condition (context): ${x}`),
   ]).slice(0, 12);
 
   const sections = [
@@ -724,7 +875,7 @@ export function buildCustomerProfileNarrative(industryKeyOrQuery, context = {}) 
       "operationalConsequences",
       "Operational Consequences",
       "",
-      painItems.length ? painItems : [EMPTY_NARRATIVE_HINTS.operationalConsequences]
+      painMerged.length ? painMerged : [EMPTY_NARRATIVE_HINTS.operationalConsequences]
     ),
     narrativeSection(
       "pdsBackedProof",
@@ -741,8 +892,12 @@ export function buildCustomerProfileNarrative(industryKeyOrQuery, context = {}) 
     narrativeSection(
       "upgradeStory",
       "Upgrade Story",
-      String(industryProfile.repTalkTrack || ""),
-      uniqStrings([...(industryProfile.recommendedOpeningQuestions || []).map(String)]).slice(0, 6)
+      UPGRADE_REASONING_INTRO.default,
+      uniqStrings([
+        String(industryProfile.repTalkTrack || ""),
+        ...(industryProfile.recommendedOpeningQuestions || []).map(String),
+        ...ctx.operatingConditions.map((x) => `Context operating condition: ${x}`),
+      ]).slice(0, 8)
     ),
     narrativeSection(
       "repTalkTrack",
@@ -761,6 +916,7 @@ export function buildCustomerProfileNarrative(industryKeyOrQuery, context = {}) 
         ...(industryProfile.recommendedOpeningQuestions || []).map(String),
         ...(roleProfile?.questionsToAsk || []).map(String).slice(0, 3),
         ...(equipmentProfile?.commonQuestionsToAsk || []).map(String).slice(0, 3),
+        ...(trouble?.questionsToAsk || []).map(String).slice(0, 3),
       ])
     ),
     narrativeSection(
@@ -772,6 +928,7 @@ export function buildCustomerProfileNarrative(industryKeyOrQuery, context = {}) 
         ...(industryProfile.cautionNotes || []).map(String),
         ...(equipmentProfile?.cautionNotes || []).map(String),
         ...(roleProfile?.cautionNotes || []).map(String),
+        ...(trouble?.cautionNotes || []).map(String),
       ])
     ),
   ].filter((s) => s.body || (s.items && s.items.length > 0));
@@ -787,6 +944,7 @@ export function buildCustomerProfileNarrative(industryKeyOrQuery, context = {}) 
       NARRATIVE_SOURCE_BADGE_LABELS.industry,
       equipmentProfile ? NARRATIVE_SOURCE_BADGE_LABELS.equipment : "",
       roleProfile ? NARRATIVE_SOURCE_BADGE_LABELS.roleSales : "",
+      trouble ? NARRATIVE_SOURCE_BADGE_LABELS.troubleshooting : "",
       NARRATIVE_SOURCE_BADGE_LABELS.templates,
     ]).filter(Boolean),
     cautionNotes: sections.find((s) => s.id === "confirmBeforeUse")?.items || [...CONFIRM_BEFORE_USE_DEFAULTS],
@@ -806,27 +964,36 @@ export function buildAdvisorProductExplanation(productKeyOrQuery, context = {}) 
   const base = buildProductNarrative(productKeyOrQuery, context);
   if (!base.ok) return base;
 
-  const flagship = resolveFlagshipFromQuery(String(productKeyOrQuery ?? ""));
-  const pds = resolvePdsRowFromQuery(String(productKeyOrQuery ?? ""));
+  const q = String(productKeyOrQuery ?? "").trim();
+  const ctx = normalizeCompositionContext(context);
+  const flagship = resolveFlagshipFromQuery(q);
+  const pds = resolvePdsRowFromQuery(q);
   const attributeProfile =
+    (ctx.raw.attributeKey && productAttributeKnowledge[String(ctx.raw.attributeKey)]) ||
     (context.attributeKey && productAttributeKnowledge[String(context.attributeKey)]) ||
-    matchAttributeProfile(String(productKeyOrQuery ?? "")) ||
+    matchAttributeProfile(q) ||
     null;
   const industryProfile =
+    (ctx.industryRef && industryLubricationKnowledge[ctx.industryRef]) ||
     (context.industryKey && industryLubricationKnowledge[String(context.industryKey)]) ||
-    matchIndustryProfile(String(productKeyOrQuery ?? "")) ||
+    matchIndustryProfile(ctx.industryRef || q) ||
     null;
   const equipmentProfile =
+    (ctx.equipmentRef && equipmentLubricationKnowledge[ctx.equipmentRef]) ||
     (context.equipmentKey && equipmentLubricationKnowledge[String(context.equipmentKey)]) ||
-    matchEquipmentProfile(String(productKeyOrQuery ?? "")) ||
+    matchEquipmentProfile(ctx.equipmentRef || q) ||
     null;
   const roleProfile =
+    (ctx.roleQuery && roleBasedSalesTranslationKnowledge[ctx.roleQuery]) ||
     (context.roleKey && roleBasedSalesTranslationKnowledge[String(context.roleKey)]) ||
+    (ctx.roleQuery ? matchRoleProfile(ctx.roleQuery) : null) ||
     (context.roleQuery ? matchRoleProfile(context.roleQuery) : null);
   const troubleProfile =
-    context.includeTroubleshooting === false
+    ctx.includeTroubleshooting === false || context.includeTroubleshooting === false
       ? null
-      : matchTroubleshootingProfile(String(productKeyOrQuery ?? ""));
+      : ctx.troubleshootingRef && lubricationTroubleshootingKnowledge[ctx.troubleshootingRef]
+        ? lubricationTroubleshootingKnowledge[ctx.troubleshootingRef]
+        : matchTroubleshootingProfile(`${q} ${ctx.troubleshootingRef}`.trim());
 
   const { sections, sourcesUsed } = composeProductNarrativeSections({
     flagship,
@@ -838,6 +1005,7 @@ export function buildAdvisorProductExplanation(productKeyOrQuery, context = {}) 
     roleProfile,
     troubleProfile,
     mode: "advisor",
+    operatingConditionLines: ctx.operatingConditions,
   });
 
   return {
@@ -892,6 +1060,31 @@ export function buildSalesEnablementSpotlightNarrative(type, query, context = {}
     return buildAdvisorProductExplanation(q, context);
   }
   if (t === "product_differentiation") {
+    if (detectProductDifferentiationIntent(q).length) {
+      const diff = buildProductDifferentiationResponse(q);
+      if (diff.ok) {
+        const sections = mapDifferentiationResponseToNarrative(diff);
+        return {
+          ok: true,
+          version: PRODUCT_NARRATIVE_COMPOSITION_VERSION,
+          title: diff.title,
+          directAnswer: diff.directAnswer,
+          sections,
+          followUpQuestions: diff.followUpQuestions || [],
+          sourceBadges: uniqStrings([
+            ...(diff.sourceBadges || []).map(String),
+            NARRATIVE_SOURCE_BADGE_LABELS.differentiation,
+            NARRATIVE_SOURCE_BADGE_LABELS.templates,
+          ]),
+          cautionNotes: sections.find((s) => s.id === "confirmBeforeUse")?.items || [...CONFIRM_BEFORE_USE_DEFAULTS],
+          sourcesUsed: uniqStrings([
+            NARRATIVE_SOURCE_BADGE_LABELS.differentiation,
+            NARRATIVE_SOURCE_BADGE_LABELS.templates,
+          ]),
+          message: diff.message || "product_differentiation",
+        };
+      }
+    }
     const flagship = resolveFlagshipFromQuery(q);
     const pds = resolvePdsRowFromQuery(q);
     if (!flagship && !pds?.row) {
@@ -911,6 +1104,7 @@ export function buildSalesEnablementSpotlightNarrative(type, query, context = {}
       roleProfile: null,
       troubleProfile: null,
       mode: "differentiation",
+      operatingConditionLines: normalizeCompositionContext(context).operatingConditions,
     });
     const title = flagship?.productName || pds?.key || "Product differentiation";
     const directAnswer =
@@ -931,6 +1125,7 @@ export function buildSalesEnablementSpotlightNarrative(type, query, context = {}
     };
   }
   if (t === "rep_talk_track") {
+    const ctx = normalizeCompositionContext(context);
     const flagship = resolveFlagshipFromQuery(q);
     const pds = resolvePdsRowFromQuery(q);
     const attributeProfile =
@@ -938,7 +1133,9 @@ export function buildSalesEnablementSpotlightNarrative(type, query, context = {}
       matchAttributeProfile(q) ||
       null;
     const roleProfile =
+      (ctx.roleQuery && roleBasedSalesTranslationKnowledge[ctx.roleQuery]) ||
       (context.roleKey && roleBasedSalesTranslationKnowledge[String(context.roleKey)]) ||
+      (ctx.roleQuery ? matchRoleProfile(ctx.roleQuery) : null) ||
       (context.roleQuery ? matchRoleProfile(context.roleQuery) : null);
     const { sections, sourcesUsed } = composeProductNarrativeSections({
       flagship,
@@ -950,6 +1147,7 @@ export function buildSalesEnablementSpotlightNarrative(type, query, context = {}
       roleProfile,
       troubleProfile: null,
       mode: "repTalkHeavy",
+      operatingConditionLines: ctx.operatingConditions,
     });
     const title = flagship?.productName || pds?.key || "Rep talk track";
     return {
