@@ -452,6 +452,83 @@ function shouldRouteGreaseThickenerCompatibility(question) {
   return families.length >= 2;
 }
 
+/** @type {readonly string[]} */
+const EXPLICIT_RECOMMENDATION_PHRASES = Object.freeze([
+  "what should i recommend",
+  "what should we recommend",
+  "what grease should i recommend",
+  "what fluid should i recommend",
+  "what product should i recommend",
+  "what should i use",
+  "what should we use",
+  "best product for",
+  "best grease for",
+  "best fluid for",
+  "recommend for",
+]);
+
+/** @type {readonly string[]} */
+const DIRECT_TROUBLESHOOTING_SYMPTOM_PHRASES = Object.freeze([
+  "chatter",
+  "cavitation",
+  "cavitat",
+  "foaming",
+  "overheating",
+  "whining",
+  "pump noise",
+  "sluggish",
+  "varnish",
+  "water in oil",
+  "filter plugging",
+  "cylinder drift",
+  "erratic",
+  "leaking",
+  "failure",
+  "worn pump",
+]);
+
+/**
+ * @param {string} question
+ * @returns {boolean}
+ */
+export function isExplicitRecommendationQuery(question) {
+  const norm = normalizeOrchestratorText(question);
+  if (!norm) return false;
+  return EXPLICIT_RECOMMENDATION_PHRASES.some((phrase) => norm.includes(phrase));
+}
+
+/**
+ * @param {string} question
+ * @returns {boolean}
+ */
+export function hasDirectTroubleshootingSymptom(question) {
+  const norm = normalizeOrchestratorText(question);
+  if (!norm) return false;
+  return DIRECT_TROUBLESHOOTING_SYMPTOM_PHRASES.some((phrase) => norm.includes(phrase));
+}
+
+/**
+ * @param {string} question
+ * @returns {ReturnType<typeof buildLubricationAdvisorResponse> | null}
+ */
+function tryRouteDeterministicRecommendationResponse(question) {
+  const recommendationDetected = detectDeterministicRecommendationIntent(question);
+  if (recommendationDetected.confidence !== "exact" && recommendationDetected.confidence !== "likely") {
+    return null;
+  }
+  const recommendationResp = buildDeterministicRecommendationResponse(question);
+  return {
+    intent: "deterministic_recommendation",
+    confidence: deterministicRecommendationOrchestratorConfidence(recommendationDetected),
+    title: recommendationResp.title,
+    directAnswer: recommendationResp.directAnswer,
+    sections: recommendationResp.sections || [],
+    followUpQuestions: recommendationResp.followUpQuestions || [],
+    sourceBadges: recommendationResp.sourceBadges || ["Deterministic recommendation intelligence"],
+    cautionNotes: recommendationResp.cautionNotes || [],
+  };
+}
+
 /**
  * Hydraulic troubleshooting (canonical profiles) — before product entity, retrieval, and generic troubleshooting.
  * @param {string} question
@@ -537,6 +614,11 @@ export function buildLubricationAdvisorResponse(inputText) {
     }
   }
 
+  if (isExplicitRecommendationQuery(question) && !hasDirectTroubleshootingSymptom(question)) {
+    const earlyRecommendation = tryRouteDeterministicRecommendationResponse(question);
+    if (earlyRecommendation) return earlyRecommendation;
+  }
+
   const hydraulicDetected = detectHydraulicTroubleshootingIntent(question);
   if (hydraulicDetected.confidence === "exact" || hydraulicDetected.confidence === "likely") {
     const hydraulicResp = buildHydraulicTroubleshootingResponse(question);
@@ -592,20 +674,8 @@ export function buildLubricationAdvisorResponse(inputText) {
     }
   }
 
-  const recommendationDetected = detectDeterministicRecommendationIntent(question);
-  if (recommendationDetected.confidence === "exact" || recommendationDetected.confidence === "likely") {
-    const recommendationResp = buildDeterministicRecommendationResponse(question);
-    return {
-      intent: "deterministic_recommendation",
-      confidence: deterministicRecommendationOrchestratorConfidence(recommendationDetected),
-      title: recommendationResp.title,
-      directAnswer: recommendationResp.directAnswer,
-      sections: recommendationResp.sections || [],
-      followUpQuestions: recommendationResp.followUpQuestions || [],
-      sourceBadges: recommendationResp.sourceBadges || ["Deterministic recommendation intelligence"],
-      cautionNotes: recommendationResp.cautionNotes || [],
-    };
-  }
+  const lateRecommendation = tryRouteDeterministicRecommendationResponse(question);
+  if (lateRecommendation) return lateRecommendation;
 
   if (isProductCarryingKlondikeQuery(question) && !shouldSkipProductRetrievalRouting(question)) {
     const productSearch = searchKlondikeProducts(question);
