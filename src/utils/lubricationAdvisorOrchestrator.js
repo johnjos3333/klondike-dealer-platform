@@ -468,6 +468,17 @@ const EXPLICIT_RECOMMENDATION_PHRASES = Object.freeze([
 ]);
 
 /** @type {readonly string[]} */
+const PRODUCT_IDENTITY_PHRASES = Object.freeze([
+  "what is",
+  "explain",
+  "tell me about",
+  "what makes",
+  "what s different about",
+  "whats different about",
+  "describe",
+]);
+
+/** @type {readonly string[]} */
 const DIRECT_TROUBLESHOOTING_SYMPTOM_PHRASES = Object.freeze([
   "chatter",
   "cavitation",
@@ -505,6 +516,44 @@ export function hasDirectTroubleshootingSymptom(question) {
   const norm = normalizeOrchestratorText(question);
   if (!norm) return false;
   return DIRECT_TROUBLESHOOTING_SYMPTOM_PHRASES.some((phrase) => norm.includes(phrase));
+}
+
+/**
+ * @param {string} question
+ * @returns {boolean}
+ */
+export function isProductIdentityQuery(question) {
+  const norm = normalizeOrchestratorText(question);
+  if (!norm) return false;
+  return PRODUCT_IDENTITY_PHRASES.some((phrase) => norm.includes(phrase));
+}
+
+/**
+ * @param {string} question
+ * @returns {ReturnType<typeof buildLubricationAdvisorResponse> | null}
+ */
+function tryRouteStrongProductEntityResponse(question) {
+  const entityDetected = detectKlondikeProductEntity(question);
+  const entityTop = entityDetected[0];
+  const entitySecond = entityDetected[1];
+  const strongProductEntity =
+    entityTop &&
+    entityTop.score >= PRODUCT_ENTITY_STRONG_MIN_SCORE &&
+    (!entitySecond || entityTop.score - entitySecond.score >= PRODUCT_ENTITY_AMBIGUOUS_GAP);
+  if (!strongProductEntity) return null;
+
+  const entityResp = buildProductEntityAdvisorResponse(question);
+  return {
+    intent: "product_entity",
+    confidence: Math.min(0.95, (entityTop?.score || PRODUCT_ENTITY_STRONG_MIN_SCORE) / 48),
+    title: entityResp.title,
+    directAnswer: entityResp.directAnswer,
+    sections: entityResp.sections || [],
+    followUpQuestions: entityResp.followUpQuestions || [],
+    sourceBadges: entityResp.sourceBadges || ["Product entity resolver"],
+    cautionNotes: entityResp.cautionNotes || [],
+    matchedProducts: entityResp.matchedProducts || [],
+  };
 }
 
 /**
@@ -619,6 +668,11 @@ export function buildLubricationAdvisorResponse(inputText) {
     if (earlyRecommendation) return earlyRecommendation;
   }
 
+  if (isProductIdentityQuery(question) && !hasDirectTroubleshootingSymptom(question)) {
+    const earlyProductEntity = tryRouteStrongProductEntityResponse(question);
+    if (earlyProductEntity) return earlyProductEntity;
+  }
+
   const hydraulicDetected = detectHydraulicTroubleshootingIntent(question);
   if (hydraulicDetected.confidence === "exact" || hydraulicDetected.confidence === "likely") {
     const hydraulicResp = buildHydraulicTroubleshootingResponse(question);
@@ -634,27 +688,8 @@ export function buildLubricationAdvisorResponse(inputText) {
     };
   }
 
-  const entityDetected = detectKlondikeProductEntity(question);
-  const entityTop = entityDetected[0];
-  const entitySecond = entityDetected[1];
-  const strongProductEntity =
-    entityTop &&
-    entityTop.score >= PRODUCT_ENTITY_STRONG_MIN_SCORE &&
-    (!entitySecond || entityTop.score - entitySecond.score >= PRODUCT_ENTITY_AMBIGUOUS_GAP);
-  if (strongProductEntity) {
-    const entityResp = buildProductEntityAdvisorResponse(question);
-    return {
-      intent: "product_entity",
-      confidence: Math.min(0.95, (entityTop?.score || PRODUCT_ENTITY_STRONG_MIN_SCORE) / 48),
-      title: entityResp.title,
-      directAnswer: entityResp.directAnswer,
-      sections: entityResp.sections || [],
-      followUpQuestions: entityResp.followUpQuestions || [],
-      sourceBadges: entityResp.sourceBadges || ["Product entity resolver"],
-      cautionNotes: entityResp.cautionNotes || [],
-      matchedProducts: entityResp.matchedProducts || [],
-    };
-  }
+  const productEntityResponse = tryRouteStrongProductEntityResponse(question);
+  if (productEntityResponse) return productEntityResponse;
 
   const differentiationMatches = detectProductDifferentiationIntent(question);
   const diffTop = differentiationMatches[0];
