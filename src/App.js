@@ -38,6 +38,13 @@ import {
 } from "./data/salesEnablement/salesEnablementPdsUrl";
 import { getSalesEnablementFlagshipNarrativeByProductName } from "./data/salesEnablement/salesEnablementFlagshipNarrativeLookup";
 import { getGuidedSpotlightBuilderRecommendation } from "./data/salesEnablement/guidedSpotlightBuilderRecommendations";
+import {
+  buildSalesEnablementPackage,
+  buildRecommendedEnablementActions,
+  findCanonicalProductsForEnablement,
+  listAvailableCanonicalProducts,
+  SPOTLIGHT_PACKAGE_TYPES,
+} from "./data/salesEnablement/spotlightAssemblyEngine";
 import { getEnablementRecommendationForActionItem } from "./data/salesEnablement/actionItemEnablementRecommendations";
 import { getSalesEnablementProductImageHint } from "./data/salesEnablement/salesEnablementProductImageHints";
 import { getKlAdminIntelligenceRecommendation } from "./data/salesEnablement/klAdminIntelligenceAssistant";
@@ -4553,6 +4560,19 @@ useEffect(() => {
   );
   /** Phase 77.0 — Guided builder query (preview selection only; send payloads unchanged). */
   const [seGuidedBuilderQuery, setSeGuidedBuilderQuery] = useState("");
+  /** Phase 3 — Spotlight Assembly Engine: draft assist (local only; send payloads unchanged). */
+  const [seGuidedAssemblyDraftPackage, setSeGuidedAssemblyDraftPackage] = useState(null);
+  const [seGuidedAssemblyDraftError, setSeGuidedAssemblyDraftError] = useState(null);
+  const [seGuidedAssemblyDraftBusy, setSeGuidedAssemblyDraftBusy] = useState(false);
+  const [seGuidedAssemblySelectedCanonicalIds, setSeGuidedAssemblySelectedCanonicalIds] = useState([]);
+  const [seGuidedAssemblyRecommendedActions, setSeGuidedAssemblyRecommendedActions] = useState([]);
+  const [seGuidedAssemblyContextNote, setSeGuidedAssemblyContextNote] = useState("");
+  useEffect(() => {
+    setSeGuidedAssemblyDraftPackage(null);
+    setSeGuidedAssemblyDraftError(null);
+    setSeGuidedAssemblySelectedCanonicalIds([]);
+    setSeGuidedAssemblyRecommendedActions([]);
+  }, [seGuidedWizardMessageKind]);
   useEffect(() => {
     if (klondikeAdminTab !== "sales_enablement") return;
     setSeGuidedWizardMessageKind((prev) => {
@@ -7811,6 +7831,244 @@ const handleFinishDealerEnrollment = async () => {
         messageKind: seGuidedWizardMessageKind,
       }),
     [seGuidedBuilderQuery, seGuidedWizardMessageKind]
+  );
+
+  const seGuidedCanonicalSearchHits = React.useMemo(() => {
+    const q = String(seGuidedBuilderQuery || "").trim();
+    if (q.length < 2) return [];
+    return findCanonicalProductsForEnablement(q).slice(0, 10);
+  }, [seGuidedBuilderQuery]);
+
+  const spotlightAssemblyCanonicalCatalogCount = React.useMemo(
+    () => listAvailableCanonicalProducts().length,
+    []
+  );
+
+  const runSeGuidedSpotlightAssemblyDraft = useCallback(
+    (opts = {}) => {
+      const overrideProductIds = Array.isArray(opts.overrideProductIds)
+        ? opts.overrideProductIds.map((x) => String(x ?? "").trim()).filter(Boolean)
+        : null;
+      setSeGuidedAssemblyDraftBusy(true);
+      setSeGuidedAssemblyDraftError(null);
+      try {
+        const kind = seGuidedWizardMessageKind || "product";
+        const packageType =
+          kind === "category"
+            ? SPOTLIGHT_PACKAGE_TYPES[1]
+            : kind === "customer_profile"
+              ? SPOTLIGHT_PACKAGE_TYPES[2]
+              : SPOTLIGHT_PACKAGE_TYPES[0];
+        const qBase = String(seGuidedBuilderQuery || "").trim();
+        const ctxNote = String(seGuidedAssemblyContextNote || "").trim();
+        const qCombined = [qBase, ctxNote].filter(Boolean).join(" — ") || qBase;
+        const audience = seGuidedWizardAudienceAll ? "kl_admin" : "rep";
+
+        const uniqueStrings = (arr) => {
+          const seen = new Set();
+          const out = [];
+          for (const x of arr) {
+            const t = String(x ?? "").trim();
+            if (!t || seen.has(t)) continue;
+            seen.add(t);
+            out.push(t);
+          }
+          return out;
+        };
+
+        const deriveSignalsFromQuery = (text) => {
+          const t = String(text || "").toLowerCase();
+          const hits = [];
+          const keys = [
+            "food processing",
+            "john deere",
+            "deere",
+            "cnh",
+            "case ih",
+            "forestry",
+            "eal",
+            "vgp",
+            "biodegradable",
+            "marine",
+            "mining",
+            "hydraulic",
+            "grease",
+            "agrimax",
+            "cool gard",
+            "bar chain",
+          ];
+          for (const k of keys) {
+            if (t.includes(k)) hits.push(k);
+          }
+          return hits;
+        };
+
+        const profileRef = (SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles || []).find(
+          (p) => String(p.id) === String(seGuidedWizardProfileRefId)
+        );
+
+        let customerProfileSignals = uniqueStrings([
+          ...deriveSignalsFromQuery(qCombined),
+          ...(kind === "customer_profile" && qBase ? [qBase] : []),
+          ...(profileRef?.title ? [String(profileRef.title)] : []),
+          ...(Array.isArray(profileRef?.priorityProductCategories)
+            ? profileRef.priorityProductCategories.map((c) => String(c ?? ""))
+            : []),
+          ...deriveSignalsFromQuery(String(profileRef?.title || "")),
+        ]);
+
+        const dealerRow = (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : []).find(
+          (d) => String(d.organization_id) === String(salesEnablementDealerOrgId)
+        );
+        const dealerName = String(dealerRow?.name || "").trim();
+        /** Demo-safe routing hints only for the assembly call — not persisted as fake dealer facts. */
+        const accountContext = {};
+        if (dealerName) accountContext.dealerName = dealerName;
+        if (customerProfileSignals.length) {
+          accountContext.industries = customerProfileSignals.slice(0, 8);
+        }
+        if (packageType === SPOTLIGHT_PACKAGE_TYPES[1] && qBase) {
+          accountContext.missingProductLines = [qBase.slice(0, 64)];
+        }
+        if (ctxNote) {
+          accountContext.opportunitySignals = [ctxNote.slice(0, 160)];
+        }
+        if (salesEnablementDealerOrgId && !dealerName) {
+          accountContext.opportunitySignals = uniqueStrings([
+            ...(accountContext.opportunitySignals || []),
+            `Selected org ${salesEnablementDealerOrgId}`,
+          ]);
+        }
+
+        let productIds = overrideProductIds
+          ? [...overrideProductIds]
+          : [...seGuidedAssemblySelectedCanonicalIds].map((x) => String(x ?? "").trim()).filter(Boolean);
+
+        if (
+          packageType === SPOTLIGHT_PACKAGE_TYPES[0] &&
+          productIds.length === 0 &&
+          qBase.length >= 2
+        ) {
+          const top = findCanonicalProductsForEnablement(qBase)[0];
+          if (top?.id) productIds = [top.id];
+        }
+
+        if (overrideProductIds && overrideProductIds.length) {
+          setSeGuidedAssemblySelectedCanonicalIds(overrideProductIds.slice(0, 6));
+        }
+
+        const recInput = {
+          customerProfileSignals,
+          accountContext: Object.keys(accountContext).length ? accountContext : {},
+          performanceContext: {},
+          query: qBase || undefined,
+        };
+        setSeGuidedAssemblyRecommendedActions(buildRecommendedEnablementActions(recInput).slice(0, 5));
+
+        const pkg = buildSalesEnablementPackage({
+          packageType,
+          query: qCombined || qBase || undefined,
+          category: packageType === SPOTLIGHT_PACKAGE_TYPES[1] ? qBase || undefined : undefined,
+          customerProfileSignals: customerProfileSignals.length ? customerProfileSignals : undefined,
+          productIds: productIds.length ? productIds : undefined,
+          audience,
+          accountContext: Object.keys(accountContext).length ? accountContext : undefined,
+          tone: "field_ready",
+        });
+
+        if (!pkg?.ok) {
+          setSeGuidedAssemblyDraftPackage(null);
+          let reason =
+            String(pkg?.reason || "").trim() ||
+            (packageType === SPOTLIGHT_PACKAGE_TYPES[0]
+              ? "No canonical product match found. Try searching by product name, category, spec, application, or SKU."
+              : "Draft not available for this search.");
+          if (
+            packageType === SPOTLIGHT_PACKAGE_TYPES[0] &&
+            !/product name, category, spec, application, or sku/i.test(reason)
+          ) {
+            reason = `${reason} Try searching by product name, category, spec, application, or SKU.`;
+          }
+          setSeGuidedAssemblyDraftError({
+            reason,
+            suggestions: Array.isArray(pkg?.suggestions) ? pkg.suggestions.filter(Boolean) : [],
+          });
+          return;
+        }
+
+        setSeGuidedAssemblyDraftPackage(pkg);
+
+        const introParts = [];
+        if (pkg.title) introParts.push(String(pkg.title).trim());
+        if (pkg.summary) introParts.push(String(pkg.summary).trim());
+        if (pkg.recommendedAction) introParts.push(`Recommended action: ${String(pkg.recommendedAction).trim()}`);
+        if (pkg.primaryCTA) introParts.push(`Primary CTA: ${String(pkg.primaryCTA).trim()}`);
+        if (Array.isArray(pkg.sections)) {
+          for (const sec of pkg.sections.slice(0, 5)) {
+            const bullets = Array.isArray(sec?.bullets)
+              ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 6)
+              : [];
+            const t = String(sec?.title || "").trim();
+            if (t && bullets.length) introParts.push(`${t}:\n- ${bullets.join("\n- ")}`);
+          }
+        }
+        if (Array.isArray(pkg.repQuestions) && pkg.repQuestions.length) {
+          introParts.push(`Rep questions:\n- ${pkg.repQuestions.slice(0, 8).join("\n- ")}`);
+        }
+        if (Array.isArray(pkg.customerProfileQuestions) && pkg.customerProfileQuestions.length) {
+          introParts.push(`Discovery questions:\n- ${pkg.customerProfileQuestions.slice(0, 8).join("\n- ")}`);
+        }
+        if (Array.isArray(pkg.crossSellOpportunities) && pkg.crossSellOpportunities.length) {
+          introParts.push(`Cross-sell opportunities:\n- ${pkg.crossSellOpportunities.slice(0, 8).join("\n- ")}`);
+        }
+        if (Array.isArray(pkg.operationalPainPoints) && pkg.operationalPainPoints.length) {
+          introParts.push(`Operational pain points:\n- ${pkg.operationalPainPoints.slice(0, 8).join("\n- ")}`);
+        }
+        const guardBits = uniqueStrings([
+          ...(Array.isArray(pkg.guardrails) ? pkg.guardrails : []),
+          ...(Array.isArray(pkg.sourceNotes) ? pkg.sourceNotes : []),
+        ]);
+        if (guardBits.length) introParts.push(`Guardrails / cautions:\n- ${guardBits.slice(0, 8).join("\n- ")}`);
+
+        setSalesEnablementPreparedIntro(introParts.join("\n\n").trim().slice(0, 8000));
+
+        const pc = Array.isArray(pkg.productCards) ? pkg.productCards[0] : null;
+        setSeGuidedKnowledgePreviewMock({
+          mockProductLabel: String(pc?.productName || pkg.title || "").slice(0, 80),
+          spotlightContextLine: String(pkg.subtitle || pkg.title || "").slice(0, 80),
+          pdsFileHint: String(pc?.pdsMapKey || "").trim(),
+        });
+      } catch {
+        setSeGuidedAssemblyDraftPackage(null);
+        setSeGuidedAssemblyDraftError({
+          reason:
+            "Draft generation could not complete. Please adjust the product/category search and try again.",
+          suggestions: [],
+        });
+      } finally {
+        setSeGuidedAssemblyDraftBusy(false);
+      }
+    },
+    [
+      seGuidedWizardMessageKind,
+      seGuidedBuilderQuery,
+      seGuidedAssemblyContextNote,
+      seGuidedWizardAudienceAll,
+      seGuidedAssemblySelectedCanonicalIds,
+      salesEnablementDealerOrgId,
+      dealerNetworkPerformance,
+      seGuidedWizardProfileRefId,
+    ]
+  );
+
+  const handleSeGuidedUseCanonicalInDraft = useCallback(
+    (canonicalId) => {
+      const pid = String(canonicalId || "").trim();
+      if (!pid) return;
+      setSeGuidedAssemblySelectedCanonicalIds([pid]);
+      runSeGuidedSpotlightAssemblyDraft({ overrideProductIds: [pid] });
+    },
+    [runSeGuidedSpotlightAssemblyDraft]
   );
 
   const selectedSalesEnablementSpotlight = React.useMemo(() => {
@@ -11088,8 +11346,11 @@ const handleFinishDealerEnrollment = async () => {
                     Guided Spotlight Wizard
                   </h3>
                   <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.55, maxWidth: 900 }}>
-                    Follow the five steps in order: lock who you are planning for, pick the message shape, load library
-                    content, review the mock template, then use the same Prepare Send / staging controls as before.
+                    Follow the five steps in order: lock who you are planning for, pick the message shape, start from a
+                    system-generated draft from KLONDIKE product intelligence, review the mock template, then use the
+                    same Prepare Send / staging controls as before. Drafts are grounded in canonical product/PDS
+                    intelligence — review, edit, and send when ready. The admin stays in control — the system prepares
+                    the first pass.
                   </p>
                   <div
                     style={{
@@ -11102,8 +11363,9 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <p style={{ margin: 0, fontSize: 12, color: "#334155", lineHeight: 1.55, fontWeight: 700 }}>
-                      Future spotlight quality will be powered by PDS data, product overlays, LFBB blocks, and customer
-                      profiles—the Guided Spotlight Wizard only organizes today&apos;s preview; it does not change outbound payloads.
+                      Spotlight Assembly Engine pre-fills dealer-facing draft copy from indexed canonical intelligence
+                      (PDS maps, rep questions, guardrails). It does not change outbound payloads or send routing — you
+                      still choose the library row and confirm Prepare Send exactly as before.
                     </p>
                   </div>
                   <div
@@ -11329,11 +11591,10 @@ const handleFinishDealerEnrollment = async () => {
                       STEP 3 · AI-GUIDED SPOTLIGHT BUILDER
                     </div>
                     <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5, maxWidth: 860 }}>
-                      Describe the opportunity in plain language—the platform scores{" "}
-                      <strong style={{ color: "#334155" }}>PDS maps</strong>,{" "}
-                      <strong style={{ color: "#334155" }}>flagship narratives</strong>,{" "}
-                      <strong style={{ color: "#334155" }}>profiles</strong>, and library rows with deterministic keyword
-                      matches (no autonomous AI). Step 4 preview and send payloads behave as before.
+                      Describe the opportunity in plain language, then use{" "}
+                      <strong style={{ color: "#334155" }}>Generate Draft</strong> to pull a first pass from canonical
+                      product intelligence (PDS-backed rows, rep questions, cross-sell angles, guardrails). Step 4 preview
+                      and send payloads behave as before — this step only assists the editable intro and preview hints.
                     </p>
                     {!messageKindReady ? (
                       <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", fontWeight: 700, lineHeight: 1.45 }}>
@@ -11386,6 +11647,444 @@ const handleFinishDealerEnrollment = async () => {
                               hydraulics · Mixed fleet uptime
                             </span>
                           </div>
+                        </div>
+                        <div
+                          style={{
+                            borderRadius: 12,
+                            padding: "14px 14px 16px",
+                            border: "1px solid rgba(30, 64, 175, 0.28)",
+                            background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                            display: "grid",
+                            gap: 12,
+                          }}
+                        >
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#1e40af" }}>
+                            SPOTLIGHT ASSEMBLY · DRAFT ONLY
+                          </div>
+                          <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.5, fontWeight: 600 }}>
+                            Start with a system-generated draft from KLONDIKE product intelligence. Audience for this
+                            pass mirrors Step 1:{" "}
+                            <strong style={{ color: "#0f172a" }}>
+                              {seGuidedWizardAudienceAll ? "KL Admin / territory-wide planning" : "field rep coaching"}
+                            </strong>
+                            . Everything below stays editable before send.
+                          </p>
+                          <label style={{ display: "grid", gap: 6, fontSize: 10, fontWeight: 800, color: "#64748b" }}>
+                            OPTIONAL GOAL / CONTEXT
+                            <input
+                              type="text"
+                              value={seGuidedAssemblyContextNote}
+                              onChange={(e) => setSeGuidedAssemblyContextNote(e.target.value)}
+                              placeholder="e.g. Q4 pilot · cold-weather push · counter day follow-up…"
+                              style={{
+                                borderRadius: 10,
+                                padding: "10px 12px",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                border: "1px solid rgba(30, 64, 175, 0.35)",
+                                background: "#ffffff",
+                                color: "#0f172a",
+                              }}
+                            />
+                          </label>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                            <button
+                              type="button"
+                              disabled={seGuidedAssemblyDraftBusy}
+                              onClick={() => runSeGuidedSpotlightAssemblyDraft()}
+                              style={{
+                                cursor: seGuidedAssemblyDraftBusy ? "not-allowed" : "pointer",
+                                borderRadius: 10,
+                                padding: "10px 16px",
+                                fontSize: 12,
+                                fontWeight: 900,
+                                letterSpacing: "0.05em",
+                                border: "none",
+                                background: seGuidedAssemblyDraftBusy
+                                  ? "#cbd5e1"
+                                  : "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)",
+                                color: "#ffffff",
+                                boxShadow: seGuidedAssemblyDraftBusy ? "none" : "0 6px 16px rgba(30, 64, 175, 0.28)",
+                                opacity: seGuidedAssemblyDraftBusy ? 0.85 : 1,
+                              }}
+                            >
+                              {seGuidedAssemblyDraftPackage?.ok ? "Refresh draft" : "Generate draft"}
+                            </button>
+                            {seGuidedAssemblyDraftBusy ? (
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Assembling…</span>
+                            ) : null}
+                          </div>
+                          {seGuidedAssemblySelectedCanonicalIds.length ? (
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                color: "#475569",
+                                padding: "8px 10px",
+                                borderRadius: 8,
+                                background: "#eff6ff",
+                                border: "1px solid rgba(59, 130, 246, 0.35)",
+                              }}
+                            >
+                              Canonical focus: {seGuidedAssemblySelectedCanonicalIds.slice(0, 4).join(", ")}
+                            </div>
+                          ) : null}
+                          {seGuidedAssemblyDraftError ? (
+                            <div
+                              style={{
+                                borderRadius: 10,
+                                padding: "12px 14px",
+                                background: "#fff7ed",
+                                border: "1px solid rgba(234, 88, 12, 0.45)",
+                                color: "#9a3412",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              <div>{seGuidedAssemblyDraftError.reason}</div>
+                              {Array.isArray(seGuidedAssemblyDraftError.suggestions) &&
+                              seGuidedAssemblyDraftError.suggestions.length ? (
+                                <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontWeight: 600, color: "#c2410c" }}>
+                                  {seGuidedAssemblyDraftError.suggestions.slice(0, 6).map((s, i) => (
+                                    <li key={`se-asm-sugg-${i}`}>{String(s)}</li>
+                                  ))}
+                                </ul>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {seGuidedAssemblyDraftPackage?.ok ? (
+                            <div
+                              style={{
+                                borderRadius: 12,
+                                padding: "14px 14px 16px",
+                                background: "#ffffff",
+                                border: "1px solid rgba(226, 232, 240, 0.98)",
+                                boxShadow: "0 8px 20px rgba(15, 23, 42, 0.05)",
+                                display: "grid",
+                                gap: 10,
+                              }}
+                            >
+                              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#0f172a" }}>
+                                System-generated draft
+                              </div>
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gap: 8,
+                                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    border: "1px solid rgba(249, 115, 22, 0.35)",
+                                    background: "#fff7ed",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.08em",
+                                      color: "#c2410c",
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    RECOMMENDED ACTION
+                                  </div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", lineHeight: 1.4 }}>
+                                    {String(seGuidedAssemblyDraftPackage.recommendedAction || "—")}
+                                  </div>
+                                </div>
+                                <div
+                                  style={{
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    border: "1px solid rgba(30, 64, 175, 0.25)",
+                                    background: "#f8fafc",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.08em",
+                                      color: "#1e40af",
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    WHY THIS MATTERS
+                                  </div>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", lineHeight: 1.4 }}>
+                                    {String(seGuidedAssemblyDraftPackage.summary || "—")}
+                                  </div>
+                                </div>
+                              </div>
+                              {Array.isArray(seGuidedAssemblyDraftPackage.productCards) &&
+                              seGuidedAssemblyDraftPackage.productCards.length ? (
+                                <div
+                                  style={{
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    border: "1px solid rgba(226, 232, 240, 0.98)",
+                                    background: "#ffffff",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.08em",
+                                      color: "#64748b",
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    FEATURED PRODUCTS
+                                  </div>
+                                  <div style={{ display: "grid", gap: 6 }}>
+                                    {seGuidedAssemblyDraftPackage.productCards.slice(0, 4).map((row, i) => (
+                                      <div
+                                        key={`feat-${String(row?.pdsMapKey || row?.productName || i)}`}
+                                        style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", lineHeight: 1.35 }}
+                                      >
+                                        {String(row?.productName || "").trim() || "Product"}{" "}
+                                        <span style={{ color: "#64748b", fontWeight: 600 }}>
+                                          · {String(row?.canonicalFamily || "").trim()}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : null}
+                              {Array.isArray(seGuidedAssemblyDraftPackage.repQuestions) &&
+                              seGuidedAssemblyDraftPackage.repQuestions.length ? (
+                                <div
+                                  style={{
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    border: "1px solid rgba(226, 232, 240, 0.98)",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.08em",
+                                      color: "#0f172a",
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    REP QUESTIONS
+                                  </div>
+                                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#334155", lineHeight: 1.4 }}>
+                                    {seGuidedAssemblyDraftPackage.repQuestions.slice(0, 6).map((q, i) => (
+                                      <li key={`repq-${i}`}>{String(q)}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {Array.isArray(seGuidedAssemblyDraftPackage.customerProfileQuestions) &&
+                              seGuidedAssemblyDraftPackage.customerProfileQuestions.length ? (
+                                <div
+                                  style={{
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    border: "1px solid rgba(5, 150, 105, 0.28)",
+                                    background: "#ecfdf5",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.08em",
+                                      color: "#047857",
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    DISCOVERY QUESTIONS
+                                  </div>
+                                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#14532d", lineHeight: 1.4 }}>
+                                    {seGuidedAssemblyDraftPackage.customerProfileQuestions.slice(0, 6).map((q, i) => (
+                                      <li key={`dscq-${i}`}>{String(q)}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {Array.isArray(seGuidedAssemblyDraftPackage.crossSellOpportunities) &&
+                              seGuidedAssemblyDraftPackage.crossSellOpportunities.length ? (
+                                <div
+                                  style={{
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    border: "1px solid rgba(234, 88, 12, 0.22)",
+                                    background: "#fffbeb",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.08em",
+                                      color: "#c2410c",
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    CROSS-SELL OPPORTUNITIES
+                                  </div>
+                                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#78350f", lineHeight: 1.9 }}>
+                                    {seGuidedAssemblyDraftPackage.crossSellOpportunities.slice(0, 6).map((c, i) => (
+                                      <li key={`xs-${i}`}>{String(c)}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {(Array.isArray(seGuidedAssemblyDraftPackage.guardrails) &&
+                                seGuidedAssemblyDraftPackage.guardrails.length) ||
+                              (Array.isArray(seGuidedAssemblyDraftPackage.sourceNotes) &&
+                                seGuidedAssemblyDraftPackage.sourceNotes.length) ? (
+                                <div
+                                  style={{
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    border: "1px solid rgba(100, 116, 139, 0.35)",
+                                    background: "#f1f5f9",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.08em",
+                                      color: "#475569",
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    GUARDRAILS / CAUTIONS
+                                  </div>
+                                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#334155", lineHeight: 1.45 }}>
+                                    {[
+                                      ...(Array.isArray(seGuidedAssemblyDraftPackage.guardrails)
+                                        ? seGuidedAssemblyDraftPackage.guardrails
+                                        : []),
+                                      ...(Array.isArray(seGuidedAssemblyDraftPackage.sourceNotes)
+                                        ? seGuidedAssemblyDraftPackage.sourceNotes
+                                        : []),
+                                    ]
+                                      .map((g) => String(g ?? "").trim())
+                                      .filter(Boolean)
+                                      .slice(0, 6)
+                                      .map((g, i) => (
+                                        <li key={`gr-${i}`}>{g}</li>
+                                      ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {String(seGuidedAssemblyDraftPackage.suggestedSpotlightType || "").trim() ? (
+                                <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b" }}>
+                                  Suggested follow-on package type:{" "}
+                                  <span style={{ color: "#0f172a" }}>
+                                    {String(seGuidedAssemblyDraftPackage.suggestedSpotlightType)}
+                                  </span>
+                                </div>
+                              ) : null}
+                              <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>
+                                {spotlightAssemblyCanonicalCatalogCount || 0}+ indexed canonical products in engine.
+                              </div>
+                            </div>
+                          ) : null}
+                          {Array.isArray(seGuidedAssemblyRecommendedActions) &&
+                          seGuidedAssemblyRecommendedActions.length ? (
+                            <div
+                              style={{
+                                borderRadius: 10,
+                                padding: "10px 12px",
+                                background: "#ffffff",
+                                border: "1px dashed rgba(100, 116, 139, 0.55)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 900,
+                                  letterSpacing: "0.08em",
+                                  color: "#64748b",
+                                  marginBottom: 6,
+                                }}
+                              >
+                                SUGGESTED NEXT STEPS (SCORING)
+                              </div>
+                              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#475569", lineHeight: 1.45 }}>
+                                {seGuidedAssemblyRecommendedActions.slice(0, 4).map((a, i) => (
+                                  <li key={`rec-act-${i}`}>
+                                    <strong style={{ color: "#0f172a" }}>{String(a.action || "").replace(/_/g, " ")}</strong>
+                                    {a.reason ? ` — ${String(a.reason)}` : ""}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {String(seGuidedBuilderQuery || "").trim().length >= 2 ? (
+                            <div style={{ display: "grid", gap: 8 }}>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#64748b" }}>
+                                CANONICAL PRODUCT MATCHES ({seGuidedWizardMessageKind === "customer_profile" ? "optional lens · " : ""}
+                                {seGuidedCanonicalSearchHits.length} shown)
+                              </div>
+                              <div style={{ display: "grid", gap: 6 }}>
+                                {seGuidedCanonicalSearchHits.length ? (
+                                  seGuidedCanonicalSearchHits.slice(0, 6).map((hit) => (
+                                    <div
+                                      key={hit.id}
+                                      style={{
+                                        display: "flex",
+                                        flexWrap: "wrap",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        gap: 8,
+                                        padding: "8px 10px",
+                                        borderRadius: 10,
+                                        border: "1px solid rgba(226, 232, 240, 0.98)",
+                                        background: "#ffffff",
+                                      }}
+                                    >
+                                      <div style={{ flex: "1 1 160px", minWidth: 0 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a", lineHeight: 1.3 }}>
+                                          {hit.productName}
+                                        </div>
+                                        <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", lineHeight: 1.35 }}>
+                                          {hit.canonicalFamily} · {hit.pdsMapKey}
+                                        </div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSeGuidedUseCanonicalInDraft(hit.id)}
+                                        style={{
+                                          cursor: "pointer",
+                                          borderRadius: 8,
+                                          padding: "6px 10px",
+                                          fontSize: 10,
+                                          fontWeight: 900,
+                                          letterSpacing: "0.05em",
+                                          border: "1px solid rgba(234, 88, 12, 0.55)",
+                                          background: "#fff7ed",
+                                          color: "#c2410c",
+                                          flexShrink: 0,
+                                        }}
+                                      >
+                                        Use in draft
+                                      </button>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
+                                    No canonical rows matched this token yet—try another keyword.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                         {guidedSpotlightBuilderRecommendation?.match ? (
                           <div
@@ -11659,8 +12358,11 @@ const handleFinishDealerEnrollment = async () => {
                           }}
                         >
                           <li>Confirm PDS wording before anything is shared outside the dealer workspace.</li>
-                          <li>Keep LFBB and proof points tied to the library row you selected.</li>
-                          <li>Prepare Send still governs recipients—this step only shapes the preview.</li>
+                          <li>
+                            The system draft is a starting point — tighten LFBB and proof points against the library row
+                            you will send.
+                          </li>
+                          <li>Prepare Send still governs recipients — this step prepares editable copy only.</li>
                         </ul>
                         <div
                           style={{
