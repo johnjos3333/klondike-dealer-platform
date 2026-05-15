@@ -17,6 +17,12 @@ import {
   getGreaseCanonicalProductIntelligenceByPdsKey,
   listGreaseCanonicalProductIntelligence,
 } from "../data/greaseCanonicalProductIntelligence.js";
+import {
+  HYDRAULIC_CANONICAL_PRODUCT_INTELLIGENCE,
+  getHydraulicCanonicalProductIntelligenceById,
+  getHydraulicCanonicalProductIntelligenceByPdsKey,
+  listHydraulicCanonicalProductIntelligence,
+} from "../data/hydraulicCanonicalProductIntelligence.js";
 import { normalizeProductQuery, searchKlondikeProducts } from "./klondikeProductRetrievalHelpers.js";
 
 const ENTITY_EXACT_MIN_SCORE = 34;
@@ -40,6 +46,18 @@ const GREASE_CANONICAL_REGISTRY_ENTITY_ID = Object.freeze({
   "grease-canonical-moly-tac-ep-1": "entity-moly-tac-ep-2",
   "grease-canonical-moly-tac-arctic-ep-0": "entity-moly-tac-ep-2",
   "grease-canonical-moly-tac-bentone-ep-2": "entity-moly-tac-ep-2",
+});
+
+/** @type {Readonly<Record<string, string>>} */
+const HYDRAULIC_CANONICAL_FLAGSHIP_BY_ID = Object.freeze({
+  "hydr-canonical-xvi-all-season": "flagship-xvi-all-season-extreme-hydraulic",
+});
+
+/** Registry entity id when hydraulic canonical row maps to an existing entity bucket. */
+/** @type {Readonly<Record<string, string>>} */
+const HYDRAULIC_CANONICAL_REGISTRY_ENTITY_ID = Object.freeze({
+  "hydr-canonical-xvi-all-season": "entity-xvi-hydraulic",
+  "hydr-canonical-wet-brake-fluid-full-synthetic": "entity-wet-brake-fluid",
 });
 
 /**
@@ -89,9 +107,9 @@ const PRODUCT_ENTITY_REGISTRY = [
     flagshipId: "flagship-xvi-all-season-extreme-hydraulic",
     pdsKeys: ["XVI All Season Hydraulic"],
     scoreQuery(normQ) {
-      if (normQ.includes("xvi") && normQ.includes("hydraulic")) return 46;
-      if (/\bxvi\b/.test(normQ)) return 40;
-      if (normQ.includes("xvi all season")) return 44;
+      if (/\bxvi\b/.test(normQ)) return 0;
+      if (normQ.includes("xvi") && normQ.includes("hydraulic")) return 0;
+      if (normQ.includes("xvi all season")) return 0;
       return 0;
     },
     pickPdsKey: () => "XVI All Season Hydraulic",
@@ -102,10 +120,10 @@ const PRODUCT_ENTITY_REGISTRY = [
     flagshipId: "flagship-utf-full-synthetic-tractor",
     pdsKeys: ["Universal Tractor Fluid Full Synthetic", "Universal Tractor Fluid"],
     scoreQuery(normQ) {
-      if (normQ.includes("utf") && normQ.includes("full synthetic")) return 44;
+      if (normQ.includes("utf") && normQ.includes("full synthetic")) return 46;
       if (normQ.includes("universal tractor fluid") && normQ.includes("full synthetic")) return 46;
-      if (normQ === "utf" || normQ.includes(" klondike utf")) return 28;
-      if (normQ.includes("universal tractor fluid") && !normQ.includes("synthetic")) return 24;
+      if (normQ === "utf" || normQ.includes(" klondike utf")) return 0;
+      if (normQ.includes("universal tractor fluid") && !normQ.includes("synthetic")) return 0;
       return 0;
     },
     pickPdsKey(normQ) {
@@ -121,8 +139,8 @@ const PRODUCT_ENTITY_REGISTRY = [
     flagshipId: null,
     pdsKeys: ["Wet Brake Fluid Full Synthetic"],
     scoreQuery(normQ) {
-      if (normQ.includes("wet brake")) return 42;
-      if (normQ.includes("wet brake fluid")) return 46;
+      if (normQ.includes("wet brake")) return 0;
+      if (normQ.includes("wet brake fluid")) return 0;
       return 0;
     },
     pickPdsKey: () => "Wet Brake Fluid Full Synthetic",
@@ -363,6 +381,202 @@ function scoreGreaseCanonicalProduct(grease, normQ) {
 
 /**
  * @param {string} normQ
+ */
+function isGreaseOnlyProductQuery(normQ) {
+  if (normQ.includes("grease") && !normQ.includes("hydraulic") && !normQ.includes("utf") && !normQ.includes("tractor fluid")) {
+    return true;
+  }
+  if (isNanoGreaseQuery(normQ) || isMolyGreaseQuery(normQ)) return true;
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isXviHydraulicQuery(normQ) {
+  if (/\bxvi\b/.test(normQ)) return true;
+  if (normQ.includes("xvi all season")) return true;
+  if (normQ.includes("extreme") && normQ.includes("hydraulic") && !normQ.includes("grease")) return true;
+  if (normQ.includes("all season blend extreme") && normQ.includes("hydraulic")) return true;
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isWetBrakeOrChatterQuery(normQ) {
+  if (normQ.includes("wet brake")) return true;
+  if (normQ.includes("chatter") && (normQ.includes("brake") || normQ.includes("utf") || normQ.includes("tractor"))) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isArcticTractorFluidQuery(normQ) {
+  if (normQ.includes("moly tac") && normQ.includes("arctic")) return false;
+  if (normQ.includes("arctic tractor")) return true;
+  if (normQ.includes("arctic utf")) return true;
+  if (normQ.includes("j20d") && normQ.includes("arctic")) return true;
+  if (normQ.includes("arctic") && (normQ.includes("tractor fluid") || normQ.includes("utto"))) return true;
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isPlainUtfQuery(normQ) {
+  if (normQ.includes("full synthetic") && (normQ.includes("utf") || normQ.includes("universal tractor"))) return false;
+  if (normQ.includes("red") && normQ.includes("tractor")) return false;
+  if (isArcticTractorFluidQuery(normQ)) return false;
+  if (normQ === "utf" || normQ.includes(" klondike utf")) return true;
+  if (normQ.includes("universal tractor fluid") && !normQ.includes("synthetic")) return true;
+  if (normQ.includes("utto") && !normQ.includes("synthetic") && !normQ.includes("red")) return true;
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isRedUtfQuery(normQ) {
+  return (
+    normQ.includes("red") &&
+    (normQ.includes("tractor fluid") || normQ.includes("utf") || normQ.includes("cnh"))
+  );
+}
+
+/**
+ * @param {import("../data/hydraulicCanonicalProductIntelligence.js").HydraulicCanonicalProductIntelligence} hydr
+ * @param {string} normQ
+ */
+function scoreHydraulicCanonicalProduct(hydr, normQ) {
+  if (isGreaseOnlyProductQuery(normQ) && !isXviHydraulicQuery(normQ) && !isWetBrakeOrChatterQuery(normQ)) {
+    if (!normQ.includes("hydraulic") && !normQ.includes("utf") && !normQ.includes("tractor")) return 0;
+  }
+
+  let score = 0;
+  const productNorm = normalizeProductQuery(hydr.productName);
+  if (productNorm.length >= 8 && normQ.includes(productNorm)) {
+    score = Math.max(score, 42);
+  }
+  const mapKeyNorm = normalizeProductQuery(hydr.pdsMapKey);
+  if (mapKeyNorm.length >= 6 && normQ.includes(mapKeyNorm)) {
+    score = Math.max(score, 40);
+  }
+
+  for (const alias of hydr.aliases) {
+    const a = normalizeProductQuery(alias);
+    if (a.length < 3) continue;
+    if (normQ === a) score = Math.max(score, 48);
+    else if (a.length >= 10 && normQ.includes(a)) score = Math.max(score, 40 + Math.min(12, a.length - 8));
+    else if (normQ.includes(a)) score = Math.max(score, 30 + Math.min(14, a.length));
+  }
+
+  if (hydr.id === "hydr-canonical-xvi-all-season" && isXviHydraulicQuery(normQ)) {
+    score = Math.max(score, 50);
+  }
+  if (hydr.id === "hydr-canonical-wet-brake-fluid-full-synthetic" && isWetBrakeOrChatterQuery(normQ)) {
+    score = Math.max(score, normQ.includes("chatter") ? 48 : 50);
+  }
+  if (hydr.id === "hydr-canonical-universal-tractor-fluid" && isPlainUtfQuery(normQ)) {
+    score = Math.max(score, 48);
+  }
+  if (hydr.id === "hydr-canonical-universal-red-tractor-fluid" && isRedUtfQuery(normQ)) {
+    score = Math.max(score, 46);
+  }
+  if (hydr.id === "hydr-canonical-arctic-tractor-fluid" && isArcticTractorFluidQuery(normQ)) {
+    score = Math.max(score, 48);
+  }
+  if (hydr.id === "hydr-canonical-commercial-aw") {
+    if (normQ.includes("commercial aw") || (normQ.includes("commercial") && normQ.includes("aw"))) {
+      score = Math.max(score, 46);
+    } else if (normQ.includes("professional series") && normQ.includes("aw")) {
+      score = Math.max(score, 42);
+    }
+  }
+  if (hydr.id === "hydr-canonical-aw-advanced") {
+    if (normQ.includes("aw advanced") || normQ.includes("advanced aw")) score = Math.max(score, 46);
+    else if (normQ.includes("advanced formula") && normQ.includes("aw") && !normQ.includes("enviro")) {
+      score = Math.max(score, 42);
+    }
+  }
+  if (hydr.id === "hydr-canonical-mv-aw") {
+    if (normQ.includes("mv aw") || normQ.includes("multi viscosity aw") || normQ.includes("multi-viscosity aw")) {
+      score = Math.max(score, 46);
+    } else if (normQ.includes("hvlp") && normQ.includes("aw") && !normQ.includes("enviro")) {
+      score = Math.max(score, 38);
+    }
+  }
+  if (hydr.id === "hydr-canonical-sae-10w-hd-hydraulic") {
+    if (normQ.includes("sae 10w") && normQ.includes("hydraulic")) score = Math.max(score, 46);
+    else if (normQ.includes("hydo advanced 10") || normQ.includes("cat hydo")) score = Math.max(score, 44);
+  }
+  if (hydr.id === "hydr-canonical-long-life-turbine") {
+    if (normQ.includes("long life turbine")) score = Math.max(score, 48);
+    else if (normQ.includes("turbine oil") && !normQ.includes("compressor") && !normQ.includes("circulating")) {
+      score = Math.max(score, 42);
+    }
+  }
+  if (hydr.id === "hydr-canonical-syn-circulating-compressor-turbine") {
+    if (normQ.includes("circulating compressor") || normQ.includes("circulating turbine")) {
+      score = Math.max(score, 48);
+    } else if (normQ.includes("synthetic circulating") && (normQ.includes("compressor") || normQ.includes("turbine"))) {
+      score = Math.max(score, 50);
+    } else if (normQ.includes("compressor turbine oil") && normQ.includes("synthetic")) {
+      score = Math.max(score, 44);
+    }
+  }
+
+  return score;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectHydraulicCanonicalProductEntities(normQ) {
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const hydr of listHydraulicCanonicalProductIntelligence()) {
+    const score = scoreHydraulicCanonicalProduct(hydr, normQ);
+    if (score < ENTITY_DETECT_MIN_SCORE) continue;
+    const registryId = HYDRAULIC_CANONICAL_REGISTRY_ENTITY_ID[hydr.id] || hydr.id;
+    hits.push({ id: registryId, score, label: hydr.productName });
+  }
+  return hits;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} detectId
+ */
+function resolveHydraulicCanonicalFromDetectId(normQ, detectId) {
+  const id = String(detectId ?? "").trim();
+  if (!id) return null;
+
+  /** @type {import("../data/hydraulicCanonicalProductIntelligence.js").HydraulicCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const hydr of HYDRAULIC_CANONICAL_PRODUCT_INTELLIGENCE.products) {
+    const registryId = HYDRAULIC_CANONICAL_REGISTRY_ENTITY_ID[hydr.id] || hydr.id;
+    if (registryId !== id && hydr.id !== id) continue;
+    const score = scoreHydraulicCanonicalProduct(hydr, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = hydr;
+    }
+  }
+  if (best) return best;
+  if (id.startsWith("hydr-canonical-")) {
+    return getHydraulicCanonicalProductIntelligenceById(id);
+  }
+  return null;
+}
+
+/**
+ * @param {string} normQ
  * @returns {Array<{ id: string, score: number, label: string }>}
  */
 function detectGreaseCanonicalProductEntities(normQ) {
@@ -413,9 +627,11 @@ export function detectKlondikeProductEntity(inputText) {
   if (!normQ) return [];
 
   /** @type {Array<{ id: string, score: number, label: string }>} */
-  const hits = [...detectGreaseCanonicalProductEntities(normQ)];
+  const hits = [...detectGreaseCanonicalProductEntities(normQ), ...detectHydraulicCanonicalProductEntities(normQ)];
 
-  const strongGreaseCanonical = hits.length > 0 && hits[0].score >= ENTITY_EXACT_MIN_SCORE;
+  hits.sort((a, b) => b.score - a.score);
+
+  const strongCanonical = hits.length > 0 && hits[0].score >= ENTITY_EXACT_MIN_SCORE;
 
   for (const entity of PRODUCT_ENTITY_REGISTRY) {
     const score = entity.scoreQuery(normQ);
@@ -426,7 +642,7 @@ export function detectKlondikeProductEntity(inputText) {
     }
   }
 
-  if (!strongGreaseCanonical) {
+  if (!strongCanonical) {
     const retrieval = searchKlondikeProducts(String(inputText ?? ""));
     const top = retrieval.matches?.[0];
     if (top?.productKey && top.score >= 14) {
@@ -435,14 +651,25 @@ export function detectKlondikeProductEntity(inputText) {
         /* skip retrieval mis-route to Moly Tac on nano grease asks */
       } else if (isMolyGreaseQuery(normQ) && !isNanoGreaseQuery(normQ) && /nano/i.test(key) && !/moly/i.test(key)) {
         /* skip */
+      } else if (isXviHydraulicQuery(normQ) && !/xvi/i.test(key)) {
+        /* skip non-XVI hydraulic retrieval on XVI asks */
+      } else if (isPlainUtfQuery(normQ) && /full synthetic/i.test(key)) {
+        /* skip UTF Full Synthetic retrieval on plain UTF asks */
       } else {
         const greaseFromKey = getGreaseCanonicalProductIntelligenceByPdsKey(key);
+        const hydrFromKey = getHydraulicCanonicalProductIntelligenceByPdsKey(key);
         if (greaseFromKey) {
           const registryId = GREASE_CANONICAL_REGISTRY_ENTITY_ID[greaseFromKey.id] || greaseFromKey.id;
           const existing = hits.find((h) => h.id === registryId);
           const boost = Math.min(72, top.score + 6);
           if (existing) existing.score = Math.max(existing.score, boost);
           else hits.push({ id: registryId, score: boost, label: greaseFromKey.productName });
+        } else if (hydrFromKey) {
+          const registryId = HYDRAULIC_CANONICAL_REGISTRY_ENTITY_ID[hydrFromKey.id] || hydrFromKey.id;
+          const existing = hits.find((h) => h.id === registryId);
+          const boost = Math.min(72, top.score + 6);
+          if (existing) existing.score = Math.max(existing.score, boost);
+          else hits.push({ id: registryId, score: boost, label: hydrFromKey.productName });
         } else {
           for (const entity of PRODUCT_ENTITY_REGISTRY) {
             if (entity.pdsKeys.includes(key)) {
@@ -513,18 +740,26 @@ export function resolveKlondikeProductEntity(inputText) {
   const top = detected[0];
   const second = detected[1];
   const greaseCanonical = resolveGreaseCanonicalFromDetectId(normQ, top.id);
+  const hydraulicCanonical = resolveHydraulicCanonicalFromDetectId(normQ, top.id);
   const entity = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === top.id);
-  if (!entity && !greaseCanonical) return empty;
+  if (!entity && !greaseCanonical && !hydraulicCanonical) return empty;
 
-  let pdsKey = greaseCanonical?.pdsMapKey ?? entity?.pickPdsKey(normQ) ?? null;
+  let pdsKey =
+    greaseCanonical?.pdsMapKey ?? hydraulicCanonical?.pdsMapKey ?? entity?.pickPdsKey(normQ) ?? null;
   if (!pdsKey && entity?.pdsKeys.length === 1) pdsKey = entity.pdsKeys[0];
   if (pdsKey && !PDS_MAP[pdsKey]) {
-    pdsKey = entity?.pdsKeys.find((k) => PDS_MAP[k]) || (greaseCanonical?.pdsMapKey && PDS_MAP[greaseCanonical.pdsMapKey] ? greaseCanonical.pdsMapKey : null);
+    pdsKey =
+      entity?.pdsKeys.find((k) => PDS_MAP[k]) ||
+      (greaseCanonical?.pdsMapKey && PDS_MAP[greaseCanonical.pdsMapKey] ? greaseCanonical.pdsMapKey : null) ||
+      (hydraulicCanonical?.pdsMapKey && PDS_MAP[hydraulicCanonical.pdsMapKey]
+        ? hydraulicCanonical.pdsMapKey
+        : null);
   }
 
-  const label = greaseCanonical?.productName ?? entity?.label ?? top.label;
+  const label = greaseCanonical?.productName ?? hydraulicCanonical?.productName ?? entity?.label ?? top.label;
   const flagshipId =
     (greaseCanonical && GREASE_CANONICAL_FLAGSHIP_BY_ID[greaseCanonical.id]) ||
+    (hydraulicCanonical && HYDRAULIC_CANONICAL_FLAGSHIP_BY_ID[hydraulicCanonical.id]) ||
     entity?.flagshipId ||
     null;
 
@@ -536,25 +771,7 @@ export function resolveKlondikeProductEntity(inputText) {
   else if (top.score >= ENTITY_DETECT_MIN_SCORE) confidence = "likely";
 
   if (confidence === "ambiguous" && !pdsKey) {
-    const likelyMatches = detected.slice(0, 5).map((d) => {
-      const grease = resolveGreaseCanonicalFromDetectId(normQ, d.id);
-      if (grease) {
-        const key = grease.pdsMapKey;
-        return {
-          entityId: d.id,
-          pdsKey: key && PDS_MAP[key] ? key : null,
-          label: grease.productName,
-          score: d.score,
-        };
-      }
-      const def = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === d.id);
-      return {
-        entityId: d.id,
-        pdsKey: def?.pickPdsKey(normQ) || def?.pdsKeys[0] || null,
-        label: d.label,
-        score: d.score,
-      };
-    });
+    const likelyMatches = mapDetectedToLikelyMatches(detected, normQ);
     return {
       confidence: "ambiguous",
       entityId: top.id,
@@ -567,26 +784,7 @@ export function resolveKlondikeProductEntity(inputText) {
   }
 
   /** @type {Array<{ entityId: string | null, pdsKey: string | null, label: string, score: number }>} */
-  const likelyMatches = detected.slice(0, 5).map((d) => {
-    const grease = resolveGreaseCanonicalFromDetectId(normQ, d.id);
-    if (grease) {
-      const key = grease.pdsMapKey;
-      return {
-        entityId: d.id,
-        pdsKey: key && PDS_MAP[key] ? key : null,
-        label: grease.productName,
-        score: d.score,
-      };
-    }
-    const def = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === d.id);
-    const key = def?.pickPdsKey(normQ) || def?.pdsKeys[0] || null;
-    return {
-      entityId: d.id,
-      pdsKey: key && PDS_MAP[key] ? key : null,
-      label: d.label,
-      score: d.score,
-    };
-  });
+  const likelyMatches = mapDetectedToLikelyMatches(detected, normQ);
 
   return {
     confidence,
@@ -600,6 +798,95 @@ export function resolveKlondikeProductEntity(inputText) {
         ? `Resolved product entity: ${label}.`
         : `Likely product entity: ${label}—confirm SKU on the PDS before customer-facing claims.`,
   };
+}
+
+/**
+ * @param {Array<{ id: string, score: number, label: string }>} detected
+ * @param {string} normQ
+ */
+function mapDetectedToLikelyMatches(detected, normQ) {
+  return detected.slice(0, 5).map((d) => {
+    const grease = resolveGreaseCanonicalFromDetectId(normQ, d.id);
+    if (grease) {
+      const key = grease.pdsMapKey;
+      return {
+        entityId: d.id,
+        pdsKey: key && PDS_MAP[key] ? key : null,
+        label: grease.productName,
+        score: d.score,
+      };
+    }
+    const hydr = resolveHydraulicCanonicalFromDetectId(normQ, d.id);
+    if (hydr) {
+      const key = hydr.pdsMapKey;
+      return {
+        entityId: d.id,
+        pdsKey: key && PDS_MAP[key] ? key : null,
+        label: hydr.productName,
+        score: d.score,
+      };
+    }
+    const def = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === d.id);
+    const key = def?.pickPdsKey(normQ) || def?.pdsKeys[0] || null;
+    return {
+      entityId: d.id,
+      pdsKey: key && PDS_MAP[key] ? key : null,
+      label: d.label,
+      score: d.score,
+    };
+  });
+}
+
+/**
+ * @param {import("../data/hydraulicCanonicalProductIntelligence.js").HydraulicCanonicalProductIntelligence} hydr
+ */
+function buildEntitySectionsFromHydraulicCanonical(hydr) {
+  const whatItIs = uniqStrings([hydr.whatItIs, hydr.hierarchyPosition]);
+  const whyItWins = uniqStrings([hydr.whyItWins]);
+  const proof = [...hydr.proofPoints, ...hydr.oemSpecPositioning];
+  const whereFits = uniqStrings([
+    ...hydr.applications,
+    ...hydr.equipmentTargets,
+    ...hydr.operatingConditions,
+  ]);
+  const repTalk = [...hydr.repTalkTrack];
+  const questions = uniqStrings([
+    ...hydr.customerPainSignals.map((p) => `Customer pain to probe: ${p}`),
+    ...hydr.troubleshootingAssociations.map((t) => `Related troubleshooting topic: ${t}`),
+    "What OEM spec string and fluid class does the equipment tag require?",
+    "What duty cycle, temperature band, and drain or regrease interval apply?",
+  ]);
+  const confirm = uniqStrings([
+    ...hydr.cautionNotes,
+    ...hydr.doNotConfuseWith.map((name) => `Do not confuse with ${name}—confirm the PDS title block.`),
+    hydr.pdsMapKey ? `Confirm the indexed row “${hydr.pdsMapKey}” matches the drum label before quoting.` : "",
+  ]);
+  if (hydr.coldStartPositioning) {
+    confirm.push(hydr.coldStartPositioning);
+  }
+  if (hydr.chatterSuppressionPositioning) {
+    confirm.push(hydr.chatterSuppressionPositioning);
+  }
+  confirm.push(...hydr.contaminationCavitationLogic);
+
+  const proofIntro = proof.length
+    ? "Use indexed PDS map lines and the live PDS PDF—quote only printed spec rows."
+    : "Open the current PDS PDF for authoritative proof; the map index is a pointer only.";
+
+  return [
+    narrativeSection("whatItIs", "What It Is", "", whatItIs.length ? whatItIs : ["Name the product exactly as on the PDS title block, then recompose."]),
+    narrativeSection("whyItWins", "Why It Wins", "", whyItWins.length ? whyItWins : ["Anchor wins to indexed hydraulic canonical intelligence only."]),
+    narrativeSection("pdsBackedProof", "PDS-Backed Proof", proofIntro, proof.length ? proof.slice(0, 10) : []),
+    narrativeSection(
+      "whereItFits",
+      "Where It Fits",
+      hydr.categorySpotlightRole ? String(hydr.categorySpotlightRole) : "",
+      whereFits
+    ),
+    narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk.length ? repTalk.slice(0, 8) : []),
+    narrativeSection("questionsToAsk", "Questions to Ask", "", questions),
+    narrativeSection("confirmBeforeUse", "Confirm Before Use", "", confirm),
+  ].filter((s) => s.body || (s.items && s.items.length > 0));
 }
 
 /**
@@ -778,6 +1065,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
   const pdsKey = resolved.pdsKey;
   const pdsRow = pdsKey && PDS_MAP[pdsKey] ? PDS_MAP[pdsKey] : null;
   const greaseCanonical = pdsKey ? getGreaseCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
+  const hydraulicCanonical = pdsKey ? getHydraulicCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
 
   if (resolved.entityId === "entity-deep-well-pump-oil") {
     const matchedProducts = (searchKlondikeProducts(question).matches || []).slice(0, 6).map((m) => ({
@@ -819,7 +1107,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
     };
   }
 
-  if (!flagship && !pdsRow && !greaseCanonical) {
+  if (!flagship && !pdsRow && !greaseCanonical && !hydraulicCanonical) {
     return {
       ...empty,
       title: resolved.label || "Klondike product",
@@ -837,9 +1125,12 @@ export function buildProductEntityAdvisorResponse(inputText) {
   }
 
   const nanoIntel =
-    !greaseCanonical && flagship && isNanoEp2FlagshipId(flagship.id) ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE : null;
+    !greaseCanonical && !hydraulicCanonical && flagship && isNanoEp2FlagshipId(flagship.id)
+      ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE
+      : null;
   const titleLabel =
     greaseCanonical?.productName ||
+    hydraulicCanonical?.productName ||
     nanoIntel?.canonicalProductLabel ||
     flagship?.productName ||
     pdsKey ||
@@ -847,24 +1138,34 @@ export function buildProductEntityAdvisorResponse(inputText) {
 
   const directAnswer = greaseCanonical
     ? greaseCanonical.whyItWins
-    : nanoIntel
-      ? nanoIntel.whyItWins
-      : flagship?.whyItWins ||
-        (pdsRow?.why ? String(pdsRow.why) : "") ||
-        `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
+    : hydraulicCanonical
+      ? hydraulicCanonical.whyItWins
+      : nanoIntel
+        ? nanoIntel.whyItWins
+        : flagship?.whyItWins ||
+          (pdsRow?.why ? String(pdsRow.why) : "") ||
+          `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
 
   const sections = greaseCanonical
     ? buildEntitySectionsFromGreaseCanonical(greaseCanonical)
-    : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
+    : hydraulicCanonical
+      ? buildEntitySectionsFromHydraulicCanonical(hydraulicCanonical)
+      : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
   const followUpQuestions = sections.find((s) => s.id === "questionsToAsk")?.items || [];
   const cautionNotes =
     greaseCanonical?.cautionNotes?.length
       ? uniqStrings([...greaseCanonical.cautionNotes, ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || [])])
-      : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
+      : hydraulicCanonical?.cautionNotes?.length
+        ? uniqStrings([
+            ...hydraulicCanonical.cautionNotes,
+            ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
+          ])
+        : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
 
   /** @type {string[]} */
   const sourceBadges = ["Product entity resolver", "PDS map index"];
   if (greaseCanonical) sourceBadges.push("Grease canonical product intelligence");
+  if (hydraulicCanonical) sourceBadges.push("Hydraulic canonical product intelligence");
   if (flagship) sourceBadges.push("Flagship product intelligence");
   if (nanoIntel) sourceBadges.push("Nano EP 2 canonical intelligence");
 
