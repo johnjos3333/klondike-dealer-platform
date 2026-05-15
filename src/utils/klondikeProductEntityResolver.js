@@ -35,6 +35,12 @@ import {
   getTransmissionCanonicalProductIntelligenceByPdsKey,
   listTransmissionCanonicalProductIntelligence,
 } from "../data/transmissionCanonicalProductIntelligence.js";
+import {
+  COOLANT_CANONICAL_PRODUCT_INTELLIGENCE,
+  getCoolantCanonicalProductIntelligenceById,
+  getCoolantCanonicalProductIntelligenceByPdsKey,
+  listCoolantCanonicalProductIntelligence,
+} from "../data/coolantCanonicalProductIntelligence.js";
 import { normalizeProductQuery, searchKlondikeProducts } from "./klondikeProductRetrievalHelpers.js";
 
 const ENTITY_EXACT_MIN_SCORE = 34;
@@ -1206,6 +1212,241 @@ function resolveTransmissionCanonicalFromDetectId(normQ, detectId) {
 
 /**
  * @param {string} normQ
+ */
+function isCoolantAntifreezeProductQuery(normQ) {
+  if (normQ.includes("antifreeze") || normQ.includes("coolant")) return true;
+  if (normQ.includes("dex-cool") || normQ.includes("dex cool")) return true;
+  if (normQ.includes("noat") && (normQ.includes("elc") || normQ.includes("coolant") || normQ.includes("antifreeze"))) {
+    return true;
+  }
+  if (normQ.includes("hoat") && (normQ.includes("elc") || normQ.includes("coolant") || normQ.includes("antifreeze"))) {
+    return true;
+  }
+  if (
+    normQ.includes("oat") &&
+    (normQ.includes("elc") || normQ.includes("coolant") || normQ.includes("antifreeze")) &&
+    !isTransmissionDrivetrainProductQuery(normQ)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isGreenConventionalCoolantQuery(normQ) {
+  if (normQ.includes("conventional coolant") || (normQ.includes("sca") && normQ.includes("coolant"))) return true;
+  if (normQ.includes("green universal") || normQ.includes("klondike green coolant")) return true;
+  if (normQ.includes("green") && (normQ.includes("coolant") || normQ.includes("antifreeze"))) {
+    if (normQ.includes("yellow") || normQ.includes("gold") || normQ.includes("red")) return false;
+    if (normQ.includes("noat") || normQ.includes("hoat")) return false;
+    if (normQ.includes("extended life") && normQ.includes("elc")) return false;
+    return true;
+  }
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isYellowAutomotiveOatCoolantQuery(normQ) {
+  return (
+    normQ.includes("yellow") &&
+    (normQ.includes("oat") ||
+      normQ.includes("elc") ||
+      normQ.includes("automotive") ||
+      normQ.includes("dex-cool") ||
+      normQ.includes("coolant") ||
+      normQ.includes("antifreeze"))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isGoldNfOatCoolantQuery(normQ) {
+  return (
+    normQ.includes("all engines nf") ||
+    (normQ.includes("gold") &&
+      (normQ.includes("oat") || normQ.includes("elc") || normQ.includes("nf") || normQ.includes("coolant"))) ||
+    (normQ.includes("nitrite free") &&
+      (normQ.includes("oat") || normQ.includes("coolant") || normQ.includes("antifreeze") || normQ.includes("elc")))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isRedNoatCoolantQuery(normQ) {
+  return (
+    (normQ.includes("red") &&
+      (normQ.includes("noat") || normQ.includes("heavy duty") || normQ.includes("coolant") || normQ.includes("elc"))) ||
+    (normQ.includes("noat") &&
+      (normQ.includes("coolant") || normQ.includes("antifreeze") || normQ.includes("elc")) &&
+      !normQ.includes("hoat") &&
+      !isGoldNfOatCoolantQuery(normQ))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isHoatCommercialHdCoolantQuery(normQ) {
+  return (
+    normQ.includes("hoat") ||
+    (normQ.includes("commercial") &&
+      normQ.includes("hd") &&
+      (normQ.includes("coolant") || normQ.includes("antifreeze") || normQ.includes("elc")))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isSpecificNamedCoolantProductQuery(normQ) {
+  return (
+    isGreenConventionalCoolantQuery(normQ) ||
+    isYellowAutomotiveOatCoolantQuery(normQ) ||
+    isGoldNfOatCoolantQuery(normQ) ||
+    isRedNoatCoolantQuery(normQ) ||
+    isHoatCommercialHdCoolantQuery(normQ)
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isCoolantCatalogQuery(normQ) {
+  if (!isCoolantAntifreezeProductQuery(normQ)) return false;
+  if (isSpecificNamedCoolantProductQuery(normQ)) return false;
+  if (normQ.includes("what") && (normQ.includes("coolant") || normQ.includes("antifreeze"))) return true;
+  if (normQ.includes("does klondike") && (normQ.includes("coolant") || normQ.includes("antifreeze"))) return true;
+  if (normQ.includes("klondike carry") && (normQ.includes("coolant") || normQ.includes("antifreeze"))) return true;
+  return false;
+}
+
+/**
+ * @param {import("../data/coolantCanonicalProductIntelligence.js").CoolantCanonicalProductIntelligence} cool
+ * @param {string} normQ
+ */
+function scoreCoolantCanonicalProduct(cool, normQ) {
+  if (isGreaseOnlyProductQuery(normQ) && !isCoolantAntifreezeProductQuery(normQ)) return 0;
+  if (isTransmissionDrivetrainProductQuery(normQ) && !isCoolantAntifreezeProductQuery(normQ)) return 0;
+  if (isHdEngineOilProductQuery(normQ) && !isCoolantAntifreezeProductQuery(normQ)) return 0;
+  if (!isCoolantAntifreezeProductQuery(normQ)) return 0;
+
+  const green = isGreenConventionalCoolantQuery(normQ);
+  const yellow = isYellowAutomotiveOatCoolantQuery(normQ);
+  const gold = isGoldNfOatCoolantQuery(normQ);
+  const red = isRedNoatCoolantQuery(normQ);
+  const hoat = isHoatCommercialHdCoolantQuery(normQ);
+
+  if (green && cool.id !== "coolant-canonical-green-universal") {
+    if (cool.hierarchyBranch.includes("oat") || cool.hierarchyBranch.includes("noat") || cool.hierarchyBranch.includes("hoat")) {
+      return 0;
+    }
+  }
+  if (yellow && cool.id !== "coolant-canonical-yellow-oat-elc") return 0;
+  if (gold && cool.id !== "coolant-canonical-gold-nf-oat-elc") return 0;
+  if (red && cool.id !== "coolant-canonical-red-noat-elc") return 0;
+  if (hoat && cool.id !== "coolant-canonical-commercial-hd-hoat-elc") return 0;
+
+  if (!green && cool.id === "coolant-canonical-green-universal") {
+    if (normQ.includes("green") && (normQ.includes("oat") || normQ.includes("elc") || normQ.includes("noat"))) return 0;
+  }
+  if (!yellow && cool.id === "coolant-canonical-yellow-oat-elc") return 0;
+  if (!gold && cool.id === "coolant-canonical-gold-nf-oat-elc") return 0;
+  if (!red && cool.id === "coolant-canonical-red-noat-elc") return 0;
+  if (!hoat && cool.id === "coolant-canonical-commercial-hd-hoat-elc") return 0;
+
+  if (gold && (cool.id === "coolant-canonical-red-noat-elc" || cool.id === "coolant-canonical-yellow-oat-elc")) return 0;
+  if (red && (cool.id === "coolant-canonical-gold-nf-oat-elc" || cool.id === "coolant-canonical-green-universal")) {
+    if (normQ.includes("noat") || normQ.includes("red")) return 0;
+  }
+  if (hoat && cool.id === "coolant-canonical-red-noat-elc") return 0;
+  if (red && cool.id === "coolant-canonical-commercial-hd-hoat-elc") return 0;
+
+  let score = 0;
+  const productNorm = normalizeProductQuery(cool.productName);
+  if (productNorm.length >= 8 && normQ.includes(productNorm)) {
+    score = Math.max(score, 42);
+  }
+  const mapKeyNorm = normalizeProductQuery(cool.pdsMapKey);
+  if (mapKeyNorm.length >= 6 && normQ.includes(mapKeyNorm)) {
+    score = Math.max(score, 40);
+  }
+
+  for (const alias of cool.aliases) {
+    const a = normalizeProductQuery(alias);
+    if (a.length < 3) continue;
+    if (normQ === a) score = Math.max(score, 48);
+    else if (a.length >= 10 && normQ.includes(a)) score = Math.max(score, 40 + Math.min(12, a.length - 8));
+    else if (normQ.includes(a)) score = Math.max(score, 30 + Math.min(14, a.length));
+  }
+
+  if (cool.id === "coolant-canonical-green-universal" && green) score = Math.max(score, 50);
+  if (cool.id === "coolant-canonical-yellow-oat-elc" && yellow) score = Math.max(score, 50);
+  if (cool.id === "coolant-canonical-gold-nf-oat-elc" && gold) score = Math.max(score, 50);
+  if (cool.id === "coolant-canonical-red-noat-elc" && red) score = Math.max(score, 50);
+  if (cool.id === "coolant-canonical-commercial-hd-hoat-elc" && hoat) score = Math.max(score, 50);
+
+  if (isCoolantCatalogQuery(normQ)) {
+    if (cool.hierarchyBranch.includes("noat") || cool.hierarchyBranch.includes("hoat")) {
+      score = Math.max(score, normQ.includes("hd") ? 40 : 36);
+    } else if (cool.hierarchyBranch.includes("automotive")) {
+      score = Math.max(score, 36);
+    } else {
+      score = Math.max(score, 34);
+    }
+  }
+
+  return score;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectCoolantCanonicalProductEntities(normQ) {
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const cool of listCoolantCanonicalProductIntelligence()) {
+    const score = scoreCoolantCanonicalProduct(cool, normQ);
+    if (score < ENTITY_DETECT_MIN_SCORE) continue;
+    hits.push({ id: cool.id, score, label: cool.productName });
+  }
+  return hits;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} detectId
+ */
+function resolveCoolantCanonicalFromDetectId(normQ, detectId) {
+  const id = String(detectId ?? "").trim();
+  if (!id) return null;
+
+  /** @type {import("../data/coolantCanonicalProductIntelligence.js").CoolantCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const cool of COOLANT_CANONICAL_PRODUCT_INTELLIGENCE.products) {
+    if (cool.id !== id) continue;
+    const score = scoreCoolantCanonicalProduct(cool, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = cool;
+    }
+  }
+  if (best) return best;
+  if (id.startsWith("coolant-canonical-")) {
+    return getCoolantCanonicalProductIntelligenceById(id);
+  }
+  return null;
+}
+
+/**
+ * @param {string} normQ
  * @returns {Array<{ id: string, score: number, label: string }>}
  */
 function detectHydraulicCanonicalProductEntities(normQ) {
@@ -1304,6 +1545,7 @@ export function detectKlondikeProductEntity(inputText) {
     ...detectHydraulicCanonicalProductEntities(normQ),
     ...detectHdEngineOilCanonicalProductEntities(normQ),
     ...detectTransmissionCanonicalProductEntities(normQ),
+    ...detectCoolantCanonicalProductEntities(normQ),
   ];
 
   hits.sort((a, b) => b.score - a.score);
@@ -1368,11 +1610,26 @@ export function detectKlondikeProductEntity(inputText) {
         /* skip non-Type-F retrieval */
       } else if (isMd3AtfQuery(normQ) && !/md3|dexron iii/i.test(key)) {
         /* skip non-MD3 retrieval */
+      } else if (isGreenConventionalCoolantQuery(normQ) && !/green universal/i.test(key) && /oat|noat|elc/i.test(key)) {
+        /* skip ELC retrieval on green conventional asks */
+      } else if (isYellowAutomotiveOatCoolantQuery(normQ) && !/yellow/i.test(key)) {
+        /* skip non-yellow OAT coolant retrieval */
+      } else if (isGoldNfOatCoolantQuery(normQ) && !/gold/i.test(key)) {
+        /* skip non-gold NF OAT retrieval */
+      } else if (isRedNoatCoolantQuery(normQ) && !/red|noat/i.test(key)) {
+        /* skip non-red NOAT retrieval */
+      } else if (isHoatCommercialHdCoolantQuery(normQ) && !/hoat/i.test(key)) {
+        /* skip non-HOAT retrieval */
+      } else if (isGoldNfOatCoolantQuery(normQ) && /red|noat/i.test(key) && !/gold/i.test(key)) {
+        /* skip red NOAT on gold NF asks */
+      } else if (isRedNoatCoolantQuery(normQ) && /gold/i.test(key) && !/red|noat/i.test(key)) {
+        /* skip gold on red NOAT asks */
       } else {
         const greaseFromKey = getGreaseCanonicalProductIntelligenceByPdsKey(key);
         const hydrFromKey = getHydraulicCanonicalProductIntelligenceByPdsKey(key);
         const hdFromKey = getHdEngineOilCanonicalProductIntelligenceByPdsKey(key);
         const txFromKey = getTransmissionCanonicalProductIntelligenceByPdsKey(key);
+        const coolFromKey = getCoolantCanonicalProductIntelligenceByPdsKey(key);
         if (greaseFromKey) {
           const registryId = GREASE_CANONICAL_REGISTRY_ENTITY_ID[greaseFromKey.id] || greaseFromKey.id;
           const existing = hits.find((h) => h.id === registryId);
@@ -1397,6 +1654,11 @@ export function detectKlondikeProductEntity(inputText) {
           const boost = Math.min(72, top.score + 6);
           if (existing) existing.score = Math.max(existing.score, boost);
           else hits.push({ id: registryId, score: boost, label: txFromKey.productName });
+        } else if (coolFromKey) {
+          const existing = hits.find((h) => h.id === coolFromKey.id);
+          const boost = Math.min(72, top.score + 6);
+          if (existing) existing.score = Math.max(existing.score, boost);
+          else hits.push({ id: coolFromKey.id, score: boost, label: coolFromKey.productName });
         } else {
           for (const entity of PRODUCT_ENTITY_REGISTRY) {
             if (entity.pdsKeys.includes(key)) {
@@ -1470,14 +1732,18 @@ export function resolveKlondikeProductEntity(inputText) {
   const hydraulicCanonical = resolveHydraulicCanonicalFromDetectId(normQ, top.id);
   const hdCanonical = resolveHdEngineOilCanonicalFromDetectId(normQ, top.id);
   const transmissionCanonical = resolveTransmissionCanonicalFromDetectId(normQ, top.id);
+  const coolantCanonical = resolveCoolantCanonicalFromDetectId(normQ, top.id);
   const entity = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === top.id);
-  if (!entity && !greaseCanonical && !hydraulicCanonical && !hdCanonical && !transmissionCanonical) return empty;
+  if (!entity && !greaseCanonical && !hydraulicCanonical && !hdCanonical && !transmissionCanonical && !coolantCanonical) {
+    return empty;
+  }
 
   let pdsKey =
     greaseCanonical?.pdsMapKey ??
     hydraulicCanonical?.pdsMapKey ??
     hdCanonical?.pdsMapKey ??
     transmissionCanonical?.pdsMapKey ??
+    coolantCanonical?.pdsMapKey ??
     entity?.pickPdsKey(normQ) ??
     null;
   if (!pdsKey && entity?.pdsKeys.length === 1) pdsKey = entity.pdsKeys[0];
@@ -1491,7 +1757,8 @@ export function resolveKlondikeProductEntity(inputText) {
       (hdCanonical?.pdsMapKey && PDS_MAP[hdCanonical.pdsMapKey] ? hdCanonical.pdsMapKey : null) ||
       (transmissionCanonical?.pdsMapKey && PDS_MAP[transmissionCanonical.pdsMapKey]
         ? transmissionCanonical.pdsMapKey
-        : null);
+        : null) ||
+      (coolantCanonical?.pdsMapKey && PDS_MAP[coolantCanonical.pdsMapKey] ? coolantCanonical.pdsMapKey : null);
   }
 
   const label =
@@ -1499,6 +1766,7 @@ export function resolveKlondikeProductEntity(inputText) {
     hydraulicCanonical?.productName ??
     hdCanonical?.productName ??
     transmissionCanonical?.productName ??
+    coolantCanonical?.productName ??
     entity?.label ??
     top.label;
   const flagshipId =
@@ -1588,6 +1856,16 @@ function mapDetectedToLikelyMatches(detected, normQ) {
         entityId: d.id,
         pdsKey: key && PDS_MAP[key] ? key : null,
         label: tx.productName,
+        score: d.score,
+      };
+    }
+    const cool = resolveCoolantCanonicalFromDetectId(normQ, d.id);
+    if (cool) {
+      const key = cool.pdsMapKey;
+      return {
+        entityId: d.id,
+        pdsKey: key && PDS_MAP[key] ? key : null,
+        label: cool.productName,
         score: d.score,
       };
     }
@@ -1701,6 +1979,61 @@ function buildEntitySectionsFromHdCanonical(hd) {
       "whereItFits",
       "Where It Fits",
       hd.categorySpotlightRole ? String(hd.categorySpotlightRole) : "",
+      whereFits
+    ),
+    narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk.length ? repTalk.slice(0, 8) : []),
+    narrativeSection("questionsToAsk", "Questions to Ask", "", questions),
+    narrativeSection("confirmBeforeUse", "Confirm Before Use", "", confirm),
+  ].filter((s) => s.body || (s.items && s.items.length > 0));
+}
+
+/**
+ * @param {import("../data/coolantCanonicalProductIntelligence.js").CoolantCanonicalProductIntelligence} cool
+ */
+function buildEntitySectionsFromCoolantCanonical(cool) {
+  const whatItIs = uniqStrings([cool.whatItIs, cool.productPositioning, cool.coolantTechnology]);
+  const whyItWins = uniqStrings([cool.whyItWins]);
+  const proof = [
+    ...cool.proofPoints,
+    cool.OEMPositioning,
+    cool.nitriteStrategy,
+    cool.SCARequirement,
+  ].filter(Boolean);
+  const whereFits = uniqStrings([
+    ...cool.applications,
+    ...cool.industries,
+    cool.extendedLifePositioning,
+    cool.mixedFleetPositioning,
+    cool.cavitationProtection,
+  ]);
+  const repTalk = [...cool.repTalkTrack];
+  const questions = uniqStrings([
+    ...cool.customerPainSignals.map((p) => `Customer pain to probe: ${p}`),
+    ...cool.troubleshootingAssociations.map((t) => `Related troubleshooting topic: ${t}`),
+    "What OEM coolant chemistry does the radiator tag require (OAT, NOAT, HOAT, conventional)?",
+    "Is nitrite required for wet-sleeve cavitation, or is nitrite-free OAT allowed?",
+    "What colour and brand are in the system today before top-off or flush?",
+  ]);
+  const confirm = uniqStrings([
+    ...cool.cautionNotes,
+    ...cool.doNotConfuseWith.map((name) => `Do not confuse with ${name}—confirm the PDS title block.`),
+    cool.pdsMapKey ? `Confirm the indexed row “${cool.pdsMapKey}” matches the drum label before quoting.` : "",
+    cool.topOffCompatibility,
+    cool.maintenanceStrategy,
+  ]);
+
+  const proofIntro = proof.length
+    ? "Use indexed PDS map lines and the live PDS PDF—quote only printed spec rows."
+    : "Open the current PDS PDF for authoritative proof; the map index is a pointer only.";
+
+  return [
+    narrativeSection("whatItIs", "What It Is", "", whatItIs.length ? whatItIs : ["Name the product exactly as on the PDS title block, then recompose."]),
+    narrativeSection("whyItWins", "Why It Wins", "", whyItWins.length ? whyItWins : ["Anchor wins to indexed coolant canonical intelligence only."]),
+    narrativeSection("pdsBackedProof", "PDS-Backed Proof", proofIntro, proof.length ? proof.slice(0, 10) : []),
+    narrativeSection(
+      "whereItFits",
+      "Where It Fits",
+      cool.categorySpotlightRole ? String(cool.categorySpotlightRole) : "",
       whereFits
     ),
     narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk.length ? repTalk.slice(0, 8) : []),
@@ -1942,6 +2275,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
   const hydraulicCanonical = pdsKey ? getHydraulicCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
   const hdCanonical = pdsKey ? getHdEngineOilCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
   const transmissionCanonical = pdsKey ? getTransmissionCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
+  const coolantCanonical = pdsKey ? getCoolantCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
 
   if (resolved.entityId === "entity-deep-well-pump-oil") {
     const matchedProducts = (searchKlondikeProducts(question).matches || []).slice(0, 6).map((m) => ({
@@ -1983,7 +2317,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
     };
   }
 
-  if (!flagship && !pdsRow && !greaseCanonical && !hydraulicCanonical && !hdCanonical && !transmissionCanonical) {
+  if (!flagship && !pdsRow && !greaseCanonical && !hydraulicCanonical && !hdCanonical && !transmissionCanonical && !coolantCanonical) {
     return {
       ...empty,
       title: resolved.label || "Klondike product",
@@ -2005,6 +2339,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
     !hydraulicCanonical &&
     !hdCanonical &&
     !transmissionCanonical &&
+    !coolantCanonical &&
     flagship &&
     isNanoEp2FlagshipId(flagship.id)
       ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE
@@ -2014,6 +2349,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
     hydraulicCanonical?.productName ||
     hdCanonical?.productName ||
     transmissionCanonical?.productName ||
+    coolantCanonical?.productName ||
     nanoIntel?.canonicalProductLabel ||
     flagship?.productName ||
     pdsKey ||
@@ -2027,11 +2363,13 @@ export function buildProductEntityAdvisorResponse(inputText) {
         ? hdCanonical.whyItWins
         : transmissionCanonical
           ? transmissionCanonical.whyItWins
-          : nanoIntel
-            ? nanoIntel.whyItWins
-            : flagship?.whyItWins ||
-              (pdsRow?.why ? String(pdsRow.why) : "") ||
-              `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
+          : coolantCanonical
+            ? coolantCanonical.whyItWins
+            : nanoIntel
+              ? nanoIntel.whyItWins
+              : flagship?.whyItWins ||
+                (pdsRow?.why ? String(pdsRow.why) : "") ||
+                `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
 
   const sections = greaseCanonical
     ? buildEntitySectionsFromGreaseCanonical(greaseCanonical)
@@ -2041,7 +2379,9 @@ export function buildProductEntityAdvisorResponse(inputText) {
         ? buildEntitySectionsFromHdCanonical(hdCanonical)
         : transmissionCanonical
           ? buildEntitySectionsFromTransmissionCanonical(transmissionCanonical)
-          : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
+          : coolantCanonical
+            ? buildEntitySectionsFromCoolantCanonical(coolantCanonical)
+            : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
   const followUpQuestions = sections.find((s) => s.id === "questionsToAsk")?.items || [];
   const cautionNotes =
     greaseCanonical?.cautionNotes?.length
@@ -2061,7 +2401,12 @@ export function buildProductEntityAdvisorResponse(inputText) {
                 ...transmissionCanonical.cautionNotes,
                 ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
               ])
-            : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
+            : coolantCanonical?.cautionNotes?.length
+              ? uniqStrings([
+                  ...coolantCanonical.cautionNotes,
+                  ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
+                ])
+              : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
 
   /** @type {string[]} */
   const sourceBadges = ["Product entity resolver", "PDS map index"];
@@ -2069,6 +2414,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
   if (hydraulicCanonical) sourceBadges.push("Hydraulic canonical product intelligence");
   if (hdCanonical) sourceBadges.push("HD engine oil canonical product intelligence");
   if (transmissionCanonical) sourceBadges.push("Transmission canonical product intelligence");
+  if (coolantCanonical) sourceBadges.push("Coolant canonical product intelligence");
   if (flagship) sourceBadges.push("Flagship product intelligence");
   if (nanoIntel) sourceBadges.push("Nano EP 2 canonical intelligence");
 
