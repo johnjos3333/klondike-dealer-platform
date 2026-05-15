@@ -56,6 +56,11 @@ import {
   getAgriOemCanonicalProductIntelligenceById,
   listAgriOemCanonicalProductIntelligence,
 } from "../data/agriOemCanonicalProductIntelligence.js";
+import {
+  COMPLIANCE_SPECIALTY_CANONICAL_PRODUCT_INTELLIGENCE,
+  getComplianceSpecialtyCanonicalProductIntelligenceById,
+  listComplianceSpecialtyCanonicalProductIntelligence,
+} from "../data/complianceSpecialtyCanonicalProductIntelligence.js";
 import { normalizeProductQuery, searchKlondikeProducts } from "./klondikeProductRetrievalHelpers.js";
 
 const ENTITY_EXACT_MIN_SCORE = 34;
@@ -67,6 +72,8 @@ const GEAR_OIL_EXACT_PRODUCT_NUMBER_SCORE = 100;
 const INDUSTRIAL_SPECIALTY_OIL_EXACT_PRODUCT_NUMBER_SCORE = 100;
 /** Exact KL-AG#### / KL-GR#### Ag OEM SKU match outranks other canonical families. */
 const AGRI_OEM_EXACT_PRODUCT_NUMBER_SCORE = 100;
+/** Exact KL-FG#### / KL-BL#### compliance specialty SKU match outranks other canonical families. */
+const COMPLIANCE_SPECIALTY_EXACT_PRODUCT_NUMBER_SCORE = 100;
 
 /** @type {Readonly<Record<string, string>>} */
 const GREASE_CANONICAL_FLAGSHIP_BY_ID = Object.freeze({
@@ -371,7 +378,24 @@ function relaxNormalizedProductQuery(n) {
     .replace(/\bcase[\s-]?ih\b/g, "case ih")
     .replace(/\b15w40\b/g, "15w 40")
     .replace(/\bzf\b/g, "zf")
-    .replace(/\bzinc[\s-]?free\b/g, "zinc free");
+    .replace(/\bzinc[\s-]?free\b/g, "zinc free")
+    .replace(/\bfoodgrade\b/g, "food grade")
+    .replace(/\bnsfh1\b/g, "nsf h1")
+    .replace(/\b21cfr1783570\b/g, "21 cfr 178.3570")
+    .replace(/\bfda\s*21\s*cfr\b/g, "fda 21 cfr")
+    .replace(/\bbio[\s-]?degradable\b/g, "biodegradable")
+    .replace(/\benvironmentally\s+acceptable\s+lubricant\b/g, "eal")
+    .replace(/\bvessel\s+general\s+permit\b/g, "vgp")
+    .replace(/\boecd301b\b/g, "oecd 301b")
+    .replace(/\boecd203\b/g, "oecd 203")
+    .replace(/\bbio[\s-]?synthetic\b/g, "bio synthetic")
+    .replace(/\bbiosynthetic\b/g, "bio synthetic")
+    .replace(/\benviro\s+aw\b/g, "enviro aw")
+    .replace(/\benviro\s+mv\b/g, "enviro mv")
+    .replace(/\bbio\s+aw\b/g, "bio aw")
+    .replace(/\bbio\s+rock\s+drill\b/g, "bio rock drill")
+    .replace(/\bkl[\s-]?fg\s*(\d{4})\b/g, "kl fg $1")
+    .replace(/\bkl[\s-]?bl\s*(\d{4})\b/g, "kl bl $1");
 }
 
 /**
@@ -430,6 +454,12 @@ function hasStrongAgriPolyTacCue(normQ) {
 }
 
 function scoreGreaseCanonicalProduct(grease, normQ) {
+  if (
+    queryHasFoodGradeComplianceCue(normQ) &&
+    (normQ.includes("grease") || normQ.includes("ep 2") || normQ.includes("food safe grease"))
+  ) {
+    return 0;
+  }
   if (hasStrongAgriPolyTacCue(normQ) && grease.id.includes("moly-tac")) return 0;
   if (isNanoGreaseQuery(normQ)) {
     if (grease.id.includes("moly-tac") && !isMolyGreaseQuery(normQ)) return 0;
@@ -561,6 +591,7 @@ function isRedUtfQuery(normQ) {
  * @param {string} normQ
  */
 function scoreHydraulicCanonicalProduct(hydr, normQ) {
+  if (shouldSuppressBaseHydraulicForCompliance(normQ)) return 0;
   if (isGreaseOnlyProductQuery(normQ) && !isXviHydraulicQuery(normQ) && !isWetBrakeOrChatterQuery(normQ)) {
     if (!normQ.includes("hydraulic") && !normQ.includes("utf") && !normQ.includes("tractor")) return 0;
   }
@@ -2244,6 +2275,7 @@ function scoreIndustrialSpecialtyOilCanonicalProduct(product, normQ) {
     return 0;
   }
   if (!isIndustrialSpecialtyOilProductQuery(normQ)) return 0;
+  if (isComplianceBioRockDrillQuery(normQ) && product.productFamily === "rock_drill_pneumatic") return 0;
 
   const isoGrade = parseSpecialtyIsoGradeFromNormQ(normQ);
   const productIso = product.isoGrade || null;
@@ -3191,6 +3223,674 @@ function buildEntitySectionsFromAgriOemCanonical(product) {
 }
 
 /**
+ * @param {string} text
+ * @returns {Set<string>}
+ */
+function extractComplianceSpecialtyProductNumberKeysFromText(text) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  const raw = String(text ?? "");
+  if (!raw.trim()) return keys;
+  const upper = raw.toUpperCase();
+  for (const re of [/\bKL\s*[-]?\s*FG\s*(\d{4})\b/g, /\bKLFG(\d{4})\b/g]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(upper))) {
+      keys.add(`KLFG${m[1]}`);
+    }
+  }
+  for (const re of [/\bKL\s*[-]?\s*BL\s*(\d{4})\b/g, /\bKLBL(\d{4})\b/g]) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(upper))) {
+      keys.add(`KLBL${m[1]}`);
+    }
+  }
+  return keys;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {Set<string>}
+ */
+function extractComplianceSpecialtyProductNumberKeysFromNormQ(normQ) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  const fgSpaced = /\bkl\s+fg\s*(\d{4})\b/g;
+  let m;
+  while ((m = fgSpaced.exec(normQ))) {
+    keys.add(`KLFG${m[1]}`);
+  }
+  const blSpaced = /\bkl\s+bl\s*(\d{4})\b/g;
+  while ((m = blSpaced.exec(normQ))) {
+    keys.add(`KLBL${m[1]}`);
+  }
+  const compact = normQ.replace(/\s+/g, "");
+  const fgCm = compact.match(/\bklfg(\d{4})\b/);
+  if (fgCm) keys.add(`KLFG${fgCm[1]}`);
+  const blCm = compact.match(/\bklbl(\d{4})\b/);
+  if (blCm) keys.add(`KLBL${blCm[1]}`);
+  return keys;
+}
+
+/**
+ * @param {unknown} productNumbers
+ * @returns {Set<string>}
+ */
+function collectComplianceSpecialtyProductNumberKeys(productNumbers) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  /** @param {unknown} val */
+  const visit = (val) => {
+    if (val == null) return;
+    if (typeof val === "string") {
+      extractComplianceSpecialtyProductNumberKeysFromText(val).forEach((k) => keys.add(k));
+      return;
+    }
+    if (Array.isArray(val)) {
+      val.forEach(visit);
+      return;
+    }
+    if (typeof val === "object") {
+      Object.values(val).forEach(visit);
+    }
+  };
+  visit(productNumbers);
+  return keys;
+}
+
+/** @type {Map<string, import("../data/complianceSpecialtyCanonicalProductIntelligence.js").ComplianceSpecialtyCanonicalProductIntelligence[]> | null} */
+let complianceSpecialtyProductNumberIndex = null;
+
+/**
+ * @returns {Map<string, import("../data/complianceSpecialtyCanonicalProductIntelligence.js").ComplianceSpecialtyCanonicalProductIntelligence[]>}
+ */
+function getComplianceSpecialtyProductNumberIndex() {
+  if (complianceSpecialtyProductNumberIndex) return complianceSpecialtyProductNumberIndex;
+  complianceSpecialtyProductNumberIndex = new Map();
+  for (const product of listComplianceSpecialtyCanonicalProductIntelligence()) {
+    for (const key of collectComplianceSpecialtyProductNumberKeys(product.productNumbers)) {
+      const existing = complianceSpecialtyProductNumberIndex.get(key);
+      if (existing) {
+        if (!existing.some((p) => p.id === product.id)) existing.push(product);
+      } else {
+        complianceSpecialtyProductNumberIndex.set(key, [product]);
+      }
+    }
+  }
+  return complianceSpecialtyProductNumberIndex;
+}
+
+/**
+ * @param {unknown} inputText
+ * @returns {{ keys: Set<string>, normQ: string }}
+ */
+function gatherComplianceSpecialtyProductNumberKeysFromQuery(inputText) {
+  const raw = String(inputText ?? "");
+  const normQ = relaxNormalizedProductQuery(normalizeProductQuery(raw));
+  /** @type {Set<string>} */
+  const keys = new Set([
+    ...extractComplianceSpecialtyProductNumberKeysFromText(raw),
+    ...extractComplianceSpecialtyProductNumberKeysFromNormQ(normQ),
+  ]);
+  return { keys, normQ };
+}
+
+/**
+ * @param {unknown} inputText
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectExactComplianceSpecialtyProductNumberMatch(inputText) {
+  const { keys, normQ } = gatherComplianceSpecialtyProductNumberKeysFromQuery(inputText);
+  if (keys.size === 0) return [];
+
+  const wantsHees = queryWantsHeesCompliance(normQ);
+  const wantsHfdu = queryWantsHfduCompliance(normQ);
+  const index = getComplianceSpecialtyProductNumberIndex();
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  /** @type {Set<string>} */
+  const seen = new Set();
+  for (const key of keys) {
+    const products = index.get(key);
+    if (!products) continue;
+    for (const product of products) {
+      if (product.id.includes("bio-hees") && wantsHfdu && !wantsHees) continue;
+      if (product.id.includes("bio-hfdu") && wantsHees && !wantsHfdu) continue;
+      if (seen.has(product.id)) continue;
+      seen.add(product.id);
+      hits.push({
+        id: product.id,
+        score: COMPLIANCE_SPECIALTY_EXACT_PRODUCT_NUMBER_SCORE,
+        label: product.productName,
+      });
+    }
+  }
+  return hits;
+}
+
+/**
+ * @param {import("../data/complianceSpecialtyCanonicalProductIntelligence.js").ComplianceSpecialtyCanonicalProductIntelligence} product
+ * @param {unknown} inputText
+ */
+function scoreExactComplianceSpecialtyProductNumberForRow(product, inputText) {
+  const { keys } = gatherComplianceSpecialtyProductNumberKeysFromQuery(inputText);
+  if (keys.size === 0) return 0;
+  const index = getComplianceSpecialtyProductNumberIndex();
+  for (const key of keys) {
+    const matches = index.get(key);
+    if (matches?.some((p) => p.id === product.id)) {
+      return COMPLIANCE_SPECIALTY_EXACT_PRODUCT_NUMBER_SCORE;
+    }
+  }
+  return 0;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {string | null}
+ */
+function parseComplianceIsoGradeFromNormQ(normQ) {
+  const m = normQ.match(/\biso\s*(22|32|46|68|100|150)\b/);
+  return m ? m[1] : null;
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasFoodGradeComplianceCue(normQ) {
+  return (
+    normQ.includes("food grade") ||
+    normQ.includes("nsf h1") ||
+    normQ.includes("fda incidental food contact") ||
+    normQ.includes("fda 21 cfr") ||
+    normQ.includes("21 cfr 178.3570") ||
+    normQ.includes("incidental food contact") ||
+    normQ.includes("food processing") ||
+    normQ.includes("food safe") ||
+    normQ.includes("bakery") ||
+    normQ.includes("brewery") ||
+    normQ.includes("cannery") ||
+    normQ.includes("beverage packaging") ||
+    normQ.includes("meat packing") ||
+    (normQ.includes("washdown") && (normQ.includes("grease") || normQ.includes("hydraulic")))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasBioEalComplianceCue(normQ) {
+  return (
+    normQ.includes("readily biodegradable") ||
+    normQ.includes("biodegradable") ||
+    normQ.includes("bio aw") ||
+    normQ.includes("bio hydraulic") ||
+    normQ.includes("bio synthetic") ||
+    normQ.includes("synthetic blend") ||
+    normQ.includes("hees") ||
+    normQ.includes("hfdu") ||
+    normQ.includes("eal") ||
+    normQ.includes("vgp") ||
+    normQ.includes("vessel general permit") ||
+    normQ.includes("oecd 301b") ||
+    normQ.includes("oecd 203") ||
+    normQ.includes("environmentally acceptable lubricant") ||
+    normQ.includes("bio rock drill") ||
+    normQ.includes("biodegradable rock drill") ||
+    normQ.includes("fire resistant hydraulic") ||
+    normQ.includes("water glycol") ||
+    normQ.includes("low toxicity") ||
+    normQ.includes("aquatic toxicity") ||
+    normQ.includes("non-bioaccumulative") ||
+    normQ.includes("non-toxic") ||
+    normQ.includes("environmentally sensitive") ||
+    normQ.includes("hydraulic leak risk")
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasEnviroComplianceCue(normQ) {
+  return (
+    normQ.includes("enviro aw") ||
+    normQ.includes("enviro mv") ||
+    normQ.includes("inherently biodegradable") ||
+    normQ.includes("static sheen") ||
+    normQ.includes("epa static sheen") ||
+    normQ.includes("silver bearing") ||
+    (normQ.includes("zinc free") && normQ.includes("hydraulic") && !normQ.includes("trans drive")) ||
+    (normQ.includes("ashless hydraulic") && (normQ.includes("enviro") || normQ.includes("biodegradable")))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryWantsHeesCompliance(normQ) {
+  return normQ.includes("hees") || normQ.includes("iso 15380");
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryWantsHfduCompliance(normQ) {
+  return (
+    normQ.includes("hfdu") ||
+    normQ.includes("fire resistant hydraulic") ||
+    normQ.includes("steel mill") ||
+    normQ.includes("foundry") ||
+    normQ.includes("tunnel boring") ||
+    normQ.includes("welding operations") ||
+    normQ.includes("incineration")
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isComplianceBioRockDrillQuery(normQ) {
+  const hasDrillCue =
+    hasRockDrillCue(normQ) ||
+    normQ.includes("jackhammer") ||
+    normQ.includes("pneumatic drill") ||
+    normQ.includes("pavement breaker");
+  if (!hasDrillCue) return false;
+  return (
+    normQ.includes("biodegradable") ||
+    normQ.includes("bio rock") ||
+    normQ.includes("readily biodegradable") ||
+    normQ.includes("oecd 301b") ||
+    normQ.includes("bio rock drill") ||
+    normQ.includes("biodegradable rock drill") ||
+    normQ.includes("jackhammer biodegradable") ||
+    normQ.includes("pneumatic drill biodegradable")
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function hasStrongComplianceSpecialtyIntent(normQ) {
+  if (queryHasFoodGradeComplianceCue(normQ)) return true;
+  if (queryHasBioEalComplianceCue(normQ)) return true;
+  if (queryHasEnviroComplianceCue(normQ)) return true;
+  if (isComplianceBioRockDrillQuery(normQ)) return true;
+  return gatherComplianceSpecialtyProductNumberKeysFromQuery(normQ).keys.size > 0;
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasComplianceOverlayForAgri(normQ) {
+  return (
+    queryHasFoodGradeComplianceCue(normQ) ||
+    queryHasBioEalComplianceCue(normQ) ||
+    queryHasEnviroComplianceCue(normQ)
+  );
+}
+
+/**
+ * @param {string} normQ
+ * @param {unknown} [inputText]
+ */
+function isComplianceSpecialtyProductQuery(normQ, inputText) {
+  const skuKeys = gatherComplianceSpecialtyProductNumberKeysFromQuery(inputText ?? normQ).keys;
+  if (skuKeys.size > 0) return true;
+  if (!hasStrongComplianceSpecialtyIntent(normQ)) return false;
+
+  if (hasStrongAgriOemIntent(normQ) && !queryHasComplianceOverlayForAgri(normQ)) return false;
+  if (isClearTransmissionFluidOnlyQuery(normQ) && !queryHasFoodGradeComplianceCue(normQ)) return false;
+  if (isGearOilProductQuery(normQ) && !queryHasFoodGradeComplianceCue(normQ)) return false;
+
+  if (
+    isClearHydraulicFluidQuery(normQ) &&
+    !queryHasBioEalComplianceCue(normQ) &&
+    !queryHasEnviroComplianceCue(normQ) &&
+    !queryHasFoodGradeComplianceCue(normQ)
+  ) {
+    return false;
+  }
+
+  if (
+    normQ.includes("grease") &&
+    (normQ.includes("ep 2") || normQ.includes("ep-2")) &&
+    !queryHasFoodGradeComplianceCue(normQ) &&
+    !normQ.includes("food grade")
+  ) {
+    return false;
+  }
+
+  if (hasRockDrillCue(normQ) && !isComplianceBioRockDrillQuery(normQ)) return false;
+
+  return true;
+}
+
+/**
+ * @param {string} normQ
+ */
+function shouldSuppressBaseHydraulicForCompliance(normQ) {
+  return (
+    isComplianceSpecialtyProductQuery(normQ, normQ) &&
+    (normQ.includes("hydraulic") || normQ.includes(" aw") || isClearHydraulicFluidQuery(normQ)) &&
+    (queryHasBioEalComplianceCue(normQ) ||
+      queryHasEnviroComplianceCue(normQ) ||
+      queryHasFoodGradeComplianceCue(normQ))
+  );
+}
+
+/**
+ * @param {import("../data/complianceSpecialtyCanonicalProductIntelligence.js").ComplianceSpecialtyCanonicalProductIntelligence} product
+ * @param {string} normQ
+ * @param {unknown} inputText
+ */
+function scoreComplianceSpecialtyCanonicalProduct(product, normQ, inputText) {
+  const exact = scoreExactComplianceSpecialtyProductNumberForRow(product, inputText);
+  if (exact >= COMPLIANCE_SPECIALTY_EXACT_PRODUCT_NUMBER_SCORE) {
+    if (product.id.includes("bio-hees") && queryWantsHfduCompliance(normQ) && !queryWantsHeesCompliance(normQ)) {
+      return 0;
+    }
+    if (product.id.includes("bio-hfdu") && queryWantsHeesCompliance(normQ) && !queryWantsHfduCompliance(normQ)) {
+      return 0;
+    }
+    return exact;
+  }
+
+  if (!isComplianceSpecialtyProductQuery(normQ, inputText)) return 0;
+
+  const family = product.productFamily || "";
+  const isoGrade = parseComplianceIsoGradeFromNormQ(normQ);
+  const productIso = product.isoGrade || null;
+
+  if (product.id.includes("bio-hees") && queryWantsHfduCompliance(normQ) && !queryWantsHeesCompliance(normQ)) {
+    return 0;
+  }
+  if (product.id.includes("bio-hfdu") && queryWantsHeesCompliance(normQ) && !queryWantsHfduCompliance(normQ)) {
+    return 0;
+  }
+
+  if (isoGrade && productIso && productIso !== isoGrade) return 0;
+
+  let score = 0;
+
+  const productNorm = normalizeProductQuery(product.productName);
+  if (productNorm.length >= 12 && normQ.includes(productNorm)) {
+    score = Math.max(score, 44);
+  }
+
+  if (product.pdsMapKey) {
+    const mapKeyNorm = normalizeProductQuery(product.pdsMapKey);
+    if (mapKeyNorm.length >= 6 && normQ.includes(mapKeyNorm)) {
+      score = Math.max(score, 34);
+    }
+  }
+
+  for (const alias of product.aliases) {
+    const a = normalizeProductQuery(alias);
+    if (a.length < 4) continue;
+    if (normQ === a) score = Math.max(score, 48);
+    else if (a.length >= 12 && normQ.includes(a)) score = Math.max(score, 42);
+    else if (normQ.includes(a)) score = Math.max(score, 30 + Math.min(12, a.length));
+  }
+
+  for (const kw of product.routingKeywords) {
+    const k = normalizeProductQuery(kw);
+    if (k.length < 4) continue;
+    if (normQ.includes(k)) score = Math.max(score, 22 + Math.min(10, k.length));
+  }
+
+  if (family === "food_grade_ep2_grease") {
+    if (
+      queryHasFoodGradeComplianceCue(normQ) &&
+      (normQ.includes("grease") || normQ.includes("ep 2") || normQ.includes("food safe grease"))
+    ) {
+      score = Math.max(score, 52);
+    }
+  }
+
+  if (family.startsWith("food_grade_hydraulic_oil_iso")) {
+    if (
+      queryHasFoodGradeComplianceCue(normQ) &&
+      (normQ.includes("hydraulic") || normQ.includes("food grade") || normQ.includes("food safe hydraulic"))
+    ) {
+      if (productIso && isoGrade === productIso) score = Math.max(score, 54);
+      else if (!isoGrade) score = Math.max(score, 46);
+    }
+  }
+
+  if (family.startsWith("bio_aw_hydraulic_iso")) {
+    if (
+      (normQ.includes("bio aw") ||
+        normQ.includes("readily biodegradable") ||
+        normQ.includes("oecd 301b") ||
+        normQ.includes("biodegradable aw")) &&
+      normQ.includes("hydraulic")
+    ) {
+      if (productIso && isoGrade === productIso) score = Math.max(score, 54);
+      else if (!isoGrade) score = Math.max(score, 46);
+    }
+  }
+
+  if (family === "bio_synthetic_blend_hydraulic_aw46") {
+    if (
+      normQ.includes("synthetic blend") ||
+      normQ.includes("bio aw46") ||
+      (normQ.includes("biodegradable") && normQ.includes("aw46")) ||
+      (normQ.includes("bio synthetic") && normQ.includes("blend"))
+    ) {
+      score = Math.max(score, 52);
+    }
+  }
+
+  if (family === "bio_hees_hydraulic_iso46") {
+    if (queryWantsHeesCompliance(normQ) || (normQ.includes("eal") && normQ.includes("full synthetic"))) {
+      score = Math.max(score, 52);
+    }
+  }
+
+  if (family === "bio_hfdu_hydraulic_iso46") {
+    if (queryWantsHfduCompliance(normQ)) {
+      score = Math.max(score, 52);
+    }
+  }
+
+  if (family.startsWith("bio_synthetic_eal_hydraulic_iso")) {
+    if (
+      normQ.includes("bio synthetic eal") ||
+      normQ.includes("biosynthetic") ||
+      normQ.includes("bio-synthetic") ||
+      (normQ.includes("eal") && normQ.includes("hydraulic")) ||
+      normQ.includes("vgp")
+    ) {
+      if (productIso && isoGrade === productIso) score = Math.max(score, 54);
+      else if (!isoGrade) score = Math.max(score, 46);
+    }
+  }
+
+  if (family.startsWith("enviro_aw_hydraulic_iso")) {
+    if (
+      queryHasEnviroComplianceCue(normQ) &&
+      (normQ.includes("enviro aw") ||
+        normQ.includes("inherently biodegradable") ||
+        normQ.includes("static sheen") ||
+        normQ.includes("silver bearing") ||
+        (normQ.includes("zinc free") && normQ.includes("hydraulic")))
+    ) {
+      if (productIso && isoGrade === productIso) score = Math.max(score, 54);
+      else if (!isoGrade) score = Math.max(score, 46);
+    }
+  }
+
+  if (family.startsWith("enviro_mv_hydraulic_iso")) {
+    if (
+      queryHasEnviroComplianceCue(normQ) &&
+      (normQ.includes("enviro mv") ||
+        normQ.includes("multi-viscosity") ||
+        normQ.includes("hvlp") ||
+        normQ.includes("komatsu hm46") ||
+        normQ.includes("john deere hitachi"))
+    ) {
+      if (productIso && isoGrade === productIso) score = Math.max(score, 54);
+      else if (!isoGrade) score = Math.max(score, 46);
+    }
+  }
+
+  if (family.startsWith("bio_rock_drill_oil_iso")) {
+    if (isComplianceBioRockDrillQuery(normQ)) {
+      if (productIso && isoGrade === productIso) score = Math.max(score, 54);
+      else if (!isoGrade) score = Math.max(score, 46);
+    }
+  }
+
+  if (productIso && isoGrade === productIso) score = Math.max(score, 44);
+
+  return score;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} key
+ */
+function resolveComplianceSpecialtyFromPdsRetrievalKey(normQ, key) {
+  /** @type {import("../data/complianceSpecialtyCanonicalProductIntelligence.js").ComplianceSpecialtyCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const product of listComplianceSpecialtyCanonicalProductIntelligence()) {
+    if (product.pdsMapKey !== key) continue;
+    const score = scoreComplianceSpecialtyCanonicalProduct(product, normQ, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = product;
+    }
+  }
+  return best;
+}
+
+/**
+ * @param {unknown} inputText
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectComplianceSpecialtyCanonicalProductEntities(inputText) {
+  const { normQ } = gatherComplianceSpecialtyProductNumberKeysFromQuery(inputText);
+  if (!isComplianceSpecialtyProductQuery(normQ, inputText)) return [];
+
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const product of listComplianceSpecialtyCanonicalProductIntelligence()) {
+    const score = scoreComplianceSpecialtyCanonicalProduct(product, normQ, inputText);
+    if (score >= ENTITY_DETECT_MIN_SCORE) {
+      hits.push({ id: product.id, score, label: product.productName });
+    }
+  }
+  return hits;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} detectId
+ */
+function resolveComplianceSpecialtyCanonicalFromDetectId(normQ, detectId) {
+  const id = String(detectId ?? "").trim();
+  if (!id) return null;
+
+  /** @type {import("../data/complianceSpecialtyCanonicalProductIntelligence.js").ComplianceSpecialtyCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const product of COMPLIANCE_SPECIALTY_CANONICAL_PRODUCT_INTELLIGENCE.products) {
+    if (product.id !== id) continue;
+    const score = scoreComplianceSpecialtyCanonicalProduct(product, normQ, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = product;
+    }
+  }
+  if (best) return best;
+  if (id.startsWith("compliance-specialty-canonical-")) {
+    return getComplianceSpecialtyCanonicalProductIntelligenceById(id);
+  }
+  return null;
+}
+
+/**
+ * @param {import("../data/complianceSpecialtyCanonicalProductIntelligence.js").ComplianceSpecialtyCanonicalProductIntelligence} product
+ */
+function buildEntitySectionsFromComplianceSpecialtyCanonical(product) {
+  const gradeLabel = product.isoGrade
+    ? `ISO VG ${product.isoGrade}`
+    : product.nlgiGrade
+      ? `NLGI ${product.nlgiGrade}`
+      : product.viscosityGrade;
+  const whatItIs = uniqStrings([
+    product.productName,
+    product.salesPositioning,
+    product.formulation,
+    product.complianceSegment ? `Compliance segment: ${product.complianceSegment}` : "",
+    product.environmentalSegment ? `Environmental segment: ${product.environmentalSegment}` : "",
+    product.foodGradeStatus ? `Food grade: ${product.foodGradeStatus}` : "",
+    product.biodegradableStatus ? `Biodegradable: ${product.biodegradableStatus}` : "",
+    product.ealStatus ? `EAL: ${product.ealStatus}` : "",
+    product.fireResistantStatus ? `Fire resistant: ${product.fireResistantStatus}` : "",
+    product.thickenerType ? `Thickener: ${product.thickenerType}` : "",
+    product.baseOilType ? `Base oil: ${product.baseOilType}` : "",
+    gradeLabel ? `${gradeLabel} — ${product.productFamily}` : product.productFamily,
+  ]);
+  const whyItWins = uniqStrings([
+    product.salesPositioning,
+    ...product.differentiators,
+    ...product.salesEnablementAngles,
+  ]);
+  const proof = uniqStrings([
+    ...product.specifications,
+    ...product.approvals,
+    ...product.registrations,
+  ]);
+  const whereFits = uniqStrings([
+    ...product.applications,
+    ...product.bestFit,
+    ...product.crossSellSignals,
+  ]);
+  const repTalk = uniqStrings([product.salesPositioning, ...product.productSpotlightAngles.slice(0, 3)]);
+  const questions = uniqStrings([
+    ...product.customerProfileQuestions,
+    ...product.customerProfileSignals.map((s) => `Customer profile signal: ${s}`),
+    ...product.complianceTriggers.map((s) => `Compliance trigger: ${s}`),
+    ...product.environmentalRiskSignals.map((s) => `Environmental risk signal: ${s}`),
+    "What product number is on the drum or purchase order?",
+  ]);
+  const techLines = Object.entries(product.technicalProperties || {}).map(([k, v]) => `${k}: ${v}`);
+  const confirm = uniqStrings([
+    ...product.cautions,
+    ...product.notBestFit.map((n) => `Not best fit: ${n}`),
+    ...product.sourceNotes,
+    ...product.operationalPainPoints.map((p) => `Operational pain point: ${p}`),
+    product.pdsMapKey ? `Confirm the indexed row “${product.pdsMapKey}” matches the drum label before quoting.` : "",
+    product.pdsFileName ? `PDS file: ${product.pdsFileName}` : "",
+    ...(product.productNumbers.length ? [`Product numbers: ${product.productNumbers.join("; ")}`] : []),
+    ...techLines.slice(0, 10),
+  ]);
+
+  const proofIntro = proof.length
+    ? "Use indexed PDS map lines and the live PDS PDF—quote only printed spec rows."
+    : "Open the current PDS PDF for authoritative proof; the map index is a pointer only.";
+
+  return [
+    narrativeSection("whatItIs", "What It Is", product.category ? String(product.category) : "", whatItIs),
+    narrativeSection("whyItWins", "Why It Wins", "", whyItWins.length ? whyItWins : []),
+    narrativeSection("pdsBackedProof", "PDS-Backed Proof", proofIntro, proof.length ? proof.slice(0, 10) : []),
+    narrativeSection(
+      "whereItFits",
+      "Where It Fits",
+      product.categorySpotlightAngles?.[0] ? String(product.categorySpotlightAngles[0]) : gradeLabel || "",
+      whereFits
+    ),
+    narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk),
+    narrativeSection("questionsToAsk", "Questions to Ask", "", questions),
+    narrativeSection("confirmBeforeUse", "Confirm Before Use", "", confirm),
+  ].filter((s) => s.body || (s.items && s.items.length > 0));
+}
+
+/**
  * @param {string} normQ
  */
 function isCoolantAntifreezeProductQuery(normQ) {
@@ -3563,6 +4263,7 @@ export function detectKlondikeProductEntity(inputText) {
   const exactGearSkuHits = detectExactGearOilProductNumberMatch(inputText);
   const exactSpecialtySkuHits = detectExactIndustrialSpecialtyOilProductNumberMatch(inputText);
   const exactAgriOemSkuHits = detectExactAgriOemProductNumberMatch(inputText);
+  const exactComplianceSkuHits = detectExactComplianceSpecialtyProductNumberMatch(inputText);
   const strongAgriMatTransDriveHits = detectStrongAgriOemMatTransDriveEntityHits(inputText);
 
   /** @type {Array<{ id: string, score: number, label: string }>} */
@@ -3570,6 +4271,7 @@ export function detectKlondikeProductEntity(inputText) {
     ...exactGearSkuHits,
     ...exactSpecialtySkuHits,
     ...exactAgriOemSkuHits,
+    ...exactComplianceSkuHits,
     ...strongAgriMatTransDriveHits,
     ...detectGreaseCanonicalProductEntities(normQ),
     ...detectHydraulicCanonicalProductEntities(normQ),
@@ -3579,6 +4281,7 @@ export function detectKlondikeProductEntity(inputText) {
     ...detectGearOilCanonicalProductEntities(normQ),
     ...detectIndustrialSpecialtyOilCanonicalProductEntities(normQ),
     ...detectAgriOemCanonicalProductEntities(inputText),
+    ...detectComplianceSpecialtyCanonicalProductEntities(inputText),
   ];
 
   hits.sort((a, b) => b.score - a.score);
@@ -3719,12 +4422,20 @@ export function detectKlondikeProductEntity(inputText) {
               if (existing) existing.score = Math.max(existing.score, boost);
               else hits.push({ id: agriFromKey.id, score: boost, label: agriFromKey.productName });
             } else {
+              const complianceFromKey = resolveComplianceSpecialtyFromPdsRetrievalKey(normQ, key);
+              if (complianceFromKey) {
+                const existing = hits.find((h) => h.id === complianceFromKey.id);
+                const boost = Math.min(72, top.score + 6);
+                if (existing) existing.score = Math.max(existing.score, boost);
+                else hits.push({ id: complianceFromKey.id, score: boost, label: complianceFromKey.productName });
+              } else {
             for (const entity of PRODUCT_ENTITY_REGISTRY) {
               if (entity.pdsKeys.includes(key)) {
                 const existing = hits.find((h) => h.id === entity.id);
                 if (existing) existing.score = Math.min(72, existing.score + 10);
                 else hits.push({ id: entity.id, score: Math.min(72, top.score + 8), label: entity.label });
               }
+            }
             }
             }
           }
@@ -3796,6 +4507,7 @@ export function resolveKlondikeProductEntity(inputText) {
   const gearOilCanonical = resolveGearOilCanonicalFromDetectId(normQ, top.id);
   const industrialSpecialtyCanonical = resolveIndustrialSpecialtyOilCanonicalFromDetectId(normQ, top.id);
   const agriOemCanonical = resolveAgriOemCanonicalFromDetectId(normQ, top.id);
+  const complianceSpecialtyCanonical = resolveComplianceSpecialtyCanonicalFromDetectId(normQ, top.id);
   const entity = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === top.id);
   if (
     !entity &&
@@ -3806,7 +4518,8 @@ export function resolveKlondikeProductEntity(inputText) {
     !coolantCanonical &&
     !gearOilCanonical &&
     !industrialSpecialtyCanonical &&
-    !agriOemCanonical
+    !agriOemCanonical &&
+    !complianceSpecialtyCanonical
   ) {
     return empty;
   }
@@ -3820,6 +4533,7 @@ export function resolveKlondikeProductEntity(inputText) {
     gearOilCanonical?.pdsMapKey ??
     industrialSpecialtyCanonical?.pdsMapKey ??
     agriOemCanonical?.pdsMapKey ??
+    complianceSpecialtyCanonical?.pdsMapKey ??
     entity?.pickPdsKey(normQ) ??
     null;
   if (!pdsKey && entity?.pdsKeys.length === 1) pdsKey = entity.pdsKeys[0];
@@ -3839,7 +4553,10 @@ export function resolveKlondikeProductEntity(inputText) {
       (industrialSpecialtyCanonical?.pdsMapKey && PDS_MAP[industrialSpecialtyCanonical.pdsMapKey]
         ? industrialSpecialtyCanonical.pdsMapKey
         : null) ||
-      (agriOemCanonical?.pdsMapKey && PDS_MAP[agriOemCanonical.pdsMapKey] ? agriOemCanonical.pdsMapKey : null);
+      (agriOemCanonical?.pdsMapKey && PDS_MAP[agriOemCanonical.pdsMapKey] ? agriOemCanonical.pdsMapKey : null) ||
+      (complianceSpecialtyCanonical?.pdsMapKey && PDS_MAP[complianceSpecialtyCanonical.pdsMapKey]
+        ? complianceSpecialtyCanonical.pdsMapKey
+        : null);
   }
 
   const label =
@@ -3851,6 +4568,7 @@ export function resolveKlondikeProductEntity(inputText) {
     gearOilCanonical?.productName ??
     industrialSpecialtyCanonical?.productName ??
     agriOemCanonical?.productName ??
+    complianceSpecialtyCanonical?.productName ??
     entity?.label ??
     top.label;
   const flagshipId =
@@ -3980,6 +4698,16 @@ function mapDetectedToLikelyMatches(detected, normQ) {
         entityId: d.id,
         pdsKey: key && PDS_MAP[key] ? key : null,
         label: agri.productName,
+        score: d.score,
+      };
+    }
+    const compliance = resolveComplianceSpecialtyCanonicalFromDetectId(normQ, d.id);
+    if (compliance) {
+      const key = compliance.pdsMapKey;
+      return {
+        entityId: d.id,
+        pdsKey: key && PDS_MAP[key] ? key : null,
+        label: compliance.productName,
         score: d.score,
       };
     }
@@ -4453,6 +5181,10 @@ export function buildProductEntityAdvisorResponse(inputText) {
     relaxNormalizedProductQuery(normalizeProductQuery(question)),
     resolved.entityId || ""
   );
+  const complianceSpecialtyCanonical = resolveComplianceSpecialtyCanonicalFromDetectId(
+    relaxNormalizedProductQuery(normalizeProductQuery(question)),
+    resolved.entityId || ""
+  );
 
   if (resolved.entityId === "entity-deep-well-pump-oil") {
     const matchedProducts = (searchKlondikeProducts(question).matches || []).slice(0, 6).map((m) => ({
@@ -4504,7 +5236,8 @@ export function buildProductEntityAdvisorResponse(inputText) {
     !coolantCanonical &&
     !gearOilCanonical &&
     !industrialSpecialtyCanonical &&
-    !agriOemCanonical
+    !agriOemCanonical &&
+    !complianceSpecialtyCanonical
   ) {
     return {
       ...empty,
@@ -4531,6 +5264,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
     !gearOilCanonical &&
     !industrialSpecialtyCanonical &&
     !agriOemCanonical &&
+    !complianceSpecialtyCanonical &&
     flagship &&
     isNanoEp2FlagshipId(flagship.id)
       ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE
@@ -4544,6 +5278,7 @@ export function buildProductEntityAdvisorResponse(inputText) {
     gearOilCanonical?.productName ||
     industrialSpecialtyCanonical?.productName ||
     agriOemCanonical?.productName ||
+    complianceSpecialtyCanonical?.productName ||
     nanoIntel?.canonicalProductLabel ||
     flagship?.productName ||
     pdsKey ||
@@ -4565,11 +5300,13 @@ export function buildProductEntityAdvisorResponse(inputText) {
                 ? industrialSpecialtyCanonical.salesPositioning
                 : agriOemCanonical
                   ? agriOemCanonical.salesPositioning
-                  : nanoIntel
-                    ? nanoIntel.whyItWins
-                    : flagship?.whyItWins ||
-                      (pdsRow?.why ? String(pdsRow.why) : "") ||
-                      `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
+                  : complianceSpecialtyCanonical
+                    ? complianceSpecialtyCanonical.salesPositioning
+                    : nanoIntel
+                      ? nanoIntel.whyItWins
+                      : flagship?.whyItWins ||
+                        (pdsRow?.why ? String(pdsRow.why) : "") ||
+                        `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
 
   const sections = greaseCanonical
     ? buildEntitySectionsFromGreaseCanonical(greaseCanonical)
@@ -4587,7 +5324,9 @@ export function buildProductEntityAdvisorResponse(inputText) {
                 ? buildEntitySectionsFromIndustrialSpecialtyOilCanonical(industrialSpecialtyCanonical)
                 : agriOemCanonical
                   ? buildEntitySectionsFromAgriOemCanonical(agriOemCanonical)
-                  : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
+                  : complianceSpecialtyCanonical
+                    ? buildEntitySectionsFromComplianceSpecialtyCanonical(complianceSpecialtyCanonical)
+                    : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
   const followUpQuestions = sections.find((s) => s.id === "questionsToAsk")?.items || [];
   const cautionNotes =
     greaseCanonical?.cautionNotes?.length
@@ -4627,7 +5366,12 @@ export function buildProductEntityAdvisorResponse(inputText) {
                         ...agriOemCanonical.cautions,
                         ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
                       ])
-                    : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
+                    : complianceSpecialtyCanonical?.cautions?.length
+                      ? uniqStrings([
+                          ...complianceSpecialtyCanonical.cautions,
+                          ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
+                        ])
+                      : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
 
   /** @type {string[]} */
   const sourceBadges = ["Product entity resolver", "PDS map index"];
@@ -4642,6 +5386,9 @@ export function buildProductEntityAdvisorResponse(inputText) {
   }
   if (agriOemCanonical) {
     sourceBadges.push("Ag OEM canonical product intelligence");
+  }
+  if (complianceSpecialtyCanonical) {
+    sourceBadges.push("Compliance specialty canonical product intelligence");
   }
   if (flagship) sourceBadges.push("Flagship product intelligence");
   if (nanoIntel) sourceBadges.push("Nano EP 2 canonical intelligence");

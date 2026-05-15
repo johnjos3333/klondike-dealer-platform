@@ -48,6 +48,7 @@
     "test:gear-oil-canonical": "node src/data/salesEnablement/runGearOilCanonicalSmokeTests.js",
     "test:industrial-specialty-oil-canonical": "node src/data/salesEnablement/runIndustrialSpecialtyOilCanonicalSmokeTests.js",
     "test:agri-oem-canonical": "node src/data/salesEnablement/runAgriOemCanonicalSmokeTests.js",
+    "test:compliance-specialty-canonical": "node src/data/salesEnablement/runComplianceSpecialtyCanonicalSmokeTests.js",
     "test:advisor-routing": "node src/data/salesEnablement/runAdvisorRoutingPrecedenceSmokeTests.js"
   },
   "browserslist": [
