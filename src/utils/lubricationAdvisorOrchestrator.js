@@ -381,12 +381,65 @@ function hasReasonableKlondikeProductSearch(searchResult) {
  * @param {string} question
  */
 function shouldSkipProductRetrievalRouting(question) {
+  if (shouldRouteGreaseThickenerCompatibility(question)) return true;
   const t = detectTroubleshootingIntent(question)[0]?.score || 0;
   if (t >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
   const r = detectRoleBasedSalesIntent(question)[0]?.score || 0;
   if (r >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
   if (shouldDeferProductRetrievalForConcept(question)) return true;
   return false;
+}
+
+/** @param {unknown} raw */
+function normalizeOrchestratorText(raw) {
+  return String(raw ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Longest phrases first so "lithium complex" is not double-counted as "lithium". */
+const GREASE_THICKENER_FAMILY_PHRASES = [
+  "lithium complex",
+  "calcium sulfonate",
+  "calcium complex",
+  "barium complex",
+  "bentonite clay",
+  "aluminum complex",
+  "anhydrous calcium",
+  "molybdenum complex",
+  "moly complex",
+  "polyurea",
+  "silicone",
+  "sodium",
+  "lithium",
+  "calcium",
+  "bentonite",
+];
+
+const GREASE_COMPATIBILITY_OVERRIDE_CUE_RE =
+  /\b(mix|mixing|compatible|compatibility|purge|flush)\b|switch\s+from|switch\s+to|can\s+i\s+mix|can\s+i\s+switch/;
+
+/**
+ * Grease thickener compatibility questions override product entity / retrieval / differentiation.
+ * @param {string} question
+ */
+function shouldRouteGreaseThickenerCompatibility(question) {
+  const norm = normalizeOrchestratorText(question);
+  if (!norm || !GREASE_COMPATIBILITY_OVERRIDE_CUE_RE.test(norm)) return false;
+
+  /** @type {string[]} */
+  const families = [];
+  for (const phrase of GREASE_THICKENER_FAMILY_PHRASES) {
+    if (!norm.includes(phrase)) continue;
+    const filtered = families.filter((existing) => !phrase.includes(existing) && !existing.includes(phrase));
+    if (filtered.some((existing) => existing === phrase)) continue;
+    families.length = 0;
+    families.push(...filtered, phrase);
+  }
+
+  return families.length >= 2;
 }
 
 /**
@@ -418,6 +471,22 @@ export function buildLubricationAdvisorResponse(inputText) {
       sourceBadges: fusionResponse.sourceBadges || ["Context fusion"],
       cautionNotes: fusionResponse.cautionNotes || [],
     };
+  }
+
+  if (shouldRouteGreaseThickenerCompatibility(question)) {
+    const compatibility = buildCompatibilityResponse(question);
+    if (compatibility.ok) {
+      return {
+        intent: "compatibility",
+        confidence: compatibility.confidence,
+        title: compatibility.title,
+        directAnswer: compatibility.directAnswer,
+        sections: compatibility.sections || [],
+        followUpQuestions: compatibility.followUpQuestions || [],
+        sourceBadges: compatibility.sourceBadges || ["Grease compatibility matrix", "Compatibility guidance"],
+        cautionNotes: compatibility.cautionNotes || [],
+      };
+    }
   }
 
   const entityDetected = detectKlondikeProductEntity(question);
