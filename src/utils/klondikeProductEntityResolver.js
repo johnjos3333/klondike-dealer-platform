@@ -41,11 +41,25 @@ import {
   getCoolantCanonicalProductIntelligenceByPdsKey,
   listCoolantCanonicalProductIntelligence,
 } from "../data/coolantCanonicalProductIntelligence.js";
+import {
+  GEAR_OIL_CANONICAL_PRODUCT_INTELLIGENCE,
+  getGearOilCanonicalProductIntelligenceById,
+  listGearOilCanonicalProductIntelligence,
+} from "../data/gearOilCanonicalProductIntelligence.js";
+import {
+  INDUSTRIAL_SPECIALTY_OIL_CANONICAL_PRODUCT_INTELLIGENCE,
+  getIndustrialSpecialtyOilCanonicalProductIntelligenceById,
+  listIndustrialSpecialtyOilCanonicalProductIntelligence,
+} from "../data/industrialSpecialtyOilCanonicalProductIntelligence.js";
 import { normalizeProductQuery, searchKlondikeProducts } from "./klondikeProductRetrievalHelpers.js";
 
 const ENTITY_EXACT_MIN_SCORE = 34;
 const ENTITY_DETECT_MIN_SCORE = 14;
 const ENTITY_AMBIGUOUS_GAP = 6;
+/** Exact KL-GL#### gear-oil SKU match outranks all other canonical families. */
+const GEAR_OIL_EXACT_PRODUCT_NUMBER_SCORE = 100;
+/** Exact KL-IO#### industrial/specialty oil SKU match outranks other canonical families. */
+const INDUSTRIAL_SPECIALTY_OIL_EXACT_PRODUCT_NUMBER_SCORE = 100;
 
 /** @type {Readonly<Record<string, string>>} */
 const GREASE_CANONICAL_FLAGSHIP_BY_ID = Object.freeze({
@@ -315,7 +329,17 @@ function relaxNormalizedProductQuery(n) {
     .replace(/\b0w30\b/g, "0w 30")
     .replace(/\b0w40\b/g, "0w 40")
     .replace(/\b75w80\b/g, "75w 80")
-    .replace(/\b75w90\b/g, "75w 90");
+    .replace(/\b75w90\b/g, "75w 90")
+    .replace(/\b75w140\b/g, "75w 140")
+    .replace(/\b80w90\b/g, "80w 90")
+    .replace(/\b85w140\b/g, "85w 140")
+    .replace(/\bgl5\b/g, "gl 5")
+    .replace(/\bmt1\b/g, "mt 1")
+    .replace(/\biso(22|32|46|68|90|100|150|220|260|320|460|680)\b/g, "iso $1")
+    .replace(/\bchainsaw\b/g, "chain saw")
+    .replace(/\bhi[\s-]?tack\b/g, "hi tack")
+    .replace(/\bnon[\s-]?detergent\b/g, "non detergent")
+    .replace(/\bnd30\b/g, "nd 30");
 }
 
 /**
@@ -1213,6 +1237,1305 @@ function resolveTransmissionCanonicalFromDetectId(normQ, detectId) {
 /**
  * @param {string} normQ
  */
+function isOpenGearGreaseOrLubricantQuery(normQ) {
+  if (!normQ.includes("open gear")) return false;
+  return (
+    normQ.includes("open gear grease") ||
+    normQ.includes("open gear lubricant") ||
+    normQ.includes("open gear lube") ||
+    normQ.includes("open gear compound") ||
+    (normQ.includes("grease") && !normQ.includes("gear oil") && !normQ.includes("gear lubricant")) ||
+    (normQ.includes("lubricant") && !normQ.includes("gear oil") && !normQ.includes("gear lubricant"))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function hasStrongGearOilIntent(normQ) {
+  if (isOpenGearGreaseOrLubricantQuery(normQ)) return false;
+  if (
+    normQ.includes("gear oil") ||
+    normQ.includes("gear lube") ||
+    normQ.includes("gear lubricant") ||
+    normQ.includes("hypoid") ||
+    normQ.includes("differential") ||
+    normQ.includes("diff oil") ||
+    normQ.includes("axle oil") ||
+    normQ.includes("final drive") ||
+    normQ.includes("limited slip") ||
+    /\blsd\b/.test(normQ) ||
+    normQ.includes("posi")
+  ) {
+    return true;
+  }
+  if (normQ.includes("gl 5") || normQ.includes("gl-5") || normQ.includes("mt 1") || normQ.includes("mt-1")) {
+    return true;
+  }
+  if (normQ.includes("synthetic gear")) return true;
+  if (normQ.includes("industrial gear") || normQ.includes("ep gear")) return true;
+  if (normQ.includes("enclosed gear") || normQ.includes("gearbox") || normQ.includes("reducer")) return true;
+  if (
+    normQ.includes("worm gear") ||
+    normQ.includes("spur gear") ||
+    normQ.includes("bevel gear") ||
+    normQ.includes("herringbone") ||
+    normQ.includes("planetary gear")
+  ) {
+    return true;
+  }
+  if (normQ.includes("micropitting") || normQ.includes("fzg") || (normQ.includes("timken") && normQ.includes("gear"))) {
+    return true;
+  }
+  if (normQ.includes("steel mill") || (normQ.includes("water contamination") && normQ.includes("gear"))) {
+    return true;
+  }
+  if (/\b(75w|80w|85w)\s*(90|140)\b/.test(normQ) && (normQ.includes("gear") || normQ.includes("gl"))) return true;
+  if (/\biso\s*(68|100|150|220|320|460|680)\b/.test(normQ) && normQ.includes("gear")) return true;
+  if (normQ.includes("agma") && normQ.includes("gear")) return true;
+  if (normQ.includes("pto") || normQ.includes("power take off")) return true;
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isGearOilProductQuery(normQ) {
+  if (isOpenGearGreaseOrLubricantQuery(normQ)) return false;
+  if (isGreaseOnlyProductQuery(normQ) && !hasStrongGearOilIntent(normQ)) return false;
+  if (isCoolantAntifreezeProductQuery(normQ) && !hasStrongGearOilIntent(normQ)) return false;
+  if (isHdEngineOilProductQuery(normQ) && !hasStrongGearOilIntent(normQ)) return false;
+  return hasStrongGearOilIntent(normQ);
+}
+
+/**
+ * @param {string} normQ
+ */
+function isClearTransmissionFluidOnlyQuery(normQ) {
+  if (hasStrongGearOilIntent(normQ)) return false;
+  if (isCvtTransmissionQuery(normQ) || isDctTransmissionQuery(normQ)) return true;
+  if (isUlvAtfQuery(normQ) || isDexronViMerconLvQuery(normQ) || isUniversalAtfQuery(normQ)) return true;
+  if (isTes668Query(normQ) || isTes295HdAtfQuery(normQ)) return true;
+  if (isTdtoArcticQuery(normQ) || isTdtoAllSeasonQuery(normQ) || isTdtoStraightGradeQuery(normQ) || isTdtoSyntheticMultigradeQuery(normQ)) {
+    return true;
+  }
+  if (isSynchromeshQuery(normQ) || isTypeFAtfQuery(normQ) || isMd3AtfQuery(normQ)) return true;
+  if (isSae50ManualQuery(normQ) || isSae40EsManualQuery(normQ)) return true;
+  if (/\batf\b/.test(normQ) || normQ.includes("automatic transmission fluid")) return true;
+  if (normQ.includes("cvt") || normQ.includes("dct") || normQ.includes("dexron") || normQ.includes("mercon")) return true;
+  if (normQ.includes("tdto") || normQ.includes("to 4") || normQ.includes("to-4")) return true;
+  if (normQ.includes("synchromesh") || normQ.includes("75w 80")) return true;
+  if (normQ.includes("type f")) return true;
+  if (normQ.includes("manual transmission") && !normQ.includes("gl 5") && !normQ.includes("gear oil") && !normQ.includes("gear lubricant")) {
+    return true;
+  }
+  if (normQ.includes("transmission fluid") && !normQ.includes("gear")) return true;
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isManualTransmissionGearOilQuery(normQ) {
+  return (
+    normQ.includes("manual transmission") &&
+    (normQ.includes("gl 5") ||
+      normQ.includes("gl-5") ||
+      normQ.includes("mt 1") ||
+      normQ.includes("mt-1") ||
+      normQ.includes("gear oil") ||
+      normQ.includes("gear lubricant"))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isGl4OnlyApplicationQuery(normQ) {
+  return (
+    (normQ.includes("gl 4") || normQ.includes("gl-4") || normQ.includes("gl4")) &&
+    !normQ.includes("gl 5") &&
+    !normQ.includes("gl-5")
+  );
+}
+
+/**
+ * @param {string} normQ
+ * @returns {string | null}
+ */
+function parseIsoGradeFromNormQ(normQ) {
+  const m = normQ.match(/\biso\s*(68|100|150|220|320|460|680)\b/);
+  return m ? m[1] : null;
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryWantsSyntheticGear(normQ) {
+  return normQ.includes("full synthetic") || (normQ.includes("synthetic") && normQ.includes("gear"));
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryWantsCommercial80w90(normQ) {
+  return (
+    normQ.includes("commercial") &&
+    (normQ.includes("80w 90") || normQ.includes("80w-90")) &&
+    (normQ.includes("gear") || normQ.includes("gl"))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasLimitedSlipCue(normQ) {
+  return normQ.includes("limited slip") || /\blsd\b/.test(normQ) || normQ.includes("posi");
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasMobileGl5Cue(normQ) {
+  return (
+    normQ.includes("hypoid") ||
+    normQ.includes("differential") ||
+    normQ.includes("diff oil") ||
+    normQ.includes("axle") ||
+    normQ.includes("final drive") ||
+    normQ.includes("pto") ||
+    normQ.includes("power take off")
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasIndustrialGearCue(normQ) {
+  return (
+    normQ.includes("industrial gear") ||
+    normQ.includes("enclosed gear") ||
+    normQ.includes("reducer") ||
+    normQ.includes("gearbox") ||
+    normQ.includes("worm gear") ||
+    normQ.includes("agma") ||
+    normQ.includes("steel mill") ||
+    normQ.includes("micropitting") ||
+    normQ.includes("fzg") ||
+    (parseIsoGradeFromNormQ(normQ) !== null && normQ.includes("gear"))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasSae80w90(normQ) {
+  return normQ.includes("80w 90") || normQ.includes("80w-90");
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasSae85w140(normQ) {
+  return normQ.includes("85w 140") || normQ.includes("85w-140");
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasSae75w90(normQ) {
+  return normQ.includes("75w 90") || normQ.includes("75w-90");
+}
+
+/**
+ * @param {string} normQ
+ */
+function queryHasSae75w140(normQ) {
+  return normQ.includes("75w 140") || normQ.includes("75w-140");
+}
+
+/**
+ * @param {string} gearId
+ */
+function gearIsoGradeFromCanonicalId(gearId) {
+  const m = gearId.match(/iso(\d{2,3})$/);
+  return m ? m[1] : null;
+}
+
+/**
+ * @param {unknown} text
+ * @returns {Set<string>}
+ */
+function extractGearProductNumberKeysFromText(text) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  const raw = String(text ?? "");
+  if (!raw.trim()) return keys;
+  const upper = raw.toUpperCase();
+  const patterns = [/\bKL\s*[-]?\s*GL\s*(\d{4})\b/g, /\bKLGL(\d{4})\b/g];
+  for (const re of patterns) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(upper))) {
+      keys.add(`KLGL${m[1]}`);
+    }
+  }
+  return keys;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {Set<string>}
+ */
+function extractGearProductNumberKeysFromNormQ(normQ) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  const spaced = /\bkl\s+gl\s*(\d{4})\b/g;
+  let m;
+  while ((m = spaced.exec(normQ))) {
+    keys.add(`KLGL${m[1]}`);
+  }
+  const compact = normQ.replace(/\s+/g, "");
+  const cm = compact.match(/\bklgl(\d{4})\b/);
+  if (cm) keys.add(`KLGL${cm[1]}`);
+  return keys;
+}
+
+/**
+ * @param {unknown} productNumbers
+ * @returns {Set<string>}
+ */
+function collectGearOilProductNumberKeys(productNumbers) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  /** @param {unknown} val */
+  const visit = (val) => {
+    if (val == null) return;
+    if (typeof val === "string") {
+      extractGearProductNumberKeysFromText(val).forEach((k) => keys.add(k));
+      return;
+    }
+    if (Array.isArray(val)) {
+      val.forEach(visit);
+      return;
+    }
+    if (typeof val === "object") {
+      Object.values(val).forEach(visit);
+    }
+  };
+  visit(productNumbers);
+  return keys;
+}
+
+/** @type {Map<string, import("../data/gearOilCanonicalProductIntelligence.js").GearOilCanonicalProductIntelligence> | null} */
+let gearOilProductNumberIndex = null;
+
+/**
+ * @returns {Map<string, import("../data/gearOilCanonicalProductIntelligence.js").GearOilCanonicalProductIntelligence>}
+ */
+function getGearOilProductNumberIndex() {
+  if (gearOilProductNumberIndex) return gearOilProductNumberIndex;
+  gearOilProductNumberIndex = new Map();
+  for (const gear of listGearOilCanonicalProductIntelligence()) {
+    for (const key of collectGearOilProductNumberKeys(gear.productNumbers)) {
+      if (!gearOilProductNumberIndex.has(key)) {
+        gearOilProductNumberIndex.set(key, gear);
+      }
+    }
+  }
+  return gearOilProductNumberIndex;
+}
+
+/**
+ * @param {unknown} inputText
+ * @returns {{ keys: Set<string>, normQ: string }}
+ */
+function gatherGearProductNumberKeysFromQuery(inputText) {
+  const raw = String(inputText ?? "");
+  const normQ = relaxNormalizedProductQuery(normalizeProductQuery(raw));
+  /** @type {Set<string>} */
+  const keys = new Set([
+    ...extractGearProductNumberKeysFromText(raw),
+    ...extractGearProductNumberKeysFromNormQ(normQ),
+  ]);
+  return { keys, normQ };
+}
+
+/**
+ * @param {unknown} inputText
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectExactGearOilProductNumberMatch(inputText) {
+  const { keys } = gatherGearProductNumberKeysFromQuery(inputText);
+  if (keys.size === 0) return [];
+
+  const index = getGearOilProductNumberIndex();
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const key of keys) {
+    const gear = index.get(key);
+    if (gear) {
+      hits.push({ id: gear.id, score: GEAR_OIL_EXACT_PRODUCT_NUMBER_SCORE, label: gear.productName });
+    }
+  }
+  return hits;
+}
+
+/**
+ * @param {import("../data/gearOilCanonicalProductIntelligence.js").GearOilCanonicalProductIntelligence} gear
+ * @param {unknown} inputText
+ */
+function scoreExactGearOilProductNumberForRow(gear, inputText) {
+  const { keys } = gatherGearProductNumberKeysFromQuery(inputText);
+  if (keys.size === 0) return 0;
+  const index = getGearOilProductNumberIndex();
+  for (const key of keys) {
+    const match = index.get(key);
+    if (match && match.id === gear.id) return GEAR_OIL_EXACT_PRODUCT_NUMBER_SCORE;
+  }
+  return 0;
+}
+
+/**
+ * @param {import("../data/gearOilCanonicalProductIntelligence.js").GearOilCanonicalProductIntelligence} gear
+ * @param {string} normQ
+ */
+function scoreGearOilCanonicalProduct(gear, normQ) {
+  if (scoreExactGearOilProductNumberForRow(gear, normQ) >= GEAR_OIL_EXACT_PRODUCT_NUMBER_SCORE) {
+    return GEAR_OIL_EXACT_PRODUCT_NUMBER_SCORE;
+  }
+  if (!isGearOilProductQuery(normQ)) return 0;
+  if (isOpenGearGreaseOrLubricantQuery(normQ)) return 0;
+  if (isClearTransmissionFluidOnlyQuery(normQ)) return 0;
+  if (isTransmissionDrivetrainProductQuery(normQ) && !hasStrongGearOilIntent(normQ) && !isManualTransmissionGearOilQuery(normQ)) {
+    return 0;
+  }
+
+  const isoGrade = parseIsoGradeFromNormQ(normQ);
+  const wantsSynthetic = queryWantsSyntheticGear(normQ);
+  const wantsCommercial = queryWantsCommercial80w90(normQ);
+  const limitedSlip = queryHasLimitedSlipCue(normQ);
+  const mobileCue = queryHasMobileGl5Cue(normQ);
+  const industrialCue = queryHasIndustrialGearCue(normQ);
+  const has80w90 = queryHasSae80w90(normQ);
+  const has85w140 = queryHasSae85w140(normQ);
+  const has75w90 = queryHasSae75w90(normQ);
+  const has75w140 = queryHasSae75w140(normQ);
+  const gl4Only = isGl4OnlyApplicationQuery(normQ);
+
+  const isCommercial = gear.id === "gear-oil-canonical-commercial-gear-lubricant-80w90";
+  const isGl580 = gear.id === "gear-oil-canonical-gl5-gear-lubricant-80w90";
+  const isGl585 = gear.id === "gear-oil-canonical-gl5-gear-lubricant-85w140";
+  const isFs75w90 = gear.id === "gear-oil-canonical-full-synthetic-gl5-gear-lubricant-75w90";
+  const isFs75w140 = gear.id === "gear-oil-canonical-full-synthetic-gl5-gear-lubricant-75w140";
+  const isIndustrial = gear.productFamily === "industrial_ep_gear";
+  const isSynthIndustrial = gear.productFamily === "full_synthetic_industrial_ep_gear";
+  const gearIso = gear.isoGrade || gearIsoGradeFromCanonicalId(gear.id);
+
+  if (wantsCommercial && !isCommercial) {
+    if (isGl580 && normQ.includes("commercial")) return 0;
+  }
+  if (wantsCommercial && !isCommercial && has80w90 && !normQ.includes("gl 5 gear")) {
+    if (isGl580) return 0;
+  }
+  if (has80w90 && wantsCommercial && !isCommercial) return 0;
+  if (has80w90 && !wantsCommercial && isCommercial && (normQ.includes("gl 5") || normQ.includes("gl5"))) return 0;
+  if (has80w90 && !has85w140 && isGl585) return 0;
+  if (has80w90 && !has75w90 && (isFs75w90 || isFs75w140)) return 0;
+  if (has85w140 && !isGl585) return 0;
+  if (has75w90 && !isFs75w90) return 0;
+  if (has75w140 && !isFs75w140) return 0;
+  if (limitedSlip && !(isFs75w90 || isFs75w140)) return 0;
+  if (isoGrade && gearIso && gearIso !== isoGrade) return 0;
+  if (isoGrade && !gearIso) return 0;
+  if (!isoGrade && gearIso && industrialCue && !mobileCue && !has80w90 && !has85w140 && !has75w90 && !has75w140) {
+    return 0;
+  }
+  if (wantsSynthetic && isIndustrial && !isSynthIndustrial) return 0;
+  if (!wantsSynthetic && isSynthIndustrial && industrialCue && isoGrade && isoGrade !== "680") return 0;
+  if (!wantsSynthetic && isSynthIndustrial && !industrialCue && (mobileCue || limitedSlip || has75w90 || has75w140)) return 0;
+  if (mobileCue && !industrialCue && (isIndustrial || isSynthIndustrial) && !isoGrade) return 0;
+  if (industrialCue && !mobileCue && (isCommercial || isGl580 || isGl585 || isFs75w90 || isFs75w140) && !isoGrade) {
+    if (!(has80w90 || has85w140 || has75w90 || has75w140)) return 0;
+  }
+  if (isoGrade === "680" && !isSynthIndustrial) return 0;
+  if (gl4Only && (isFs75w90 || isFs75w140) && !normQ.includes("full synthetic gl")) {
+    /* allow named-product coaching with caution via lower cap below */
+  }
+
+  let score = 0;
+
+  if (gear.id && normQ.includes(gear.id.replace(/^gear-oil-canonical-/, "").replace(/-/g, " "))) {
+    score = Math.max(score, 46);
+  }
+
+  const productNorm = normalizeProductQuery(gear.productName);
+  if (productNorm.length >= 12 && normQ.includes(productNorm)) {
+    score = Math.max(score, 44);
+  }
+
+  if (gear.pdsMapKey) {
+    const mapKeyNorm = normalizeProductQuery(gear.pdsMapKey);
+    if (mapKeyNorm.length >= 6 && normQ.includes(mapKeyNorm)) {
+      score = Math.max(score, 36);
+    }
+  }
+
+  for (const alias of gear.aliases) {
+    const a = normalizeProductQuery(alias);
+    if (a.length < 4) continue;
+    if (normQ === a) score = Math.max(score, 48);
+    else if (a.length >= 12 && normQ.includes(a)) score = Math.max(score, 42);
+    else if (normQ.includes(a)) score = Math.max(score, 32 + Math.min(12, a.length));
+  }
+
+  for (const kw of gear.routingKeywords) {
+    const k = normalizeProductQuery(kw);
+    if (k.length < 4) continue;
+    if (normQ.includes(k)) score = Math.max(score, 22 + Math.min(10, k.length));
+  }
+
+  const queryGearSkuKeys = gatherGearProductNumberKeysFromQuery(normQ).keys;
+  for (const pn of gear.productNumbers) {
+    for (const key of collectGearOilProductNumberKeys(pn)) {
+      if (queryGearSkuKeys.has(key)) score = Math.max(score, 52);
+    }
+  }
+
+  if (gear.saeGrade) {
+    const saeNorm = normalizeProductQuery(gear.saeGrade);
+    if (saeNorm.length >= 5 && normQ.includes(saeNorm)) score = Math.max(score, 40);
+  }
+  if (gear.isoGrade && isoGrade === gear.isoGrade) score = Math.max(score, 44);
+
+  if (isCommercial && wantsCommercial) score = Math.max(score, 52);
+  if (isCommercial && has80w90 && normQ.includes("commercial")) score = Math.max(score, 54);
+  if (isGl580 && has80w90 && !wantsCommercial) score = Math.max(score, 50);
+  if (isGl585 && has85w140) score = Math.max(score, 50);
+  if (isFs75w90 && has75w90) score = Math.max(score, 50);
+  if (isFs75w140 && has75w140) score = Math.max(score, 50);
+  if (limitedSlip && (isFs75w90 || isFs75w140)) score = Math.max(score, 48);
+  if (isFs75w90 && limitedSlip && !has75w140 && !has75w90) score = Math.max(score, 42);
+  if (isFs75w140 && limitedSlip && !has75w140 && !has75w90) score = Math.max(score, 42);
+
+  if (isIndustrial && industrialCue && isoGrade && gearIso === isoGrade && !wantsSynthetic) {
+    score = Math.max(score, 50);
+  }
+  if (isSynthIndustrial && industrialCue && isoGrade && gearIso === isoGrade && wantsSynthetic) {
+    score = Math.max(score, 52);
+  }
+  if (isSynthIndustrial && industrialCue && !isoGrade && wantsSynthetic) {
+    score = Math.max(score, 38);
+  }
+  if (
+    isSynthIndustrial &&
+    (normQ.includes("micropitting") || normQ.includes("fzg") || normQ.includes("severe industrial") || normQ.includes("water contamination"))
+  ) {
+    score = Math.max(score, 40);
+  }
+  if (isoGrade === "680" && isSynthIndustrial) score = Math.max(score, 50);
+
+  if (mobileCue && (isCommercial || isGl580 || isGl585 || isFs75w90 || isFs75w140) && !industrialCue) {
+    score = Math.max(score, score + 4);
+  }
+
+  if (isManualTransmissionGearOilQuery(normQ) && isGl580 && has80w90) {
+    score = Math.max(score, 54);
+  } else if (isManualTransmissionGearOilQuery(normQ) && (isGl580 || isGl585 || isFs75w90 || isFs75w140)) {
+    score = Math.max(score, 48);
+  }
+
+  if (gl4Only && (isFs75w90 || isFs75w140) && score >= ENTITY_EXACT_MIN_SCORE) {
+    score = Math.min(score, 32);
+  }
+
+  return score;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} key
+ */
+function has80w90GearRetrievalSkip(normQ, key) {
+  if (!queryHasSae80w90(normQ)) return false;
+  if (queryWantsCommercial80w90(normQ) && !/commercial gear/i.test(key)) return true;
+  if (!queryWantsCommercial80w90(normQ) && /commercial gear/i.test(key)) return true;
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} key
+ * @returns {import("../data/gearOilCanonicalProductIntelligence.js").GearOilCanonicalProductIntelligence | null}
+ */
+function resolveGearOilFromPdsRetrievalKey(normQ, key) {
+  if (!isGearOilProductQuery(normQ)) return null;
+  /** @type {import("../data/gearOilCanonicalProductIntelligence.js").GearOilCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const gear of listGearOilCanonicalProductIntelligence()) {
+    if (gear.pdsMapKey !== key) continue;
+    const score = scoreGearOilCanonicalProduct(gear, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = gear;
+    }
+  }
+  return best && bestScore >= ENTITY_DETECT_MIN_SCORE ? best : null;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectGearOilCanonicalProductEntities(normQ) {
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const gear of listGearOilCanonicalProductIntelligence()) {
+    const score = scoreGearOilCanonicalProduct(gear, normQ);
+    if (score < ENTITY_DETECT_MIN_SCORE) continue;
+    hits.push({ id: gear.id, score, label: gear.productName });
+  }
+  return hits;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} detectId
+ */
+function resolveGearOilCanonicalFromDetectId(normQ, detectId) {
+  const id = String(detectId ?? "").trim();
+  if (!id) return null;
+
+  /** @type {import("../data/gearOilCanonicalProductIntelligence.js").GearOilCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const gear of GEAR_OIL_CANONICAL_PRODUCT_INTELLIGENCE.products) {
+    if (gear.id !== id) continue;
+    const score = scoreGearOilCanonicalProduct(gear, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = gear;
+    }
+  }
+  if (best) return best;
+  if (id.startsWith("gear-oil-canonical-")) {
+    return getGearOilCanonicalProductIntelligenceById(id);
+  }
+  return null;
+}
+
+/**
+ * @param {unknown} text
+ * @returns {Set<string>}
+ */
+function extractIndustrialSpecialtyProductNumberKeysFromText(text) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  const raw = String(text ?? "");
+  if (!raw.trim()) return keys;
+  const upper = raw.toUpperCase();
+  const patterns = [/\bKL\s*[-]?\s*IO\s*(\d{4})\b/g, /\bKLIO(\d{4})\b/g];
+  for (const re of patterns) {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(upper))) {
+      keys.add(`KLIO${m[1]}`);
+    }
+  }
+  return keys;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {Set<string>}
+ */
+function extractIndustrialSpecialtyProductNumberKeysFromNormQ(normQ) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  const spaced = /\bkl\s+io\s*(\d{4})\b/g;
+  let m;
+  while ((m = spaced.exec(normQ))) {
+    keys.add(`KLIO${m[1]}`);
+  }
+  const compact = normQ.replace(/\s+/g, "");
+  const cm = compact.match(/\bklio(\d{4})\b/);
+  if (cm) keys.add(`KLIO${cm[1]}`);
+  return keys;
+}
+
+/**
+ * @param {unknown} productNumbers
+ * @returns {Set<string>}
+ */
+function collectIndustrialSpecialtyProductNumberKeys(productNumbers) {
+  /** @type {Set<string>} */
+  const keys = new Set();
+  /** @param {unknown} val */
+  const visit = (val) => {
+    if (val == null) return;
+    if (typeof val === "string") {
+      extractIndustrialSpecialtyProductNumberKeysFromText(val).forEach((k) => keys.add(k));
+      return;
+    }
+    if (Array.isArray(val)) {
+      val.forEach(visit);
+      return;
+    }
+    if (typeof val === "object") {
+      Object.values(val).forEach(visit);
+    }
+  };
+  visit(productNumbers);
+  return keys;
+}
+
+/** @type {Map<string, import("../data/industrialSpecialtyOilCanonicalProductIntelligence.js").IndustrialSpecialtyOilCanonicalProductIntelligence> | null} */
+let industrialSpecialtyProductNumberIndex = null;
+
+/**
+ * @returns {Map<string, import("../data/industrialSpecialtyOilCanonicalProductIntelligence.js").IndustrialSpecialtyOilCanonicalProductIntelligence>}
+ */
+function getIndustrialSpecialtyProductNumberIndex() {
+  if (industrialSpecialtyProductNumberIndex) return industrialSpecialtyProductNumberIndex;
+  industrialSpecialtyProductNumberIndex = new Map();
+  for (const product of listIndustrialSpecialtyOilCanonicalProductIntelligence()) {
+    for (const key of collectIndustrialSpecialtyProductNumberKeys(product.productNumbers)) {
+      if (!industrialSpecialtyProductNumberIndex.has(key)) {
+        industrialSpecialtyProductNumberIndex.set(key, product);
+      }
+    }
+  }
+  return industrialSpecialtyProductNumberIndex;
+}
+
+/**
+ * @param {unknown} inputText
+ * @returns {{ keys: Set<string>, normQ: string }}
+ */
+function gatherIndustrialSpecialtyProductNumberKeysFromQuery(inputText) {
+  const raw = String(inputText ?? "");
+  const normQ = relaxNormalizedProductQuery(normalizeProductQuery(raw));
+  /** @type {Set<string>} */
+  const keys = new Set([
+    ...extractIndustrialSpecialtyProductNumberKeysFromText(raw),
+    ...extractIndustrialSpecialtyProductNumberKeysFromNormQ(normQ),
+  ]);
+  return { keys, normQ };
+}
+
+/**
+ * @param {unknown} inputText
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectExactIndustrialSpecialtyOilProductNumberMatch(inputText) {
+  const { keys } = gatherIndustrialSpecialtyProductNumberKeysFromQuery(inputText);
+  if (keys.size === 0) return [];
+
+  const index = getIndustrialSpecialtyProductNumberIndex();
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const key of keys) {
+    const product = index.get(key);
+    if (product) {
+      hits.push({
+        id: product.id,
+        score: INDUSTRIAL_SPECIALTY_OIL_EXACT_PRODUCT_NUMBER_SCORE,
+        label: product.productName,
+      });
+    }
+  }
+  return hits;
+}
+
+/**
+ * @param {import("../data/industrialSpecialtyOilCanonicalProductIntelligence.js").IndustrialSpecialtyOilCanonicalProductIntelligence} product
+ * @param {unknown} inputText
+ */
+function scoreExactIndustrialSpecialtyOilProductNumberForRow(product, inputText) {
+  const { keys } = gatherIndustrialSpecialtyProductNumberKeysFromQuery(inputText);
+  if (keys.size === 0) return 0;
+  const index = getIndustrialSpecialtyProductNumberIndex();
+  for (const key of keys) {
+    const match = index.get(key);
+    if (match && match.id === product.id) return INDUSTRIAL_SPECIALTY_OIL_EXACT_PRODUCT_NUMBER_SCORE;
+  }
+  return 0;
+}
+
+/**
+ * @param {string} normQ
+ */
+function hasBarChainOrForestryBarOilCue(normQ) {
+  return (
+    normQ.includes("bar and chain") ||
+    normQ.includes("bar & chain") ||
+    normQ.includes("bar oil") ||
+    normQ.includes("chain oil") ||
+    normQ.includes("chain saw") ||
+    normQ.includes("chainsaw") ||
+    normQ.includes("saw chain") ||
+    normQ.includes("hi tack") ||
+    normQ.includes("clear bar") ||
+    normQ.includes("tacky chain") ||
+    normQ.includes("non drip chain") ||
+    normQ.includes("winter bar oil") ||
+    normQ.includes("summer bar oil") ||
+    normQ.includes("all season bar") ||
+    normQ.includes("harvesting head") ||
+    normQ.includes("processor head") ||
+    normQ.includes("forestry") ||
+    normQ.includes("logging") ||
+    normQ.includes("commercial bar") ||
+    normQ.includes("red bar oil") ||
+    normQ.includes("value bar chain") ||
+    (normQ.includes("open gear") && (normQ.includes("bar") || normQ.includes("chain")))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function hasSawGuideCue(normQ) {
+  return (
+    normQ.includes("saw guide") ||
+    normQ.includes("gang saw") ||
+    normQ.includes("edger") ||
+    normQ.includes("thin kerf") ||
+    normQ.includes("sawmill") ||
+    normQ.includes("tacky saw")
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function hasRockDrillCue(normQ) {
+  return (
+    normQ.includes("rock drill") ||
+    normQ.includes("pneumatic drill") ||
+    normQ.includes("jackhammer") ||
+    normQ.includes("pavement breaker") ||
+    normQ.includes("tunneling") ||
+    normQ.includes("mining drill")
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function specialtyOverridesGearOilTerritory(normQ) {
+  return hasBarChainOrForestryBarOilCue(normQ) || hasSawGuideCue(normQ) || hasRockDrillCue(normQ);
+}
+
+/**
+ * @param {string} normQ
+ */
+function isGearOilTerritoryBlockingSpecialty(normQ) {
+  if (specialtyOverridesGearOilTerritory(normQ)) return false;
+  if (normQ.includes("gl 5") || normQ.includes("gl5") || normQ.includes("mt 1") || normQ.includes("mt1")) return true;
+  if (
+    normQ.includes("hypoid") ||
+    normQ.includes("differential") ||
+    normQ.includes("axle oil") ||
+    normQ.includes("final drive")
+  ) {
+    return true;
+  }
+  if (normQ.includes("industrial ep gear")) return true;
+  if (normQ.includes("enclosed gear") && normQ.includes("agma")) return true;
+  if (normQ.includes("agma") && normQ.includes("gear") && !hasBarChainOrForestryBarOilCue(normQ)) return true;
+  if (normQ.includes("gear oil") && /\biso\s*220\b/.test(normQ) && !hasRockDrillCue(normQ)) return true;
+  if (hasStrongGearOilIntent(normQ)) return true;
+  return false;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isOpenGearGreaseBlockingSpecialty(normQ) {
+  if (!isOpenGearGreaseOrLubricantQuery(normQ)) return false;
+  return !hasBarChainOrForestryBarOilCue(normQ);
+}
+
+/**
+ * @param {string} normQ
+ */
+function isTwoCycleSmallEngineQuery(normQ) {
+  return (
+    normQ.includes("tc-w3") ||
+    normQ.includes("tc w3") ||
+    normQ.includes("2 cycle") ||
+    normQ.includes("2-cycle") ||
+    normQ.includes("2 stroke") ||
+    normQ.includes("snowmobile oil") ||
+    normQ.includes("marine 2 cycle") ||
+    normQ.includes("outboard oil")
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isClearHydraulicFluidQuery(normQ) {
+  if (
+    (normQ.includes("non detergent") || normQ.includes("nd 30")) &&
+    normQ.includes("hydraulic")
+  ) {
+    return false;
+  }
+  if (hasRockDrillCue(normQ) || hasBarChainOrForestryBarOilCue(normQ) || hasSawGuideCue(normQ)) return false;
+  if (normQ.includes("way oil") || normQ.includes("way lube") || normQ.includes("slideway")) return false;
+  if (normQ.includes("compressor oil") || normQ.includes("rotary screw")) return false;
+  return (
+    normQ.includes("aw hydraulic") ||
+    normQ.includes("hydraulic oil") ||
+    normQ.includes("tractor fluid") ||
+    normQ.includes("wet brake") ||
+    isPlainUtfQuery(normQ) ||
+    normQ.includes("j20c") ||
+    normQ.includes("j20d") ||
+    (normQ.includes("hydraulic") && normQ.includes("utf") && !normQ.includes("rock drill"))
+  );
+}
+
+/**
+ * @param {string} normQ
+ */
+function isAutomotiveGasolineEngineQuery(normQ) {
+  return (
+    normQ.includes("automotive gasoline") ||
+    (normQ.includes("gasoline engine") && !normQ.includes("non detergent") && !normQ.includes("nd 30"))
+  );
+}
+
+/**
+ * @param {string} normQ
+ * @returns {string | null}
+ */
+function parseSpecialtyIsoGradeFromNormQ(normQ) {
+  const m = normQ.match(/\biso\s*(22|32|46|68|90|100|150|220|260)\b/);
+  return m ? m[1] : null;
+}
+
+/**
+ * @param {string} normQ
+ */
+function isIndustrialSpecialtyOilProductQuery(normQ) {
+  if (isTwoCycleSmallEngineQuery(normQ)) return false;
+  if (gatherIndustrialSpecialtyProductNumberKeysFromQuery(normQ).keys.size > 0) return true;
+  if (hasBarChainOrForestryBarOilCue(normQ) || hasSawGuideCue(normQ) || hasRockDrillCue(normQ)) return true;
+  const intentTerms = [
+    "industrial oil",
+    "specialty oil",
+    "compressor oil",
+    "synthetic compressor oil",
+    "rotary screw compressor",
+    "air compressor",
+    "inert gas compressor",
+    "natural gas compressor",
+    "wet gas compressor",
+    "gas compressor oil",
+    "way oil",
+    "way lube",
+    "slideway",
+    "machine tool",
+    "milling machine",
+    "grinder",
+    "planer",
+    "shaper",
+    "honing machine",
+    "stick slip",
+    "soluble cutting oil",
+    "cutting oil",
+    "machining fluid",
+    "metalworking fluid",
+    "coolant for machining",
+    "grinding fluid",
+    "drilling fluid",
+    "form release",
+    "concrete form oil",
+    "concrete release",
+    "precast",
+    "dust suppressant",
+    "dust suppression",
+    "cattle oil",
+    "cattle oiler",
+    "riding arena dust",
+    "grain handling dust",
+    "non detergent oil",
+    "non detergent",
+    "nd 30",
+    "sae 30 non detergent",
+    "shop lubricant",
+    "exposed chain drive",
+  ];
+  for (const term of intentTerms) {
+    if (normQ.includes(term)) return true;
+  }
+  return false;
+}
+
+/**
+ * @param {import("../data/industrialSpecialtyOilCanonicalProductIntelligence.js").IndustrialSpecialtyOilCanonicalProductIntelligence} product
+ * @param {string} normQ
+ */
+function scoreIndustrialSpecialtyOilCanonicalProduct(product, normQ) {
+  if (
+    scoreExactIndustrialSpecialtyOilProductNumberForRow(product, normQ) >=
+    INDUSTRIAL_SPECIALTY_OIL_EXACT_PRODUCT_NUMBER_SCORE
+  ) {
+    return INDUSTRIAL_SPECIALTY_OIL_EXACT_PRODUCT_NUMBER_SCORE;
+  }
+  if (isTwoCycleSmallEngineQuery(normQ)) return 0;
+  if (isOpenGearGreaseBlockingSpecialty(normQ)) return 0;
+  if (isGearOilTerritoryBlockingSpecialty(normQ)) return 0;
+  if (isClearHydraulicFluidQuery(normQ) && !isIndustrialSpecialtyOilProductQuery(normQ)) return 0;
+  if (isClearTransmissionFluidOnlyQuery(normQ) && !isIndustrialSpecialtyOilProductQuery(normQ)) return 0;
+  if (
+    isHdEngineOilProductQuery(normQ) &&
+    product.id !== "industrial-specialty-canonical-non-detergent-30-lubricating-oil" &&
+    !isIndustrialSpecialtyOilProductQuery(normQ)
+  ) {
+    return 0;
+  }
+  if (!isIndustrialSpecialtyOilProductQuery(normQ)) return 0;
+
+  const isoGrade = parseSpecialtyIsoGradeFromNormQ(normQ);
+  const productIso = product.isoGrade || null;
+  const isRockDrill = product.productFamily === "rock_drill_pneumatic";
+  const isBarChain = product.productFamily === "forestry_bar_chain" || product.hierarchyBranch === "forestry_bar_chain";
+  const isSawGuide = product.productFamily === "saw_guide_mill" || product.hierarchyBranch === "saw_guide_mill";
+  const isCompressor46 = product.id === "industrial-specialty-canonical-full-synthetic-compressor-iso46";
+  const isCompressor260 = product.id === "industrial-specialty-canonical-natural-gas-compressor-iso260";
+  const isNd30 = product.id === "industrial-specialty-canonical-non-detergent-30-lubricating-oil";
+
+  if (isoGrade && productIso && productIso !== isoGrade) return 0;
+  if (isoGrade && isRockDrill && !productIso) return 0;
+  if (isoGrade && isSawGuide && productIso && productIso !== isoGrade) return 0;
+
+  if (isNd30 && isHdEngineOilProductQuery(normQ) && !normQ.includes("non detergent") && !normQ.includes("nd 30")) {
+    return 0;
+  }
+
+  let score = 0;
+
+  if (product.id && normQ.includes(product.id.replace(/^industrial-specialty-canonical-/, "").replace(/-/g, " "))) {
+    score = Math.max(score, 46);
+  }
+
+  const productNorm = normalizeProductQuery(product.productName);
+  if (productNorm.length >= 12 && normQ.includes(productNorm)) {
+    score = Math.max(score, 44);
+  }
+
+  if (product.pdsMapKey) {
+    const mapKeyNorm = normalizeProductQuery(product.pdsMapKey);
+    if (mapKeyNorm.length >= 6 && normQ.includes(mapKeyNorm)) {
+      score = Math.max(score, 34);
+    }
+  }
+
+  for (const alias of product.aliases) {
+    const a = normalizeProductQuery(alias);
+    if (a.length < 4) continue;
+    if (normQ === a) score = Math.max(score, 48);
+    else if (a.length >= 12 && normQ.includes(a)) score = Math.max(score, 42);
+    else if (normQ.includes(a)) score = Math.max(score, 30 + Math.min(12, a.length));
+  }
+
+  for (const kw of product.routingKeywords) {
+    const k = normalizeProductQuery(kw);
+    if (k.length < 4) continue;
+    if (normQ.includes(k)) score = Math.max(score, 22 + Math.min(10, k.length));
+  }
+
+  const querySkuKeys = gatherIndustrialSpecialtyProductNumberKeysFromQuery(normQ).keys;
+  for (const pn of product.productNumbers) {
+    for (const key of collectIndustrialSpecialtyProductNumberKeys(pn)) {
+      if (querySkuKeys.has(key)) score = Math.max(score, 52);
+    }
+  }
+
+  if (product.saeGrade) {
+    const saeNorm = normalizeProductQuery(String(product.saeGrade));
+    if (saeNorm.length >= 2 && normQ.includes(saeNorm)) score = Math.max(score, 38);
+  }
+  if (productIso && isoGrade === productIso) score = Math.max(score, 44);
+
+  if (product.id === "industrial-specialty-canonical-bar-chain-commercial-oil") {
+    if (normQ.includes("commercial bar") || normQ.includes("red bar oil") || normQ.includes("value bar chain")) {
+      score = Math.max(score, 52);
+    }
+    if (hasBarChainOrForestryBarOilCue(normQ) && normQ.includes("commercial")) score = Math.max(score, 48);
+  }
+
+  if (product.id === "industrial-specialty-canonical-clear-bar-chain-oil") {
+    if (normQ.includes("clear bar") || normQ.includes("clear bar chain") || normQ.includes("all season clear")) {
+      score = Math.max(score, 52);
+    }
+  }
+
+  if (product.id === "industrial-specialty-canonical-hi-tack-bar-chain-iso90-winter") {
+    if (normQ.includes("winter bar") || (normQ.includes("hi tack") && isoGrade === "90")) score = Math.max(score, 52);
+    if (normQ.includes("cold weather") && hasBarChainOrForestryBarOilCue(normQ)) score = Math.max(score, 48);
+  }
+
+  if (product.id === "industrial-specialty-canonical-hi-tack-bar-chain-iso150-all-season") {
+    if (normQ.includes("all season hi tack") || (normQ.includes("hi tack") && isoGrade === "150")) {
+      score = Math.max(score, 52);
+    }
+  }
+
+  if (product.id === "industrial-specialty-canonical-hi-tack-bar-chain-iso220-summer") {
+    if (normQ.includes("summer bar") || (normQ.includes("high heat") && normQ.includes("forestry"))) {
+      score = Math.max(score, 52);
+    }
+    if (normQ.includes("hi tack") && isoGrade === "220") score = Math.max(score, 52);
+  }
+
+  if (isSawGuide && hasSawGuideCue(normQ)) {
+    score = Math.max(score, isoGrade ? 50 : 42);
+  }
+
+  if (isCompressor46) {
+    if (normQ.includes("natural gas") || normQ.includes("wet gas")) return 0;
+    if (
+      normQ.includes("rotary screw") ||
+      normQ.includes("air compressor") ||
+      normQ.includes("inert gas compressor") ||
+      (normQ.includes("compressor") && isoGrade === "46" && !normQ.includes("natural gas"))
+    ) {
+      score = Math.max(score, 52);
+    }
+    if (
+      normQ.includes("oxygen") ||
+      normQ.includes("chlorine") ||
+      normQ.includes("hydrogen chloride") ||
+      normQ.includes("chemically active gas")
+    ) {
+      score = Math.max(score, 40);
+    }
+    if (normQ.includes("pag") || normQ.includes("silicone")) {
+      score = Math.max(score, 36);
+    }
+  }
+
+  if (isCompressor260) {
+    if (normQ.includes("rotary screw") || normQ.includes("inert gas compressor")) return 0;
+    if (
+      normQ.includes("natural gas") ||
+      normQ.includes("wet gas") ||
+      normQ.includes("gas compressor") ||
+      normQ.includes("reciprocating natural gas") ||
+      isoGrade === "260"
+    ) {
+      score = Math.max(score, 52);
+    }
+  }
+
+  if (product.id === "industrial-specialty-canonical-way-oil-iso68") {
+    if (
+      normQ.includes("way oil") ||
+      normQ.includes("way lube") ||
+      normQ.includes("slideway") ||
+      normQ.includes("stick slip") ||
+      normQ.includes("machine tool")
+    ) {
+      score = Math.max(score, 50);
+    }
+  }
+
+  if (product.id === "industrial-specialty-canonical-soluble-cutting-oil") {
+    if (
+      normQ.includes("soluble cutting") ||
+      normQ.includes("water mix cutting") ||
+      normQ.includes("emulsifiable machining")
+    ) {
+      score = Math.max(score, 52);
+    }
+    if (normQ.includes("straight cutting oil") && normQ.includes("soluble")) score = Math.max(score, 44);
+  }
+
+  if (isRockDrill && hasRockDrillCue(normQ)) {
+    score = Math.max(score, isoGrade ? 50 : 40);
+  }
+
+  if (product.id === "industrial-specialty-canonical-enhanced-form-release-oil") {
+    if (normQ.includes("enhanced form release")) score = Math.max(score, 52);
+  }
+
+  if (product.id === "industrial-specialty-canonical-form-release-dust-suppressant-oil") {
+    if (normQ.includes("dust suppressant") || normQ.includes("form release and dust")) {
+      score = Math.max(score, 52);
+    }
+  }
+
+  if (product.id === "industrial-specialty-canonical-light-form-oil") {
+    if (normQ.includes("light form oil")) score = Math.max(score, 52);
+  }
+
+  if (product.id === "industrial-specialty-canonical-multi-use-industrial-cattle-oil") {
+    if (
+      normQ.includes("cattle oil") ||
+      normQ.includes("cattle oiler") ||
+      normQ.includes("riding arena dust") ||
+      normQ.includes("grain handling dust")
+    ) {
+      score = Math.max(score, 52);
+    }
+  }
+
+  if (isNd30) {
+    if (normQ.includes("non detergent") || normQ.includes("nd 30") || normQ.includes("sae 30 non detergent")) {
+      score = Math.max(score, 50);
+    }
+    if (normQ.includes("shop lubricant")) score = Math.max(score, 46);
+    if (isAutomotiveGasolineEngineQuery(normQ)) score = Math.max(score, 38);
+  }
+
+  if (hasBarChainOrForestryBarOilCue(normQ) && isBarChain && !isoGrade) {
+    score = Math.max(score, 36);
+  }
+
+  if (normQ.includes("straight cutting oil") && product.id === "industrial-specialty-canonical-soluble-cutting-oil") {
+    score = Math.min(score, 44);
+  }
+
+  return score;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} key
+ */
+function resolveIndustrialSpecialtyOilFromPdsRetrievalKey(normQ, key) {
+  /** @type {import("../data/industrialSpecialtyOilCanonicalProductIntelligence.js").IndustrialSpecialtyOilCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const product of listIndustrialSpecialtyOilCanonicalProductIntelligence()) {
+    if (product.pdsMapKey !== key) continue;
+    const score = scoreIndustrialSpecialtyOilCanonicalProduct(product, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = product;
+    }
+  }
+  return best && bestScore >= ENTITY_DETECT_MIN_SCORE ? best : null;
+}
+
+/**
+ * @param {string} normQ
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function detectIndustrialSpecialtyOilCanonicalProductEntities(normQ) {
+  /** @type {Array<{ id: string, score: number, label: string }>} */
+  const hits = [];
+  for (const product of listIndustrialSpecialtyOilCanonicalProductIntelligence()) {
+    const score = scoreIndustrialSpecialtyOilCanonicalProduct(product, normQ);
+    if (score < ENTITY_DETECT_MIN_SCORE) continue;
+    hits.push({ id: product.id, score, label: product.productName });
+  }
+  return hits;
+}
+
+/**
+ * @param {string} normQ
+ * @param {string} detectId
+ */
+function resolveIndustrialSpecialtyOilCanonicalFromDetectId(normQ, detectId) {
+  const id = String(detectId ?? "").trim();
+  if (!id) return null;
+
+  /** @type {import("../data/industrialSpecialtyOilCanonicalProductIntelligence.js").IndustrialSpecialtyOilCanonicalProductIntelligence | null} */
+  let best = null;
+  let bestScore = 0;
+  for (const product of INDUSTRIAL_SPECIALTY_OIL_CANONICAL_PRODUCT_INTELLIGENCE.products) {
+    if (product.id !== id) continue;
+    const score = scoreIndustrialSpecialtyOilCanonicalProduct(product, normQ);
+    if (score > bestScore) {
+      bestScore = score;
+      best = product;
+    }
+  }
+  if (best) return best;
+  if (id.startsWith("industrial-specialty-canonical-")) {
+    return getIndustrialSpecialtyOilCanonicalProductIntelligenceById(id);
+  }
+  return null;
+}
+
+/**
+ * @param {import("../data/industrialSpecialtyOilCanonicalProductIntelligence.js").IndustrialSpecialtyOilCanonicalProductIntelligence} product
+ */
+function buildEntitySectionsFromIndustrialSpecialtyOilCanonical(product) {
+  const gradeLabel = product.saeGrade
+    ? `SAE ${product.saeGrade}`
+    : product.isoGrade
+      ? `ISO VG ${product.isoGrade}`
+      : product.viscosityGrade;
+  const whatItIs = uniqStrings([
+    product.productName,
+    product.salesPositioning,
+    product.formulation,
+    product.category ? String(product.category) : "",
+    product.marketSegment ? `Market segment: ${product.marketSegment}` : "",
+    product.applicationSegment ? `Application segment: ${product.applicationSegment}` : "",
+    gradeLabel ? `${gradeLabel} — ${product.productFamily}` : product.productFamily,
+  ]);
+  const whyItWins = uniqStrings([
+    product.salesPositioning,
+    ...product.differentiators,
+    ...product.salesEnablementAngles,
+  ]);
+  const proof = uniqStrings([...product.specifications, ...product.approvals]);
+  const whereFits = uniqStrings([
+    ...product.applications,
+    ...product.bestFit,
+    ...product.crossSellSignals,
+  ]);
+  const repTalk = uniqStrings([product.salesPositioning, ...product.productSpotlightAngles.slice(0, 3)]);
+  const questions = uniqStrings([
+    ...product.customerProfileQuestions,
+    ...product.customerProfileSignals.map((s) => `Customer profile signal: ${s}`),
+    "What ISO VG or SAE grade does the equipment tag require?",
+    "What product number is on the drum or purchase order?",
+  ]);
+  const techLines = Object.entries(product.technicalProperties || {}).map(([k, v]) => `${k}: ${v}`);
+  const confirm = uniqStrings([
+    ...product.cautions,
+    ...product.notBestFit.map((n) => `Not best fit: ${n}`),
+    ...product.sourceNotes,
+    ...product.operationalPainPoints.map((p) => `Operational pain point: ${p}`),
+    product.pdsMapKey ? `Confirm the indexed row “${product.pdsMapKey}” matches the drum label before quoting.` : "",
+    product.pdsFileName ? `PDS file: ${product.pdsFileName}` : "",
+    ...(product.productNumbers.length ? [`Product numbers: ${product.productNumbers.join("; ")}`] : []),
+    ...techLines.slice(0, 10),
+  ]);
+
+  const proofIntro = proof.length
+    ? "Use indexed PDS map lines and the live PDS PDF—quote only printed spec rows."
+    : "Open the current PDS PDF for authoritative proof; the map index is a pointer only.";
+
+  return [
+    narrativeSection("whatItIs", "What It Is", product.category ? String(product.category) : "", whatItIs),
+    narrativeSection("whyItWins", "Why It Wins", "", whyItWins.length ? whyItWins : []),
+    narrativeSection("pdsBackedProof", "PDS-Backed Proof", proofIntro, proof.length ? proof.slice(0, 10) : []),
+    narrativeSection(
+      "whereItFits",
+      "Where It Fits",
+      product.categorySpotlightAngles?.[0] ? String(product.categorySpotlightAngles[0]) : gradeLabel || "",
+      whereFits
+    ),
+    narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk),
+    narrativeSection("questionsToAsk", "Questions to Ask", "", questions),
+    narrativeSection("confirmBeforeUse", "Confirm Before Use", "", confirm),
+  ].filter((s) => s.body || (s.items && s.items.length > 0));
+}
+
+/**
+ * @param {string} normQ
+ */
 function isCoolantAntifreezeProductQuery(normQ) {
   if (normQ.includes("antifreeze") || normQ.includes("coolant")) return true;
   if (normQ.includes("dex-cool") || normQ.includes("dex cool")) return true;
@@ -1532,6 +2855,20 @@ function resolveGreaseCanonicalFromDetectId(normQ, detectId) {
 }
 
 /**
+ * @param {Array<{ id: string, score: number, label: string }>} hits
+ * @returns {Array<{ id: string, score: number, label: string }>}
+ */
+function mergeEntityDetectionHits(hits) {
+  /** @type {Map<string, { id: string, score: number, label: string }>} */
+  const byId = new Map();
+  for (const h of hits) {
+    const prev = byId.get(h.id);
+    if (!prev || h.score > prev.score) byId.set(h.id, h);
+  }
+  return [...byId.values()].sort((a, b) => b.score - a.score);
+}
+
+/**
  * @param {unknown} inputText
  * @returns {Array<{ id: string, score: number, label: string }>}
  */
@@ -1539,13 +2876,20 @@ export function detectKlondikeProductEntity(inputText) {
   const normQ = relaxNormalizedProductQuery(normalizeProductQuery(inputText));
   if (!normQ) return [];
 
+  const exactGearSkuHits = detectExactGearOilProductNumberMatch(inputText);
+  const exactSpecialtySkuHits = detectExactIndustrialSpecialtyOilProductNumberMatch(inputText);
+
   /** @type {Array<{ id: string, score: number, label: string }>} */
   const hits = [
+    ...exactGearSkuHits,
+    ...exactSpecialtySkuHits,
     ...detectGreaseCanonicalProductEntities(normQ),
     ...detectHydraulicCanonicalProductEntities(normQ),
     ...detectHdEngineOilCanonicalProductEntities(normQ),
     ...detectTransmissionCanonicalProductEntities(normQ),
     ...detectCoolantCanonicalProductEntities(normQ),
+    ...detectGearOilCanonicalProductEntities(normQ),
+    ...detectIndustrialSpecialtyOilCanonicalProductEntities(normQ),
   ];
 
   hits.sort((a, b) => b.score - a.score);
@@ -1624,12 +2968,19 @@ export function detectKlondikeProductEntity(inputText) {
         /* skip red NOAT on gold NF asks */
       } else if (isRedNoatCoolantQuery(normQ) && /gold/i.test(key) && !/red|noat/i.test(key)) {
         /* skip gold on red NOAT asks */
+      } else if (isGearOilProductQuery(normQ) && /gear/i.test(key) && isClearTransmissionFluidOnlyQuery(normQ)) {
+        /* skip gear PDS retrieval on ATF/CVT/TDTO-only asks */
+      } else if (queryWantsCommercial80w90(normQ) && /80w-90 gl-5 gear/i.test(key) && !/commercial gear/i.test(key)) {
+        /* skip premium GL-5 retrieval on Commercial 80W-90 asks */
+      } else if (has80w90GearRetrievalSkip(normQ, key)) {
+        /* skip wrong 80W-90 gear variant on retrieval boost */
       } else {
         const greaseFromKey = getGreaseCanonicalProductIntelligenceByPdsKey(key);
         const hydrFromKey = getHydraulicCanonicalProductIntelligenceByPdsKey(key);
         const hdFromKey = getHdEngineOilCanonicalProductIntelligenceByPdsKey(key);
         const txFromKey = getTransmissionCanonicalProductIntelligenceByPdsKey(key);
         const coolFromKey = getCoolantCanonicalProductIntelligenceByPdsKey(key);
+        const gearFromKey = resolveGearOilFromPdsRetrievalKey(normQ, key);
         if (greaseFromKey) {
           const registryId = GREASE_CANONICAL_REGISTRY_ENTITY_ID[greaseFromKey.id] || greaseFromKey.id;
           const existing = hits.find((h) => h.id === registryId);
@@ -1659,12 +3010,25 @@ export function detectKlondikeProductEntity(inputText) {
           const boost = Math.min(72, top.score + 6);
           if (existing) existing.score = Math.max(existing.score, boost);
           else hits.push({ id: coolFromKey.id, score: boost, label: coolFromKey.productName });
+        } else if (gearFromKey) {
+          const existing = hits.find((h) => h.id === gearFromKey.id);
+          const boost = Math.min(72, top.score + 6);
+          if (existing) existing.score = Math.max(existing.score, boost);
+          else hits.push({ id: gearFromKey.id, score: boost, label: gearFromKey.productName });
         } else {
-          for (const entity of PRODUCT_ENTITY_REGISTRY) {
-            if (entity.pdsKeys.includes(key)) {
-              const existing = hits.find((h) => h.id === entity.id);
-              if (existing) existing.score = Math.min(72, existing.score + 10);
-              else hits.push({ id: entity.id, score: Math.min(72, top.score + 8), label: entity.label });
+          const specialtyFromKey = resolveIndustrialSpecialtyOilFromPdsRetrievalKey(normQ, key);
+          if (specialtyFromKey) {
+            const existing = hits.find((h) => h.id === specialtyFromKey.id);
+            const boost = Math.min(72, top.score + 6);
+            if (existing) existing.score = Math.max(existing.score, boost);
+            else hits.push({ id: specialtyFromKey.id, score: boost, label: specialtyFromKey.productName });
+          } else {
+            for (const entity of PRODUCT_ENTITY_REGISTRY) {
+              if (entity.pdsKeys.includes(key)) {
+                const existing = hits.find((h) => h.id === entity.id);
+                if (existing) existing.score = Math.min(72, existing.score + 10);
+                else hits.push({ id: entity.id, score: Math.min(72, top.score + 8), label: entity.label });
+              }
             }
           }
         }
@@ -1672,8 +3036,7 @@ export function detectKlondikeProductEntity(inputText) {
     }
   }
 
-  hits.sort((a, b) => b.score - a.score);
-  return hits;
+  return mergeEntityDetectionHits(hits);
 }
 
 /**
@@ -1733,8 +3096,19 @@ export function resolveKlondikeProductEntity(inputText) {
   const hdCanonical = resolveHdEngineOilCanonicalFromDetectId(normQ, top.id);
   const transmissionCanonical = resolveTransmissionCanonicalFromDetectId(normQ, top.id);
   const coolantCanonical = resolveCoolantCanonicalFromDetectId(normQ, top.id);
+  const gearOilCanonical = resolveGearOilCanonicalFromDetectId(normQ, top.id);
+  const industrialSpecialtyCanonical = resolveIndustrialSpecialtyOilCanonicalFromDetectId(normQ, top.id);
   const entity = PRODUCT_ENTITY_REGISTRY.find((e) => e.id === top.id);
-  if (!entity && !greaseCanonical && !hydraulicCanonical && !hdCanonical && !transmissionCanonical && !coolantCanonical) {
+  if (
+    !entity &&
+    !greaseCanonical &&
+    !hydraulicCanonical &&
+    !hdCanonical &&
+    !transmissionCanonical &&
+    !coolantCanonical &&
+    !gearOilCanonical &&
+    !industrialSpecialtyCanonical
+  ) {
     return empty;
   }
 
@@ -1744,6 +3118,8 @@ export function resolveKlondikeProductEntity(inputText) {
     hdCanonical?.pdsMapKey ??
     transmissionCanonical?.pdsMapKey ??
     coolantCanonical?.pdsMapKey ??
+    gearOilCanonical?.pdsMapKey ??
+    industrialSpecialtyCanonical?.pdsMapKey ??
     entity?.pickPdsKey(normQ) ??
     null;
   if (!pdsKey && entity?.pdsKeys.length === 1) pdsKey = entity.pdsKeys[0];
@@ -1758,7 +3134,11 @@ export function resolveKlondikeProductEntity(inputText) {
       (transmissionCanonical?.pdsMapKey && PDS_MAP[transmissionCanonical.pdsMapKey]
         ? transmissionCanonical.pdsMapKey
         : null) ||
-      (coolantCanonical?.pdsMapKey && PDS_MAP[coolantCanonical.pdsMapKey] ? coolantCanonical.pdsMapKey : null);
+      (coolantCanonical?.pdsMapKey && PDS_MAP[coolantCanonical.pdsMapKey] ? coolantCanonical.pdsMapKey : null) ||
+      (gearOilCanonical?.pdsMapKey && PDS_MAP[gearOilCanonical.pdsMapKey] ? gearOilCanonical.pdsMapKey : null) ||
+      (industrialSpecialtyCanonical?.pdsMapKey && PDS_MAP[industrialSpecialtyCanonical.pdsMapKey]
+        ? industrialSpecialtyCanonical.pdsMapKey
+        : null);
   }
 
   const label =
@@ -1767,6 +3147,8 @@ export function resolveKlondikeProductEntity(inputText) {
     hdCanonical?.productName ??
     transmissionCanonical?.productName ??
     coolantCanonical?.productName ??
+    gearOilCanonical?.productName ??
+    industrialSpecialtyCanonical?.productName ??
     entity?.label ??
     top.label;
   const flagshipId =
@@ -1866,6 +3248,26 @@ function mapDetectedToLikelyMatches(detected, normQ) {
         entityId: d.id,
         pdsKey: key && PDS_MAP[key] ? key : null,
         label: cool.productName,
+        score: d.score,
+      };
+    }
+    const gear = resolveGearOilCanonicalFromDetectId(normQ, d.id);
+    if (gear) {
+      const key = gear.pdsMapKey;
+      return {
+        entityId: d.id,
+        pdsKey: key && PDS_MAP[key] ? key : null,
+        label: gear.productName,
+        score: d.score,
+      };
+    }
+    const specialty = resolveIndustrialSpecialtyOilCanonicalFromDetectId(normQ, d.id);
+    if (specialty) {
+      const key = specialty.pdsMapKey;
+      return {
+        entityId: d.id,
+        pdsKey: key && PDS_MAP[key] ? key : null,
+        label: specialty.productName,
         score: d.score,
       };
     }
@@ -1982,6 +3384,57 @@ function buildEntitySectionsFromHdCanonical(hd) {
       whereFits
     ),
     narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk.length ? repTalk.slice(0, 8) : []),
+    narrativeSection("questionsToAsk", "Questions to Ask", "", questions),
+    narrativeSection("confirmBeforeUse", "Confirm Before Use", "", confirm),
+  ].filter((s) => s.body || (s.items && s.items.length > 0));
+}
+
+/**
+ * @param {import("../data/gearOilCanonicalProductIntelligence.js").GearOilCanonicalProductIntelligence} gear
+ */
+function buildEntitySectionsFromGearOilCanonical(gear) {
+  const gradeLabel = gear.saeGrade
+    ? `SAE ${gear.saeGrade}`
+    : gear.isoGrade
+      ? `ISO VG ${gear.isoGrade}`
+      : gear.viscosityGrade;
+  const whatItIs = uniqStrings([
+    gear.productName,
+    gear.salesPositioning,
+    gear.formulation,
+    gradeLabel ? `${gradeLabel} — ${gear.productFamily}` : gear.productFamily,
+    gear.marketSegment ? `Market segment: ${gear.marketSegment}` : "",
+  ]);
+  const whyItWins = uniqStrings([gear.salesPositioning, ...gear.differentiators]);
+  const proof = uniqStrings([...gear.specifications, ...gear.approvals]);
+  const whereFits = uniqStrings([...gear.applications, ...gear.bestFit]);
+  const repTalk = gear.salesPositioning ? [gear.salesPositioning] : [];
+  const questions = uniqStrings([
+    "What SAE or ISO VG grade does the nameplate require?",
+    "Is this hypoid axle/differential GL-5/MT-1 or enclosed industrial EP gear service?",
+    "Is limited-slip chemistry required, and is the system GL-4-only?",
+    "What product number is on the drum or purchase order?",
+  ]);
+  const techLines = Object.entries(gear.technicalProperties || {}).map(([k, v]) => `${k}: ${v}`);
+  const confirm = uniqStrings([
+    ...gear.cautions,
+    ...gear.notBestFit.map((n) => `Not best fit: ${n}`),
+    ...gear.sourceNotes,
+    gear.pdsMapKey ? `Confirm the indexed row “${gear.pdsMapKey}” matches the drum label before quoting.` : "",
+    ...(gear.productNumbers.length ? [`Product numbers: ${gear.productNumbers.join("; ")}`] : []),
+    ...techLines.slice(0, 8),
+  ]);
+
+  const proofIntro = proof.length
+    ? "Use indexed PDS map lines and the live PDS PDF—quote only printed spec rows."
+    : "Open the current PDS PDF for authoritative proof; the map index is a pointer only.";
+
+  return [
+    narrativeSection("whatItIs", "What It Is", gear.category ? String(gear.category) : "", whatItIs.length ? whatItIs : []),
+    narrativeSection("whyItWins", "Why It Wins", "", whyItWins.length ? whyItWins : ["Anchor wins to indexed gear oil canonical intelligence only."]),
+    narrativeSection("pdsBackedProof", "PDS-Backed Proof", proofIntro, proof.length ? proof.slice(0, 10) : []),
+    narrativeSection("whereItFits", "Where It Fits", gradeLabel || "", whereFits),
+    narrativeSection("repTalkTrack", "Rep Talk Track", "", repTalk),
     narrativeSection("questionsToAsk", "Questions to Ask", "", questions),
     narrativeSection("confirmBeforeUse", "Confirm Before Use", "", confirm),
   ].filter((s) => s.body || (s.items && s.items.length > 0));
@@ -2276,6 +3729,14 @@ export function buildProductEntityAdvisorResponse(inputText) {
   const hdCanonical = pdsKey ? getHdEngineOilCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
   const transmissionCanonical = pdsKey ? getTransmissionCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
   const coolantCanonical = pdsKey ? getCoolantCanonicalProductIntelligenceByPdsKey(pdsKey) : null;
+  const gearOilCanonical = resolveGearOilCanonicalFromDetectId(
+    relaxNormalizedProductQuery(normalizeProductQuery(question)),
+    resolved.entityId || ""
+  );
+  const industrialSpecialtyCanonical = resolveIndustrialSpecialtyOilCanonicalFromDetectId(
+    relaxNormalizedProductQuery(normalizeProductQuery(question)),
+    resolved.entityId || ""
+  );
 
   if (resolved.entityId === "entity-deep-well-pump-oil") {
     const matchedProducts = (searchKlondikeProducts(question).matches || []).slice(0, 6).map((m) => ({
@@ -2317,7 +3778,17 @@ export function buildProductEntityAdvisorResponse(inputText) {
     };
   }
 
-  if (!flagship && !pdsRow && !greaseCanonical && !hydraulicCanonical && !hdCanonical && !transmissionCanonical && !coolantCanonical) {
+  if (
+    !flagship &&
+    !pdsRow &&
+    !greaseCanonical &&
+    !hydraulicCanonical &&
+    !hdCanonical &&
+    !transmissionCanonical &&
+    !coolantCanonical &&
+    !gearOilCanonical &&
+    !industrialSpecialtyCanonical
+  ) {
     return {
       ...empty,
       title: resolved.label || "Klondike product",
@@ -2340,6 +3811,8 @@ export function buildProductEntityAdvisorResponse(inputText) {
     !hdCanonical &&
     !transmissionCanonical &&
     !coolantCanonical &&
+    !gearOilCanonical &&
+    !industrialSpecialtyCanonical &&
     flagship &&
     isNanoEp2FlagshipId(flagship.id)
       ? NANO_EP_2_FLAGSHIP_PRODUCT_INTELLIGENCE
@@ -2350,6 +3823,8 @@ export function buildProductEntityAdvisorResponse(inputText) {
     hdCanonical?.productName ||
     transmissionCanonical?.productName ||
     coolantCanonical?.productName ||
+    gearOilCanonical?.productName ||
+    industrialSpecialtyCanonical?.productName ||
     nanoIntel?.canonicalProductLabel ||
     flagship?.productName ||
     pdsKey ||
@@ -2365,11 +3840,15 @@ export function buildProductEntityAdvisorResponse(inputText) {
           ? transmissionCanonical.whyItWins
           : coolantCanonical
             ? coolantCanonical.whyItWins
-            : nanoIntel
-              ? nanoIntel.whyItWins
-              : flagship?.whyItWins ||
-                (pdsRow?.why ? String(pdsRow.why) : "") ||
-                `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
+            : gearOilCanonical
+              ? gearOilCanonical.salesPositioning
+              : industrialSpecialtyCanonical
+                ? industrialSpecialtyCanonical.salesPositioning
+                : nanoIntel
+                  ? nanoIntel.whyItWins
+                  : flagship?.whyItWins ||
+                    (pdsRow?.why ? String(pdsRow.why) : "") ||
+                    `Product-first coaching for ${titleLabel}—ground claims on the indexed PDS map row and live PDS revision.`;
 
   const sections = greaseCanonical
     ? buildEntitySectionsFromGreaseCanonical(greaseCanonical)
@@ -2381,7 +3860,11 @@ export function buildProductEntityAdvisorResponse(inputText) {
           ? buildEntitySectionsFromTransmissionCanonical(transmissionCanonical)
           : coolantCanonical
             ? buildEntitySectionsFromCoolantCanonical(coolantCanonical)
-            : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
+            : gearOilCanonical
+              ? buildEntitySectionsFromGearOilCanonical(gearOilCanonical)
+              : industrialSpecialtyCanonical
+                ? buildEntitySectionsFromIndustrialSpecialtyOilCanonical(industrialSpecialtyCanonical)
+                : buildEntitySectionsFromSources(flagship, pdsKey, pdsRow);
   const followUpQuestions = sections.find((s) => s.id === "questionsToAsk")?.items || [];
   const cautionNotes =
     greaseCanonical?.cautionNotes?.length
@@ -2406,7 +3889,17 @@ export function buildProductEntityAdvisorResponse(inputText) {
                   ...coolantCanonical.cautionNotes,
                   ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
                 ])
-              : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
+              : gearOilCanonical?.cautions?.length
+                ? uniqStrings([
+                    ...gearOilCanonical.cautions,
+                    ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
+                  ])
+                : industrialSpecialtyCanonical?.cautions?.length
+                  ? uniqStrings([
+                      ...industrialSpecialtyCanonical.cautions,
+                      ...(sections.find((s) => s.id === "confirmBeforeUse")?.items || []),
+                    ])
+                  : sections.find((s) => s.id === "confirmBeforeUse")?.items || empty.cautionNotes;
 
   /** @type {string[]} */
   const sourceBadges = ["Product entity resolver", "PDS map index"];
@@ -2415,6 +3908,10 @@ export function buildProductEntityAdvisorResponse(inputText) {
   if (hdCanonical) sourceBadges.push("HD engine oil canonical product intelligence");
   if (transmissionCanonical) sourceBadges.push("Transmission canonical product intelligence");
   if (coolantCanonical) sourceBadges.push("Coolant canonical product intelligence");
+  if (gearOilCanonical) sourceBadges.push("Gear oil canonical product intelligence");
+  if (industrialSpecialtyCanonical) {
+    sourceBadges.push("Industrial specialty oil canonical product intelligence");
+  }
   if (flagship) sourceBadges.push("Flagship product intelligence");
   if (nanoIntel) sourceBadges.push("Nano EP 2 canonical intelligence");
 
