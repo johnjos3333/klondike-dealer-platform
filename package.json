@@ -43,6 +43,7 @@
     "test:product-narrative-composer": "node src/data/salesEnablement/runProductNarrativeComposerSmokeTests.js",
     "test:canonical-resolver": "node src/data/salesEnablement/runCanonicalResolverSmokeTests.js",
     "test:hd-engine-oil-canonical": "node src/data/salesEnablement/runHdEngineOilCanonicalSmokeTests.js",
+    "test:transmission-canonical": "node src/data/salesEnablement/runTransmissionCanonicalSmokeTests.js",
     "test:advisor-routing": "node src/data/salesEnablement/runAdvisorRoutingPrecedenceSmokeTests.js"
   },
   "browserslist": [
