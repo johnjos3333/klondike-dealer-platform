@@ -17105,6 +17105,13 @@ const handleFinishDealerEnrollment = async () => {
               else if (st === "handled") handledCount += 1;
             });
             const remainingCount = Math.max(0, totalShown - preparedCount - handledCount);
+            const dealerRisksFlagged = klondikeActionCenterActionsKlDashboard.filter(
+              (a) =>
+                a.kind === "dealer_activation" ||
+                (a.kind === "spotlight" &&
+                  typeof a.severityRank === "number" &&
+                  a.severityRank === 0)
+            ).length;
             const queueActions = klondikeActionCenterActionsKlDashboard;
             const actionIsHighPriority = (a) => {
               const sev = typeof a.severityRank === "number" ? a.severityRank : null;
@@ -17143,6 +17150,7 @@ const handleFinishDealerEnrollment = async () => {
                     gap: 8,
                     gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 96px), 1fr))",
                   }}
+                  title={`Dealer activation / critical spotlight items in queue: ${dealerRisksFlagged}`}
                 >
                   <div style={{ ...tileBase, borderLeft: "3px solid #dc2626" }}>
                     <div
