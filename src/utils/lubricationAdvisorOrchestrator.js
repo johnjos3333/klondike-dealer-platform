@@ -60,6 +60,10 @@ import {
   buildProductEntityAdvisorResponse,
   detectKlondikeProductEntity,
 } from "./klondikeProductEntityResolver.js";
+import {
+  buildHydraulicTroubleshootingResponse,
+  detectHydraulicTroubleshootingIntent,
+} from "./hydraulicTroubleshootingAdvisorHelpers.js";
 
 const MATCH_THRESHOLD = 6;
 /** Named product entity early-route (aligns with `klondikeProductEntityResolver` exact threshold). */
@@ -382,6 +386,7 @@ function hasReasonableKlondikeProductSearch(searchResult) {
  */
 function shouldSkipProductRetrievalRouting(question) {
   if (shouldRouteGreaseThickenerCompatibility(question)) return true;
+  if (shouldRouteHydraulicTroubleshooting(question)) return true;
   const t = detectTroubleshootingIntent(question)[0]?.score || 0;
   if (t >= PRODUCT_RETRIEVAL_EXCLUDE_SCORE) return true;
   const r = detectRoleBasedSalesIntent(question)[0]?.score || 0;
@@ -443,6 +448,25 @@ function shouldRouteGreaseThickenerCompatibility(question) {
 }
 
 /**
+ * Hydraulic troubleshooting (canonical profiles) — before product entity, retrieval, and generic troubleshooting.
+ * @param {string} question
+ */
+function shouldRouteHydraulicTroubleshooting(question) {
+  const detected = detectHydraulicTroubleshootingIntent(question);
+  return detected.confidence === "exact" || detected.confidence === "likely";
+}
+
+/**
+ * @param {ReturnType<typeof detectHydraulicTroubleshootingIntent>} detected
+ */
+function hydraulicTroubleshootingOrchestratorConfidence(detected) {
+  const topScore = detected.matches[0]?.score || 0;
+  if (detected.confidence === "exact") return Math.min(0.95, 0.78 + topScore / 48);
+  if (detected.confidence === "likely") return Math.min(0.88, 0.58 + topScore / 48);
+  return 0;
+}
+
+/**
  * @param {unknown} inputText
  * @returns {{
  *   intent: string,
@@ -487,6 +511,21 @@ export function buildLubricationAdvisorResponse(inputText) {
         cautionNotes: compatibility.cautionNotes || [],
       };
     }
+  }
+
+  const hydraulicDetected = detectHydraulicTroubleshootingIntent(question);
+  if (hydraulicDetected.confidence === "exact" || hydraulicDetected.confidence === "likely") {
+    const hydraulicResp = buildHydraulicTroubleshootingResponse(question);
+    return {
+      intent: "hydraulic_troubleshooting",
+      confidence: hydraulicTroubleshootingOrchestratorConfidence(hydraulicDetected),
+      title: hydraulicResp.title,
+      directAnswer: hydraulicResp.directAnswer,
+      sections: hydraulicResp.sections || [],
+      followUpQuestions: hydraulicResp.followUpQuestions || [],
+      sourceBadges: hydraulicResp.sourceBadges || ["Hydraulic troubleshooting intelligence"],
+      cautionNotes: hydraulicResp.cautionNotes || [],
+    };
   }
 
   const entityDetected = detectKlondikeProductEntity(question);
