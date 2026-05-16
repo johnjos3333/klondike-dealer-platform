@@ -38,6 +38,11 @@ import {
 } from "./data/salesEnablement/salesEnablementPdsUrl";
 import { getSalesEnablementFlagshipNarrativeByProductName } from "./data/salesEnablement/salesEnablementFlagshipNarrativeLookup";
 import {
+  ENABLEMENT_VISUAL_FALLBACK_KEY,
+  getEnablementVisualForPackage,
+  getEnablementVisualForProduct,
+} from "./data/salesEnablement/enablementVisualRegistry";
+import {
   buildSalesEnablementPackage,
   buildRecommendedEnablementActions,
   findCanonicalProductsForEnablement,
@@ -4670,6 +4675,9 @@ useEffect(() => {
     setSeGuidedStep3ProfileIndustry("");
     setSeGuidedStep3ProfileFocus("");
   }, [seGuidedWizardMessageKind]);
+  useEffect(() => {
+    setSeGuidedStep4ProductImgFailed(false);
+  }, [seGuidedAssemblyDraftPackage]);
   useEffect(() => {
     setSeGuidedStep3ProductId("");
   }, [seGuidedStep3CategoryKey]);
@@ -11545,6 +11553,29 @@ const handleFinishDealerEnrollment = async () => {
                     ? "PRODUCT SPOTLIGHT"
                     : seTrainingPackageTypeRaw.replace(/_/g, " ").toUpperCase();
             const seTrainingHeroBadges = seAssemblyPkg ? inferKlondikePackageHeroBadges(seAssemblyPkg) : [];
+            const seHeroEnablementVisualSelection = (() => {
+              const fb = ENABLEMENT_VISUAL_FALLBACK_KEY;
+              if (!seGuidedAssemblyDraftPackage) {
+                return { path: "", key: fb, source: "none", useImage: false };
+              }
+              const pkgVis = getEnablementVisualForPackage(seGuidedAssemblyDraftPackage);
+              let selected = pkgVis;
+              let source = "package";
+              const firstCard = Array.isArray(seGuidedAssemblyDraftPackage.productCards)
+                ? seGuidedAssemblyDraftPackage.productCards[0]
+                : null;
+              if (firstCard) {
+                const prodVis = getEnablementVisualForProduct(firstCard);
+                if (pkgVis.key === fb && prodVis.key !== fb) {
+                  selected = prodVis;
+                  source = "product";
+                }
+              }
+              const path = String(selected.path || "").trim();
+              const useImage =
+                Boolean(path) && path.startsWith("/enablement-visuals/") && /\.svg$/i.test(path);
+              return { path, key: selected.key, source, useImage };
+            })();
             const seGuardrailLines = (() => {
               if (!seAssemblyPkg) return [];
               const complianceSec = sePkgPickSection((t) =>
@@ -11884,53 +11915,145 @@ const handleFinishDealerEnrollment = async () => {
                           borderRadius: 16,
                           minHeight: 220,
                           alignSelf: "stretch",
-                          border: "2px solid rgba(248, 250, 252, 0.35)",
+                          border:
+                            seHeroEnablementVisualSelection.useImage && !seGuidedStep4ProductImgFailed
+                              ? "1px solid rgba(30, 58, 138, 0.28)"
+                              : "2px solid rgba(248, 250, 252, 0.35)",
                           background:
-                            "linear-gradient(150deg, rgba(15,23,42,0.65) 0%, rgba(30,58,138,0.35) 45%, rgba(226,232,240,0.12) 100%)",
+                            seHeroEnablementVisualSelection.useImage && !seGuidedStep4ProductImgFailed
+                              ? "linear-gradient(165deg, #f8fafc 0%, #e2e8f0 55%, #f1f5f9 100%)"
+                              : "linear-gradient(150deg, rgba(15,23,42,0.65) 0%, rgba(30,58,138,0.35) 45%, rgba(226,232,240,0.12) 100%)",
                           display: "grid",
-                          placeItems: "center",
-                          padding: 20,
+                          alignContent: "stretch",
+                          padding: 14,
                           textAlign: "center",
                           gap: 10,
-                          boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.25)",
+                          boxShadow:
+                            seHeroEnablementVisualSelection.useImage && !seGuidedStep4ProductImgFailed
+                              ? "inset 0 0 0 1px rgba(148, 163, 184, 0.25)"
+                              : "inset 0 0 0 1px rgba(15, 23, 42, 0.25)",
+                          overflow: "hidden",
                         }}
                       >
-                        <div
-                          style={{
-                            width: 56,
-                            height: 56,
-                            borderRadius: "50%",
-                            background: "rgba(15, 23, 42, 0.45)",
-                            border: "2px dashed rgba(248, 250, 252, 0.45)",
-                            display: "grid",
-                            placeItems: "center",
-                            fontSize: 26,
-                            lineHeight: 1,
-                          }}
-                          aria-hidden
-                        >
-                          📷
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 900,
-                            letterSpacing: "0.12em",
-                            color: "rgba(248, 250, 252, 0.95)",
-                          }}
-                        >
-                          PRODUCT IMAGE
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: "rgba(226, 232, 240, 0.92)",
-                            lineHeight: 1.4,
-                          }}
-                        >
-                          Upload image in Phase 5C
-                        </div>
+                        {seHeroEnablementVisualSelection.useImage && !seGuidedStep4ProductImgFailed ? (
+                          <>
+                            <div
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 900,
+                                letterSpacing: "0.14em",
+                                color: "#1e3a8a",
+                                textAlign: "left",
+                              }}
+                            >
+                              AUTO-SELECTED VISUAL
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                color: "#64748b",
+                                lineHeight: 1.35,
+                                textAlign: "left",
+                              }}
+                            >
+                              Based on product/category signals.
+                            </div>
+                            <div
+                              style={{
+                                borderRadius: 12,
+                                overflow: "hidden",
+                                background: "#ffffff",
+                                border: "1px solid rgba(226, 232, 240, 0.95)",
+                                minHeight: 140,
+                                flex: "1 1 auto",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <img
+                                src={seHeroEnablementVisualSelection.path}
+                                alt=""
+                                decoding="async"
+                                loading="lazy"
+                                onError={() => setSeGuidedStep4ProductImgFailed(true)}
+                                style={{
+                                  width: "100%",
+                                  height: "100%",
+                                  minHeight: 140,
+                                  maxHeight: 280,
+                                  objectFit: "contain",
+                                  display: "block",
+                                }}
+                              />
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 600,
+                                color: "#94a3b8",
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              Product image upload coming next.
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div
+                              style={{
+                                width: 56,
+                                height: 56,
+                                borderRadius: "50%",
+                                background: "rgba(15, 23, 42, 0.45)",
+                                border: "2px dashed rgba(248, 250, 252, 0.45)",
+                                display: "grid",
+                                placeItems: "center",
+                                fontSize: 26,
+                                lineHeight: 1,
+                                justifySelf: "center",
+                              }}
+                              aria-hidden
+                            >
+                              📷
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 900,
+                                letterSpacing: "0.12em",
+                                color: "rgba(248, 250, 252, 0.95)",
+                              }}
+                            >
+                              PRODUCT IMAGE
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: "rgba(226, 232, 240, 0.92)",
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              {!seGuidedAssemblyDraftPackage
+                                ? "Generate a Klondike draft to auto-select a category visual."
+                                : seGuidedStep4ProductImgFailed
+                                  ? "Could not load the suggested visual."
+                                  : "Suggested visual unavailable — using placeholder."}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 600,
+                                color: "rgba(148, 163, 184, 0.95)",
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              Product image upload coming next.
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
