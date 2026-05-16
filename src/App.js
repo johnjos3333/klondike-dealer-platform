@@ -10900,6 +10900,8 @@ const handleFinishDealerEnrollment = async () => {
               salesEnablementSendPanelOpen
             )
               guidedStep = 5;
+            /** Phase 5A — 4-step visual progress (preview + send share step 4). */
+            const displayGuidedStep = guidedStep >= 4 ? 4 : guidedStep;
             const wizardProfileRow =
               (SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles || []).find(
                 (p) => String(p?.id) === String(seGuidedWizardProfileRefId)
@@ -11169,8 +11171,8 @@ const handleFinishDealerEnrollment = async () => {
                 </div>
               ));
             const stepChip = (n, label) => {
-              const active = guidedStep === n;
-              const done = guidedStep > n;
+              const active = displayGuidedStep === n;
+              const done = displayGuidedStep > n;
               return (
                 <div
                   key={label}
@@ -11337,37 +11339,20 @@ const handleFinishDealerEnrollment = async () => {
                       fontSize: 11,
                       fontWeight: 900,
                       letterSpacing: "0.14em",
-                      color: "#64748b",
+                      color: "#1e3a8a",
                     }}
                   >
-                    GUIDED SPOTLIGHT WIZARD
+                    SALES ENABLEMENT WIZARD
                   </div>
                   <h3 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.02em" }}>
-                    Guided Spotlight Wizard
+                    Create Sales Enablement Material
                   </h3>
                   <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.55, maxWidth: 900 }}>
-                    Follow the five steps in order: lock who you are planning for, pick the message shape, start from a
-                    system-generated draft from KLONDIKE product intelligence, review the mock template, then use the
-                    same Prepare Send / staging controls as before. Drafts are grounded in canonical product/PDS
-                    intelligence — review, edit, and send when ready. The admin stays in control — the system prepares
-                    the first pass.
+                    Build Klondike-branded product spotlights, category spotlights, and customer profiles for dealer reps.
                   </p>
-                  <div
-                    style={{
-                      marginTop: 2,
-                      padding: "12px 14px",
-                      borderRadius: 12,
-                      background: "linear-gradient(120deg, rgba(239, 246, 255, 0.95) 0%, rgba(255, 247, 237, 0.9) 100%)",
-                      border: "1px solid rgba(59, 130, 246, 0.35)",
-                      maxWidth: 900,
-                    }}
-                  >
-                    <p style={{ margin: 0, fontSize: 12, color: "#334155", lineHeight: 1.55, fontWeight: 700 }}>
-                      Spotlight Assembly Engine pre-fills dealer-facing draft copy from indexed canonical intelligence
-                      (PDS maps, rep questions, guardrails). It does not change outbound payloads or send routing — you
-                      still choose the library row and confirm Prepare Send exactly as before.
-                    </p>
-                  </div>
+                  <p style={{ margin: 0, fontSize: 12, color: "#475569", lineHeight: 1.5, maxWidth: 900, fontWeight: 600 }}>
+                    The system drafts the first pass from KLONDIKE product intelligence. You review, edit, and send.
+                  </p>
                   <div
                     style={{
                       display: "flex",
@@ -11376,10 +11361,9 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     {stepChip(1, "Audience")}
-                    {stepChip(2, "Message type")}
-                    {stepChip(3, "Build spotlight")}
-                    {stepChip(4, "Preview")}
-                    {stepChip(5, "Send / stage")}
+                    {stepChip(2, "Type")}
+                    {stepChip(3, "Draft")}
+                    {stepChip(4, "Preview & Send")}
                   </div>
 
                   <div
@@ -11393,8 +11377,11 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#1e40af" }}>
-                      STEP 1 · AUDIENCE
+                      {"STEP 1 — AUDIENCE"}
                     </div>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
+                      Who should receive this?
+                    </p>
                     <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
                       Choose a dealer organization for routing context (same list as Dealer Enablement Intelligence).{" "}
                       <strong style={{ color: "#334155" }}>Send to all dealers</strong> is a planning flag only—Prepare
@@ -11505,8 +11492,11 @@ const handleFinishDealerEnrollment = async () => {
 
                   <div style={{ display: "grid", gap: 12 }}>
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-                      STEP 2 · MESSAGE TYPE
+                      {"STEP 2 — CONTENT TYPE"}
                     </div>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
+                      What do you want to create?
+                    </p>
                     <div
                       style={{
                         display: "grid",
@@ -11517,22 +11507,22 @@ const handleFinishDealerEnrollment = async () => {
                       {[
                         {
                           kind: "product",
-                          title: "PRODUCT SPOTLIGHT",
-                          sub: "SKU-level story, proof points, and spec callouts for a single hero product.",
+                          title: "Product Spotlight",
+                          sub: "A single product, application, or spec story for reps.",
                           accent: "#1d4ed8",
                           bg: "linear-gradient(160deg, #eff6ff 0%, #ffffff 55%)",
                         },
                         {
                           kind: "category",
-                          title: "CATEGORY SPOTLIGHT",
-                          sub: "Vertical or category plays—fleet discipline, hydraulic programs, synthetic upgrades.",
+                          title: "Category Spotlight",
+                          sub: "A category or fleet-wide opportunity for reps to lean on.",
                           accent: "#c2410c",
                           bg: "linear-gradient(160deg, #fff7ed 0%, #ffffff 55%)",
                         },
                         {
                           kind: "customer_profile",
-                          title: "CUSTOMER PROFILE",
-                          sub: "Industry archetypes for coaching language—pairs with library spotlights for context only.",
+                          title: "Customer Profile",
+                          sub: "Coaching and discovery language for a customer type.",
                           accent: "#047857",
                           bg: "linear-gradient(160deg, #ecfdf5 0%, #ffffff 55%)",
                         },
@@ -11588,13 +11578,14 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-                      STEP 3 · AI-GUIDED SPOTLIGHT BUILDER
+                      {"STEP 3 — GENERATE DRAFT"}
                     </div>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
+                      What should the system build?
+                    </p>
                     <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5, maxWidth: 860 }}>
-                      Describe the opportunity in plain language, then use{" "}
-                      <strong style={{ color: "#334155" }}>Generate Draft</strong> to pull a first pass from canonical
-                      product intelligence (PDS-backed rows, rep questions, cross-sell angles, guardrails). Step 4 preview
-                      and send payloads behave as before — this step only assists the editable intro and preview hints.
+                      Enter a product or topic and optional context, then generate a first draft. You can refine the copy
+                      anytime before sending.
                     </p>
                     {!messageKindReady ? (
                       <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", fontWeight: 700, lineHeight: 1.45 }}>
@@ -11614,7 +11605,7 @@ const handleFinishDealerEnrollment = async () => {
                           }}
                         >
                           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#4338ca" }}>
-                            GUIDED PROMPT
+                            PRODUCT OR TOPIC
                           </div>
                           <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
                             {seGuidedWizardMessageKind === "customer_profile"
@@ -11659,18 +11650,14 @@ const handleFinishDealerEnrollment = async () => {
                           }}
                         >
                           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#1e40af" }}>
-                            SPOTLIGHT ASSEMBLY · DRAFT ONLY
+                            DRAFT INPUTS
                           </div>
                           <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.5, fontWeight: 600 }}>
-                            Start with a system-generated draft from KLONDIKE product intelligence. Audience for this
-                            pass mirrors Step 1:{" "}
-                            <strong style={{ color: "#0f172a" }}>
-                              {seGuidedWizardAudienceAll ? "KL Admin / territory-wide planning" : "field rep coaching"}
-                            </strong>
-                            . Everything below stays editable before send.
+                            Klondike intelligence suggests talking points and structure for the draft below. You stay in
+                            control — edit before send.
                           </p>
                           <label style={{ display: "grid", gap: 6, fontSize: 10, fontWeight: 800, color: "#64748b" }}>
-                            OPTIONAL GOAL / CONTEXT
+                            Optional goal / context
                             <input
                               type="text"
                               value={seGuidedAssemblyContextNote}
@@ -11708,26 +11695,44 @@ const handleFinishDealerEnrollment = async () => {
                                 opacity: seGuidedAssemblyDraftBusy ? 0.85 : 1,
                               }}
                             >
-                              {seGuidedAssemblyDraftPackage?.ok ? "Refresh draft" : "Generate draft"}
+                              {seGuidedAssemblyDraftPackage?.ok ? "Refresh Klondike Draft" : "Generate Klondike Draft"}
                             </button>
                             {seGuidedAssemblyDraftBusy ? (
-                              <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Assembling…</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Working…</span>
                             ) : null}
                           </div>
                           {seGuidedAssemblySelectedCanonicalIds.length ? (
-                            <div
+                            <details
                               style={{
-                                fontSize: 10,
-                                fontWeight: 800,
-                                color: "#475569",
-                                padding: "8px 10px",
                                 borderRadius: 8,
-                                background: "#eff6ff",
-                                border: "1px solid rgba(59, 130, 246, 0.35)",
+                                background: "#f8fafc",
+                                border: "1px solid rgba(226, 232, 240, 0.98)",
+                                padding: "8px 10px",
                               }}
                             >
-                              Canonical focus: {seGuidedAssemblySelectedCanonicalIds.slice(0, 4).join(", ")}
-                            </div>
+                              <summary
+                                style={{
+                                  cursor: "pointer",
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  color: "#475569",
+                                  listStyle: "none",
+                                }}
+                              >
+                                Match detail (IDs)
+                              </summary>
+                              <div
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                  color: "#475569",
+                                  paddingTop: 8,
+                                  lineHeight: 1.45,
+                                }}
+                              >
+                                {seGuidedAssemblySelectedCanonicalIds.slice(0, 4).join(", ")}
+                              </div>
+                            </details>
                           ) : null}
                           {seGuidedAssemblyDraftError ? (
                             <div
@@ -11754,6 +11759,26 @@ const handleFinishDealerEnrollment = async () => {
                             </div>
                           ) : null}
                           {seGuidedAssemblyDraftPackage?.ok ? (
+                            <details
+                              style={{
+                                borderRadius: 12,
+                                border: "1px solid rgba(226, 232, 240, 0.98)",
+                                boxShadow: "0 8px 20px rgba(15, 23, 42, 0.05)",
+                                background: "#ffffff",
+                                padding: "10px 12px 12px",
+                              }}
+                            >
+                              <summary
+                                style={{
+                                  cursor: "pointer",
+                                  fontSize: 12,
+                                  fontWeight: 900,
+                                  color: "#475569",
+                                  listStyle: "none",
+                                }}
+                              >
+                                Draft outline (expand)
+                              </summary>
                             <div
                               style={{
                                 borderRadius: 12,
@@ -11991,32 +12016,41 @@ const handleFinishDealerEnrollment = async () => {
                                 </div>
                               ) : null}
                               <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>
-                                {spotlightAssemblyCanonicalCatalogCount || 0}+ indexed canonical products in engine.
+                                {spotlightAssemblyCanonicalCatalogCount || 0}+ indexed products available for drafts.
                               </div>
                             </div>
+                            </details>
                           ) : null}
                           {Array.isArray(seGuidedAssemblyRecommendedActions) &&
                           seGuidedAssemblyRecommendedActions.length ? (
-                            <div
+                            <details
                               style={{
                                 borderRadius: 10,
-                                padding: "10px 12px",
+                                padding: "8px 10px",
                                 background: "#ffffff",
                                 border: "1px dashed rgba(100, 116, 139, 0.55)",
                               }}
                             >
-                              <div
+                              <summary
                                 style={{
-                                  fontSize: 9,
-                                  fontWeight: 900,
-                                  letterSpacing: "0.08em",
+                                  cursor: "pointer",
+                                  fontSize: 11,
+                                  fontWeight: 800,
                                   color: "#64748b",
-                                  marginBottom: 6,
+                                  listStyle: "none",
                                 }}
                               >
-                                SUGGESTED NEXT STEPS (SCORING)
-                              </div>
-                              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#475569", lineHeight: 1.45 }}>
+                                Suggested follow-ups (optional)
+                              </summary>
+                              <ul
+                                style={{
+                                  margin: "8px 0 0",
+                                  paddingLeft: 18,
+                                  fontSize: 11,
+                                  color: "#475569",
+                                  lineHeight: 1.45,
+                                }}
+                              >
                                 {seGuidedAssemblyRecommendedActions.slice(0, 4).map((a, i) => (
                                   <li key={`rec-act-${i}`}>
                                     <strong style={{ color: "#0f172a" }}>{String(a.action || "").replace(/_/g, " ")}</strong>
@@ -12024,13 +12058,14 @@ const handleFinishDealerEnrollment = async () => {
                                   </li>
                                 ))}
                               </ul>
-                            </div>
+                            </details>
                           ) : null}
                           {String(seGuidedBuilderQuery || "").trim().length >= 2 ? (
                             <div style={{ display: "grid", gap: 8 }}>
                               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#64748b" }}>
-                                CANONICAL PRODUCT MATCHES ({seGuidedWizardMessageKind === "customer_profile" ? "optional lens · " : ""}
-                                {seGuidedCanonicalSearchHits.length} shown)
+                                Suggested matches
+                                {seGuidedWizardMessageKind === "customer_profile" ? " (optional lens)" : ""} ·{" "}
+                                {seGuidedCanonicalSearchHits.length} shown
                               </div>
                               <div style={{ display: "grid", gap: 6 }}>
                                 {seGuidedCanonicalSearchHits.length ? (
@@ -12073,7 +12108,7 @@ const handleFinishDealerEnrollment = async () => {
                                           flexShrink: 0,
                                         }}
                                       >
-                                        Use in draft
+                                        Use in Draft
                                       </button>
                                     </div>
                                   ))
@@ -12087,16 +12122,33 @@ const handleFinishDealerEnrollment = async () => {
                           ) : null}
                         </div>
                         {guidedSpotlightBuilderRecommendation?.match ? (
-                          <div
+                          <details
                             style={{
                               borderRadius: 12,
-                              padding: "14px 14px 16px",
+                              padding: "10px 12px",
                               border: "1px solid rgba(45, 212, 191, 0.4)",
                               background: "linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 55%, #ffffff 100%)",
-                              display: "grid",
-                              gap: 10,
                             }}
                           >
+                            <summary
+                              style={{
+                                cursor: "pointer",
+                                fontSize: 12,
+                                fontWeight: 900,
+                                color: "#0f766e",
+                                listStyle: "none",
+                                letterSpacing: "0.06em",
+                              }}
+                            >
+                              Extra library suggestion (optional)
+                            </summary>
+                            <div
+                              style={{
+                                display: "grid",
+                                gap: 10,
+                                paddingTop: 12,
+                              }}
+                            >
                             <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#0f766e" }}>
                               RECOMMENDED SPOTLIGHT
                             </div>
@@ -12185,7 +12237,7 @@ const handleFinishDealerEnrollment = async () => {
                                   View Product Data Sheet
                                 </a>
                                 <span style={{ display: "block", marginTop: 4, fontSize: 10, color: "#94a3b8" }}>
-                                  Preview link only — not added to send payload automatically.
+                                  Preview link only — not added to your send automatically.
                                 </span>
                               </div>
                             ) : null}
@@ -12226,7 +12278,8 @@ const handleFinishDealerEnrollment = async () => {
                             >
                               Use Recommended Spotlight
                             </button>
-                          </div>
+                            </div>
+                          </details>
                         ) : String(seGuidedBuilderQuery || "").trim().length >= 2 ? (
                           <div
                             style={{
@@ -12242,62 +12295,77 @@ const handleFinishDealerEnrollment = async () => {
                             No strong library match yet—try another keyword or expand the Advanced Library below.
                           </div>
                         ) : null}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontSize: 10, fontWeight: 800, color: "#94a3b8", letterSpacing: "0.06em" }}>
-                            MESSAGE TYPE
-                          </span>
-                          <span
+                        <details style={{ borderRadius: 10, padding: "6px 10px", background: "#f8fafc" }}>
+                          <summary
                             style={{
+                              cursor: "pointer",
                               fontSize: 11,
-                              fontWeight: 900,
-                              padding: "5px 12px",
-                              borderRadius: 999,
-                              background: "#eff6ff",
-                              color: "#1e40af",
-                              border: "1px solid rgba(59, 130, 246, 0.35)",
+                              fontWeight: 800,
+                              color: "#94a3b8",
+                              listStyle: "none",
                             }}
                           >
-                            {buildMessageTypeLabel}
-                          </span>
-                        </div>
-                        <div
-                          style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "10px 12px",
-                            borderRadius: 12,
-                            background: "linear-gradient(90deg, #f8fafc 0%, #eff6ff 52%, #fff7ed 100%)",
-                            border: "1px solid rgba(226, 232, 240, 0.95)",
-                          }}
-                          aria-hidden
-                        >
-                          {["Audience", "Content", "LFBB", "Preview"].map((lab, i) => (
-                            <div key={lab} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            Content mode & workflow map (optional)
+                          </summary>
+                          <div style={{ display: "grid", gap: 10, paddingTop: 10 }}>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                              <span style={{ fontSize: 10, fontWeight: 800, color: "#94a3b8", letterSpacing: "0.06em" }}>
+                                Content type
+                              </span>
                               <span
                                 style={{
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   fontWeight: 900,
-                                  letterSpacing: "0.04em",
-                                  padding: "6px 10px",
-                                  borderRadius: 8,
-                                  background: "#ffffff",
-                                  color: "#334155",
-                                  border: "1px solid rgba(203, 213, 225, 0.85)",
-                                  boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
+                                  padding: "5px 12px",
+                                  borderRadius: 999,
+                                  background: "#eff6ff",
+                                  color: "#1e40af",
+                                  border: "1px solid rgba(59, 130, 246, 0.35)",
                                 }}
                               >
-                                {lab}
+                                {buildMessageTypeLabel}
                               </span>
-                              {i < 3 ? (
-                                <span style={{ fontSize: 12, fontWeight: 900, color: "#cbd5e1" }} aria-hidden>
-                                  →
-                                </span>
-                              ) : null}
                             </div>
-                          ))}
-                        </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                gap: 8,
+                                padding: "10px 12px",
+                                borderRadius: 12,
+                                background: "linear-gradient(90deg, #f8fafc 0%, #eff6ff 52%, #fff7ed 100%)",
+                                border: "1px solid rgba(226, 232, 240, 0.95)",
+                              }}
+                              aria-hidden
+                            >
+                              {["Audience", "Content", "LFBB", "Preview"].map((lab, i) => (
+                                <div key={lab} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.04em",
+                                      padding: "6px 10px",
+                                      borderRadius: 8,
+                                      background: "#ffffff",
+                                      color: "#334155",
+                                      border: "1px solid rgba(203, 213, 225, 0.85)",
+                                      boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
+                                    }}
+                                  >
+                                    {lab}
+                                  </span>
+                                  {i < 3 ? (
+                                    <span style={{ fontSize: 12, fontWeight: 900, color: "#cbd5e1" }} aria-hidden>
+                                      →
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </details>
                         <label style={{ display: "grid", gap: 6, fontWeight: 800, color: "#475569", fontSize: 11 }}>
                           {seGuidedWizardMessageKind === "customer_profile"
                             ? "PRIMARY PROFILE (PREVIEW LENS)"
@@ -12687,48 +12755,63 @@ const handleFinishDealerEnrollment = async () => {
                     </div>
                   </div>
 
-                  <div
+                  <details
                     style={{
-                      padding: "12px 14px",
+                      maxWidth: 900,
                       borderRadius: 12,
+                      padding: "10px 12px",
                       background: "linear-gradient(135deg, rgba(248, 250, 252, 0.98) 0%, rgba(241, 245, 249, 0.92) 100%)",
                       border: "1px dashed rgba(148, 163, 184, 0.72)",
-                      display: "grid",
-                      gap: 8,
-                      maxWidth: 900,
                     }}
                   >
-                    <div
+                    <summary
                       style={{
-                        fontSize: 10,
-                        fontWeight: 800,
-                        letterSpacing: "0.12em",
-                        color: "#94a3b8",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        fontWeight: 900,
+                        color: "#475569",
+                        listStyle: "none",
+                        letterSpacing: "-0.01em",
                       }}
                     >
-                      COMING SOON
+                      Coming soon: Smart Spotlight Builder (roadmap)
+                    </summary>
+                    <div style={{ display: "grid", gap: 8, paddingTop: 10 }}>
+                      <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+                        On the roadmap: a dedicated builder that layers{" "}
+                        <strong style={{ color: "#475569" }}>product and category knowledge</strong>,{" "}
+                        <strong style={{ color: "#475569" }}>customer profiles</strong>, and{" "}
+                        <strong style={{ color: "#475569" }}>LFBB structure</strong> to generate{" "}
+                        <strong style={{ color: "#475569" }}>preview-only</strong> draft lines you can contrast with your
+                        library selection—without changing how you send today.
+                      </p>
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: "#334155", letterSpacing: "-0.01em" }}>
-                      Smart Spotlight Builder
-                    </div>
-                    <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-                      On the roadmap: a dedicated builder that layers{" "}
-                      <strong style={{ color: "#475569" }}>product and category knowledge</strong>,{" "}
-                      <strong style={{ color: "#475569" }}>customer profiles</strong>, and{" "}
-                      <strong style={{ color: "#475569" }}>LFBB structure</strong> to generate{" "}
-                      <strong style={{ color: "#475569" }}>preview-only</strong> draft lines you can contrast with your
-                      library selection—without wiring new payloads into Prepare Send.
-                    </p>
-                  </div>
+                  </details>
 
                   <div
                     style={{
+                      borderRadius: 14,
+                      padding: "16px 18px",
+                      border: "1px solid rgba(226, 232, 240, 0.98)",
+                      background: "#fafbfc",
                       display: "grid",
-                      gap: 18,
-                      gridTemplateColumns: "minmax(0, 260px) minmax(0, 1fr)",
-                      alignItems: "start",
+                      gap: 14,
                     }}
                   >
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#1e3a8a" }}>
+                      STEP 4 — PREVIEW & SEND
+                    </div>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
+                      Review the draft, make edits, then send.
+                    </p>
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 18,
+                        gridTemplateColumns: "minmax(0, 260px) minmax(0, 1fr)",
+                        alignItems: "start",
+                      }}
+                    >
                     <details
                       style={{
                         borderRadius: 12,
@@ -12752,7 +12835,7 @@ const handleFinishDealerEnrollment = async () => {
                       </summary>
                       <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
                         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: "#94a3b8" }}>
-                          STEP 4 · MOCK PREVIEW (LOCAL ONLY)
+                          Local preview only (not sent as-is)
                         </div>
                         {seToggleRow(seGuidedIncludeBranding, setSeGuidedIncludeBranding, "Include Klondike branding")}
                         {seToggleRow(seGuidedIncludeProductImage, setSeGuidedIncludeProductImage, "Include product image")}
@@ -12772,7 +12855,7 @@ const handleFinishDealerEnrollment = async () => {
                           }}
                         >
                           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: "#475569" }}>
-                            PRODUCT IMAGE (MOCK LIBRARY)
+                            Preview product image (sample)
                           </div>
                           <div
                             style={{
@@ -12864,7 +12947,7 @@ const handleFinishDealerEnrollment = async () => {
                       >
                         <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
                           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.11em", color: "#64748b" }}>
-                            STEP 4 · MESSAGE TEMPLATE PREVIEW
+                            Email-style preview
                           </div>
                           <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", lineHeight: 1.35 }}>
                             Library spotlight + Guided Spotlight Wizard toggles—compare before opening Prepare Send.
@@ -14307,82 +14390,108 @@ const handleFinishDealerEnrollment = async () => {
                             const hasSpotlight = salesEnablementSelectedId != null;
                             const readyPath = hasDealer && hasSpotlight && !seGuidedStageDraft;
                             return (
-                              <div
+                              <details
                                 style={{
-                                  padding: "10px 12px",
                                   borderRadius: 10,
+                                  padding: "8px 10px",
                                   background: "#f8fafc",
                                   border: "1px solid rgba(226, 232, 240, 0.98)",
-                                  display: "grid",
-                                  gap: 8,
                                 }}
                               >
-                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#64748b" }}>
-                                  OUTBOUND STATUS
+                                <summary
+                                  style={{
+                                    cursor: "pointer",
+                                    fontSize: 11,
+                                    fontWeight: 900,
+                                    letterSpacing: "0.06em",
+                                    color: "#64748b",
+                                    listStyle: "none",
+                                  }}
+                                >
+                                  Send readiness checklist (optional)
+                                </summary>
+                                <div style={{ display: "grid", gap: 8, paddingTop: 10 }}>
+                                  <div style={{ display: "grid", gap: 6 }}>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
+                                      <span
+                                        style={{
+                                          fontSize: 12,
+                                          fontWeight: 900,
+                                          color: seGuidedStageDraft ? "#c2410c" : "#94a3b8",
+                                        }}
+                                      >
+                                        Draft staged
+                                      </span>
+                                      <span style={{ fontSize: 11, color: "#64748b" }}>
+                                        {seGuidedStageDraft
+                                          ? "Preview locked for leadership scan—mock only."
+                                          : "Draft staging off — compose treats preview as fluid."}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
+                                      <span style={{ fontSize: 12, fontWeight: 900, color: "#1e40af" }}>
+                                        Pending KL Admin review
+                                      </span>
+                                      <span style={{ fontSize: 11, color: "#64748b" }}>
+                                        {hasDealer && hasSpotlight
+                                          ? "Validate recipients & spotlight sections before delivery."
+                                          : "Finish dealer + content picks to unlock checklist."}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
+                                      <span
+                                        style={{
+                                          fontSize: 12,
+                                          fontWeight: 900,
+                                          color: readyPath ? "#047857" : "#94a3b8",
+                                        }}
+                                      >
+                                        Ready for approved send workflow
+                                      </span>
+                                      <span style={{ fontSize: 11, color: "#64748b" }}>
+                                        {readyPath
+                                          ? "Use Prepare Send / Send Spotlight when routing is confirmed."
+                                          : hasSpotlight && hasDealer && seGuidedStageDraft
+                                            ? "Clear draft staging or open Prepare Send after review."
+                                            : "Complete selections — operational send stays unchanged below."}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <div style={{ display: "grid", gap: 6 }}>
-                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
-                                    <span
-                                      style={{
-                                        fontSize: 12,
-                                        fontWeight: 900,
-                                        color: seGuidedStageDraft ? "#c2410c" : "#94a3b8",
-                                      }}
-                                    >
-                                      Draft staged
-                                    </span>
-                                    <span style={{ fontSize: 11, color: "#64748b" }}>
-                                      {seGuidedStageDraft
-                                        ? "Preview locked for leadership scan—mock only."
-                                        : "Draft staging off — compose treats preview as fluid."}
-                                    </span>
-                                  </div>
-                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
-                                    <span style={{ fontSize: 12, fontWeight: 900, color: "#1e40af" }}>
-                                      Pending KL Admin review
-                                    </span>
-                                    <span style={{ fontSize: 11, color: "#64748b" }}>
-                                      {hasDealer && hasSpotlight
-                                        ? "Validate recipients & spotlight sections before delivery."
-                                        : "Finish dealer + content picks to unlock checklist."}
-                                    </span>
-                                  </div>
-                                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
-                                    <span
-                                      style={{
-                                        fontSize: 12,
-                                        fontWeight: 900,
-                                        color: readyPath ? "#047857" : "#94a3b8",
-                                      }}
-                                    >
-                                      Ready for approved send workflow
-                                    </span>
-                                    <span style={{ fontSize: 11, color: "#64748b" }}>
-                                      {readyPath
-                                        ? "Use Prepare Send / Send Spotlight when routing is confirmed."
-                                        : hasSpotlight && hasDealer && seGuidedStageDraft
-                                          ? "Clear draft staging or open Prepare Send after review."
-                                          : "Complete selections — operational send stays unchanged below."}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
+                              </details>
                             );
                           })()}
                         </div>
                       </div>
                       </div>
 
-                      <div style={{ display: "grid", gap: 8 }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: "#94a3b8" }}>
-                          STEP 5 · SEND / STAGE
-                        </div>
+                      <details
+                        style={{
+                          borderRadius: 12,
+                          padding: "10px 12px",
+                          background: "#fafbfc",
+                          border: "1px solid rgba(226, 232, 240, 0.98)",
+                        }}
+                      >
+                        <summary
+                          style={{
+                            cursor: "pointer",
+                            fontSize: 12,
+                            fontWeight: 900,
+                            letterSpacing: "0.06em",
+                            color: "#475569",
+                            listStyle: "none",
+                          }}
+                        >
+                          Send workflow notes & read-only preview (optional)
+                        </summary>
+                        <div style={{ display: "grid", gap: 10, paddingTop: 12 }}>
                         <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.45, fontWeight: 600 }}>
-                          <strong style={{ color: "#c2410c" }}>Mock path:</strong> draft staging and notices stay local.{" "}
-                          <strong style={{ color: "#1d4ed8" }}>Approved path:</strong> unchanged Prepare Send / Send
-                          Spotlight—same payloads and validation as before.
+                          <strong style={{ color: "#c2410c" }}>Mock path:</strong> draft staging and notices stay local
+                          to this wizard.{" "}
+                          <strong style={{ color: "#1d4ed8" }}>Approved path:</strong> Prepare Send and Send Spotlight
+                          behave exactly as before—the same checks and routing you already use.
                         </p>
-                      </div>
 
                       {guidedStep === 5 ? (
                         <div
@@ -14415,13 +14524,13 @@ const handleFinishDealerEnrollment = async () => {
                               color: "#334155",
                             }}
                           >
-                            <span>Preview approved send payload</span>
+                            <span>Preview what would send (read-only)</span>
                             <span aria-hidden style={{ fontSize: 10, color: "#64748b" }}>
                               {seGuidedApprovedSendDryRunOpen ? "▼" : "▶"}
                             </span>
                           </button>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b", lineHeight: 1.45 }}>
-                            Dry run only — actual outbound send payload unchanged.
+                            Read-only preview — your live send buttons below are unchanged.
                           </div>
                           {seGuidedApprovedSendDryRunOpen ? (
                             <div
@@ -14568,6 +14677,8 @@ const handleFinishDealerEnrollment = async () => {
                           ) : null}
                         </div>
                       ) : null}
+                        </div>
+                      </details>
 
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                         <button
@@ -14639,6 +14750,7 @@ const handleFinishDealerEnrollment = async () => {
                         </button>
                       </div>
                     </div>
+                  </div>
                   </div>
 
                 </div>
