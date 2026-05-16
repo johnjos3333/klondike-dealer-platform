@@ -4642,7 +4642,15 @@ useEffect(() => {
   /** Phase 78.1 — transient confirmation when applying Guided builder recommendation (preview only). */
   const [seGuidedRecommendedApplyBanner, setSeGuidedRecommendedApplyBanner] = useState("");
   const guidedFlagshipSelectionKeyRef = React.useRef("");
+  /** Phase 5E — registry background visual load (preview only). */
+  const [seGuidedStep4RegistryBgFailed, setSeGuidedStep4RegistryBgFailed] = useState(false);
   const [seGuidedStep4ProductImgFailed, setSeGuidedStep4ProductImgFailed] = useState(false);
+  /** Phase 5E — local-only product photo for infographic hero (session; not sent). */
+  const [seGuidedUploadedProductImageFile, setSeGuidedUploadedProductImageFile] = useState(null);
+  const [seGuidedUploadedProductImageUrl, setSeGuidedUploadedProductImageUrl] = useState(null);
+  /** Phase 5E — decode/load failure for uploaded hero preview only. */
+  const [seGuidedUploadedProductImagePreviewFailed, setSeGuidedUploadedProductImagePreviewFailed] =
+    useState(false);
   /** Phase 76.5 — Step 5 dry-run panel (read-only; does not alter invoke payload). */
   const [seGuidedApprovedSendDryRunOpen, setSeGuidedApprovedSendDryRunOpen] = useState(false);
   /** Phase 73.22 — Guided audience wizard (UI/local labels; send payloads unchanged). */
@@ -4674,10 +4682,34 @@ useEffect(() => {
     setSeGuidedStep3ProductId("");
     setSeGuidedStep3ProfileIndustry("");
     setSeGuidedStep3ProfileFocus("");
+    setSeGuidedUploadedProductImageFile(null);
+    setSeGuidedUploadedProductImageUrl((prev) => {
+      if (prev) {
+        try {
+          URL.revokeObjectURL(prev);
+        } catch {
+          /* ignore */
+        }
+      }
+      return null;
+    });
+    setSeGuidedUploadedProductImagePreviewFailed(false);
   }, [seGuidedWizardMessageKind]);
   useEffect(() => {
-    setSeGuidedStep4ProductImgFailed(false);
+    setSeGuidedStep4RegistryBgFailed(false);
+    setSeGuidedUploadedProductImagePreviewFailed(false);
   }, [seGuidedAssemblyDraftPackage]);
+  useEffect(() => {
+    return () => {
+      if (seGuidedUploadedProductImageUrl) {
+        try {
+          URL.revokeObjectURL(seGuidedUploadedProductImageUrl);
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+  }, [seGuidedUploadedProductImageUrl]);
   useEffect(() => {
     setSeGuidedStep3ProductId("");
   }, [seGuidedStep3CategoryKey]);
@@ -11652,86 +11684,287 @@ const handleFinishDealerEnrollment = async () => {
               if (tiles.length < 4) add("💬", "Rep Confidence", "");
               return tiles.slice(0, 4);
             })();
-            const seInfographicCard = (code, title, body) => (
-              <div
+            const sePosterIsLowValueLine = (line) => {
+              const t = String(line || "").toLowerCase();
+              return /pdsmapkey|internal reference|generated from|ref:\s|reference only/.test(t);
+            };
+            const sePosterUniqueLines = (items, max = 5) => {
+              const out = [];
+              const seen = new Set();
+              for (const raw of Array.isArray(items) ? items : []) {
+                const line = String(raw ?? "").trim();
+                if (!line || sePosterIsLowValueLine(line)) continue;
+                const key = line.toLowerCase().slice(0, 96);
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push(line);
+                if (out.length >= max) break;
+              }
+              return out;
+            };
+            const sePosterCard = (title, body) => (
+              <section
                 style={{
+                  minWidth: 0,
                   borderRadius: 12,
                   overflow: "hidden",
-                  border: "1px solid rgba(30, 58, 138, 0.22)",
-                  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.09)",
+                  border: "1px solid rgba(226, 232, 240, 0.95)",
+                  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
                   background: "#ffffff",
-                  minWidth: 0,
                 }}
               >
-                <div style={{ display: "grid", gridTemplateColumns: "5px 1fr", alignItems: "stretch" }}>
-                  <div style={{ background: "#ea580c", minHeight: 44 }} aria-hidden />
+                <div
+                  style={{
+                    background: "linear-gradient(90deg, #0f172a 0%, #1e3a8a 100%)",
+                    padding: "10px 16px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    borderLeft: "5px solid #ea580c",
+                  }}
+                >
+                  <span style={{ color: "#fb923c", fontWeight: 900, fontSize: 14, lineHeight: 1 }} aria-hidden>
+                    ✓
+                  </span>
                   <div
                     style={{
-                      background: "linear-gradient(90deg, #0f172a 0%, #1e40af 100%)",
-                      padding: "10px 14px",
-                      display: "grid",
-                      gap: 2,
+                      fontSize: 11,
+                      fontWeight: 900,
+                      letterSpacing: "0.12em",
+                      color: "#ffffff",
+                      textTransform: "uppercase",
                     }}
                   >
-                    <div
-                      style={{
-                        fontSize: 9,
-                        fontWeight: 900,
-                        letterSpacing: "0.14em",
-                        color: "rgba(248, 250, 252, 0.72)",
-                      }}
-                    >
-                      {code}
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: "#ffffff", lineHeight: 1.2 }}>{title}</div>
+                    {title}
                   </div>
                 </div>
-                <div style={{ padding: "14px 16px", background: "#ffffff" }}>{body}</div>
-              </div>
+                <div style={{ padding: "16px 18px 18px", background: "#ffffff" }}>{body}</div>
+              </section>
             );
+            const sePosterSection = sePosterCard;
+            const sePosterBullets = (items, emptyHint, max = 5) => {
+              const list = sePosterUniqueLines(items, max);
+              if (!list.length) {
+                return (
+                  <p style={{ margin: 0, fontSize: 13, color: "#94a3b8", fontWeight: 600, lineHeight: 1.45 }}>
+                    {emptyHint}
+                  </p>
+                );
+              }
+              return (
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
+                  {list.map((line, i) => (
+                    <li
+                      key={`pb-${i}`}
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        alignItems: "flex-start",
+                        fontSize: 13,
+                        lineHeight: 1.45,
+                        color: "#334155",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span style={{ color: "#ea580c", fontWeight: 900, fontSize: 15, flexShrink: 0 }} aria-hidden>
+                        ✓
+                      </span>
+                      <span>{line.length > 180 ? `${line.slice(0, 177)}…` : line}</span>
+                    </li>
+                  ))}
+                </ul>
+              );
+            };
+            const sePosterChips = (items, tone = "blue", max = 4) => {
+              const list = sePosterUniqueLines(items, max);
+              if (!list.length) return null;
+              const chipStyle =
+                tone === "amber"
+                  ? { background: "#fffbeb", color: "#78350f", border: "1px solid rgba(251, 191, 36, 0.45)" }
+                  : tone === "orange"
+                    ? { background: "#fff7ed", color: "#c2410c", border: "1px solid rgba(251, 146, 60, 0.4)" }
+                    : { background: "#f1f5f9", color: "#0f172a", border: "1px solid rgba(30, 58, 138, 0.2)" };
+              return (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {list.map((c, i) => (
+                    <span
+                      key={`pc-${i}`}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        padding: "6px 12px",
+                        borderRadius: 999,
+                        lineHeight: 1.35,
+                        ...chipStyle,
+                      }}
+                    >
+                      {c.length > 56 ? `${c.slice(0, 53)}…` : c}
+                    </span>
+                  ))}
+                </div>
+              );
+            };
+            const sePosterBenefitTiles = (() => {
+              const labels = ["Protection", "Application Fit", "Uptime", "Rep Confidence"];
+              const icons = ["🛡️", "🎯", "⚙️", "💬"];
+              return labels.map((label, i) => {
+                const g = seBenefitTiles[i];
+                return { icon: g?.icon || icons[i], label, sub: String(g?.sub || "").trim() };
+              });
+            })();
+            const sePosterAppLines = (() => {
+              const sec =
+                sePkgPickSection((t) => /application|use when|fit|deploy|when to/.test(t)) ||
+                sePkgPickSection((t) => /market|segment|fleet/.test(t));
+              const bullets = Array.isArray(sec?.bullets) ? sec.bullets : [];
+              const proof = (tplProofDisplay || []).map((x) => String(x).trim()).filter(Boolean);
+              return sePosterUniqueLines(bullets.length ? bullets : proof, 5);
+            })();
+            const sePosterSpecLines = sePosterUniqueLines(seSpecBulletsList, 4);
+            const sePosterRepTalkLines = (() => {
+              const ang = Array.isArray(seAssemblyPkg?.salesAngles)
+                ? seAssemblyPkg.salesAngles.map((x) => String(x ?? "").trim()).filter(Boolean)
+                : [];
+              const sea = Array.isArray(seAssemblyPkg?.salesEnablementAngles)
+                ? seAssemblyPkg.salesEnablementAngles.map((x) => String(x ?? "").trim()).filter(Boolean)
+                : [];
+              const secKnow = sePkgPickSection((t) => /rep|coach|talk|enable|know/.test(t));
+              const repBullets = Array.isArray(secKnow?.bullets) ? secKnow.bullets : [];
+              const talk =
+                previewSendUsesFlagship &&
+                Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack)
+                  ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack
+                  : [];
+              return sePosterUniqueLines([...ang, ...sea, ...talk, ...repBullets], 4);
+            })();
+            const sePosterDiscoveryQs = sePosterUniqueLines(
+              [
+                ...(Array.isArray(seAssemblyPkg?.repQuestions) ? seAssemblyPkg.repQuestions : []),
+                ...(Array.isArray(seAssemblyPkg?.customerProfileQuestions)
+                  ? seAssemblyPkg.customerProfileQuestions
+                  : []),
+              ],
+              4
+            );
+            const sePosterCrossSell = (() => {
+              const xs = Array.isArray(seAssemblyPkg?.crossSellOpportunities)
+                ? seAssemblyPkg.crossSellOpportunities
+                : [];
+              const fromCards = Array.isArray(seAssemblyPkg?.productCards) ? seAssemblyPkg.productCards : [];
+              const names = fromCards.map((row) => String(row?.productName || "").trim()).filter(Boolean);
+              return sePosterUniqueLines(xs.length ? xs : names, 4);
+            })();
+            const sePosterGuardrailLines = sePosterUniqueLines(seGuardrailLines, 3);
+            const sePosterHeroSubtitle = String(seAssemblyPkg?.subtitle || "").trim();
+            const sePosterHeroSummary = (() => {
+              const sum = seTrainingSummary;
+              const sub = sePosterHeroSubtitle;
+              if (sum && sum !== sub) return sum;
+              const sec = sePkgPickSection((t) => /summary|overview|intro/.test(t));
+              const bullets = Array.isArray(sec?.bullets) ? sec.bullets : [];
+              return String(bullets[0] || sub || sum || "").trim();
+            })();
+            const seStep4RegistryHeroBgActive =
+              seHeroEnablementVisualSelection.useImage && !seGuidedStep4RegistryBgFailed;
+            const SE_POSTER_ASSET_LOGO = "/klondike-full-logo.png";
+            const SE_POSTER_ASSET_FAVICON = "/favicon.png";
+            const SE_POSTER_ASSET_PRODUCTS = "/products.png";
             const guidedSeTrainingInfographicInner = (
               <>
                 <div
                   style={{
-                    borderRadius: 18,
+                    position: "relative",
+                    width: "100%",
+                    maxWidth: 1100,
+                    margin: "0 auto",
+                    background: "#ffffff",
+                    borderRadius: 12,
                     overflow: "hidden",
-                    border: "1px solid rgba(30, 58, 138, 0.26)",
-                    boxShadow: "0 20px 50px rgba(15, 23, 42, 0.14)",
-                    background: "#f8fafc",
+                    boxShadow: "0 28px 70px rgba(15, 23, 42, 0.16), 0 1px 0 rgba(15, 23, 42, 0.06)",
+                    border: "1px solid rgba(203, 213, 225, 0.85)",
                   }}
                 >
-                  <div
+                  <img
+                    src={SE_POSTER_ASSET_FAVICON}
+                    alt=""
+                    aria-hidden
+                    decoding="async"
                     style={{
-                      background: "linear-gradient(135deg, #020617 0%, #0f172a 38%, #1e3a8a 92%)",
-                      padding: "20px 22px 22px",
-                      color: "#ffffff",
+                      position: "absolute",
+                      top: 14,
+                      right: 16,
+                      width: 32,
+                      height: 32,
+                      opacity: 0.14,
+                      pointerEvents: "none",
+                      zIndex: 1,
                     }}
-                  >
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                  <div style={{ padding: "16px 22px 14px", background: "#ffffff", position: "relative", zIndex: 2 }}>
                     <div
                       style={{
-                        display: "grid",
-                        gap: 4,
-                        marginBottom: 16,
-                        paddingBottom: 12,
-                        borderBottom: "1px solid rgba(234, 88, 12, 0.55)",
+                        display: "flex",
+                        flexWrap: "wrap",
+                        justifyContent: "space-between",
+                        alignItems: "flex-end",
+                        gap: 12,
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: 9,
-                          fontWeight: 900,
-                          letterSpacing: "0.2em",
-                          color: "rgba(248, 250, 252, 0.95)",
-                        }}
-                      >
-                        KLONDIKE PERFORMANCE LUBRICANTS
+                      <div style={{ minWidth: 0 }}>
+                        <img
+                          src={SE_POSTER_ASSET_LOGO}
+                          alt="Klondike Performance Lubricants"
+                          decoding="async"
+                          style={{
+                            height: 58,
+                            width: "auto",
+                            maxWidth: 280,
+                            objectFit: "contain",
+                            display: "block",
+                          }}
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            const fb = e.currentTarget.parentElement?.querySelector(
+                              "[data-se-poster-logo-fallback]"
+                            );
+                            if (fb) fb.style.display = "grid";
+                          }}
+                        />
+                        <div data-se-poster-logo-fallback style={{ display: "none", gap: 4 }}>
+                        <div
+                          style={{
+                            fontSize: 22,
+                            fontWeight: 900,
+                            letterSpacing: "0.14em",
+                            color: "#0f172a",
+                            lineHeight: 1,
+                          }}
+                        >
+                          KLONDIKE
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 4,
+                            fontSize: 9,
+                            fontWeight: 800,
+                            letterSpacing: "0.22em",
+                            color: "#64748b",
+                          }}
+                        >
+                          PERFORMANCE LUBRICANTS
+                        </div>
+                        </div>
                       </div>
                       <div
                         style={{
                           fontSize: 9,
                           fontWeight: 800,
                           letterSpacing: "0.14em",
-                          color: "rgba(251, 146, 60, 0.98)",
+                          color: "#ea580c",
+                          textAlign: "right",
                         }}
                       >
                         WE GROW INDEPENDENT BUSINESS
@@ -11739,320 +11972,292 @@ const handleFinishDealerEnrollment = async () => {
                     </div>
                     <div
                       style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1.55fr) minmax(280px, 0.9fr)",
-                        gap: 20,
-                        alignItems: "stretch",
+                        marginTop: 12,
+                        height: 4,
+                        borderRadius: 2,
+                        background: "linear-gradient(90deg, #ea580c 0%, #fb923c 55%, rgba(30,58,138,0.35) 100%)",
                       }}
-                    >
-                      <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 900,
-                            letterSpacing: "0.2em",
-                            color: "#fb923c",
-                          }}
-                        >
-                          {seTrainingPackageEyebrow}
-                        </div>
-                        <h4
-                          style={{
-                            margin: 0,
-                            fontSize: 30,
-                            fontWeight: 900,
-                            color: "#ffffff",
-                            letterSpacing: "-0.03em",
-                            lineHeight: 1.1,
-                            textShadow: "0 2px 18px rgba(0,0,0,0.35)",
-                          }}
-                        >
-                          {seTrainingHeroTitle}
-                        </h4>
-                        <div
-                          style={{
-                            height: 5,
-                            width: 110,
-                            borderRadius: 3,
-                            background: "linear-gradient(90deg, #ea580c 0%, #fb923c 100%)",
-                          }}
-                          aria-hidden
-                        />
-                        {(() => {
-                          const sub = String(seAssemblyPkg?.subtitle || "").trim();
-                          const sum = seTrainingSummary;
-                          const lead = sub || sum || "";
-                          if (!lead) return null;
-                          return (
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: 15,
-                                fontWeight: 700,
-                                color: "rgba(226, 232, 240, 0.95)",
-                                lineHeight: 1.45,
-                              }}
-                            >
-                              {lead.length > 260 ? `${lead.slice(0, 257)}…` : lead}
-                            </p>
-                          );
-                        })()}
-                        {(() => {
-                          const sub = String(seAssemblyPkg?.subtitle || "").trim();
-                          const sum = seTrainingSummary;
-                          if (!sum || sum === sub) return null;
-                          return (
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: 13,
-                                color: "rgba(203, 213, 225, 0.9)",
-                                lineHeight: 1.5,
-                                fontWeight: 600,
-                              }}
-                            >
-                              {sum.length > 300 ? `${sum.slice(0, 297)}…` : sum}
-                            </p>
-                          );
-                        })()}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                          {seTrainingHeroBadges.map((b) => (
-                            <span
-                              key={b}
-                              style={{
-                                fontSize: 9,
-                                fontWeight: 900,
-                                letterSpacing: "0.07em",
-                                padding: "5px 11px",
-                                borderRadius: 999,
-                                background: "rgba(251, 146, 60, 0.18)",
-                                color: "#ffedd5",
-                                border: "1px solid rgba(251, 146, 60, 0.45)",
-                              }}
-                            >
-                              {b}
-                            </span>
-                          ))}
-                          {buildMessageTypeLabel ? (
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 900,
-                                letterSpacing: "0.06em",
-                                padding: "5px 10px",
-                                borderRadius: 999,
-                                background: "rgba(59, 130, 246, 0.22)",
-                                color: "#dbeafe",
-                                border: "1px solid rgba(147, 197, 253, 0.45)",
-                              }}
-                            >
-                              {buildMessageTypeLabel}
-                            </span>
-                          ) : null}
-                          {seTrainingCategoryTag ? (
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 800,
-                                padding: "5px 10px",
-                                borderRadius: 999,
-                                background: "rgba(255,255,255,0.08)",
-                                color: "#e2e8f0",
-                                border: "1px solid rgba(148, 163, 184, 0.4)",
-                              }}
-                            >
-                              {seTrainingCategoryTag}
-                            </span>
-                          ) : null}
-                          {salesEnablementGuidedTemplateLines.audience || seTrainingAudienceTag ? (
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 800,
-                                padding: "5px 10px",
-                                borderRadius: 999,
-                                background: "rgba(255,255,255,0.08)",
-                                color: "#e2e8f0",
-                                border: "1px solid rgba(148, 163, 184, 0.35)",
-                              }}
-                            >
-                              {String(seTrainingAudienceTag || salesEnablementGuidedTemplateLines.audience || "")
-                                .trim()
-                                .slice(0, 72) || "Audience"}
-                            </span>
-                          ) : null}
-                          {seTrainingPriorityTag ? (
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 900,
-                                padding: "5px 10px",
-                                borderRadius: 999,
-                                background: "rgba(250, 204, 21, 0.2)",
-                                color: "#fef9c3",
-                                border: "1px solid rgba(253, 224, 71, 0.55)",
-                              }}
-                            >
-                              {seTrainingPriorityTag}
-                            </span>
-                          ) : null}
-                        </div>
+                      aria-hidden
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 1fr)",
+                      gap: 28,
+                      padding: "28px 32px 32px",
+                      minHeight: 380,
+                      alignItems: "stretch",
+                      borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
+                      background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+                    }}
+                  >
+                    <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
+                      <span
+                        style={{
+                          justifySelf: "start",
+                          fontSize: 9,
+                          fontWeight: 900,
+                          letterSpacing: "0.16em",
+                          padding: "5px 10px",
+                          borderRadius: 999,
+                          background: "#fff7ed",
+                          color: "#c2410c",
+                          border: "1px solid rgba(251, 146, 60, 0.45)",
+                        }}
+                      >
+                        {seTrainingPackageEyebrow}
+                      </span>
+                      <h4
+                        style={{
+                          margin: 0,
+                          fontSize: 42,
+                          fontWeight: 900,
+                          color: "#0f172a",
+                          letterSpacing: "-0.04em",
+                          lineHeight: 1.04,
+                        }}
+                      >
+                        {seTrainingHeroTitle}
+                      </h4>
+                      {sePosterHeroSubtitle ? (
                         <p
                           style={{
                             margin: 0,
-                            fontSize: 10,
-                            color: "rgba(148, 163, 184, 0.95)",
-                            fontWeight: 600,
-                            lineHeight: 1.45,
+                            fontSize: 20,
+                            fontWeight: 800,
+                            color: "#ea580c",
+                            lineHeight: 1.35,
                           }}
                         >
-                          Generated from KLONDIKE product intelligence.
+                          {sePosterHeroSubtitle.length > 120
+                            ? `${sePosterHeroSubtitle.slice(0, 117)}…`
+                            : sePosterHeroSubtitle}
                         </p>
+                      ) : null}
+                      {sePosterHeroSummary ? (
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 15,
+                            fontWeight: 600,
+                            color: "#475569",
+                            lineHeight: 1.55,
+                          }}
+                        >
+                          {sePosterHeroSummary.length > 320
+                            ? `${sePosterHeroSummary.slice(0, 317)}…`
+                            : sePosterHeroSummary}
+                        </p>
+                      ) : null}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {seTrainingHeroBadges.slice(0, 4).map((b) => (
+                          <span
+                            key={b}
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 800,
+                              padding: "4px 9px",
+                              borderRadius: 999,
+                              background: "#f1f5f9",
+                              color: "#1e3a8a",
+                              border: "1px solid rgba(30, 58, 138, 0.2)",
+                            }}
+                          >
+                            {b}
+                          </span>
+                        ))}
+                        {seTrainingCategoryTag ? (
+                          <span
+                            key="cat-tag"
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 800,
+                              padding: "4px 9px",
+                              borderRadius: 999,
+                              background: "#fff7ed",
+                              color: "#c2410c",
+                              border: "1px solid rgba(251, 146, 60, 0.35)",
+                            }}
+                          >
+                            {seTrainingCategoryTag}
+                          </span>
+                        ) : null}
                       </div>
+                    </div>
+
+                    <div
+                      data-kl-phase5c-hero-image
+                      style={{
+                        position: "relative",
+                        minHeight: 360,
+                        borderRadius: 16,
+                        overflow: "hidden",
+                        border: "1px solid rgba(30, 58, 138, 0.22)",
+                        background: "#e2e8f0",
+                        boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.5)",
+                      }}
+                    >
+                      {seStep4RegistryHeroBgActive ? (
+                        <img
+                          src={seHeroEnablementVisualSelection.path}
+                          alt=""
+                          decoding="async"
+                          loading="lazy"
+                          onError={() => setSeGuidedStep4RegistryBgFailed(true)}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            objectPosition: "center",
+                            filter: "brightness(0.88) saturate(1.05)",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            background: "linear-gradient(145deg, #e2e8f0 0%, #cbd5e1 100%)",
+                          }}
+                          aria-hidden
+                        />
+                      )}
                       <div
-                        data-kl-phase5c-hero-image
+                        aria-hidden
                         style={{
-                          borderRadius: 16,
-                          minHeight: 220,
-                          alignSelf: "stretch",
-                          border:
-                            seHeroEnablementVisualSelection.useImage && !seGuidedStep4ProductImgFailed
-                              ? "1px solid rgba(30, 58, 138, 0.28)"
-                              : "2px solid rgba(248, 250, 252, 0.35)",
+                          position: "absolute",
+                          inset: 0,
                           background:
-                            seHeroEnablementVisualSelection.useImage && !seGuidedStep4ProductImgFailed
-                              ? "linear-gradient(165deg, #f8fafc 0%, #e2e8f0 55%, #f1f5f9 100%)"
-                              : "linear-gradient(150deg, rgba(15,23,42,0.65) 0%, rgba(30,58,138,0.35) 45%, rgba(226,232,240,0.12) 100%)",
-                          display: "grid",
-                          alignContent: "stretch",
-                          padding: 14,
-                          textAlign: "center",
-                          gap: 10,
-                          boxShadow:
-                            seHeroEnablementVisualSelection.useImage && !seGuidedStep4ProductImgFailed
-                              ? "inset 0 0 0 1px rgba(148, 163, 184, 0.25)"
-                              : "inset 0 0 0 1px rgba(15, 23, 42, 0.25)",
-                          overflow: "hidden",
+                            "linear-gradient(180deg, rgba(15,23,42,0.12) 0%, rgba(15,23,42,0.28) 100%)",
+                        }}
+                      />
+                      <div
+                        style={{
+                          position: "relative",
+                          zIndex: 2,
+                          height: "100%",
+                          minHeight: 360,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 20,
                         }}
                       >
-                        {seHeroEnablementVisualSelection.useImage && !seGuidedStep4ProductImgFailed ? (
-                          <>
-                            <div
+                        <input
+                          id="kl-se-guided-hero-product-upload"
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                          style={{ display: "none" }}
+                          onChange={(ev) => {
+                            const file = ev.target.files && ev.target.files[0];
+                            if (ev.target) ev.target.value = "";
+                            if (!file) return;
+                            const mimeOk = /^image\/(png|jpeg|webp)$/i.test(file.type);
+                            const nameOk = /\.(png|jpe?g|webp)$/i.test(file.name || "");
+                            if (!mimeOk && !nameOk) return;
+                            setSeGuidedUploadedProductImagePreviewFailed(false);
+                            setSeGuidedUploadedProductImageUrl((prev) => {
+                              if (prev) {
+                                try {
+                                  URL.revokeObjectURL(prev);
+                                } catch {
+                                  /* ignore */
+                                }
+                              }
+                              return URL.createObjectURL(file);
+                            });
+                            setSeGuidedUploadedProductImageFile(file);
+                          }}
+                        />
+                        {seGuidedUploadedProductImageUrl && !seGuidedUploadedProductImagePreviewFailed ? (
+                          <div
+                            style={{
+                              width: "min(94%, 380px)",
+                              padding: 12,
+                              borderRadius: 12,
+                              background: "#ffffff",
+                              boxShadow: "0 20px 48px rgba(15, 23, 42, 0.35)",
+                            }}
+                          >
+                            <img
+                              src={seGuidedUploadedProductImageUrl}
+                              alt=""
+                              decoding="async"
+                              onError={() => setSeGuidedUploadedProductImagePreviewFailed(true)}
                               style={{
-                                fontSize: 9,
-                                fontWeight: 900,
-                                letterSpacing: "0.14em",
-                                color: "#1e3a8a",
-                                textAlign: "left",
+                                width: "100%",
+                                maxHeight: 300,
+                                objectFit: "contain",
+                                display: "block",
                               }}
-                            >
-                              AUTO-SELECTED VISUAL
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                color: "#64748b",
-                                lineHeight: 1.35,
-                                textAlign: "left",
-                              }}
-                            >
-                              Based on product/category signals.
-                            </div>
-                            <div
-                              style={{
-                                borderRadius: 12,
-                                overflow: "hidden",
-                                background: "#ffffff",
-                                border: "1px solid rgba(226, 232, 240, 0.95)",
-                                minHeight: 140,
-                                flex: "1 1 auto",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <img
-                                src={seHeroEnablementVisualSelection.path}
-                                alt=""
-                                decoding="async"
-                                loading="lazy"
-                                onError={() => setSeGuidedStep4ProductImgFailed(true)}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  minHeight: 140,
-                                  maxHeight: 280,
-                                  objectFit: "contain",
-                                  display: "block",
+                            />
+                            <div style={{ marginTop: 8, textAlign: "center" }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSeGuidedUploadedProductImageUrl((prev) => {
+                                    if (prev) {
+                                      try {
+                                        URL.revokeObjectURL(prev);
+                                      } catch {
+                                        /* ignore */
+                                      }
+                                    }
+                                    return null;
+                                  });
+                                  setSeGuidedUploadedProductImageFile(null);
+                                  setSeGuidedUploadedProductImagePreviewFailed(false);
                                 }}
-                              />
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: 800,
+                                  padding: "5px 10px",
+                                  borderRadius: 999,
+                                  border: "1px solid #e2e8f0",
+                                  background: "#f8fafc",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Remove photo
+                              </button>
                             </div>
-                            <div
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 600,
-                                color: "#94a3b8",
-                                lineHeight: 1.35,
-                              }}
-                            >
-                              Product image upload coming next.
-                            </div>
-                          </>
+                          </div>
                         ) : (
-                          <>
-                            <div
-                              style={{
-                                width: 56,
-                                height: 56,
-                                borderRadius: "50%",
-                                background: "rgba(15, 23, 42, 0.45)",
-                                border: "2px dashed rgba(248, 250, 252, 0.45)",
-                                display: "grid",
-                                placeItems: "center",
-                                fontSize: 26,
-                                lineHeight: 1,
-                                justifySelf: "center",
-                              }}
-                              aria-hidden
-                            >
-                              📷
+                          <label
+                            htmlFor="kl-se-guided-hero-product-upload"
+                            style={{
+                              width: "min(92%, 300px)",
+                              padding: "20px 16px",
+                              borderRadius: 12,
+                              background: "rgba(255,255,255,0.94)",
+                              border: "2px dashed rgba(234, 88, 12, 0.45)",
+                              textAlign: "center",
+                              cursor: "pointer",
+                              boxShadow: "0 16px 40px rgba(15, 23, 42, 0.2)",
+                            }}
+                          >
+                            <div style={{ fontSize: 28, lineHeight: 1 }} aria-hidden>
+                              ⬆
                             </div>
                             <div
                               style={{
+                                marginTop: 8,
                                 fontSize: 11,
                                 fontWeight: 900,
-                                letterSpacing: "0.12em",
-                                color: "rgba(248, 250, 252, 0.95)",
+                                letterSpacing: "0.08em",
+                                color: "#0f172a",
                               }}
                             >
                               PRODUCT IMAGE
                             </div>
-                            <div
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: "rgba(226, 232, 240, 0.92)",
-                                lineHeight: 1.4,
-                              }}
-                            >
-                              {!seGuidedAssemblyDraftPackage
-                                ? "Generate a Klondike draft to auto-select a category visual."
-                                : seGuidedStep4ProductImgFailed
-                                  ? "Could not load the suggested visual."
-                                  : "Suggested visual unavailable — using placeholder."}
+                            <div style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: "#64748b" }}>
+                              Upload PNG / JPG / WebP (preview only)
                             </div>
-                            <div
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 600,
-                                color: "rgba(148, 163, 184, 0.95)",
-                                lineHeight: 1.35,
-                              }}
-                            >
-                              Product image upload coming next.
-                            </div>
-                          </>
+                          </label>
                         )}
                       </div>
                     </div>
@@ -12060,582 +12265,125 @@ const handleFinishDealerEnrollment = async () => {
 
                   <div
                     style={{
-                      padding: "16px 18px",
-                      background: "#ffffff",
-                      borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                      display: "grid",
+                      gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                      gap: 0,
+                      borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
+                      background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+                    }}
+                  >
+                    {sePosterBenefitTiles.map((t, i) => (
+                      <div
+                        key={`se-poster-ben-${i}-${t.label}`}
+                        style={{
+                          padding: "20px 14px",
+                          textAlign: "center",
+                          borderRight: i < 3 ? "1px solid rgba(226, 232, 240, 0.95)" : undefined,
+                        }}
+                      >
+                        <div style={{ fontSize: 34, lineHeight: 1 }} aria-hidden>
+                          {t.icon}
+                        </div>
+                        <div
+                          style={{
+                            marginTop: 10,
+                            fontSize: 13,
+                            fontWeight: 900,
+                            color: "#0f172a",
+                            letterSpacing: "0.05em",
+                          }}
+                        >
+                          {t.label}
+                        </div>
+                        {t.sub ? (
+                          <div
+                            style={{
+                              marginTop: 6,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: "#64748b",
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {t.sub.length > 64 ? `${t.sub.slice(0, 61)}…` : t.sub}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div
+                    style={{
+                      padding: "24px 28px 8px",
+                      display: "grid",
+                      gap: 18,
+                      background: "#f8fafc",
                     }}
                   >
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-                        gap: 12,
+                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
+                        gap: 18,
+                        alignItems: "stretch",
                       }}
                     >
-                      {seBenefitTiles.map((t, i) => (
-                        <div
-                          key={`se-ben-${i}-${t.label}`}
-                          style={{
-                            display: "grid",
-                            justifyItems: "center",
-                            textAlign: "center",
-                            gap: 8,
-                            padding: "12px 10px",
-                            borderRadius: 14,
-                            background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
-                            border: "1px solid rgba(30, 58, 138, 0.14)",
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 44,
-                              height: 44,
-                              borderRadius: "50%",
-                              background: "linear-gradient(145deg, #fff7ed 0%, #ffedd5 100%)",
-                              border: "2px solid rgba(234, 88, 12, 0.35)",
-                              display: "grid",
-                              placeItems: "center",
-                              fontSize: 20,
-                              lineHeight: 1,
-                            }}
-                          >
-                            {t.icon}
-                          </div>
-                          <div
-                            style={{ fontSize: 12, fontWeight: 900, color: "#0f172a", lineHeight: 1.25 }}
-                          >
-                            {t.label}
-                          </div>
-                          {t.sub ? (
-                            <div
-                              style={{ fontSize: 10, fontWeight: 600, color: "#64748b", lineHeight: 1.35 }}
-                            >
-                              {t.sub.length > 96 ? `${t.sub.slice(0, 93)}…` : t.sub}
-                            </div>
-                          ) : null}
-                        </div>
-                      ))}
+                      {sePosterSection(
+                        "Best-fit applications",
+                        sePosterAppLines.length
+                          ? sePosterBullets(sePosterAppLines, "", 5)
+                          : sePosterBullets([], "Generate a draft for application cues.", 3)
+                      )}
+                      {sePosterSection(
+                        "Key specifications / approvals",
+                        sePosterSpecLines.length
+                          ? sePosterChips(sePosterSpecLines, "blue", 4)
+                          : sePosterBullets([], "Specification detail appears when present in the package.", 3)
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
+                        gap: 18,
+                        alignItems: "stretch",
+                      }}
+                    >
+                      {sePosterSection(
+                        "Rep talk track",
+                        sePosterRepTalkLines.length
+                          ? sePosterBullets(sePosterRepTalkLines, "", 4)
+                          : sePosterBullets([], "Coaching angles appear when present in the package.", 3)
+                      )}
+                      {sePosterSection(
+                        "Questions to ask your customer",
+                        sePosterDiscoveryQs.length
+                          ? sePosterBullets(sePosterDiscoveryQs, "", 4)
+                          : sePosterBullets([], "Discovery prompts appear when present in the package.", 3)
+                      )}
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {Array.isArray(seAssemblyPkg?.productCards) && seAssemblyPkg.productCards.length ? (
+                  {(() => {
+                    const rec = String(seAssemblyPkg?.recommendedAction || "").trim();
+                    const cta = String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview || "").trim();
+                    return (
                       <div
                         style={{
-                          padding: "18px 20px 8px",
-                          background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
-                          borderTop: "1px solid rgba(30, 58, 138, 0.08)",
+                          margin: "0 28px 20px",
+                          borderRadius: 12,
+                          overflow: "hidden",
+                          background: "linear-gradient(98deg, #ea580c 0%, #c2410c 42%, #1e3a8a 100%)",
+                          boxShadow: "0 14px 36px rgba(194, 65, 12, 0.28)",
                         }}
                       >
-                        <div
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 900,
-                            letterSpacing: "0.16em",
-                            color: "#ea580c",
-                            marginBottom: 12,
-                          }}
-                        >
-                          FEATURED PRODUCTS
-                        </div>
-                        <div
-                          style={{
-                            display: "grid",
-                            gap: 12,
-                            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))",
-                          }}
-                        >
-                          {seAssemblyPkg.productCards.slice(0, 6).map((row, idx) => {
-                            const badges = inferKlondikeTrainingBadges(row);
-                            const specs = Array.isArray(row?.keySpecs)
-                              ? row.keySpecs.map((x) => String(x ?? "").trim()).filter(Boolean)
-                              : [];
-                            const approvals = Array.isArray(row?.approvals)
-                              ? row.approvals.map((x) => String(x ?? "").trim()).filter(Boolean)
-                              : [];
-                            const chipPool = [...specs, ...approvals].filter(Boolean).slice(0, 8);
-                            const pos = String(row?.positioningLine || row?.oneLiner || "").trim();
-                            return (
-                              <div
-                                key={`se-train-pc-${String(row?.pdsMapKey || idx)}`}
-                                style={{
-                                  borderRadius: 12,
-                                  overflow: "hidden",
-                                  border: "1px solid rgba(30, 58, 138, 0.24)",
-                                  boxShadow: "0 10px 26px rgba(15, 23, 42, 0.08)",
-                                  background: "#ffffff",
-                                  minWidth: 0,
-                                  display: "grid",
-                                  gridTemplateRows: "auto 1fr",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    background: "linear-gradient(90deg, #0f172a 0%, #1e40af 100%)",
-                                    padding: "10px 14px 12px",
-                                    borderLeft: "4px solid #ea580c",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.14em",
-                                      color: "rgba(251, 146, 60, 0.95)",
-                                      marginBottom: 4,
-                                    }}
-                                  >
-                                    FEATURED PRODUCT
-                                  </div>
-                                  <div style={{ fontSize: 15, fontWeight: 900, color: "#ffffff", lineHeight: 1.2 }}>
-                                    {String(row?.productName || "Product").trim()}
-                                  </div>
-                                  <div
-                                    style={{
-                                      marginTop: 4,
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      color: "rgba(226, 232, 240, 0.92)",
-                                    }}
-                                  >
-                                    {String(row?.canonicalFamily || "").trim() || "Klondike line"}
-                                  </div>
-                                </div>
-                                <div style={{ padding: "12px 14px 14px", display: "grid", gap: 10 }}>
-                                  {badges.length ? (
-                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                      {badges.slice(0, 6).map((b) => (
-                                        <span
-                                          key={b}
-                                          style={{
-                                            fontSize: 8,
-                                            fontWeight: 900,
-                                            letterSpacing: "0.06em",
-                                            padding: "3px 8px",
-                                            borderRadius: 999,
-                                            background: "#fff7ed",
-                                            color: "#c2410c",
-                                            border: "1px solid rgba(251, 146, 60, 0.42)",
-                                          }}
-                                        >
-                                          {b}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                  {chipPool.length ? (
-                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                      {chipPool.map((s, si) => (
-                                        <span
-                                          key={`fpc-${si}`}
-                                          style={{
-                                            fontSize: 10,
-                                            fontWeight: 700,
-                                            padding: "5px 9px",
-                                            borderRadius: 999,
-                                            background: "#eff6ff",
-                                            color: "#1e40af",
-                                            border: "1px solid rgba(59, 130, 246, 0.35)",
-                                          }}
-                                        >
-                                          {s.length > 52 ? `${s.slice(0, 49)}…` : s}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                  {pos ? (
-                                    <p
-                                      style={{
-                                        margin: 0,
-                                        fontSize: 12,
-                                        color: "#475569",
-                                        lineHeight: 1.45,
-                                        fontWeight: 600,
-                                      }}
-                                    >
-                                      {pos.length > 180 ? `${pos.slice(0, 177)}…` : pos}
-                                    </p>
-                                  ) : null}
-                                  {row?.pdsMapKey ? (
-                                    <div style={{ fontSize: 10, fontWeight: 800, color: "#94a3b8" }}>
-                                      pdsMapKey / ref: {String(row.pdsMapKey).slice(0, 56)}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div
-                      style={{
-                        padding: "18px 20px 4px",
-                        background: "linear-gradient(180deg, #eef2ff 0%, #f8fafc 35%, #ffffff 100%)",
-                        display: "grid",
-                        gap: 16,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-                          gap: 16,
-                          alignItems: "start",
-                        }}
-                      >
-                        <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
-                          {seInfographicCard(
-                            "APPLICATIONS",
-                            "Best-fit applications",
-                            (() => {
-                              const sec =
-                                sePkgPickSection((t) => /application|use when|fit|deploy|when to/.test(t)) ||
-                                sePkgPickSection((t) => /market|segment|fleet/.test(t));
-                              const bullets = Array.isArray(sec?.bullets)
-                                ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 8)
-                                : [];
-                              const chips = bullets.length
-                                ? bullets
-                                : (tplProofDisplay || []).slice(0, 4).map((x) => String(x).trim());
-                              if (!chips.length) {
-                                return (
-                                  <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                                    Refine search or generate a draft for application cues.
-                                  </p>
-                                );
-                              }
-                              return (
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                  {chips.map((c, i) => (
-                                    <div
-                                      key={`app-${i}`}
-                                      style={{
-                                        flex: "1 1 160px",
-                                        minWidth: 0,
-                                        padding: "8px 10px",
-                                        borderRadius: 999,
-                                        background: "#eff6ff",
-                                        border: "1px solid rgba(59, 130, 246, 0.28)",
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: "#1e3a8a",
-                                        lineHeight: 1.35,
-                                      }}
-                                    >
-                                      {c.length > 120 ? `${c.slice(0, 117)}…` : c}
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            })()
-                          )}
-                          {seInfographicCard(
-                            "DISCOVERY",
-                            "Questions reps should ask",
-                            (() => {
-                              const dq = [
-                                ...(Array.isArray(seAssemblyPkg?.repQuestions) ? seAssemblyPkg.repQuestions : []),
-                                ...(Array.isArray(seAssemblyPkg?.customerProfileQuestions)
-                                  ? seAssemblyPkg.customerProfileQuestions
-                                  : []),
-                              ]
-                                .map((q) => String(q ?? "").trim())
-                                .filter(Boolean)
-                                .slice(0, 12);
-                              if (!dq.length) {
-                                return (
-                                  <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                                    Generate a draft to surface rep discovery prompts.
-                                  </p>
-                                );
-                              }
-                              return (
-                                <div style={{ display: "grid", gap: 8 }}>
-                                  {dq.map((q, i) => (
-                                    <div
-                                      key={`dq-${i}`}
-                                      style={{
-                                        display: "flex",
-                                        gap: 10,
-                                        alignItems: "flex-start",
-                                        padding: "8px 10px",
-                                        borderRadius: 10,
-                                        background: "#f8fafc",
-                                        border: "1px solid rgba(226, 232, 240, 0.98)",
-                                      }}
-                                    >
-                                      <span
-                                        style={{
-                                          marginTop: 2,
-                                          width: 20,
-                                          height: 20,
-                                          borderRadius: 6,
-                                          border: "2px solid rgba(234, 88, 12, 0.55)",
-                                          background: "#ffffff",
-                                          flexShrink: 0,
-                                        }}
-                                        aria-hidden
-                                      />
-                                      <span
-                                        style={{ fontSize: 12, fontWeight: 700, color: "#334155", lineHeight: 1.45 }}
-                                      >
-                                        {q}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            })()
-                          )}
-                          {seInfographicCard(
-                            "CUSTOMER REALITY",
-                            "Customer pain points",
-                            (() => {
-                              const pains = Array.isArray(seAssemblyPkg?.operationalPainPoints)
-                                ? seAssemblyPkg.operationalPainPoints.map((x) => String(x ?? "").trim()).filter(Boolean)
-                                : [];
-                              const flagshipPains =
-                                previewSendUsesFlagship &&
-                                Array.isArray(
-                                  salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals
-                                )
-                                  ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals
-                                  : [];
-                              const merged = [...pains, ...flagshipPains].slice(0, 8);
-                              if (!merged.length) {
-                                return (
-                                  <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                                    Generate a draft to surface operational pain language.
-                                  </p>
-                                );
-                              }
-                              return (
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                  {merged.map((p, i) => (
-                                    <div
-                                      key={`pain-${i}`}
-                                      style={{
-                                        padding: "8px 10px",
-                                        borderRadius: 999,
-                                        background: "#fffbeb",
-                                        border: "1px solid rgba(251, 191, 36, 0.45)",
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: "#78350f",
-                                        lineHeight: 1.4,
-                                        flex: "1 1 200px",
-                                        minWidth: 0,
-                                      }}
-                                    >
-                                      {p.length > 160 ? `${p.slice(0, 157)}…` : p}
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            })()
-                          )}
-                        </div>
-                        <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
-                          {seInfographicCard(
-                            "SPECS",
-                            "Key specs / approvals / registrations",
-                            seSpecBulletsList.length ? (
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                {seSpecBulletsList.slice(0, 14).map((s, i) => (
-                                  <div
-                                    key={`spec-chip-${i}`}
-                                    style={{
-                                      padding: "6px 10px",
-                                      borderRadius: 999,
-                                      background: "#f1f5f9",
-                                      border: "1px solid rgba(30, 58, 138, 0.18)",
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      color: "#0f172a",
-                                      lineHeight: 1.3,
-                                    }}
-                                  >
-                                    {s.length > 72 ? `${s.slice(0, 69)}…` : s}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                                Refine search or generate a draft for specification detail.
-                              </p>
-                            )
-                          )}
-                          {seInfographicCard("COACHING", "What reps should know", (() => {
-                            const metricChipsOk =
-                              previewSendUsesFlagship &&
-                              Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips) &&
-                              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips.length;
-                            const ang = Array.isArray(seAssemblyPkg?.salesAngles)
-                              ? seAssemblyPkg.salesAngles.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 8)
-                              : [];
-                            const sea = Array.isArray(seAssemblyPkg?.salesEnablementAngles)
-                              ? seAssemblyPkg.salesEnablementAngles
-                                  .map((x) => String(x ?? "").trim())
-                                  .filter(Boolean)
-                                  .slice(0, 8)
-                              : [];
-                            const mergedAngles = [...ang, ...sea.filter((x) => !ang.includes(x))].slice(0, 8);
-                            const talkOk =
-                              previewSendUsesFlagship &&
-                              Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack) &&
-                              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack.length;
-                            const secKnow = sePkgPickSection((t) => /rep|coach|talk|enable|know/.test(t));
-                            const repBullets = Array.isArray(secKnow?.bullets)
-                              ? secKnow.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 8)
-                              : [];
-                            const hasAny =
-                              metricChipsOk || mergedAngles.length > 0 || talkOk || repBullets.length > 0;
-                            return (
-                              <div style={{ display: "grid", gap: 10 }}>
-                                {metricChipsOk ? (
-                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                    {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips
-                                      .slice(0, 4)
-                                      .map((chip) => (
-                                        <div
-                                          key={chip.id}
-                                          style={{
-                                            flex: "1 1 120px",
-                                            minWidth: 108,
-                                            padding: "10px 12px",
-                                            borderRadius: 12,
-                                            background: "linear-gradient(145deg, #ecfdf5 0%, #f0fdfa 100%)",
-                                            border: "1px solid rgba(45, 212, 191, 0.4)",
-                                            boxShadow: "0 4px 12px rgba(15, 118, 110, 0.08)",
-                                          }}
-                                        >
-                                          <div
-                                            style={{
-                                              fontSize: 9,
-                                              fontWeight: 900,
-                                              color: "#0f766e",
-                                              letterSpacing: "0.06em",
-                                            }}
-                                          >
-                                            {chip.label}
-                                          </div>
-                                          <div
-                                            style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.2 }}
-                                          >
-                                            {chip.value}
-                                          </div>
-                                          <div style={{ fontSize: 10, color: "#64748b", marginTop: 4, lineHeight: 1.3 }}>
-                                            {chip.hint}
-                                          </div>
-                                        </div>
-                                      ))}
-                                  </div>
-                                ) : null}
-                                {mergedAngles.length ? (
-                                  <div
-                                    style={{
-                                      display: "grid",
-                                      gap: 8,
-                                      gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
-                                    }}
-                                  >
-                                    {mergedAngles.map((line, i) => (
-                                      <div
-                                        key={`sales-ang-${i}`}
-                                        style={{
-                                          padding: "8px 10px",
-                                          borderRadius: 10,
-                                          background: "#ffffff",
-                                          border: "1px solid rgba(30, 64, 175, 0.18)",
-                                          fontSize: 12,
-                                          fontWeight: 700,
-                                          color: "#1e3a8a",
-                                          lineHeight: 1.4,
-                                        }}
-                                      >
-                                        {line.length > 160 ? `${line.slice(0, 157)}…` : line}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : null}
-                                {talkOk ? (
-                                  <div
-                                    style={{
-                                      padding: "10px 12px",
-                                      borderRadius: 12,
-                                      background: "#faf5ff",
-                                      border: "1px solid rgba(167, 139, 250, 0.4)",
-                                      display: "grid",
-                                      gap: 6,
-                                    }}
-                                  >
-                                    {guidedFlagshipBulletRows(
-                                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack,
-                                      "se-train-rep",
-                                      "#7c3aed"
-                                    )}
-                                  </div>
-                                ) : null}
-                                {repBullets.length ? (
-                                  <ul
-                                    style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#334155", lineHeight: 1.45 }}
-                                  >
-                                    {repBullets.map((b, i) => (
-                                      <li key={`rep-know-${i}`}>{b}</li>
-                                    ))}
-                                  </ul>
-                                ) : null}
-                                {!hasAny ? (
-                                  <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                                    Generate a draft to surface rep coaching angles and talk tracks.
-                                  </p>
-                                ) : null}
-                              </div>
-                            );
-                          })()
-                          )}
-                          {seInfographicCard(
-                            "GUARDRAILS",
-                            "Guardrails / compliance notes",
-                            seGuardrailLines.length ? (
-                              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#78350f", lineHeight: 1.45 }}>
-                                {seGuardrailLines.map((g, i) => (
-                                  <li key={`gr-ig-${i}`}>{g.length > 200 ? `${g.slice(0, 197)}…` : g}</li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                                Compliance notes appear when present in the generated package.
-                              </p>
-                            )
-                          )}
-                        </div>
-                      </div>
-
-                    {(() => {
-                      const xs = Array.isArray(seAssemblyPkg?.crossSellOpportunities)
-                        ? seAssemblyPkg.crossSellOpportunities.map((x) => String(x ?? "").trim()).filter(Boolean)
-                        : [];
-                      const rec = String(seAssemblyPkg?.recommendedAction || "").trim();
-                      const cta = String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview || "").trim();
-                      return (
-                        <div
-                          style={{
-                            borderRadius: 14,
-                            padding: "18px 20px",
-                            background: "linear-gradient(92deg, #ea580c 0%, #c2410c 38%, #1e3a8a 100%)",
-                            border: "1px solid rgba(251, 146, 60, 0.5)",
-                            boxShadow: "0 14px 34px rgba(194, 65, 12, 0.22)",
-                          }}
-                        >
+                        <div style={{ padding: "18px 22px", color: "#ffffff" }}>
                           <div
                             style={{
                               fontSize: 10,
                               fontWeight: 900,
                               letterSpacing: "0.14em",
-                              color: "rgba(255, 255, 255, 0.9)",
+                              opacity: 0.92,
                             }}
                           >
                             RECOMMENDED NEXT STEP
@@ -12643,11 +12391,9 @@ const handleFinishDealerEnrollment = async () => {
                           <div
                             style={{
                               marginTop: 8,
-                              fontSize: 17,
+                              fontSize: 19,
                               fontWeight: 900,
-                              color: "#ffffff",
-                              lineHeight: 1.35,
-                              textShadow: "0 1px 2px rgba(15, 23, 42, 0.25)",
+                              lineHeight: 1.32,
                             }}
                           >
                             {rec ||
@@ -12657,76 +12403,138 @@ const handleFinishDealerEnrollment = async () => {
                             <div
                               style={{
                                 marginTop: 12,
-                                padding: "10px 14px",
-                                borderRadius: 10,
-                                background: "rgba(255, 255, 255, 0.96)",
+                                display: "inline-block",
+                                padding: "9px 14px",
+                                borderRadius: 8,
+                                background: "#ffffff",
                                 fontSize: 13,
                                 fontWeight: 900,
                                 color: "#c2410c",
-                                lineHeight: 1.4,
                               }}
                             >
                               {cta}
                             </div>
                           ) : null}
-                          {xs.length ? (
-                            <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
-                              {xs.slice(0, 10).map((c, i) => (
-                                <span
-                                  key={`xs-ban-${i}`}
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    padding: "6px 11px",
-                                    borderRadius: 999,
-                                    background: "rgba(255, 255, 255, 0.16)",
-                                    color: "#ffffff",
-                                    border: "1px solid rgba(255, 255, 255, 0.35)",
-                                    lineHeight: 1.3,
-                                  }}
-                                >
-                                  {c.length > 72 ? `${c.slice(0, 69)}…` : c}
-                                </span>
-                              ))}
+                          {sePosterCrossSell.length ? (
+                            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.28)" }}>
+                              <div
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 900,
+                                  letterSpacing: "0.14em",
+                                  marginBottom: 8,
+                                  opacity: 0.9,
+                                }}
+                              >
+                                CROSS-SELL & SYSTEM SOLUTIONS
+                              </div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                {sePosterCrossSell.map((c, i) => (
+                                  <span
+                                    key={`xs-poster-${i}`}
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 800,
+                                      padding: "6px 11px",
+                                      borderRadius: 999,
+                                      background: "rgba(255,255,255,0.16)",
+                                      border: "1px solid rgba(255,255,255,0.35)",
+                                    }}
+                                  >
+                                    {c.length > 64 ? `${c.slice(0, 61)}…` : c}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           ) : null}
                         </div>
-                      );
-                    })()}
+                      </div>
+                    );
+                  })()}
+
+                  {sePosterGuardrailLines.length ? (
+                    <div style={{ padding: "0 28px 16px", background: "#f8fafc" }}>
+                      {sePosterSection(
+                        "Use / handling / compliance cautions",
+                        sePosterBullets(sePosterGuardrailLines, "", 3)
+                      )}
+                    </div>
+                  ) : null}
+
+                  <div
+                    style={{
+                      padding: "14px 22px 10px",
+                      background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+                      borderTop: "1px solid rgba(226, 232, 240, 0.95)",
+                      display: "flex",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <img
+                      src={SE_POSTER_ASSET_PRODUCTS}
+                      alt="Klondike product lineup"
+                      decoding="async"
+                      style={{
+                        width: "100%",
+                        maxWidth: 440,
+                        height: "auto",
+                        objectFit: "contain",
+                        display: "block",
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "12px 22px",
+                      background: "#0f172a",
+                      borderTop: "4px solid #ea580c",
+                    }}
+                  >
                     <div
                       style={{
                         display: "flex",
-                        flexWrap: "wrap",
-                        justifyContent: "space-between",
                         alignItems: "center",
-                        gap: 12,
-                        padding: "14px 18px",
-                        background: "#0f172a",
-                        borderRadius: 12,
-                        borderTop: "3px solid #ea580c",
+                        gap: 8,
+                        minWidth: 0,
                       }}
                     >
+                      <img
+                        src={SE_POSTER_ASSET_FAVICON}
+                        alt=""
+                        decoding="async"
+                        style={{ width: 20, height: 20, flexShrink: 0, display: "block" }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
                       <div style={{ fontSize: 11, fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
                         KLONDIKE | Dependable Products. Real Solutions.
                       </div>
-                      <a
-                        href="https://klondikelubricants.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 800,
-                          color: "#fb923c",
-                          textDecoration: "none",
-                        }}
-                      >
-                        klondikelubricants.com
-                      </a>
                     </div>
-                    </div>
+                    <a
+                      href="https://klondikelubricants.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        color: "#fb923c",
+                        textDecoration: "none",
+                      }}
+                    >
+                      klondikelubricants.com
+                    </a>
                   </div>
                 </div>
-
                 {seGuidedKnowledgePreviewMock ? (
                   <div
                     style={{
