@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-label="Generic environmental marine workboat illustration">
+  <defs>
+    <linearGradient id="water" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0c4a6e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="#e0f2fe"/>
+  <path d="M0 420 Q300 360 600 400 T1200 380 L1200 700 L0 700 Z" fill="url(#water)" opacity="0.55"/>
+  <path d="M200 380 L320 320 L900 300 L1000 360 L980 420 L240 440 Z" fill="#475569" stroke="#0f172a" stroke-width="3"/>
+  <rect x="420" y="260" width="280" height="70" rx="10" fill="#64748b"/>
+  <rect x="520" y="200" width="24" height="80" fill="#1e3a8a"/>
+  <path d="M520 200 L620 160 L630 200 Z" fill="#ea580c"/>
+  <path d="M320 380 Q600 340 880 360" fill="none" stroke="#22c55e" stroke-width="10" stroke-linecap="round" opacity="0.7"/>
+  <circle cx="160" cy="480" r="12" fill="#94a3b8"/>
+  <circle cx="240" cy="500" r="10" fill="#94a3b8"/>
+  <circle cx="920" cy="490" r="14" fill="#94a3b8"/>
+</svg>

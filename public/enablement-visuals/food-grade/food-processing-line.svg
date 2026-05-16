@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-label="Generic food processing line illustration">
+  <rect width="1200" height="700" fill="#f0f9ff"/>
+  <rect x="80" y="200" width="1040" height="24" rx="6" fill="#cbd5e1"/>
+  <rect x="120" y="320" width="180" height="200" rx="16" fill="#e2e8f0" stroke="#1e3a8a" stroke-width="4"/>
+  <rect x="360" y="300" width="200" height="220" rx="16" fill="#e2e8f0" stroke="#1e3a8a" stroke-width="4"/>
+  <rect x="620" y="315" width="200" height="205" rx="16" fill="#e2e8f0" stroke="#1e3a8a" stroke-width="4"/>
+  <rect x="880" y="335" width="200" height="185" rx="16" fill="#e2e8f0" stroke="#1e3a8a" stroke-width="4"/>
+  <circle cx="210" cy="400" r="36" fill="#94a3b8"/>
+  <circle cx="460" cy="400" r="40" fill="#94a3b8"/>
+  <circle cx="720" cy="400" r="40" fill="#94a3b8"/>
+  <path d="M100 260 L1100 260" stroke="#ea580c" stroke-width="8" stroke-dasharray="20 16"/>
+  <rect x="540" y="120" width="120" height="18" rx="4" fill="#ea580c"/>
+  <path d="M600 140 L600 200" stroke="#1e3a8a" stroke-width="6"/>
+</svg>

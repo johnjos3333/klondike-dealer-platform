@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-label="Generic heavy duty truck maintenance illustration">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f1f5f9"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="navy" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#g1)"/>
+  <rect x="40" y="420" width="1120" height="24" rx="6" fill="#cbd5e1"/>
+  <rect x="120" y="260" width="720" height="180" rx="28" fill="url(#navy)"/>
+  <rect x="160" y="300" width="420" height="100" rx="12" fill="#334155" opacity="0.35"/>
+  <rect x="820" y="310" width="140" height="110" rx="16" fill="#1e293b"/>
+  <circle cx="920" cy="420" r="72" fill="#0f172a" stroke="#ea580c" stroke-width="6"/>
+  <circle cx="920" cy="420" r="38" fill="#475569"/>
+  <circle cx="280" cy="420" r="72" fill="#0f172a" stroke="#ea580c" stroke-width="6"/>
+  <circle cx="280" cy="420" r="38" fill="#475569"/>
+  <rect x="600" y="180" width="8" height="100" rx="2" fill="#ea580c"/>
+  <path d="M760 220 L880 180 L900 200 L780 240 Z" fill="#ea580c" opacity="0.9"/>
+  <rect x="100" y="520" width="220" height="14" rx="4" fill="#94a3b8"/>
+  <rect x="880" y="520" width="200" height="14" rx="4" fill="#94a3b8"/>
+</svg>

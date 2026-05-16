@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-label="Generic mining equipment illustration">
+  <rect width="1200" height="700" fill="#f5f5f4"/>
+  <path d="M0 520 L1200 480 L1200 700 L0 700 Z" fill="#a8a29e"/>
+  <path d="M80 500 L200 320 L420 280 L520 400 L480 520 Z" fill="#57534e" stroke="#292524" stroke-width="4"/>
+  <path d="M480 360 L900 260 L980 400 L520 480 Z" fill="#44403c"/>
+  <rect x="640" y="180" width="160" height="100" rx="12" fill="#1c1917"/>
+  <rect x="680" y="140" width="20" height="60" fill="#ea580c"/>
+  <circle cx="280" cy="500" r="85" fill="#292524" stroke="#ea580c" stroke-width="8"/>
+  <circle cx="280" cy="500" r="40" fill="#57534e"/>
+  <circle cx="720" cy="480" r="90" fill="#292524" stroke="#ea580c" stroke-width="8"/>
+  <circle cx="720" cy="480" r="42" fill="#57534e"/>
+  <path d="M320 200 L600 120 L620 160 L360 240 Z" fill="#78716c" opacity="0.6"/>
+</svg>

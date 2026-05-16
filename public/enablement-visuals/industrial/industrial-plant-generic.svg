@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-label="Generic industrial facility illustration">
+  <rect width="1200" height="700" fill="#f1f5f9"/>
+  <rect x="80" y="280" width="1040" height="200" rx="10" fill="#cbd5e1"/>
+  <rect x="140" y="160" width="120" height="320" fill="#64748b"/>
+  <rect x="320" y="120" width="100" height="360" fill="#475569"/>
+  <rect x="480" y="200" width="90" height="280" fill="#64748b"/>
+  <rect x="620" y="140" width="110" height="340" fill="#334155"/>
+  <rect x="780" y="180" width="100" height="300" fill="#64748b"/>
+  <rect x="940" y="100" width="120" height="380" fill="#475569"/>
+  <circle cx="200" cy="200" r="22" fill="#94a3b8"/>
+  <circle cx="365" cy="160" r="20" fill="#94a3b8"/>
+  <circle cx="535" cy="220" r="18" fill="#94a3b8"/>
+  <path d="M200 200 L200 120 L240 100 L280 120 L280 200" fill="none" stroke="#ea580c" stroke-width="8"/>
+  <rect x="540" y="60" width="140" height="14" rx="4" fill="#ea580c" opacity="0.9"/>
+  <path d="M0 520 L1200 520" stroke="#1e3a8a" stroke-width="6"/>
+</svg>

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-label="Generic drivetrain axle illustration">
+  <defs>
+    <linearGradient id="gg" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#f1f5f9"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="700" fill="url(#gg)"/>
+  <rect x="80" y="300" width="1040" height="120" rx="16" fill="#475569"/>
+  <rect x="120" y="320" width="960" height="80" rx="10" fill="#64748b"/>
+  <circle cx="220" cy="360" r="100" fill="#0f172a" stroke="#ea580c" stroke-width="8"/>
+  <circle cx="220" cy="360" r="48" fill="#334155"/>
+  <circle cx="600" cy="360" r="120" fill="#1e3a8a" stroke="#ea580c" stroke-width="8"/>
+  <circle cx="600" cy="360" r="55" fill="#0f172a"/>
+  <circle cx="980" cy="360" r="100" fill="#0f172a" stroke="#ea580c" stroke-width="8"/>
+  <circle cx="980" cy="360" r="48" fill="#334155"/>
+  <rect x="340" y="340" width="200" height="40" rx="6" fill="#cbd5e1"/>
+  <rect x="720" y="340" width="200" height="40" rx="6" fill="#cbd5e1"/>
+  <path d="M600 200 L600 280 M560 240 L640 240" stroke="#ea580c" stroke-width="10" stroke-linecap="round"/>
+</svg>
