@@ -37,7 +37,6 @@ import {
   getSalesEnablementPdsFileHintForLibrarySpotlight,
 } from "./data/salesEnablement/salesEnablementPdsUrl";
 import { getSalesEnablementFlagshipNarrativeByProductName } from "./data/salesEnablement/salesEnablementFlagshipNarrativeLookup";
-import { getGuidedSpotlightBuilderRecommendation } from "./data/salesEnablement/guidedSpotlightBuilderRecommendations";
 import {
   buildSalesEnablementPackage,
   buildRecommendedEnablementActions,
@@ -69,6 +68,99 @@ const KL_SPOTLIGHT_SENT_HISTORY_KEY = "kl_sales_enablement_sent_v1";
 const KL_ADMIN_ACTION_CENTER_LIMIT = 18;
 /** Local-only territory incentive / contest definitions (Phase 72 — no backend schema). */
 const KL_TERRITORY_CONTESTS_KEY = "kl_territory_contests_v1";
+
+/** Phase 5A.1 — Guided Step 3: customer profile dropdown lists (local-only). */
+const SE_GUIDED_STEP3_PROFILE_INDUSTRIES = [
+  "Agriculture",
+  "Forestry / Logging",
+  "Food Processing",
+  "Construction",
+  "Mining",
+  "Marine / Dredging",
+  "Industrial / Manufacturing",
+  "Trucking / Fleet",
+];
+const SE_GUIDED_STEP3_PROFILE_FOCUS_OPTIONS = [
+  "John Deere",
+  "CNH / Case IH",
+  "Food Grade",
+  "EAL / Environmental",
+  "Wet Brake / PTO",
+  "Gearbox / Drivetrain",
+  "Hydraulic Reliability",
+];
+/** Deterministic bucket keys derived from canonical catalog rows (`listAvailableCanonicalProducts`). */
+const SE_GUIDED_STEP3_CATEGORY_LABELS = {
+  hd_engine_oil: "HD Engine Oil",
+  hydraulic: "Hydraulic",
+  gear_oil: "Gear Oil",
+  grease: "Grease",
+  agrimax: "AGRIMAX",
+  food_grade: "Food Grade",
+  environmental_eal: "Environmental / EAL",
+  industrial_specialty: "Industrial Specialty",
+  coolant: "Coolant",
+  transmission: "Transmission",
+  other: "General / Other",
+};
+
+function mapCanonicalRowToSeGuidedStep3CategoryKey(row) {
+  const fam = String(row?.canonicalFamily || "").toLowerCase();
+  const cat = String(row?.category || "").toLowerCase();
+  const pf = String(row?.productFamily || "").toLowerCase();
+  const name = String(row?.productName || "").toLowerCase();
+  const blob = `${fam} ${cat} ${pf} ${name}`;
+
+  if (
+    fam === "agri_oem" ||
+    fam.includes("agri_oem") ||
+    /\bagrimax\b/.test(blob) ||
+    /\bagri[- ]max\b/.test(name)
+  ) {
+    return "agrimax";
+  }
+  if (
+    /\bfood[- ]grade\b/.test(blob) ||
+    /\bfood grade\b/.test(blob) ||
+    (/\bfood\b/.test(cat) && !/\bforest/.test(cat)) ||
+    (/\bfood\b/.test(fam) && !/\bforest/.test(fam))
+  ) {
+    return "food_grade";
+  }
+  if (
+    /\beal\b/.test(blob) ||
+    /\benviro(nmental)?\b/.test(blob) ||
+    /\bbio[- ]?synthetic\b/.test(blob) ||
+    /\bbiodegradable\b/.test(blob) ||
+    (cat.includes("compliance") && (/\bbio\b/.test(blob) || /\benv/.test(blob)))
+  ) {
+    return "environmental_eal";
+  }
+  if (/\bgrease\b/.test(blob) || fam.includes("grease")) return "grease";
+  if (/\bgear\b/.test(blob) || fam.includes("gear")) return "gear_oil";
+  if (/\bhydraulic\b/.test(blob) || fam.includes("hydraulic")) return "hydraulic";
+  if (/\bcoolant\b/.test(blob) || /\bcool gard\b/.test(blob) || fam.includes("coolant")) return "coolant";
+  if (/\btransmission\b/.test(blob) || fam.includes("transmission") || /\bcvt\b/.test(blob)) {
+    return "transmission";
+  }
+  if (
+    fam.includes("industrial_specialty") ||
+    cat.includes("industrial_specialty") ||
+    pf.includes("industrial_specialty")
+  ) {
+    return "industrial_specialty";
+  }
+  if (
+    /\bengine\b/.test(blob) ||
+    /\bmotor oil\b/.test(blob) ||
+    /\bcrankcase\b/.test(blob) ||
+    cat.includes("engine") ||
+    fam.includes("engine")
+  ) {
+    return "hd_engine_oil";
+  }
+  return "other";
+}
 
 const CONTEST_METRIC_OPTIONS = [
   { value: "revenue_booked", label: "Revenue booked" },
@@ -4548,10 +4640,6 @@ useEffect(() => {
   const [seGuidedStep4ProductImgFailed, setSeGuidedStep4ProductImgFailed] = useState(false);
   /** Phase 76.5 — Step 5 dry-run panel (read-only; does not alter invoke payload). */
   const [seGuidedApprovedSendDryRunOpen, setSeGuidedApprovedSendDryRunOpen] = useState(false);
-  const [seGuidedPreviewLogoFailed, setSeGuidedPreviewLogoFailed] = useState(false);
-  useEffect(() => {
-    if (seGuidedIncludeBranding) setSeGuidedPreviewLogoFailed(false);
-  }, [seGuidedIncludeBranding]);
   /** Phase 73.22 — Guided audience wizard (UI/local labels; send payloads unchanged). */
   const [seGuidedWizardAudienceAll, setSeGuidedWizardAudienceAll] = useState(false);
   const [seGuidedWizardMessageKind, setSeGuidedWizardMessageKind] = useState(null);
@@ -4567,12 +4655,24 @@ useEffect(() => {
   const [seGuidedAssemblySelectedCanonicalIds, setSeGuidedAssemblySelectedCanonicalIds] = useState([]);
   const [seGuidedAssemblyRecommendedActions, setSeGuidedAssemblyRecommendedActions] = useState([]);
   const [seGuidedAssemblyContextNote, setSeGuidedAssemblyContextNote] = useState("");
+  /** Phase 5A.1 — Step 3 dropdown selections (canonical categories from `listAvailableCanonicalProducts`). */
+  const [seGuidedStep3CategoryKey, setSeGuidedStep3CategoryKey] = useState("");
+  const [seGuidedStep3ProductId, setSeGuidedStep3ProductId] = useState("");
+  const [seGuidedStep3ProfileIndustry, setSeGuidedStep3ProfileIndustry] = useState("");
+  const [seGuidedStep3ProfileFocus, setSeGuidedStep3ProfileFocus] = useState("");
   useEffect(() => {
     setSeGuidedAssemblyDraftPackage(null);
     setSeGuidedAssemblyDraftError(null);
     setSeGuidedAssemblySelectedCanonicalIds([]);
     setSeGuidedAssemblyRecommendedActions([]);
+    setSeGuidedStep3CategoryKey("");
+    setSeGuidedStep3ProductId("");
+    setSeGuidedStep3ProfileIndustry("");
+    setSeGuidedStep3ProfileFocus("");
   }, [seGuidedWizardMessageKind]);
+  useEffect(() => {
+    setSeGuidedStep3ProductId("");
+  }, [seGuidedStep3CategoryKey]);
   useEffect(() => {
     if (klondikeAdminTab !== "sales_enablement") return;
     setSeGuidedWizardMessageKind((prev) => {
@@ -7824,31 +7924,30 @@ const handleFinishDealerEnrollment = async () => {
     return CATEGORY_SPOTLIGHTS.filter((c) => c.category === salesEnablementCategoryFilter);
   }, [salesEnablementCategoryFilter]);
 
-  const guidedSpotlightBuilderRecommendation = React.useMemo(
-    () =>
-      getGuidedSpotlightBuilderRecommendation({
-        query: seGuidedBuilderQuery,
-        messageKind: seGuidedWizardMessageKind,
-      }),
-    [seGuidedBuilderQuery, seGuidedWizardMessageKind]
-  );
-
-  const seGuidedCanonicalSearchHits = React.useMemo(() => {
-    const q = String(seGuidedBuilderQuery || "").trim();
-    if (q.length < 2) return [];
-    return findCanonicalProductsForEnablement(q).slice(0, 10);
-  }, [seGuidedBuilderQuery]);
-
-  const spotlightAssemblyCanonicalCatalogCount = React.useMemo(
-    () => listAvailableCanonicalProducts().length,
-    []
-  );
+  const seGuidedStep3CanonicalRows = React.useMemo(() => listAvailableCanonicalProducts(), []);
+  const seGuidedStep3CategoryDropdownOptions = React.useMemo(() => {
+    const keys = new Set();
+    for (const row of seGuidedStep3CanonicalRows) {
+      keys.add(mapCanonicalRowToSeGuidedStep3CategoryKey(row));
+    }
+    return Array.from(keys)
+      .map((key) => ({ key, label: SE_GUIDED_STEP3_CATEGORY_LABELS[key] || key }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [seGuidedStep3CanonicalRows]);
+  const seGuidedStep3ProductsForCategory = React.useMemo(() => {
+    if (!seGuidedStep3CategoryKey) return [];
+    return seGuidedStep3CanonicalRows
+      .filter((row) => mapCanonicalRowToSeGuidedStep3CategoryKey(row) === seGuidedStep3CategoryKey)
+      .slice()
+      .sort((a, b) => String(a.productName || "").localeCompare(String(b.productName || "")));
+  }, [seGuidedStep3CanonicalRows, seGuidedStep3CategoryKey]);
 
   const runSeGuidedSpotlightAssemblyDraft = useCallback(
     (opts = {}) => {
       const overrideProductIds = Array.isArray(opts.overrideProductIds)
         ? opts.overrideProductIds.map((x) => String(x ?? "").trim()).filter(Boolean)
         : null;
+      const s3 = opts.step3 && typeof opts.step3 === "object" ? opts.step3 : null;
       setSeGuidedAssemblyDraftBusy(true);
       setSeGuidedAssemblyDraftError(null);
       try {
@@ -7859,8 +7958,25 @@ const handleFinishDealerEnrollment = async () => {
             : kind === "customer_profile"
               ? SPOTLIGHT_PACKAGE_TYPES[2]
               : SPOTLIGHT_PACKAGE_TYPES[0];
-        const qBase = String(seGuidedBuilderQuery || "").trim();
         const ctxNote = String(seGuidedAssemblyContextNote || "").trim();
+        let qBase = String(seGuidedBuilderQuery || "").trim();
+        if (s3) {
+          if (s3.mode === "product") {
+            const catLabel = String(s3.categoryLabel || "").trim();
+            const prodId = String(s3.productId || "").trim();
+            const prow = prodId
+              ? listAvailableCanonicalProducts().find((x) => String(x.id) === prodId)
+              : null;
+            const prodName = prow ? String(prow.productName || "").trim() : "";
+            qBase = [prodName, catLabel].filter(Boolean).join(" — ") || prodName || catLabel;
+          } else if (s3.mode === "category") {
+            qBase = String(s3.categoryLabel || "").trim();
+          } else if (s3.mode === "customer_profile") {
+            const industry = String(s3.industry || "").trim();
+            const focus = String(s3.focus || "").trim();
+            qBase = [industry, focus].filter(Boolean).join(" — ") || industry;
+          }
+        }
         const qCombined = [qBase, ctxNote].filter(Boolean).join(" — ") || qBase;
         const audience = seGuidedWizardAudienceAll ? "kl_admin" : "rep";
 
@@ -7910,6 +8026,9 @@ const handleFinishDealerEnrollment = async () => {
         let customerProfileSignals = uniqueStrings([
           ...deriveSignalsFromQuery(qCombined),
           ...(kind === "customer_profile" && qBase ? [qBase] : []),
+          ...(s3 && s3.mode === "customer_profile"
+            ? [String(s3.industry || "").trim(), String(s3.focus || "").trim()].filter(Boolean)
+            : []),
           ...(profileRef?.title ? [String(profileRef.title)] : []),
           ...(Array.isArray(profileRef?.priorityProductCategories)
             ? profileRef.priorityProductCategories.map((c) => String(c ?? ""))
@@ -7933,6 +8052,17 @@ const handleFinishDealerEnrollment = async () => {
         if (ctxNote) {
           accountContext.opportunitySignals = [ctxNote.slice(0, 160)];
         }
+        if (s3 && s3.mode === "customer_profile") {
+          const ind = String(s3.industry || "").trim();
+          const fo = String(s3.focus || "").trim();
+          const pair = [ind, fo].filter(Boolean).join(" · ");
+          if (pair) {
+            accountContext.opportunitySignals = uniqueStrings([
+              ...(accountContext.opportunitySignals || []),
+              pair.slice(0, 160),
+            ]);
+          }
+        }
         if (salesEnablementDealerOrgId && !dealerName) {
           accountContext.opportunitySignals = uniqueStrings([
             ...(accountContext.opportunitySignals || []),
@@ -7940,9 +8070,18 @@ const handleFinishDealerEnrollment = async () => {
           ]);
         }
 
-        let productIds = overrideProductIds
-          ? [...overrideProductIds]
-          : [...seGuidedAssemblySelectedCanonicalIds].map((x) => String(x ?? "").trim()).filter(Boolean);
+        const explicitFromStep3 =
+          s3 && s3.mode === "product" && String(s3.productId || "").trim()
+            ? [String(s3.productId).trim()]
+            : null;
+
+        let productIds = [...seGuidedAssemblySelectedCanonicalIds].map((x) => String(x ?? "").trim()).filter(Boolean);
+
+        if (overrideProductIds && overrideProductIds.length) {
+          productIds = [...overrideProductIds];
+        } else if (explicitFromStep3 && explicitFromStep3.length) {
+          productIds = [...explicitFromStep3];
+        }
 
         if (
           packageType === SPOTLIGHT_PACKAGE_TYPES[0] &&
@@ -7955,6 +8094,8 @@ const handleFinishDealerEnrollment = async () => {
 
         if (overrideProductIds && overrideProductIds.length) {
           setSeGuidedAssemblySelectedCanonicalIds(overrideProductIds.slice(0, 6));
+        } else if (explicitFromStep3 && explicitFromStep3.length) {
+          setSeGuidedAssemblySelectedCanonicalIds(explicitFromStep3.slice(0, 6));
         }
 
         const recInput = {
@@ -7981,9 +8122,10 @@ const handleFinishDealerEnrollment = async () => {
           let reason =
             String(pkg?.reason || "").trim() ||
             (packageType === SPOTLIGHT_PACKAGE_TYPES[0]
-              ? "No canonical product match found. Try searching by product name, category, spec, application, or SKU."
-              : "Draft not available for this search.");
+              ? "No canonical product match found. Try another product or category."
+              : "Draft not available for this selection.");
           if (
+            !s3 &&
             packageType === SPOTLIGHT_PACKAGE_TYPES[0] &&
             !/product name, category, spec, application, or sku/i.test(reason)
           ) {
@@ -8042,7 +8184,7 @@ const handleFinishDealerEnrollment = async () => {
         setSeGuidedAssemblyDraftPackage(null);
         setSeGuidedAssemblyDraftError({
           reason:
-            "Draft generation could not complete. Please adjust the product/category search and try again.",
+            "Draft generation could not complete. Adjust your selections and try again.",
           suggestions: [],
         });
       } finally {
@@ -8059,16 +8201,6 @@ const handleFinishDealerEnrollment = async () => {
       dealerNetworkPerformance,
       seGuidedWizardProfileRefId,
     ]
-  );
-
-  const handleSeGuidedUseCanonicalInDraft = useCallback(
-    (canonicalId) => {
-      const pid = String(canonicalId || "").trim();
-      if (!pid) return;
-      setSeGuidedAssemblySelectedCanonicalIds([pid]);
-      runSeGuidedSpotlightAssemblyDraft({ overrideProductIds: [pid] });
-    },
-    [runSeGuidedSpotlightAssemblyDraft]
   );
 
   const selectedSalesEnablementSpotlight = React.useMemo(() => {
@@ -10886,9 +11018,10 @@ const handleFinishDealerEnrollment = async () => {
               Boolean(String(salesEnablementDealerOrgId || "").trim());
             const messageKindReady = seGuidedWizardMessageKind != null;
             const wizardBuildReady =
-              seGuidedWizardMessageKind === "customer_profile"
+              Boolean(seGuidedAssemblyDraftPackage?.ok) ||
+              (seGuidedWizardMessageKind === "customer_profile"
                 ? Boolean(String(seGuidedWizardProfileRefId || "").trim())
-                : salesEnablementSelectedId != null;
+                : salesEnablementSelectedId != null);
             let guidedStep = 1;
             if (audienceReady) guidedStep = 2;
             if (audienceReady && messageKindReady) guidedStep = 3;
@@ -11321,6 +11454,987 @@ const handleFinishDealerEnrollment = async () => {
                   <span>{pt}</span>
                 </div>
               ));
+            const seAssemblyPkg = seGuidedAssemblyDraftPackage?.ok ? seGuidedAssemblyDraftPackage : null;
+            const inferKlondikeTrainingBadges = (row) => {
+              const blob = [
+                row?.productName,
+                row?.canonicalFamily,
+                row?.positioningLine,
+                row?.pdsMapKey,
+                ...(Array.isArray(row?.keySpecs) ? row.keySpecs : []),
+                ...(Array.isArray(row?.approvals) ? row.approvals : []),
+              ]
+                .map((x) => String(x ?? "").toLowerCase())
+                .join(" ");
+              const out = [];
+              const tryPush = (label, re) => {
+                if (out.length >= 7) return;
+                if (re.test(blob)) out.push(label);
+              };
+              tryPush("FOOD GRADE", /\bfood[- ]grade\b|\bfood grade\b/);
+              tryPush("NSF H1", /\bnsf\s*h[- ]?1\b|\bh[- ]?1\b.*nsf/);
+              tryPush("BIODEGRADABLE", /bio|bio-deg|biodeg|eal|vgp/);
+              tryPush("AGRIMAX", /agrimax|j20c|jdm/);
+              tryPush("EAL", /\beal\b|enviro|environmental accept/);
+              tryPush("GL-5", /\bgl[- ]?5\b|hypoid/);
+              tryPush("GL-4", /\bgl[- ]?4\b/);
+              tryPush("HEES", /\bhees\b|synthetic ester/);
+              tryPush("OEM", /\boem\b|factory fill|john deere|j20|jdm|cnh|case ih/);
+              tryPush("ZINC-FREE", /zinc[- ]free|zinc free/);
+              tryPush("MINING", /mining|extreme pressure|ep[\s-]?2/);
+              return out;
+            };
+            const inferKlondikePackageHeroBadges = (pkg) => {
+              const seen = new Set();
+              const out = [];
+              const push = (label) => {
+                const t = String(label || "").trim();
+                if (!t || seen.has(t) || out.length >= 8) return;
+                seen.add(t);
+                out.push(t);
+              };
+              const blob = [
+                pkg?.title,
+                pkg?.subtitle,
+                pkg?.summary,
+                pkg?.category,
+                pkg?.recommendedAction,
+              ]
+                .map((x) => String(x ?? "").toLowerCase())
+                .join(" ");
+              inferKlondikeTrainingBadges({
+                productName: blob,
+                canonicalFamily: "",
+                positioningLine: "",
+                pdsMapKey: "",
+                keySpecs: [],
+                approvals: [],
+              }).forEach(push);
+              (Array.isArray(pkg?.productCards) ? pkg.productCards : []).forEach((row) => {
+                inferKlondikeTrainingBadges(row).forEach(push);
+              });
+              if (/\bnsf\b|\bh[- ]?1\b/.test(blob)) push("NSF H1");
+              if (/\boem\b|\bjohn deere\b|\bcnh\b/.test(blob)) push("OEM");
+              return out;
+            };
+            const sePkgPickSection = (pred) => {
+              const secs = Array.isArray(seAssemblyPkg?.sections) ? seAssemblyPkg.sections : [];
+              return secs.find((s) => pred(String(s?.title || "").toLowerCase())) || null;
+            };
+            const seTrainingHeroTitle = String(
+              seAssemblyPkg?.title ||
+                salesEnablementGuidedTemplateLines.spotlightTitle ||
+                salesEnablementGuidedTemplateLines.subject ||
+                "Klondike sales enablement"
+            ).trim();
+            const seTrainingSummary = String(seAssemblyPkg?.summary || "").trim();
+            const seTrainingCategoryTag = String(seAssemblyPkg?.category || "").trim();
+            const seTrainingAudienceTag = String(seAssemblyPkg?.audience || "").trim();
+            const seTrainingPriorityTag = String(seAssemblyPkg?.priority || "").trim();
+            const seTrainingPackageTypeRaw = String(
+              seAssemblyPkg?.packageType || seAssemblyPkg?.suggestedSpotlightType || ""
+            )
+              .trim()
+              .toLowerCase();
+            const seTrainingPackageEyebrow =
+              seTrainingPackageTypeRaw === "category_spotlight"
+                ? "CATEGORY SPOTLIGHT"
+                : seTrainingPackageTypeRaw === "customer_profile"
+                  ? "CUSTOMER PROFILE"
+                  : seTrainingPackageTypeRaw === "product_spotlight" || seTrainingPackageTypeRaw === ""
+                    ? "PRODUCT SPOTLIGHT"
+                    : seTrainingPackageTypeRaw.replace(/_/g, " ").toUpperCase();
+            const seTrainingHeroBadges = seAssemblyPkg ? inferKlondikePackageHeroBadges(seAssemblyPkg) : [];
+            const seTrainingSectionShell = (eyebrow, title, sub, children) =>
+              title || children ? (
+                <div
+                  key={String(title) + String(eyebrow)}
+                  style={{
+                    borderRadius: 14,
+                    padding: "14px 16px",
+                    background: "#ffffff",
+                    border: "1px solid rgba(226, 232, 240, 0.98)",
+                    boxShadow: "0 6px 20px rgba(15, 23, 42, 0.06)",
+                    display: "grid",
+                    gap: 10,
+                  }}
+                >
+                  {eyebrow ? (
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#1e3a8a" }}>
+                      {eyebrow}
+                    </div>
+                  ) : null}
+                  {title ? (
+                    <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.3 }}>{title}</div>
+                  ) : null}
+                  {sub ? (
+                    <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5, fontWeight: 600 }}>{sub}</p>
+                  ) : null}
+                  {children}
+                </div>
+              ) : null;
+            const guidedSeTrainingInfographicInner = (
+              <>
+                <div
+                  style={{
+                    borderRadius: 18,
+                    padding: "22px 22px 20px",
+                    background: "#ffffff",
+                    border: "1px solid rgba(30, 58, 138, 0.18)",
+                    boxShadow: "0 14px 40px rgba(15, 23, 42, 0.1)",
+                    display: "grid",
+                    gap: 16,
+                    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 148px)",
+                    alignItems: "start",
+                  }}
+                >
+                  <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 900,
+                        letterSpacing: "0.16em",
+                        color: "#ea580c",
+                      }}
+                    >
+                      {seTrainingPackageEyebrow}
+                    </div>
+                    <h4
+                      style={{
+                        margin: 0,
+                        fontSize: 26,
+                        fontWeight: 900,
+                        color: "#0f172a",
+                        letterSpacing: "-0.02em",
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      {seTrainingHeroTitle}
+                    </h4>
+                    {(() => {
+                      const sub = String(seAssemblyPkg?.subtitle || "").trim();
+                      const sum = seTrainingSummary;
+                      const lead = sub || sum || "";
+                      if (!lead) return null;
+                      return (
+                        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#334155", lineHeight: 1.45 }}>
+                          {lead.length > 260 ? `${lead.slice(0, 257)}…` : lead}
+                        </p>
+                      );
+                    })()}
+                    {(() => {
+                      const sub = String(seAssemblyPkg?.subtitle || "").trim();
+                      const sum = seTrainingSummary;
+                      if (!sum || sum === sub) return null;
+                      return (
+                        <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.5, fontWeight: 600 }}>
+                          {sum.length > 300 ? `${sum.slice(0, 297)}…` : sum}
+                        </p>
+                      );
+                    })()}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                      {seTrainingHeroBadges.map((b) => (
+                        <span
+                          key={b}
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 900,
+                            letterSpacing: "0.07em",
+                            padding: "5px 11px",
+                            borderRadius: 999,
+                            background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
+                            color: "#9a3412",
+                            border: "1px solid rgba(251, 146, 60, 0.45)",
+                          }}
+                        >
+                          {b}
+                        </span>
+                      ))}
+                      {buildMessageTypeLabel ? (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 900,
+                            letterSpacing: "0.06em",
+                            padding: "5px 10px",
+                            borderRadius: 999,
+                            background: "#eff6ff",
+                            color: "#1e40af",
+                            border: "1px solid rgba(59, 130, 246, 0.35)",
+                          }}
+                        >
+                          {buildMessageTypeLabel}
+                        </span>
+                      ) : null}
+                      {seTrainingCategoryTag ? (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            padding: "5px 10px",
+                            borderRadius: 999,
+                            background: "#f8fafc",
+                            color: "#475569",
+                            border: "1px solid rgba(203, 213, 225, 0.95)",
+                          }}
+                        >
+                          {seTrainingCategoryTag}
+                        </span>
+                      ) : null}
+                      {salesEnablementGuidedTemplateLines.audience || seTrainingAudienceTag ? (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            padding: "5px 10px",
+                            borderRadius: 999,
+                            background: "#f1f5f9",
+                            color: "#475569",
+                            border: "1px solid rgba(203, 213, 225, 0.95)",
+                          }}
+                        >
+                          {String(seTrainingAudienceTag || salesEnablementGuidedTemplateLines.audience || "")
+                            .trim()
+                            .slice(0, 72) || "Audience"}
+                        </span>
+                      ) : null}
+                      {seTrainingPriorityTag ? (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 900,
+                            padding: "5px 10px",
+                            borderRadius: 999,
+                            background: "#fef3c7",
+                            color: "#92400e",
+                            border: "1px solid rgba(245, 158, 11, 0.5)",
+                          }}
+                        >
+                          {seTrainingPriorityTag}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", fontWeight: 600, lineHeight: 1.45 }}>
+                      Generated from KLONDIKE product intelligence.
+                    </p>
+                  </div>
+                  <div
+                    data-kl-phase5c-hero-image
+                    style={{
+                      borderRadius: 14,
+                      minHeight: 140,
+                      border: "2px dashed rgba(203, 213, 225, 0.95)",
+                      background: "linear-gradient(165deg, #f8fafc 0%, #eff6ff 45%, #ffffff 100%)",
+                      display: "grid",
+                      placeItems: "center",
+                      padding: 12,
+                      textAlign: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: "#1e3a8a" }}>
+                      PRODUCT IMAGE AREA
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#64748b", lineHeight: 1.35 }}>
+                      Placeholder for product visual — Phase 5C upload
+                    </div>
+                  </div>
+                </div>
+
+                {seGuidedKnowledgePreviewMock ? (
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#475569",
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      background: "#f8fafc",
+                      border: "1px solid rgba(226, 232, 240, 0.98)",
+                    }}
+                  >
+                    Knowledge lens applied to preview (send path unchanged).
+                  </div>
+                ) : null}
+                {seTplStagedKnowledge ? (
+                  <details
+                    style={{
+                      borderRadius: 12,
+                      padding: "8px 10px",
+                      background: "#f8fafc",
+                      border: "1px solid rgba(226, 232, 240, 0.95)",
+                    }}
+                  >
+                    <summary style={{ cursor: "pointer", fontSize: 11, fontWeight: 800, color: "#64748b" }}>
+                      Staged knowledge (optional reference)
+                    </summary>
+                    <div style={{ marginTop: 10 }}>{stagedKnowledgeInnerPreview}</div>
+                  </details>
+                ) : null}
+
+                <div style={{ display: "grid", gap: 12 }}>
+                  {Array.isArray(seAssemblyPkg?.productCards) && seAssemblyPkg.productCards.length ? (
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {seTrainingSectionShell(
+                        "FEATURED",
+                        "Featured products",
+                        "Primary lines to anchor the conversation.",
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 10,
+                            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))",
+                          }}
+                        >
+                          {seAssemblyPkg.productCards.slice(0, 6).map((row, idx) => {
+                            const badges = inferKlondikeTrainingBadges(row);
+                            const specs = Array.isArray(row?.keySpecs)
+                              ? row.keySpecs.map((x) => String(x ?? "").trim()).filter(Boolean)
+                              : [];
+                            const approvals = Array.isArray(row?.approvals)
+                              ? row.approvals.map((x) => String(x ?? "").trim()).filter(Boolean)
+                              : [];
+                            const specLines = [...specs, ...approvals].filter(Boolean).slice(0, 4);
+                            const pos = String(row?.positioningLine || row?.oneLiner || "").trim();
+                            return (
+                              <div
+                                key={`se-train-pc-${String(row?.pdsMapKey || idx)}`}
+                                style={{
+                                  borderRadius: 12,
+                                  padding: "12px 12px 14px",
+                                  border: "1px solid rgba(30, 64, 175, 0.22)",
+                                  background: "linear-gradient(160deg, #f8fafc 0%, #ffffff 100%)",
+                                  display: "grid",
+                                  gap: 8,
+                                  minWidth: 0,
+                                }}
+                              >
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                                  {badges.map((b) => (
+                                    <span
+                                      key={b}
+                                      style={{
+                                        fontSize: 8,
+                                        fontWeight: 900,
+                                        letterSpacing: "0.06em",
+                                        padding: "3px 8px",
+                                        borderRadius: 999,
+                                        background: "#fff7ed",
+                                        color: "#c2410c",
+                                        border: "1px solid rgba(251, 146, 60, 0.42)",
+                                      }}
+                                    >
+                                      {b}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", lineHeight: 1.25 }}>
+                                  {String(row?.productName || "Product").trim()}
+                                </div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569" }}>
+                                  {String(row?.canonicalFamily || "").trim() || "Klondike line"}
+                                </div>
+                                {specLines.length ? (
+                                  <ul
+                                    style={{
+                                      margin: 0,
+                                      paddingLeft: 16,
+                                      fontSize: 11,
+                                      color: "#334155",
+                                      lineHeight: 1.4,
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {specLines.map((s, i) => (
+                                      <li key={`spec-${i}`}>{s.length > 96 ? `${s.slice(0, 93)}…` : s}</li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                                {pos ? (
+                                  <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.4, fontWeight: 600 }}>
+                                    {pos.length > 140 ? `${pos.slice(0, 137)}…` : pos}
+                                  </p>
+                                ) : null}
+                                {row?.pdsMapKey ? (
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8" }}>
+                                    Ref: {String(row.pdsMapKey).slice(0, 48)}
+                                  </div>
+                                ) : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+
+                  {seTrainingSectionShell(
+                    "POSITIONING",
+                    "Why this matters",
+                    null,
+                    (() => {
+                      const sec = sePkgPickSection((t) => /why|matter|value|wins/.test(t));
+                      const bullets = Array.isArray(sec?.bullets)
+                        ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 6)
+                        : [];
+                      const rec = String(seAssemblyPkg?.recommendedAction || "").trim();
+                      return (
+                        <div style={{ display: "grid", gap: 10 }}>
+                          {rec ? (
+                            <div
+                              style={{
+                                padding: "12px 14px",
+                                borderRadius: 12,
+                                background: "linear-gradient(135deg, #fff7ed 0%, #ffffff 100%)",
+                                border: "1px solid rgba(251, 146, 60, 0.4)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 9,
+                                  fontWeight: 900,
+                                  letterSpacing: "0.12em",
+                                  color: "#c2410c",
+                                  marginBottom: 6,
+                                }}
+                              >
+                                RECOMMENDED ACTION
+                              </div>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", lineHeight: 1.45 }}>
+                                {rec}
+                              </div>
+                            </div>
+                          ) : null}
+                          {bullets.length ? (
+                            <ul
+                              style={{
+                                margin: 0,
+                                paddingLeft: 18,
+                                fontSize: 13,
+                                color: "#334155",
+                                lineHeight: 1.45,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {bullets.map((b, i) => (
+                                <li key={`why-b-${i}`}>{b}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          {!bullets.length ? (
+                            <p style={{ margin: 0, fontSize: 13, color: "#334155", lineHeight: 1.5, fontWeight: 700 }}>
+                              {seTrainingSummary ||
+                                (previewSendUsesFlagship
+                                  ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewWhyItWins
+                                  : "") ||
+                                (!rec
+                                  ? "Build confidence with clear customer outcomes and proof-backed Klondike positioning."
+                                  : "")}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })()
+                  )}
+
+                  {seTrainingSectionShell(
+                    "APPLICATIONS",
+                    "Best-fit applications",
+                    null,
+                    (() => {
+                      const sec =
+                        sePkgPickSection((t) => /application|use when|fit|deploy|when to/.test(t)) ||
+                        sePkgPickSection((t) => /market|segment|fleet/.test(t));
+                      const bullets = Array.isArray(sec?.bullets)
+                        ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 8)
+                        : [];
+                      const chips = bullets.length
+                        ? bullets
+                        : (tplProofDisplay || []).slice(0, 4).map((x) => String(x).trim());
+                      if (!chips.length) {
+                        return (
+                          <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
+                            Refine search or generate a draft for application cues.
+                          </p>
+                        );
+                      }
+                      return (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {chips.map((c, i) => (
+                            <div
+                              key={`app-${i}`}
+                              style={{
+                                flex: "1 1 180px",
+                                minWidth: 0,
+                                padding: "10px 12px",
+                                borderRadius: 10,
+                                background: "#eff6ff",
+                                border: "1px solid rgba(59, 130, 246, 0.28)",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: "#1e3a8a",
+                                lineHeight: 1.35,
+                              }}
+                            >
+                              {c.length > 120 ? `${c.slice(0, 117)}…` : c}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()
+                  )}
+
+                  {seTrainingSectionShell(
+                    "COACHING",
+                    "What reps should know",
+                    null,
+                    <div style={{ display: "grid", gap: 10 }}>
+                      {previewSendUsesFlagship &&
+                      Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips) &&
+                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips.length ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips
+                            .slice(0, 4)
+                            .map((chip) => (
+                              <div
+                                key={chip.id}
+                                style={{
+                                  flex: "1 1 120px",
+                                  minWidth: 108,
+                                  padding: "10px 12px",
+                                  borderRadius: 12,
+                                  background: "linear-gradient(145deg, #ecfdf5 0%, #f0fdfa 100%)",
+                                  border: "1px solid rgba(45, 212, 191, 0.4)",
+                                  boxShadow: "0 4px 12px rgba(15, 118, 110, 0.08)",
+                                }}
+                              >
+                                <div style={{ fontSize: 9, fontWeight: 900, color: "#0f766e", letterSpacing: "0.06em" }}>
+                                  {chip.label}
+                                </div>
+                                <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.2 }}>
+                                  {chip.value}
+                                </div>
+                                <div style={{ fontSize: 10, color: "#64748b", marginTop: 4, lineHeight: 1.3 }}>
+                                  {chip.hint}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      ) : null}
+                      {(() => {
+                        const ang = Array.isArray(seAssemblyPkg?.salesAngles)
+                          ? seAssemblyPkg.salesAngles.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 8)
+                          : [];
+                        const sea = Array.isArray(seAssemblyPkg?.salesEnablementAngles)
+                          ? seAssemblyPkg.salesEnablementAngles
+                              .map((x) => String(x ?? "").trim())
+                              .filter(Boolean)
+                              .slice(0, 8)
+                          : [];
+                        const mergedAngles = [...ang, ...sea.filter((x) => !ang.includes(x))].slice(0, 8);
+                        if (!mergedAngles.length) return null;
+                        return (
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: 8,
+                              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
+                            }}
+                          >
+                            {mergedAngles.map((line, i) => (
+                              <div
+                                key={`sales-ang-${i}`}
+                                style={{
+                                  padding: "10px 12px",
+                                  borderRadius: 12,
+                                  background: "#ffffff",
+                                  border: "1px solid rgba(30, 64, 175, 0.18)",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  color: "#1e3a8a",
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                {line.length > 160 ? `${line.slice(0, 157)}…` : line}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      {previewSendUsesFlagship &&
+                      Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack) &&
+                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack.length ? (
+                        <div
+                          style={{
+                            padding: "10px 12px",
+                            borderRadius: 12,
+                            background: "#faf5ff",
+                            border: "1px solid rgba(167, 139, 250, 0.4)",
+                            display: "grid",
+                            gap: 6,
+                          }}
+                        >
+                          {guidedFlagshipBulletRows(
+                            salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack,
+                            "se-train-rep",
+                            "#7c3aed"
+                          )}
+                        </div>
+                      ) : null}
+                      {(() => {
+                        const sec = sePkgPickSection((t) => /rep|coach|talk|enable|know/.test(t));
+                        const bullets = Array.isArray(sec?.bullets)
+                          ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 8)
+                          : [];
+                        if (!bullets.length) return null;
+                        return (
+                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#334155", lineHeight: 1.45 }}>
+                            {bullets.map((b, i) => (
+                              <li key={`rep-know-${i}`}>{b}</li>
+                            ))}
+                          </ul>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {(() => {
+                    const dq = [
+                      ...(Array.isArray(seAssemblyPkg?.repQuestions) ? seAssemblyPkg.repQuestions : []),
+                      ...(Array.isArray(seAssemblyPkg?.customerProfileQuestions)
+                        ? seAssemblyPkg.customerProfileQuestions
+                        : []),
+                    ]
+                      .map((q) => String(q ?? "").trim())
+                      .filter(Boolean)
+                      .slice(0, 12);
+                    if (!dq.length) return null;
+                    return seTrainingSectionShell(
+                      "DISCOVERY",
+                      "Questions reps should ask",
+                      "Interview & discovery prompts from the generated package.",
+                      <div style={{ display: "grid", gap: 8 }}>
+                        {dq.map((q, i) => (
+                          <div
+                            key={`dq-${i}`}
+                            style={{
+                              display: "flex",
+                              gap: 10,
+                              alignItems: "flex-start",
+                              padding: "10px 12px",
+                              borderRadius: 10,
+                              background: "#f8fafc",
+                              border: "1px solid rgba(226, 232, 240, 0.98)",
+                            }}
+                          >
+                            <span
+                              style={{
+                                marginTop: 2,
+                                width: 22,
+                                height: 22,
+                                borderRadius: 6,
+                                border: "2px solid rgba(30, 64, 175, 0.35)",
+                                background: "#ffffff",
+                                flexShrink: 0,
+                              }}
+                              aria-hidden
+                            />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#334155", lineHeight: 1.45 }}>
+                              {q}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
+                  {seTrainingSectionShell(
+                    "CUSTOMER REALITY",
+                    "Customer pain points",
+                    null,
+                    (() => {
+                      const pains = Array.isArray(seAssemblyPkg?.operationalPainPoints)
+                        ? seAssemblyPkg.operationalPainPoints.map((x) => String(x ?? "").trim()).filter(Boolean)
+                        : [];
+                      const flagshipPains =
+                        previewSendUsesFlagship &&
+                        Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals)
+                          ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals
+                          : [];
+                      const merged = [...pains, ...flagshipPains].slice(0, 8);
+                      if (!merged.length) {
+                        return (
+                          <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
+                            Generate a draft to surface operational pain language.
+                          </p>
+                        );
+                      }
+                      return (
+                        <div style={{ display: "grid", gap: 8 }}>
+                          {merged.map((p, i) => (
+                            <div
+                              key={`pain-${i}`}
+                              style={{
+                                padding: "8px 10px",
+                                borderRadius: 10,
+                                background: "#fffbeb",
+                                border: "1px solid rgba(251, 191, 36, 0.45)",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: "#78350f",
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              {p.length > 160 ? `${p.slice(0, 157)}…` : p}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()
+                  )}
+
+                  {seTrainingSectionShell(
+                    "GROWTH",
+                    "Cross-sell opportunities",
+                    "Suggested companion products and adjacencies.",
+                    Array.isArray(seAssemblyPkg?.crossSellOpportunities) &&
+                    seAssemblyPkg.crossSellOpportunities.length ? (
+                      <div
+                        style={{
+                          display: "grid",
+                          gap: 8,
+                          gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
+                        }}
+                      >
+                        {seAssemblyPkg.crossSellOpportunities.slice(0, 10).map((c, i) => (
+                          <div
+                            key={`xs-${i}`}
+                            style={{
+                              padding: "10px 12px",
+                              borderRadius: 12,
+                              background: "linear-gradient(145deg, #ecfdf5 0%, #ffffff 100%)",
+                              border: "1px solid rgba(52, 211, 153, 0.38)",
+                              fontSize: 12,
+                              fontWeight: 800,
+                              color: "#047857",
+                              lineHeight: 1.35,
+                              boxShadow: "0 2px 8px rgba(5, 150, 105, 0.08)",
+                            }}
+                          >
+                            {String(c).length > 120 ? `${String(c).slice(0, 117)}…` : String(c)}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
+                        Cross-sell ideas appear after generating a draft for this spotlight.
+                      </p>
+                    )
+                  )}
+
+                  <div
+                    style={{
+                      borderRadius: 14,
+                      padding: "16px 18px",
+                      background: "linear-gradient(135deg, #ea580c 0%, #c2410c 50%, #1e3a8a 100%)",
+                      border: "1px solid rgba(251, 146, 60, 0.45)",
+                      boxShadow: "0 12px 28px rgba(194, 65, 12, 0.2)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 900,
+                        letterSpacing: "0.14em",
+                        color: "rgba(255, 255, 255, 0.9)",
+                      }}
+                    >
+                      RECOMMENDED NEXT STEP
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 8,
+                        fontSize: 16,
+                        fontWeight: 900,
+                        color: "#ffffff",
+                        lineHeight: 1.35,
+                        textShadow: "0 1px 2px rgba(15, 23, 42, 0.25)",
+                      }}
+                    >
+                      {String(seAssemblyPkg?.recommendedAction || "").trim() ||
+                        "Open Prepare Send when routing is confirmed — reps get this narrative through the standard workflow."}
+                    </div>
+                    {String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview || "").trim() ? (
+                      <div
+                        style={{
+                          marginTop: 12,
+                          padding: "10px 14px",
+                          borderRadius: 10,
+                          background: "rgba(255, 255, 255, 0.95)",
+                          fontSize: 13,
+                          fontWeight: 900,
+                          color: "#c2410c",
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview).trim()}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {(() => {
+                    const complianceSec = sePkgPickSection((t) =>
+                      /compliance|oem|caution|environmental|trigger|probe|preserve/.test(t)
+                    );
+                    const complianceBullets = Array.isArray(complianceSec?.bullets)
+                      ? complianceSec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean)
+                      : [];
+                    const gr = [
+                      ...(Array.isArray(seAssemblyPkg?.guardrails) ? seAssemblyPkg.guardrails : []),
+                      ...(Array.isArray(seAssemblyPkg?.sourceNotes) ? seAssemblyPkg.sourceNotes : []),
+                      ...complianceBullets,
+                    ]
+                      .map((g) => String(g ?? "").trim())
+                      .filter(Boolean);
+                    const uniq = [];
+                    const seen = new Set();
+                    for (const line of gr) {
+                      const k = line.toLowerCase().slice(0, 120);
+                      if (seen.has(k)) continue;
+                      seen.add(k);
+                      uniq.push(line);
+                      if (uniq.length >= 12) break;
+                    }
+                    if (!uniq.length) return null;
+                    return (
+                      <div
+                        style={{
+                          borderRadius: 14,
+                          padding: "14px 16px",
+                          background: "linear-gradient(135deg, #fffbeb 0%, #ffedd5 100%)",
+                          border: "1px solid rgba(245, 158, 11, 0.45)",
+                          display: "grid",
+                          gap: 10,
+                        }}
+                      >
+                        <div
+                          style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#92400e" }}
+                        >
+                          GUARDRAILS & COMPLIANCE NOTES
+                        </div>
+                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#78350f", lineHeight: 1.45 }}>
+                          {uniq.map((g, i) => (
+                            <li key={`gr-train-${i}`}>{g.length > 200 ? `${g.slice(0, 197)}…` : g}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })()}
+
+                </div>
+
+                {guidedWizardPdsUrl ? (
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: 12,
+                      background: "#eff6ff",
+                      border: "1px solid rgba(59, 130, 246, 0.35)",
+                      display: "grid",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ fontSize: 10, fontWeight: 900, color: "#1e40af", letterSpacing: "0.08em" }}>
+                      PRODUCT DATA SHEET
+                    </div>
+                    <a
+                      href={guidedWizardPdsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ fontSize: 13, fontWeight: 800, color: "#2563eb" }}
+                    >
+                      View supporting document
+                    </a>
+                  </div>
+                ) : null}
+
+                <details
+                  id="kl-se-guided-advanced-edit"
+                  style={{
+                    borderRadius: 12,
+                    padding: "10px 12px",
+                    background: "#f8fafc",
+                    border: "1px dashed rgba(148, 163, 184, 0.6)",
+                  }}
+                >
+                  <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 800, color: "#64748b" }}>
+                    Advanced editing
+                  </summary>
+                  <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                    <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
+                      Custom notes prepend in the operational send panel — same behavior as before.
+                    </p>
+                    <textarea
+                      value={salesEnablementPreparedIntro}
+                      onChange={(e) => setSalesEnablementPreparedIntro(e.target.value)}
+                      placeholder="Optional intro for dealer-facing send…"
+                      rows={3}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        border: "1px solid rgba(203, 213, 225, 0.95)",
+                        fontSize: 12,
+                        fontFamily: "inherit",
+                        color: "#334155",
+                        resize: "vertical",
+                        minHeight: 64,
+                        background: "#ffffff",
+                      }}
+                    />
+                  </div>
+                </details>
+
+                <details
+                  style={{
+                    borderRadius: 12,
+                    padding: "8px 10px",
+                    background: "#fafafa",
+                    border: "1px solid rgba(226, 232, 240, 0.95)",
+                  }}
+                >
+                  <summary style={{ cursor: "pointer", fontSize: 11, fontWeight: 800, color: "#94a3b8" }}>
+                    Classic email-style body (reference)
+                  </summary>
+                  <div style={{ marginTop: 10, display: "grid", gap: 12 }}>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      <div style={{ fontSize: 10, fontWeight: 900, color: "#94a3b8" }}>Subject</div>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a" }}>
+                        {salesEnablementGuidedTemplateLines.subject}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>
+                      {String(salesEnablementPreparedIntro || "").trim()
+                        ? `${String(salesEnablementPreparedIntro || "").trim()}\n\n`
+                        : ""}
+                      {guidedPreviewEmailBodyLead}
+                    </div>
+                    <div style={{ fontSize: 10, fontWeight: 900, color: "#94a3b8" }}>LFBB reference</div>
+                    <div
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        background: "#ffffff",
+                        border: "1px solid rgba(226, 232, 240, 0.95)",
+                      }}
+                    >
+                      {renderGuidedLfbbRows(tplLfbbFromKnowledge, false)}
+                    </div>
+                  </div>
+                </details>
+              </>
+            );
             return (
               <>
                 <div
@@ -11581,15 +12695,14 @@ const handleFinishDealerEnrollment = async () => {
                       {"STEP 3 — GENERATE DRAFT"}
                     </div>
                     <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
-                      What should the system build?
+                      Choose inputs, generate a first draft, then review.
                     </p>
                     <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5, maxWidth: 860 }}>
-                      Enter a product or topic and optional context, then generate a first draft. You can refine the copy
-                      anytime before sending.
+                      Keep it simple: pick a category (and product when needed), add optional context, then generate.
                     </p>
                     {!messageKindReady ? (
                       <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", fontWeight: 700, lineHeight: 1.45 }}>
-                        Pick Step 2 first—then choose your spotlight or profile below.
+                        Pick Step 2 first—then complete the fields below.
                       </p>
                     ) : null}
                     {messageKindReady ? (
@@ -11597,78 +12710,142 @@ const handleFinishDealerEnrollment = async () => {
                         <div
                           style={{
                             borderRadius: 12,
-                            padding: "12px 14px",
-                            background: "linear-gradient(120deg, rgba(239, 246, 255, 0.95) 0%, rgba(250, 245, 255, 0.9) 100%)",
-                            border: "1px solid rgba(99, 102, 241, 0.28)",
-                            display: "grid",
-                            gap: 10,
-                          }}
-                        >
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#4338ca" }}>
-                            PRODUCT OR TOPIC
-                          </div>
-                          <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
-                            {seGuidedWizardMessageKind === "customer_profile"
-                              ? "What type of customer are you targeting?"
-                              : seGuidedWizardMessageKind === "category"
-                                ? "What product line or operational problem are you targeting?"
-                                : "What product would you like to highlight?"}
-                          </div>
-                          <input
-                            type="search"
-                            value={seGuidedBuilderQuery}
-                            onChange={(e) => setSeGuidedBuilderQuery(e.target.value)}
-                            placeholder="Type keywords — e.g. Nano EP 2, wet brake chatter, mining grease…"
-                            style={{
-                              width: "100%",
-                              maxWidth: "100%",
-                              borderRadius: 10,
-                              padding: "11px 12px",
-                              fontSize: 14,
-                              fontWeight: 600,
-                              border: "1px solid rgba(99, 102, 241, 0.45)",
-                              background: "#ffffff",
-                              color: "#0f172a",
-                            }}
-                          />
-                          <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b", lineHeight: 1.45 }}>
-                            Examples:{" "}
-                            <span style={{ color: "#475569" }}>
-                              Nano EP 2 · Wet brake chatter · Cold weather hydraulics · Mining grease · Food processing
-                              hydraulics · Mixed fleet uptime
-                            </span>
-                          </div>
-                        </div>
-                        <div
-                          style={{
-                            borderRadius: 12,
                             padding: "14px 14px 16px",
-                            border: "1px solid rgba(30, 64, 175, 0.28)",
-                            background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                            border: "1px solid rgba(30, 58, 138, 0.22)",
+                            background: "#ffffff",
                             display: "grid",
                             gap: 12,
                           }}
                         >
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#1e40af" }}>
-                            DRAFT INPUTS
-                          </div>
-                          <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.5, fontWeight: 600 }}>
-                            Klondike intelligence suggests talking points and structure for the draft below. You stay in
-                            control — edit before send.
-                          </p>
-                          <label style={{ display: "grid", gap: 6, fontSize: 10, fontWeight: 800, color: "#64748b" }}>
+                          {seGuidedWizardMessageKind === "customer_profile" ? (
+                            <>
+                              <label style={{ display: "grid", gap: 6, fontSize: 11, fontWeight: 800, color: "#1e3a8a" }}>
+                                Industry / Customer Type
+                                <select
+                                  value={seGuidedStep3ProfileIndustry}
+                                  onChange={(e) => setSeGuidedStep3ProfileIndustry(e.target.value)}
+                                  style={{
+                                    width: "100%",
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    border: "1px solid rgba(30, 58, 138, 0.35)",
+                                    background: "#ffffff",
+                                    color: "#0f172a",
+                                  }}
+                                >
+                                  <option value="">Select…</option>
+                                  {SE_GUIDED_STEP3_PROFILE_INDUSTRIES.map((label) => (
+                                    <option key={label} value={label}>
+                                      {label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label style={{ display: "grid", gap: 6, fontSize: 11, fontWeight: 800, color: "#1e3a8a" }}>
+                                Optional focus
+                                <select
+                                  value={seGuidedStep3ProfileFocus}
+                                  onChange={(e) => setSeGuidedStep3ProfileFocus(e.target.value)}
+                                  style={{
+                                    width: "100%",
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    border: "1px solid rgba(30, 58, 138, 0.35)",
+                                    background: "#ffffff",
+                                    color: "#0f172a",
+                                  }}
+                                >
+                                  <option value="">— None —</option>
+                                  {SE_GUIDED_STEP3_PROFILE_FOCUS_OPTIONS.map((label) => (
+                                    <option key={label} value={label}>
+                                      {label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </>
+                          ) : (
+                            <>
+                              <label style={{ display: "grid", gap: 6, fontSize: 11, fontWeight: 800, color: "#1e3a8a" }}>
+                                Product Category
+                                <select
+                                  value={seGuidedStep3CategoryKey}
+                                  onChange={(e) => setSeGuidedStep3CategoryKey(e.target.value)}
+                                  style={{
+                                    width: "100%",
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    border: "1px solid rgba(30, 58, 138, 0.35)",
+                                    background: "#ffffff",
+                                    color: "#0f172a",
+                                  }}
+                                >
+                                  <option value="">Select a category…</option>
+                                  {seGuidedStep3CategoryDropdownOptions.map((opt) => (
+                                    <option key={opt.key} value={opt.key}>
+                                      {opt.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              {seGuidedWizardMessageKind === "product" ? (
+                                <label
+                                  style={{ display: "grid", gap: 6, fontSize: 11, fontWeight: 800, color: "#1e3a8a" }}
+                                >
+                                  Product
+                                  <select
+                                    value={seGuidedStep3ProductId}
+                                    onChange={(e) => setSeGuidedStep3ProductId(e.target.value)}
+                                    disabled={!seGuidedStep3CategoryKey}
+                                    style={{
+                                      width: "100%",
+                                      borderRadius: 10,
+                                      padding: "10px 12px",
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      border: "1px solid rgba(30, 58, 138, 0.35)",
+                                      background: "#ffffff",
+                                      color: "#0f172a",
+                                      opacity: seGuidedStep3CategoryKey ? 1 : 0.6,
+                                    }}
+                                  >
+                                    <option value="">
+                                      {seGuidedStep3CategoryKey ? "Select a product…" : "Pick a category first…"}
+                                    </option>
+                                    {seGuidedStep3ProductsForCategory.map((row) => {
+                                      const hint = String(row.canonicalFamily || row.category || row.productFamily || "")
+                                        .trim();
+                                      return (
+                                        <option key={row.id} value={row.id}>
+                                          {String(row.productName || "").trim() || row.id}
+                                          {hint ? ` · ${hint}` : ""}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                </label>
+                              ) : null}
+                            </>
+                          )}
+                          <label style={{ display: "grid", gap: 6, fontSize: 11, fontWeight: 800, color: "#1e3a8a" }}>
                             Optional goal / context
                             <input
                               type="text"
                               value={seGuidedAssemblyContextNote}
                               onChange={(e) => setSeGuidedAssemblyContextNote(e.target.value)}
-                              placeholder="e.g. Q4 pilot · cold-weather push · counter day follow-up…"
+                              placeholder="e.g. Focus on uptime · Spring PM season · Wet brake chatter · Food plant maintenance…"
                               style={{
                                 borderRadius: 10,
                                 padding: "10px 12px",
                                 fontSize: 13,
                                 fontWeight: 600,
-                                border: "1px solid rgba(30, 64, 175, 0.35)",
+                                border: "1px solid rgba(30, 58, 138, 0.35)",
                                 background: "#ffffff",
                                 color: "#0f172a",
                               }}
@@ -11677,21 +12854,47 @@ const handleFinishDealerEnrollment = async () => {
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                             <button
                               type="button"
-                              disabled={seGuidedAssemblyDraftBusy}
-                              onClick={() => runSeGuidedSpotlightAssemblyDraft()}
+                              disabled={
+                                seGuidedAssemblyDraftBusy ||
+                                (seGuidedWizardMessageKind === "product" &&
+                                  (!seGuidedStep3CategoryKey || !seGuidedStep3ProductId)) ||
+                                (seGuidedWizardMessageKind === "category" && !seGuidedStep3CategoryKey) ||
+                                (seGuidedWizardMessageKind === "customer_profile" &&
+                                  !String(seGuidedStep3ProfileIndustry || "").trim())
+                              }
+                              onClick={() =>
+                                runSeGuidedSpotlightAssemblyDraft({
+                                  step3: {
+                                    mode: seGuidedWizardMessageKind,
+                                    categoryKey: seGuidedStep3CategoryKey,
+                                    categoryLabel:
+                                      SE_GUIDED_STEP3_CATEGORY_LABELS[seGuidedStep3CategoryKey] ||
+                                      seGuidedStep3CategoryKey ||
+                                      "",
+                                    productId:
+                                      seGuidedWizardMessageKind === "product" ? seGuidedStep3ProductId : "",
+                                    industry:
+                                      seGuidedWizardMessageKind === "customer_profile"
+                                        ? seGuidedStep3ProfileIndustry
+                                        : "",
+                                    focus:
+                                      seGuidedWizardMessageKind === "customer_profile" ? seGuidedStep3ProfileFocus : "",
+                                  },
+                                })
+                              }
                               style={{
                                 cursor: seGuidedAssemblyDraftBusy ? "not-allowed" : "pointer",
                                 borderRadius: 10,
-                                padding: "10px 16px",
-                                fontSize: 12,
+                                padding: "12px 20px",
+                                fontSize: 13,
                                 fontWeight: 900,
-                                letterSpacing: "0.05em",
+                                letterSpacing: "0.04em",
                                 border: "none",
                                 background: seGuidedAssemblyDraftBusy
                                   ? "#cbd5e1"
-                                  : "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)",
+                                  : "linear-gradient(135deg, #ea580c 0%, #f97316 100%)",
                                 color: "#ffffff",
-                                boxShadow: seGuidedAssemblyDraftBusy ? "none" : "0 6px 16px rgba(30, 64, 175, 0.28)",
+                                boxShadow: seGuidedAssemblyDraftBusy ? "none" : "0 8px 20px rgba(234, 88, 12, 0.35)",
                                 opacity: seGuidedAssemblyDraftBusy ? 0.85 : 1,
                               }}
                             >
@@ -11701,39 +12904,6 @@ const handleFinishDealerEnrollment = async () => {
                               <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Working…</span>
                             ) : null}
                           </div>
-                          {seGuidedAssemblySelectedCanonicalIds.length ? (
-                            <details
-                              style={{
-                                borderRadius: 8,
-                                background: "#f8fafc",
-                                border: "1px solid rgba(226, 232, 240, 0.98)",
-                                padding: "8px 10px",
-                              }}
-                            >
-                              <summary
-                                style={{
-                                  cursor: "pointer",
-                                  fontSize: 11,
-                                  fontWeight: 800,
-                                  color: "#475569",
-                                  listStyle: "none",
-                                }}
-                              >
-                                Match detail (IDs)
-                              </summary>
-                              <div
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 800,
-                                  color: "#475569",
-                                  paddingTop: 8,
-                                  lineHeight: 1.45,
-                                }}
-                              >
-                                {seGuidedAssemblySelectedCanonicalIds.slice(0, 4).join(", ")}
-                              </div>
-                            </details>
-                          ) : null}
                           {seGuidedAssemblyDraftError ? (
                             <div
                               style={{
@@ -11751,7 +12921,7 @@ const handleFinishDealerEnrollment = async () => {
                               {Array.isArray(seGuidedAssemblyDraftError.suggestions) &&
                               seGuidedAssemblyDraftError.suggestions.length ? (
                                 <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontWeight: 600, color: "#c2410c" }}>
-                                  {seGuidedAssemblyDraftError.suggestions.slice(0, 6).map((s, i) => (
+                                  {seGuidedAssemblyDraftError.suggestions.slice(0, 4).map((s, i) => (
                                     <li key={`se-asm-sugg-${i}`}>{String(s)}</li>
                                   ))}
                                 </ul>
@@ -11777,708 +12947,176 @@ const handleFinishDealerEnrollment = async () => {
                                   listStyle: "none",
                                 }}
                               >
-                                Draft outline (expand)
+                                Draft summary (optional)
                               </summary>
-                            <div
-                              style={{
-                                borderRadius: 12,
-                                padding: "14px 14px 16px",
-                                background: "#ffffff",
-                                border: "1px solid rgba(226, 232, 240, 0.98)",
-                                boxShadow: "0 8px 20px rgba(15, 23, 42, 0.05)",
-                                display: "grid",
-                                gap: 10,
-                              }}
-                            >
-                              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#0f172a" }}>
-                                System-generated draft
-                              </div>
                               <div
                                 style={{
+                                  borderRadius: 12,
+                                  padding: "14px 14px 16px",
+                                  background: "#ffffff",
+                                  border: "1px solid rgba(226, 232, 240, 0.98)",
                                   display: "grid",
-                                  gap: 8,
-                                  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
+                                  gap: 10,
                                 }}
                               >
+                                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#0f172a" }}>
+                                  Draft highlights
+                                </div>
                                 <div
                                   style={{
-                                    borderRadius: 10,
-                                    padding: "10px 12px",
-                                    border: "1px solid rgba(249, 115, 22, 0.35)",
-                                    background: "#fff7ed",
+                                    display: "grid",
+                                    gap: 8,
+                                    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))",
                                   }}
                                 >
                                   <div
                                     style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.08em",
-                                      color: "#c2410c",
-                                      marginBottom: 6,
+                                      borderRadius: 10,
+                                      padding: "10px 12px",
+                                      border: "1px solid rgba(249, 115, 22, 0.35)",
+                                      background: "#fff7ed",
                                     }}
                                   >
-                                    RECOMMENDED ACTION
-                                  </div>
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", lineHeight: 1.4 }}>
-                                    {String(seGuidedAssemblyDraftPackage.recommendedAction || "—")}
-                                  </div>
-                                </div>
-                                <div
-                                  style={{
-                                    borderRadius: 10,
-                                    padding: "10px 12px",
-                                    border: "1px solid rgba(30, 64, 175, 0.25)",
-                                    background: "#f8fafc",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.08em",
-                                      color: "#1e40af",
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    WHY THIS MATTERS
-                                  </div>
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", lineHeight: 1.4 }}>
-                                    {String(seGuidedAssemblyDraftPackage.summary || "—")}
-                                  </div>
-                                </div>
-                              </div>
-                              {Array.isArray(seGuidedAssemblyDraftPackage.productCards) &&
-                              seGuidedAssemblyDraftPackage.productCards.length ? (
-                                <div
-                                  style={{
-                                    borderRadius: 10,
-                                    padding: "10px 12px",
-                                    border: "1px solid rgba(226, 232, 240, 0.98)",
-                                    background: "#ffffff",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.08em",
-                                      color: "#64748b",
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    FEATURED PRODUCTS
-                                  </div>
-                                  <div style={{ display: "grid", gap: 6 }}>
-                                    {seGuidedAssemblyDraftPackage.productCards.slice(0, 4).map((row, i) => (
-                                      <div
-                                        key={`feat-${String(row?.pdsMapKey || row?.productName || i)}`}
-                                        style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", lineHeight: 1.35 }}
-                                      >
-                                        {String(row?.productName || "").trim() || "Product"}{" "}
-                                        <span style={{ color: "#64748b", fontWeight: 600 }}>
-                                          · {String(row?.canonicalFamily || "").trim()}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ) : null}
-                              {Array.isArray(seGuidedAssemblyDraftPackage.repQuestions) &&
-                              seGuidedAssemblyDraftPackage.repQuestions.length ? (
-                                <div
-                                  style={{
-                                    borderRadius: 10,
-                                    padding: "10px 12px",
-                                    border: "1px solid rgba(226, 232, 240, 0.98)",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.08em",
-                                      color: "#0f172a",
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    REP QUESTIONS
-                                  </div>
-                                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#334155", lineHeight: 1.4 }}>
-                                    {seGuidedAssemblyDraftPackage.repQuestions.slice(0, 6).map((q, i) => (
-                                      <li key={`repq-${i}`}>{String(q)}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              ) : null}
-                              {Array.isArray(seGuidedAssemblyDraftPackage.customerProfileQuestions) &&
-                              seGuidedAssemblyDraftPackage.customerProfileQuestions.length ? (
-                                <div
-                                  style={{
-                                    borderRadius: 10,
-                                    padding: "10px 12px",
-                                    border: "1px solid rgba(5, 150, 105, 0.28)",
-                                    background: "#ecfdf5",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.08em",
-                                      color: "#047857",
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    DISCOVERY QUESTIONS
-                                  </div>
-                                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#14532d", lineHeight: 1.4 }}>
-                                    {seGuidedAssemblyDraftPackage.customerProfileQuestions.slice(0, 6).map((q, i) => (
-                                      <li key={`dscq-${i}`}>{String(q)}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              ) : null}
-                              {Array.isArray(seGuidedAssemblyDraftPackage.crossSellOpportunities) &&
-                              seGuidedAssemblyDraftPackage.crossSellOpportunities.length ? (
-                                <div
-                                  style={{
-                                    borderRadius: 10,
-                                    padding: "10px 12px",
-                                    border: "1px solid rgba(234, 88, 12, 0.22)",
-                                    background: "#fffbeb",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.08em",
-                                      color: "#c2410c",
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    CROSS-SELL OPPORTUNITIES
-                                  </div>
-                                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#78350f", lineHeight: 1.9 }}>
-                                    {seGuidedAssemblyDraftPackage.crossSellOpportunities.slice(0, 6).map((c, i) => (
-                                      <li key={`xs-${i}`}>{String(c)}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              ) : null}
-                              {(Array.isArray(seGuidedAssemblyDraftPackage.guardrails) &&
-                                seGuidedAssemblyDraftPackage.guardrails.length) ||
-                              (Array.isArray(seGuidedAssemblyDraftPackage.sourceNotes) &&
-                                seGuidedAssemblyDraftPackage.sourceNotes.length) ? (
-                                <div
-                                  style={{
-                                    borderRadius: 10,
-                                    padding: "10px 12px",
-                                    border: "1px solid rgba(100, 116, 139, 0.35)",
-                                    background: "#f1f5f9",
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.08em",
-                                      color: "#475569",
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    GUARDRAILS / CAUTIONS
-                                  </div>
-                                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#334155", lineHeight: 1.45 }}>
-                                    {[
-                                      ...(Array.isArray(seGuidedAssemblyDraftPackage.guardrails)
-                                        ? seGuidedAssemblyDraftPackage.guardrails
-                                        : []),
-                                      ...(Array.isArray(seGuidedAssemblyDraftPackage.sourceNotes)
-                                        ? seGuidedAssemblyDraftPackage.sourceNotes
-                                        : []),
-                                    ]
-                                      .map((g) => String(g ?? "").trim())
-                                      .filter(Boolean)
-                                      .slice(0, 6)
-                                      .map((g, i) => (
-                                        <li key={`gr-${i}`}>{g}</li>
-                                      ))}
-                                  </ul>
-                                </div>
-                              ) : null}
-                              {String(seGuidedAssemblyDraftPackage.suggestedSpotlightType || "").trim() ? (
-                                <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b" }}>
-                                  Suggested follow-on package type:{" "}
-                                  <span style={{ color: "#0f172a" }}>
-                                    {String(seGuidedAssemblyDraftPackage.suggestedSpotlightType)}
-                                  </span>
-                                </div>
-                              ) : null}
-                              <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>
-                                {spotlightAssemblyCanonicalCatalogCount || 0}+ indexed products available for drafts.
-                              </div>
-                            </div>
-                            </details>
-                          ) : null}
-                          {Array.isArray(seGuidedAssemblyRecommendedActions) &&
-                          seGuidedAssemblyRecommendedActions.length ? (
-                            <details
-                              style={{
-                                borderRadius: 10,
-                                padding: "8px 10px",
-                                background: "#ffffff",
-                                border: "1px dashed rgba(100, 116, 139, 0.55)",
-                              }}
-                            >
-                              <summary
-                                style={{
-                                  cursor: "pointer",
-                                  fontSize: 11,
-                                  fontWeight: 800,
-                                  color: "#64748b",
-                                  listStyle: "none",
-                                }}
-                              >
-                                Suggested follow-ups (optional)
-                              </summary>
-                              <ul
-                                style={{
-                                  margin: "8px 0 0",
-                                  paddingLeft: 18,
-                                  fontSize: 11,
-                                  color: "#475569",
-                                  lineHeight: 1.45,
-                                }}
-                              >
-                                {seGuidedAssemblyRecommendedActions.slice(0, 4).map((a, i) => (
-                                  <li key={`rec-act-${i}`}>
-                                    <strong style={{ color: "#0f172a" }}>{String(a.action || "").replace(/_/g, " ")}</strong>
-                                    {a.reason ? ` — ${String(a.reason)}` : ""}
-                                  </li>
-                                ))}
-                              </ul>
-                            </details>
-                          ) : null}
-                          {String(seGuidedBuilderQuery || "").trim().length >= 2 ? (
-                            <div style={{ display: "grid", gap: 8 }}>
-                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#64748b" }}>
-                                Suggested matches
-                                {seGuidedWizardMessageKind === "customer_profile" ? " (optional lens)" : ""} ·{" "}
-                                {seGuidedCanonicalSearchHits.length} shown
-                              </div>
-                              <div style={{ display: "grid", gap: 6 }}>
-                                {seGuidedCanonicalSearchHits.length ? (
-                                  seGuidedCanonicalSearchHits.slice(0, 6).map((hit) => (
                                     <div
-                                      key={hit.id}
                                       style={{
-                                        display: "flex",
-                                        flexWrap: "wrap",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        gap: 8,
-                                        padding: "8px 10px",
-                                        borderRadius: 10,
-                                        border: "1px solid rgba(226, 232, 240, 0.98)",
-                                        background: "#ffffff",
+                                        fontSize: 9,
+                                        fontWeight: 900,
+                                        letterSpacing: "0.08em",
+                                        color: "#c2410c",
+                                        marginBottom: 6,
                                       }}
                                     >
-                                      <div style={{ flex: "1 1 160px", minWidth: 0 }}>
-                                        <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a", lineHeight: 1.3 }}>
-                                          {hit.productName}
-                                        </div>
-                                        <div style={{ fontSize: 10, fontWeight: 600, color: "#64748b", lineHeight: 1.35 }}>
-                                          {hit.canonicalFamily} · {hit.pdsMapKey}
-                                        </div>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSeGuidedUseCanonicalInDraft(hit.id)}
-                                        style={{
-                                          cursor: "pointer",
-                                          borderRadius: 8,
-                                          padding: "6px 10px",
-                                          fontSize: 10,
-                                          fontWeight: 900,
-                                          letterSpacing: "0.05em",
-                                          border: "1px solid rgba(234, 88, 12, 0.55)",
-                                          background: "#fff7ed",
-                                          color: "#c2410c",
-                                          flexShrink: 0,
-                                        }}
-                                      >
-                                        Use in Draft
-                                      </button>
+                                      RECOMMENDED ACTION
                                     </div>
-                                  ))
-                                ) : (
-                                  <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
-                                    No canonical rows matched this token yet—try another keyword.
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", lineHeight: 1.4 }}>
+                                      {String(seGuidedAssemblyDraftPackage.recommendedAction || "—")}
+                                    </div>
                                   </div>
-                                )}
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                        {guidedSpotlightBuilderRecommendation?.match ? (
-                          <details
-                            style={{
-                              borderRadius: 12,
-                              padding: "10px 12px",
-                              border: "1px solid rgba(45, 212, 191, 0.4)",
-                              background: "linear-gradient(135deg, #ecfdf5 0%, #f0fdfa 55%, #ffffff 100%)",
-                            }}
-                          >
-                            <summary
-                              style={{
-                                cursor: "pointer",
-                                fontSize: 12,
-                                fontWeight: 900,
-                                color: "#0f766e",
-                                listStyle: "none",
-                                letterSpacing: "0.06em",
-                              }}
-                            >
-                              Extra library suggestion (optional)
-                            </summary>
-                            <div
-                              style={{
-                                display: "grid",
-                                gap: 10,
-                                paddingTop: 12,
-                              }}
-                            >
-                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#0f766e" }}>
-                              RECOMMENDED SPOTLIGHT
-                            </div>
-                            <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.3 }}>
-                              {guidedSpotlightBuilderRecommendation.match.spotlightTitle}
-                              <span style={{ display: "block", marginTop: 4, fontSize: 11, fontWeight: 700, color: "#64748b" }}>
-                                {guidedSpotlightBuilderRecommendation.match.resultType === "product"
-                                  ? "Product spotlight"
-                                  : guidedSpotlightBuilderRecommendation.match.resultType === "category"
-                                    ? "Category spotlight"
-                                    : "Customer profile"}
-                                {guidedSpotlightBuilderRecommendation.match.matchedTerms?.length ? (
-                                  <span style={{ color: "#94a3b8" }}>
-                                    {" "}
-                                    · matched:{" "}
-                                    {guidedSpotlightBuilderRecommendation.match.matchedTerms.slice(0, 6).join(", ")}
-                                  </span>
-                                ) : null}
-                              </span>
-                            </div>
-                            {guidedSpotlightBuilderRecommendation.match.pairedProductSpotlightId ? (
-                              <div style={{ fontSize: 11, fontWeight: 700, color: "#047857", lineHeight: 1.4 }}>
-                                Suggested pairing:{" "}
-                                {PRODUCT_SPOTLIGHTS.find(
-                                  (p) => p.id === guidedSpotlightBuilderRecommendation.match.pairedProductSpotlightId
-                                )?.title || guidedSpotlightBuilderRecommendation.match.pairedProductSpotlightId}{" "}
-                                (optional product lens for preview)
-                              </div>
-                            ) : null}
-                            <div style={{ display: "grid", gap: 4 }}>
-                              <div style={{ fontSize: 10, fontWeight: 900, color: "#0f766e", letterSpacing: "0.08em" }}>
-                                {guidedSpotlightBuilderRecommendation.match.resultType === "customer_profile"
-                                  ? "WHY THIS PROFILE FITS"
-                                  : "WHY THIS PRODUCT WINS"}
-                              </div>
-                              <div style={{ fontSize: 13, fontWeight: 700, color: "#134e4a", lineHeight: 1.45 }}>
-                                {guidedSpotlightBuilderRecommendation.match.whyItWins}
-                              </div>
-                            </div>
-                            <div style={{ display: "grid", gap: 4 }}>
-                              <div style={{ fontSize: 10, fontWeight: 900, color: "#0e7490", letterSpacing: "0.08em" }}>
-                                TOP PROOF POINTS
-                              </div>
-                              <ul style={{ margin: 0, paddingLeft: 18, color: "#334155", fontSize: 12, lineHeight: 1.45 }}>
-                                {(guidedSpotlightBuilderRecommendation.match.proofPoints || []).slice(0, 4).map((pt, i) => (
-                                  <li key={`gb-proof-${i}`}>{pt}</li>
-                                ))}
-                              </ul>
-                            </div>
-                            <div style={{ display: "grid", gap: 4 }}>
-                              <div style={{ fontSize: 10, fontWeight: 900, color: "#64748b", letterSpacing: "0.08em" }}>
-                                CUSTOMER PAIN SIGNALS
-                              </div>
-                              <ul style={{ margin: 0, paddingLeft: 18, color: "#334155", fontSize: 12, lineHeight: 1.45 }}>
-                                {(guidedSpotlightBuilderRecommendation.match.painSignals || []).slice(0, 4).map((pt, i) => (
-                                  <li key={`gb-pain-${i}`}>{pt}</li>
-                                ))}
-                              </ul>
-                            </div>
-                            <div style={{ display: "grid", gap: 4 }}>
-                              <div style={{ fontSize: 10, fontWeight: 900, color: "#5b21b6", letterSpacing: "0.08em" }}>
-                                REP TALK TRACK (PREVIEW)
-                              </div>
-                              <ul style={{ margin: 0, paddingLeft: 18, color: "#334155", fontSize: 12, lineHeight: 1.45 }}>
-                                {(guidedSpotlightBuilderRecommendation.match.repTalkPreview || []).map((pt, i) => (
-                                  <li key={`gb-rep-${i}`}>{pt}</li>
-                                ))}
-                              </ul>
-                            </div>
-                            <div style={{ display: "grid", gap: 4 }}>
-                              <div style={{ fontSize: 10, fontWeight: 900, color: "#c2410c", letterSpacing: "0.08em" }}>
-                                CTA
-                              </div>
-                              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", lineHeight: 1.4 }}>
-                                {guidedSpotlightBuilderRecommendation.match.cta}
-                              </div>
-                            </div>
-                            {guidedSpotlightBuilderRecommendation.match.pdsUrl ? (
-                              <div style={{ fontSize: 12 }}>
-                                <a
-                                  href={guidedSpotlightBuilderRecommendation.match.pdsUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{ fontWeight: 800, color: "#2563eb" }}
-                                >
-                                  View Product Data Sheet
-                                </a>
-                                <span style={{ display: "block", marginTop: 4, fontSize: 10, color: "#94a3b8" }}>
-                                  Preview link only — not added to your send automatically.
-                                </span>
-                              </div>
-                            ) : null}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const m = guidedSpotlightBuilderRecommendation?.match;
-                                if (!m) return;
-                                setSalesEnablementSendPanelOpen(false);
-                                if (m.resultType === "customer_profile") {
-                                  setSeGuidedWizardMessageKind("customer_profile");
-                                  setSeGuidedWizardProfileRefId(String(m.spotlightId || "").trim());
-                                  setSalesEnablementLibraryTab("customer_profiles");
-                                  const pair = String(m.pairedProductSpotlightId || "").trim();
-                                  if (pair) guidedPickSpotlight(pair, "product");
-                                } else if (m.resultType === "category") {
-                                  setSeGuidedWizardMessageKind("category");
-                                  guidedPickSpotlight(String(m.spotlightId || "").trim(), "category");
-                                } else {
-                                  setSeGuidedWizardMessageKind("product");
-                                  guidedPickSpotlight(String(m.spotlightId || "").trim(), "product");
-                                }
-                                setSeGuidedRecommendedApplyBanner("Recommended spotlight applied to preview");
-                                window.setTimeout(() => setSeGuidedRecommendedApplyBanner(""), 9000);
-                              }}
-                              style={{
-                                cursor: "pointer",
-                                marginTop: 4,
-                                borderRadius: 10,
-                                padding: "10px 14px",
-                                fontSize: 13,
-                                fontWeight: 900,
-                                border: "none",
-                                background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                                color: "#ffffff",
-                                boxShadow: "0 6px 16px rgba(5, 150, 105, 0.25)",
-                              }}
-                            >
-                              Use Recommended Spotlight
-                            </button>
-                            </div>
-                          </details>
-                        ) : String(seGuidedBuilderQuery || "").trim().length >= 2 ? (
-                          <div
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: "#94a3b8",
-                              padding: "8px 10px",
-                              borderRadius: 8,
-                              background: "#f8fafc",
-                              border: "1px dashed rgba(148, 163, 184, 0.65)",
-                            }}
-                          >
-                            No strong library match yet—try another keyword or expand the Advanced Library below.
-                          </div>
-                        ) : null}
-                        <details style={{ borderRadius: 10, padding: "6px 10px", background: "#f8fafc" }}>
-                          <summary
-                            style={{
-                              cursor: "pointer",
-                              fontSize: 11,
-                              fontWeight: 800,
-                              color: "#94a3b8",
-                              listStyle: "none",
-                            }}
-                          >
-                            Content mode & workflow map (optional)
-                          </summary>
-                          <div style={{ display: "grid", gap: 10, paddingTop: 10 }}>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                              <span style={{ fontSize: 10, fontWeight: 800, color: "#94a3b8", letterSpacing: "0.06em" }}>
-                                Content type
-                              </span>
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: 900,
-                                  padding: "5px 12px",
-                                  borderRadius: 999,
-                                  background: "#eff6ff",
-                                  color: "#1e40af",
-                                  border: "1px solid rgba(59, 130, 246, 0.35)",
-                                }}
-                              >
-                                {buildMessageTypeLabel}
-                              </span>
-                            </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                flexWrap: "wrap",
-                                alignItems: "center",
-                                gap: 8,
-                                padding: "10px 12px",
-                                borderRadius: 12,
-                                background: "linear-gradient(90deg, #f8fafc 0%, #eff6ff 52%, #fff7ed 100%)",
-                                border: "1px solid rgba(226, 232, 240, 0.95)",
-                              }}
-                              aria-hidden
-                            >
-                              {["Audience", "Content", "LFBB", "Preview"].map((lab, i) => (
-                                <div key={lab} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                  <span
+                                  <div
                                     style={{
-                                      fontSize: 10,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.04em",
-                                      padding: "6px 10px",
-                                      borderRadius: 8,
-                                      background: "#ffffff",
-                                      color: "#334155",
-                                      border: "1px solid rgba(203, 213, 225, 0.85)",
-                                      boxShadow: "0 2px 4px rgba(15, 23, 42, 0.04)",
+                                      borderRadius: 10,
+                                      padding: "10px 12px",
+                                      border: "1px solid rgba(30, 64, 175, 0.25)",
+                                      background: "#f8fafc",
                                     }}
                                   >
-                                    {lab}
-                                  </span>
-                                  {i < 3 ? (
-                                    <span style={{ fontSize: 12, fontWeight: 900, color: "#cbd5e1" }} aria-hidden>
-                                      →
-                                    </span>
-                                  ) : null}
+                                    <div
+                                      style={{
+                                        fontSize: 9,
+                                        fontWeight: 900,
+                                        letterSpacing: "0.08em",
+                                        color: "#1e40af",
+                                        marginBottom: 6,
+                                      }}
+                                    >
+                                      WHY THIS MATTERS
+                                    </div>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", lineHeight: 1.4 }}>
+                                      {String(seGuidedAssemblyDraftPackage.summary || "—")}
+                                    </div>
+                                  </div>
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        </details>
-                        <label style={{ display: "grid", gap: 6, fontWeight: 800, color: "#475569", fontSize: 11 }}>
-                          {seGuidedWizardMessageKind === "customer_profile"
-                            ? "PRIMARY PROFILE (PREVIEW LENS)"
-                            : "PRIMARY LIBRARY SELECTION"}
-                          <select
-                            key={String(seGuidedWizardMessageKind || "x")}
-                            value={buildSelectValue}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              if (!v) return;
-                              if (seGuidedWizardMessageKind === "customer_profile") {
-                                setSeGuidedWizardProfileRefId(v);
-                                return;
-                              }
-                              if (seGuidedWizardMessageKind === "category") {
-                                guidedPickSpotlight(v, "category");
-                                return;
-                              }
-                              guidedPickSpotlight(v, "product");
-                            }}
-                            disabled={!messageKindReady || buildSelectRows.length === 0}
-                            style={{
-                              width: "100%",
-                              maxWidth: "100%",
-                              borderRadius: 10,
-                              padding: "10px 12px",
-                              fontSize: 13,
-                              fontWeight: 600,
-                              border: "1px solid rgba(59, 130, 246, 0.4)",
-                              background: "#ffffff",
-                              color: "#0f172a",
-                              cursor: messageKindReady && buildSelectRows.length > 0 ? "pointer" : "not-allowed",
-                              opacity: messageKindReady && buildSelectRows.length > 0 ? 1 : 0.65,
-                            }}
-                          >
-                            <option value="">
-                              {seGuidedWizardMessageKind === "customer_profile"
-                                ? "Select a customer profile…"
-                                : "Select a spotlight…"}
-                            </option>
-                            {buildSelectRows.map((row) => (
-                              <option key={row.value} value={row.value}>
-                                {row.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <ul
-                          style={{
-                            margin: 0,
-                            paddingLeft: 18,
-                            color: "#64748b",
-                            fontSize: 11,
-                            fontWeight: 600,
-                            lineHeight: 1.45,
-                            display: "grid",
-                            gap: 4,
-                          }}
-                        >
-                          <li>Confirm PDS wording before anything is shared outside the dealer workspace.</li>
-                          <li>
-                            The system draft is a starting point — tighten LFBB and proof points against the library row
-                            you will send.
-                          </li>
-                          <li>Prepare Send still governs recipients — this step prepares editable copy only.</li>
-                        </ul>
-                        <div
-                          style={{
-                            borderRadius: 12,
-                            padding: "12px 14px",
-                            border: "1px solid rgba(226, 232, 240, 0.95)",
-                            background: "#fafbfc",
-                            display: "grid",
-                            gap: 8,
-                          }}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              try {
-                                const browse = document.getElementById("kl-se-browse-materials");
-                                const lib = document.getElementById("kl-se-advanced-library");
-                                if (browse && typeof browse === "object" && "open" in browse) {
-                                  /** @type {HTMLDetailsElement} */ (browse).open = true;
-                                }
-                                if (lib && typeof lib === "object" && "open" in lib) {
-                                  /** @type {HTMLDetailsElement} */ (lib).open = true;
-                                }
-                                (lib || browse)?.scrollIntoView({ behavior: "smooth", block: "start" });
-                              } catch {
-                                /* ignore */
-                              }
-                            }}
-                            style={{
-                              cursor: "pointer",
-                              textAlign: "left",
-                              borderRadius: 10,
-                              padding: "12px 14px",
-                              fontSize: 13,
-                              fontWeight: 900,
-                              border: "1px solid rgba(37, 99, 235, 0.42)",
-                              background: "linear-gradient(135deg, #ffffff 0%, #eff6ff 100%)",
-                              color: "#1d4ed8",
-                              display: "grid",
-                              gap: 4,
-                            }}
-                          >
-                            Open Advanced Library (fallback)
-                            <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b", lineHeight: 1.45 }}>
-                              Full product, category, profile, and training browsers—collapsed by default; expands here
-                              when you need manual control.
-                            </span>
-                          </button>
+                                {Array.isArray(seGuidedAssemblyDraftPackage.productCards) &&
+                                seGuidedAssemblyDraftPackage.productCards.length ? (
+                                  <div
+                                    style={{
+                                      borderRadius: 10,
+                                      padding: "10px 12px",
+                                      border: "1px solid rgba(226, 232, 240, 0.98)",
+                                      background: "#ffffff",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        fontSize: 9,
+                                        fontWeight: 900,
+                                        letterSpacing: "0.08em",
+                                        color: "#64748b",
+                                        marginBottom: 6,
+                                      }}
+                                    >
+                                      FEATURED PRODUCTS
+                                    </div>
+                                    <div style={{ display: "grid", gap: 6 }}>
+                                      {seGuidedAssemblyDraftPackage.productCards.slice(0, 4).map((row, i) => (
+                                        <div
+                                          key={`feat-${String(row?.pdsMapKey || row?.productName || i)}`}
+                                          style={{ fontSize: 11, fontWeight: 700, color: "#0f172a", lineHeight: 1.35 }}
+                                        >
+                                          {String(row?.productName || "").trim() || "Product"}{" "}
+                                          <span style={{ color: "#64748b", fontWeight: 600 }}>
+                                            · {String(row?.canonicalFamily || "").trim()}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : null}
+                                {Array.isArray(seGuidedAssemblyDraftPackage.repQuestions) &&
+                                seGuidedAssemblyDraftPackage.repQuestions.length ? (
+                                  <div
+                                    style={{
+                                      borderRadius: 10,
+                                      padding: "10px 12px",
+                                      border: "1px solid rgba(226, 232, 240, 0.98)",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        fontSize: 9,
+                                        fontWeight: 900,
+                                        letterSpacing: "0.08em",
+                                        color: "#0f172a",
+                                        marginBottom: 6,
+                                      }}
+                                    >
+                                      REP QUESTIONS
+                                    </div>
+                                    <ul
+                                      style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#334155", lineHeight: 1.4 }}
+                                    >
+                                      {seGuidedAssemblyDraftPackage.repQuestions.slice(0, 6).map((q, i) => (
+                                        <li key={`repq-${i}`}>{String(q)}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ) : null}
+                                {Array.isArray(seGuidedAssemblyDraftPackage.customerProfileQuestions) &&
+                                seGuidedAssemblyDraftPackage.customerProfileQuestions.length ? (
+                                  <div
+                                    style={{
+                                      borderRadius: 10,
+                                      padding: "10px 12px",
+                                      border: "1px solid rgba(5, 150, 105, 0.28)",
+                                      background: "#ecfdf5",
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        fontSize: 9,
+                                        fontWeight: 900,
+                                        letterSpacing: "0.08em",
+                                        color: "#047857",
+                                        marginBottom: 6,
+                                      }}
+                                    >
+                                      DISCOVERY QUESTIONS
+                                    </div>
+                                    <ul
+                                      style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#14532d", lineHeight: 1.4 }}
+                                    >
+                                      {seGuidedAssemblyDraftPackage.customerProfileQuestions.slice(0, 6).map((q, i) => (
+                                        <li key={`dscq-${i}`}>{String(q)}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ) : null}
+                              </div>
+                            </details>
+                          ) : null}
+                          <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.45, fontWeight: 600 }}>
+                            Short PDS check before external sharing. Edit copy in the next step before send.
+                          </p>
                         </div>
                       </>
                     ) : null}
@@ -12801,17 +13439,10 @@ const handleFinishDealerEnrollment = async () => {
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#1e3a8a" }}>
                       STEP 4 — PREVIEW & SEND
                     </div>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
-                      Review the draft, make edits, then send.
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#475569", lineHeight: 1.5, maxWidth: 860 }}>
+                      Review the KLONDIKE-generated material, make edits if needed, then send.
                     </p>
-                    <div
-                      style={{
-                        display: "grid",
-                        gap: 18,
-                        gridTemplateColumns: "minmax(0, 260px) minmax(0, 1fr)",
-                        alignItems: "start",
-                      }}
-                    >
+                    <div style={{ display: "grid", gap: 16 }}>
                     <details
                       style={{
                         borderRadius: 12,
@@ -12926,13 +13557,13 @@ const handleFinishDealerEnrollment = async () => {
 
                     <div
                       style={{
-                        borderRadius: 16,
-                        padding: "16px 14px 18px",
-                        background: "linear-gradient(180deg, #e2e8f0 0%, #f1f5f9 100%)",
-                        border: "1px solid rgba(148, 163, 184, 0.4)",
-                        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.85)",
+                        borderRadius: 18,
+                        padding: "18px 20px 20px",
+                        background: "#ffffff",
+                        border: "1px solid rgba(30, 58, 138, 0.12)",
+                        boxShadow: "0 12px 36px rgba(15, 23, 42, 0.08)",
                         display: "grid",
-                        gap: 12,
+                        gap: 14,
                         minWidth: 0,
                       }}
                     >
@@ -12940,63 +13571,60 @@ const handleFinishDealerEnrollment = async () => {
                         style={{
                           display: "flex",
                           flexWrap: "wrap",
-                          alignItems: "flex-start",
+                          alignItems: "center",
                           justifyContent: "space-between",
                           gap: 10,
+                          paddingBottom: 12,
+                          borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
                         }}
                       >
                         <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
-                          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.11em", color: "#64748b" }}>
-                            Email-style preview
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", color: "#1e3a8a" }}>
+                            KLONDIKE · TRAINING SHEET (PREVIEW)
                           </div>
-                          <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8", lineHeight: 1.35 }}>
-                            Library spotlight + Guided Spotlight Wizard toggles—compare before opening Prepare Send.
-                          </div>
-                          <div style={{ fontSize: 10, fontWeight: 800, color: "#64748b", lineHeight: 1.4 }}>
-                            Guided Spotlight Wizard · preview output (Step 3 picks)
+                          <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", lineHeight: 1.4 }}>
+                            Infographic layout — skim before send
                             {seGuidedWizardMessageKind === "customer_profile" ? (
                               <span style={{ color: "#059669" }}> · Profile lens: {wizardProfileTitle}</span>
                             ) : null}
                           </div>
-                          {previewSendUsesFlagship ? (
-                            <div style={{ marginTop: 6 }}>
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  fontSize: 10,
-                                  fontWeight: 900,
-                                  letterSpacing: "0.08em",
-                                  padding: "4px 10px",
-                                  borderRadius: 999,
-                                  background: "rgba(91, 33, 182, 0.12)",
-                                  color: "#5b21b6",
-                                  border: "1px solid rgba(139, 92, 246, 0.45)",
-                                }}
-                              >
-                                Approved send preview using flagship narrative
-                              </span>
-                            </div>
-                          ) : null}
                         </div>
-                        {seGuidedIncludeBranding ? (
-                          <span
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 800,
-                              letterSpacing: "0.07em",
-                              padding: "4px 10px",
-                              borderRadius: 999,
-                              background: "rgba(234, 88, 12, 0.12)",
-                              color: "#c2410c",
-                              border: "1px solid rgba(251, 146, 60, 0.42)",
-                            }}
-                          >
-                            Klondike Branding Enabled
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8" }}>Neutral envelope</span>
-                        )}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                          {previewSendUsesFlagship ? (
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 900,
+                                letterSpacing: "0.07em",
+                                padding: "4px 10px",
+                                borderRadius: 999,
+                                background: "rgba(91, 33, 182, 0.1)",
+                                color: "#5b21b6",
+                                border: "1px solid rgba(139, 92, 246, 0.4)",
+                              }}
+                            >
+                              Flagship narrative
+                            </span>
+                          ) : null}
+                          {seGuidedIncludeBranding ? (
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 800,
+                                letterSpacing: "0.07em",
+                                padding: "4px 10px",
+                                borderRadius: 999,
+                                background: "rgba(234, 88, 12, 0.12)",
+                                color: "#c2410c",
+                                border: "1px solid rgba(251, 146, 60, 0.42)",
+                              }}
+                            >
+                              Branding on
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8" }}>Neutral envelope</span>
+                          )}
+                        </div>
                       </div>
 
                       {seGuidedRecommendedApplyBanner ? (
@@ -13056,7 +13684,7 @@ const handleFinishDealerEnrollment = async () => {
                                   color: "#64748b",
                                 }}
                               >
-                                Uncheck for the standard message-body preview. Preview-only toggle — outbound payload
+                                Uncheck for the standard message-body preview. Preview-only toggle — outbound flow
                                 unchanged.
                               </span>
                             </span>
@@ -13067,941 +13695,32 @@ const handleFinishDealerEnrollment = async () => {
                       <div
                         style={{
                           width: "100%",
-                          maxWidth: 720,
+                          maxWidth: 960,
                           margin: "0 auto",
                           minWidth: 0,
                         }}
                       >
                       <div
                         style={{
-                          borderRadius: 14,
+                          borderRadius: 16,
                           overflow: "hidden",
-                          border: "1px solid rgba(226, 232, 240, 0.98)",
+                          border: "1px solid rgba(226, 232, 240, 0.95)",
                           background: "#ffffff",
-                          boxShadow: "0 20px 48px rgba(15, 23, 42, 0.12)",
+                          boxShadow: "0 8px 28px rgba(15, 23, 42, 0.06)",
                           minWidth: 0,
                         }}
                       >
-                        {seGuidedIncludeBranding ? (
-                          <div
-                            style={{
-                              padding: "10px 14px 12px",
-                              background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 52%, #7c2d12 100%)",
-                              color: "#f8fafc",
-                            }}
-                          >
-                            {seGuidedPreviewLogoFailed ? (
-                              <div
-                                style={{
-                                  fontSize: 18,
-                                  fontWeight: 900,
-                                  letterSpacing: "0.08em",
-                                  lineHeight: 1.2,
-                                }}
-                              >
-                                KLONDIKE
-                              </div>
-                            ) : (
-                              <img
-                                src="/klondike-full-logo.png"
-                                alt="Klondike"
-                                onError={() => setSeGuidedPreviewLogoFailed(true)}
-                                style={{
-                                  display: "block",
-                                  width: "auto",
-                                  maxWidth: "min(220px, 85vw)",
-                                  maxHeight: 48,
-                                  height: "auto",
-                                  objectFit: "contain",
-                                  objectPosition: "left center",
-                                }}
-                              />
-                            )}
-                            <div
-                              style={{
-                                marginTop: 4,
-                                fontSize: 11,
-                                fontWeight: 700,
-                                letterSpacing: "0.06em",
-                                opacity: 0.92,
-                              }}
-                            >
-                              Territory enablement · dealer-facing preview
-                            </div>
-                            <div style={{ marginTop: 6, height: 2, borderRadius: 2, background: "#ea580c", maxWidth: 100 }} />
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              padding: "12px 16px",
-                              background: "#f8fafc",
-                              borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
-                              fontSize: 12,
-                              fontWeight: 800,
-                              color: "#64748b",
-                            }}
-                          >
-                            Plain header · branding omitted for paste-in workflows
-                          </div>
-                        )}
-
                         <div
                           style={{
-                            padding: "16px 18px 18px",
+                            padding: "14px 16px 18px",
                             display: "grid",
                             gap: 14,
-                            background: "linear-gradient(180deg, #fafbfc 0%, #ffffff 28%)",
+                            background: "linear-gradient(180deg, #fafbfc 0%, #ffffff 22%)",
                           }}
                         >
-                          {seGuidedKnowledgePreviewMock ? (
-                            <div
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 800,
-                                letterSpacing: "0.06em",
-                                color: "#64748b",
-                                padding: "8px 10px",
-                                borderRadius: 8,
-                                background: "#f8fafc",
-                                border: "1px solid rgba(226, 232, 240, 0.98)",
-                              }}
-                            >
-                              Applied to preview · send workflow unchanged
-                            </div>
-                          ) : null}
-                          {seTplStagedKnowledge ? (
-                            previewSendUsesFlagship ? (
-                              <details
-                                style={{
-                                  borderRadius: 12,
-                                  padding: "10px 12px",
-                                  background:
-                                    "linear-gradient(100deg, rgba(224, 231, 255, 0.75) 0%, rgba(254, 243, 199, 0.55) 100%)",
-                                  border: "1px solid rgba(99, 102, 241, 0.38)",
-                                }}
-                              >
-                                <summary
-                                  style={{
-                                    cursor: "pointer",
-                                    fontSize: 11,
-                                    fontWeight: 900,
-                                    letterSpacing: "0.05em",
-                                    color: "#4338ca",
-                                  }}
-                                >
-                                  Staged knowledge metadata · expand (preview only)
-                                </summary>
-                                <div style={{ marginTop: 10, display: "grid", gap: 8 }}>{stagedKnowledgeInnerPreview}</div>
-                              </details>
-                            ) : (
-                              <div
-                                style={{
-                                  borderRadius: 12,
-                                  padding: "12px 14px",
-                                  background:
-                                    "linear-gradient(100deg, rgba(224, 231, 255, 0.75) 0%, rgba(254, 243, 199, 0.55) 100%)",
-                                  border: "1px solid rgba(99, 102, 241, 0.38)",
-                                  display: "grid",
-                                  gap: 8,
-                                }}
-                              >
-                                {stagedKnowledgeInnerPreview}
-                              </div>
-                            )
-                          ) : null}
+                          {guidedSeTrainingInfographicInner}
 
-                          <div
-                            style={{
-                              borderRadius: 10,
-                              overflow: "hidden",
-                              border: "1px solid rgba(254, 215, 170, 0.65)",
-                              background: "linear-gradient(90deg, #fff7ed 0%, #ffedd5 42%, #f8fafc 100%)",
-                              padding: "10px 14px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                            }}
-                          >
-                            <span
-                              style={{
-                                width: 4,
-                                alignSelf: "stretch",
-                                borderRadius: 2,
-                                background: "#ea580c",
-                                flexShrink: 0,
-                              }}
-                            />
-                            <div style={{ minWidth: 0 }}>
-                              <div
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 900,
-                                  letterSpacing: "0.1em",
-                                  color: "#c2410c",
-                                }}
-                              >
-                                SPOTLIGHT PREVIEW
-                              </div>
-                              <div
-                                style={{
-                                  marginTop: 4,
-                                  fontSize: 12,
-                                  fontWeight: 800,
-                                  color: "#0f172a",
-                                  lineHeight: 1.35,
-                                }}
-                              >
-                                {guidedPreviewSpotlightContext}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "minmax(0, 1fr) 132px",
-                              gap: 14,
-                              alignItems: "stretch",
-                            }}
-                          >
-                            <div style={{ display: "grid", gap: 10, minWidth: 0 }}>
-                              <div style={{ display: "grid", gap: 6 }}>
-                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
-                                  SUBJECT LINE
-                                </div>
-                                <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
-                                  {salesEnablementGuidedTemplateLines.subject}
-                                </div>
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: 12,
-                                  color: "#475569",
-                                  lineHeight: 1.5,
-                                  padding: "10px 12px",
-                                  borderRadius: 10,
-                                  background: "#f8fafc",
-                                  border: "1px solid rgba(226, 232, 240, 0.95)",
-                                }}
-                              >
-                                <strong style={{ color: "#64748b", fontSize: 10, letterSpacing: "0.06em" }}>
-                                  AUDIENCE
-                                </strong>
-                                <div style={{ marginTop: 6 }}>{salesEnablementGuidedTemplateLines.audience}</div>
-                              </div>
-                            </div>
-
-                            <div
-                              style={{
-                                borderRadius: 12,
-                                border: seGuidedIncludeProductImage
-                                  ? "1px solid rgba(148, 163, 184, 0.55)"
-                                  : "1px dashed rgba(203, 213, 225, 0.95)",
-                                background: seGuidedIncludeProductImage
-                                  ? "linear-gradient(160deg, #fafafa 0%, #f1f5f9 100%)"
-                                  : "#f8fafc",
-                                display: "grid",
-                                placeItems: "center",
-                                gap: 6,
-                                padding: "10px 8px",
-                                minHeight: 132,
-                                textAlign: "center",
-                                boxShadow: seGuidedIncludeProductImage
-                                  ? "inset 0 1px 0 rgba(255,255,255,0.9)"
-                                  : "none",
-                              }}
-                            >
-                              {seGuidedIncludeProductImage ? (
-                                <>
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      color: "#94a3b8",
-                                      letterSpacing: "0.08em",
-                                    }}
-                                  >
-                                    PRODUCT IMAGE
-                                  </div>
-                                  {seProductImageHint.imageUrl && !seGuidedStep4ProductImgFailed ? (
-                                    <div
-                                      style={{
-                                        width: "100%",
-                                        maxWidth: 108,
-                                        aspectRatio: "1",
-                                        borderRadius: 10,
-                                        background: "#ffffff",
-                                        border: "1px solid rgba(148, 163, 184, 0.45)",
-                                        display: "grid",
-                                        placeItems: "center",
-                                        padding: 6,
-                                        overflow: "hidden",
-                                      }}
-                                    >
-                                      <img
-                                        src={seProductImageHint.imageUrl}
-                                        alt={seProductImageHint.alt}
-                                        onError={() => setSeGuidedStep4ProductImgFailed(true)}
-                                        style={{
-                                          width: "100%",
-                                          height: "100%",
-                                          maxHeight: 104,
-                                          objectFit: "contain",
-                                          display: "block",
-                                        }}
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div
-                                      style={{
-                                        width: "100%",
-                                        maxWidth: 108,
-                                        aspectRatio: "1",
-                                        borderRadius: 10,
-                                        background:
-                                          "linear-gradient(145deg, #e2e8f0 0%, #cbd5e1 55%, #f8fafc 100%)",
-                                        border: "1px solid rgba(148, 163, 184, 0.45)",
-                                        display: "grid",
-                                        placeItems: "center",
-                                        fontSize: 10,
-                                        fontWeight: 800,
-                                        color: "#64748b",
-                                        lineHeight: 1.25,
-                                        padding: 6,
-                                      }}
-                                    >
-                                      {guidedPreviewProductLabel}
-                                    </div>
-                                  )}
-                                  <div style={{ fontSize: 9, fontWeight: 700, color: "#94a3b8", lineHeight: 1.3 }}>
-                                    {seProductImageHint.imageUrl && !seGuidedStep4ProductImgFailed
-                                      ? "Static preview asset · adjust in Preview settings"
-                                      : "Mock hero · preview only · no file upload"}
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      color: "#cbd5e1",
-                                      letterSpacing: "0.06em",
-                                    }}
-                                  >
-                                    IMAGE OFF
-                                  </div>
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", lineHeight: 1.35 }}>
-                                    Enable “Include product image” in Preview settings
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-
-                          {previewSendUsesFlagship ? (
-                            <div
-                              style={{
-                                display: "grid",
-                                gap: 14,
-                                padding: "14px 14px 16px",
-                                borderRadius: 12,
-                                background: "linear-gradient(120deg, rgba(236, 253, 245, 0.95) 0%, rgba(240, 249, 255, 0.92) 100%)",
-                                border: "1px solid rgba(45, 212, 191, 0.35)",
-                              }}
-                            >
-                              {String(salesEnablementGuidedTemplateLines.spotlightTitle || "").trim() ? (
-                                <div style={{ display: "grid", gap: 4 }}>
-                                  <div
-                                    style={{
-                                      fontSize: 9,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.14em",
-                                      color: "#0f766e",
-                                    }}
-                                  >
-                                    SPOTLIGHT
-                                  </div>
-                                  <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a", lineHeight: 1.25 }}>
-                                    {String(salesEnablementGuidedTemplateLines.spotlightTitle || "").trim()}
-                                  </div>
-                                </div>
-                              ) : null}
-                              {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewWhyItWins ? (
-                                <div style={{ display: "grid", gap: 8 }}>
-                                  <div
-                                    style={{
-                                      fontSize: 10,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.12em",
-                                      color: "#0f766e",
-                                    }}
-                                  >
-                                    WHY THIS PRODUCT WINS
-                                  </div>
-                                  <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", lineHeight: 1.5 }}>
-                                    {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewWhyItWins}
-                                  </div>
-                                </div>
-                              ) : null}
-                              {Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips) &&
-                              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips.length > 0 ? (
-                                <div style={{ display: "grid", gap: 8 }}>
-                                  <div
-                                    style={{
-                                      fontSize: 10,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.1em",
-                                      color: "#0e7490",
-                                    }}
-                                  >
-                                    FIELD PROOF · PREVIEW CARDS
-                                  </div>
-                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                    {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips
-                                      .slice(0, 4)
-                                      .map((chip) => (
-                                        <div
-                                          key={chip.id}
-                                          style={{
-                                            flex: "1 1 132px",
-                                            minWidth: 118,
-                                            maxWidth: 210,
-                                            padding: "10px 12px",
-                                            borderRadius: 10,
-                                            background: "linear-gradient(145deg, #ecfdf5 0%, #f0fdfa 100%)",
-                                            border: "1px solid rgba(45, 212, 191, 0.42)",
-                                            boxShadow: "0 4px 12px rgba(15, 118, 110, 0.1)",
-                                          }}
-                                        >
-                                          <div
-                                            style={{
-                                              fontSize: 9,
-                                              fontWeight: 900,
-                                              letterSpacing: "0.08em",
-                                              color: "#0f766e",
-                                            }}
-                                          >
-                                            {chip.label}
-                                          </div>
-                                          <div
-                                            style={{
-                                              marginTop: 4,
-                                              fontSize: 17,
-                                              fontWeight: 900,
-                                              color: "#0f172a",
-                                              letterSpacing: "-0.02em",
-                                              lineHeight: 1.2,
-                                            }}
-                                          >
-                                            {chip.value}
-                                          </div>
-                                          <div
-                                            style={{
-                                              marginTop: 4,
-                                              fontSize: 10,
-                                              fontWeight: 600,
-                                              color: "#64748b",
-                                              lineHeight: 1.35,
-                                            }}
-                                          >
-                                            {chip.hint}
-                                          </div>
-                                        </div>
-                                      ))}
-                                  </div>
-                                </div>
-                              ) : null}
-                              {Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack) &&
-                              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack.length > 0 ? (
-                                <div style={{ display: "grid", gap: 8 }}>
-                                  <div
-                                    style={{
-                                      fontSize: 10,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.1em",
-                                      color: "#5b21b6",
-                                    }}
-                                  >
-                                    REP TALK TRACK
-                                  </div>
-                                  <div
-                                    style={{
-                                      display: "grid",
-                                      gap: 8,
-                                      padding: "10px 12px",
-                                      borderRadius: 10,
-                                      background: "#faf5ff",
-                                      border: "1px solid rgba(167, 139, 250, 0.45)",
-                                    }}
-                                  >
-                                    {guidedFlagshipBulletRows(
-                                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack,
-                                      "se-flag-rep",
-                                      "#7c3aed"
-                                    )}
-                                  </div>
-                                </div>
-                              ) : null}
-                              <div
-                                style={{
-                                  padding: "16px 18px",
-                                  borderRadius: 12,
-                                  background: "linear-gradient(135deg, #ea580c 0%, #c2410c 48%, #1e3a8a 100%)",
-                                  border: "1px solid rgba(251, 146, 60, 0.45)",
-                                  boxShadow: "0 10px 28px rgba(194, 65, 12, 0.22)",
-                                  textAlign: "center",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    fontSize: 10,
-                                    fontWeight: 900,
-                                    letterSpacing: "0.14em",
-                                    color: "rgba(255, 255, 255, 0.88)",
-                                  }}
-                                >
-                                  CALL TO ACTION
-                                </div>
-                                <div
-                                  style={{
-                                    marginTop: 10,
-                                    fontSize: 15,
-                                    fontWeight: 900,
-                                    color: "#ffffff",
-                                    lineHeight: 1.45,
-                                    textShadow: "0 1px 2px rgba(15, 23, 42, 0.25)",
-                                  }}
-                                >
-                                  {guidedCtaForPreview}
-                                </div>
-                                <div
-                                  style={{
-                                    marginTop: 12,
-                                    display: "inline-block",
-                                    padding: "8px 18px",
-                                    borderRadius: 999,
-                                    background: "rgba(255, 255, 255, 0.95)",
-                                    fontSize: 11,
-                                    fontWeight: 900,
-                                    color: "#c2410c",
-                                    letterSpacing: "0.04em",
-                                  }}
-                                >
-                                  Reply or forward in your workflow — preview only
-                                </div>
-                              </div>
-                              {guidedWizardPdsUrl ? (
-                                <div
-                                  style={{
-                                    padding: "12px 14px",
-                                    borderRadius: 12,
-                                    background: "#eff6ff",
-                                    border: "1px solid rgba(59, 130, 246, 0.35)",
-                                    display: "grid",
-                                    gap: 6,
-                                  }}
-                                >
-                                  <div
-                                    style={{
-                                      fontSize: 10,
-                                      fontWeight: 900,
-                                      letterSpacing: "0.1em",
-                                      color: "#1e40af",
-                                    }}
-                                  >
-                                    PDS LINK
-                                  </div>
-                                  <a
-                                    href={guidedWizardPdsUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                      fontSize: 13,
-                                      fontWeight: 800,
-                                      color: "#2563eb",
-                                      textDecoration: "underline",
-                                      textUnderlineOffset: "2px",
-                                    }}
-                                  >
-                                    View Product Data Sheet
-                                  </a>
-                                  <span
-                                    style={{
-                                      fontSize: 10,
-                                      fontWeight: 600,
-                                      color: "#64748b",
-                                      lineHeight: 1.35,
-                                    }}
-                                  >
-                                    Opens the indexed PDF from site static files (/pds). Preview only—not added to send
-                                    payload.
-                                  </span>
-                                </div>
-                              ) : null}
-                              <div style={{ display: "grid", gap: 10 }}>
-                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#64748b" }}>
-                                  ATTACHMENTS (PREVIEW)
-                                </div>
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                                  {seGuidedAttachPds ? (
-                                    <span
-                                      style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: 6,
-                                        fontSize: 11,
-                                        fontWeight: 800,
-                                        padding: "6px 12px",
-                                        borderRadius: 10,
-                                        background: "#eff6ff",
-                                        color: "#1e40af",
-                                        border: "1px solid rgba(59, 130, 246, 0.38)",
-                                        boxShadow: "0 2px 6px rgba(37, 99, 235, 0.12)",
-                                      }}
-                                    >
-                                      <span aria-hidden>📄</span>
-                                      PDS · spec PDF
-                                    </span>
-                                  ) : (
-                                    <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
-                                      No PDS attachment
-                                    </span>
-                                  )}
-                                  {seGuidedIncludeProductImage ? (
-                                    <span
-                                      title="Preview-only mock selection—not attached to outbound email."
-                                      style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: 6,
-                                        fontSize: 11,
-                                        fontWeight: 800,
-                                        padding: "6px 12px",
-                                        borderRadius: 10,
-                                        background: "#fff7ed",
-                                        color: "#c2410c",
-                                        border: "1px solid rgba(251, 146, 60, 0.42)",
-                                        boxShadow: "0 2px 6px rgba(234, 88, 12, 0.1)",
-                                        maxWidth: "100%",
-                                      }}
-                                    >
-                                      <span aria-hidden>🖼</span>
-                                      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
-                                        Product hero · {guidedPreviewProductLabel}
-                                      </span>
-                                    </span>
-                                  ) : null}
-                                  {salesEnablementGuidedTemplateLines.trainingAttachmentSuggested ? (
-                                    <span
-                                      style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: 6,
-                                        fontSize: 11,
-                                        fontWeight: 800,
-                                        padding: "6px 12px",
-                                        borderRadius: 10,
-                                        background: "#ecfdf5",
-                                        color: "#047857",
-                                        border: "1px solid rgba(52, 211, 153, 0.45)",
-                                        boxShadow: "0 2px 6px rgba(5, 150, 105, 0.08)",
-                                      }}
-                                    >
-                                      <span aria-hidden>▶</span>
-                                      Training module · KL-U prep
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {!previewSendUsesFlagship ? (
-                            <div style={{ display: "grid", gap: 8 }}>
-                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
-                                MESSAGE BODY
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: 13,
-                                  color: "#334155",
-                                  lineHeight: 1.5,
-                                  padding: "10px 12px",
-                                  borderRadius: 10,
-                                  background: "#ffffff",
-                                  border: "1px solid rgba(226, 232, 240, 0.98)",
-                                  whiteSpace: "pre-wrap",
-                                }}
-                              >
-                                {String(salesEnablementPreparedIntro || "").trim()
-                                  ? `${String(salesEnablementPreparedIntro || "").trim()}\n\n`
-                                  : ""}
-                                {guidedPreviewEmailBodyLead}
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {!previewSendUsesFlagship ? (
-                            <div style={{ display: "grid", gap: 6 }}>
-                              <div
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 900,
-                                  letterSpacing: "0.08em",
-                                  color: "#94a3b8",
-                                }}
-                              >
-                                SPOTLIGHT STRUCTURE · LFBB
-                              </div>
-                              <div
-                                style={{
-                                  display: "grid",
-                                  gap: 6,
-                                  padding: "10px 12px",
-                                  borderRadius: 10,
-                                  background: "#fafafa",
-                                  border: "1px solid rgba(226, 232, 240, 0.98)",
-                                }}
-                              >
-                                {renderGuidedLfbbRows(tplLfbbFromKnowledge, false)}
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {!previewSendUsesFlagship ? (
-                          <div style={{ display: "grid", gap: 8 }}>
-                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
-                              TECHNICAL PROOF · PREVIEW CARDS
-                            </div>
-                            {(tplProofDisplay || []).length ? (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  flexWrap: "wrap",
-                                  gap: 8,
-                                }}
-                              >
-                                {(tplProofDisplay || []).slice(0, 4).map((pt, i) => (
-                                  <div
-                                    key={`se-proof-chip-${i}`}
-                                    style={{
-                                      flex: "1 1 140px",
-                                      minWidth: 120,
-                                      maxWidth: 220,
-                                      padding: "10px 12px",
-                                      borderRadius: 10,
-                                      background: "linear-gradient(145deg, #fff7ed 0%, #ffffff 100%)",
-                                      border: "1px solid rgba(251, 146, 60, 0.42)",
-                                      boxShadow: "0 4px 10px rgba(234, 88, 12, 0.08)",
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      color: "#334155",
-                                      lineHeight: 1.35,
-                                    }}
-                                  >
-                                    {String(pt).length > 120 ? `${String(pt).slice(0, 117)}…` : pt}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : null}
-                            <div
-                              style={{
-                                display: "grid",
-                                gap: 6,
-                                padding: "8px 10px",
-                                borderRadius: 10,
-                                background: "#fafafa",
-                                border: "1px solid rgba(226, 232, 240, 0.98)",
-                              }}
-                            >
-                              {(tplProofDisplay || []).map((pt, i) => (
-                                <div
-                                  key={`se-proof-${i}`}
-                                  style={{
-                                    display: "flex",
-                                    gap: 8,
-                                    alignItems: "flex-start",
-                                    fontSize: 12,
-                                    color: "#334155",
-                                    lineHeight: 1.4,
-                                  }}
-                                >
-                                  <span
-                                    style={{
-                                      marginTop: 5,
-                                      width: 6,
-                                      height: 6,
-                                      borderRadius: 999,
-                                      background: "#ea580c",
-                                      flexShrink: 0,
-                                    }}
-                                  />
-                                  <span>{pt}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          ) : null}
-
-                          {!previewSendUsesFlagship ? (
-                            <>
-                              <div
-                                style={{
-                                  padding: "16px 18px",
-                                  borderRadius: 12,
-                                  background: "linear-gradient(135deg, #ea580c 0%, #c2410c 48%, #1e3a8a 100%)",
-                                  border: "1px solid rgba(251, 146, 60, 0.45)",
-                                  boxShadow: "0 10px 28px rgba(194, 65, 12, 0.22)",
-                                  textAlign: "center",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    fontSize: 10,
-                                    fontWeight: 900,
-                                    letterSpacing: "0.14em",
-                                    color: "rgba(255, 255, 255, 0.88)",
-                                  }}
-                                >
-                                  CALL TO ACTION
-                                </div>
-                                <div
-                                  style={{
-                                    marginTop: 10,
-                                    fontSize: 15,
-                                    fontWeight: 900,
-                                    color: "#ffffff",
-                                    lineHeight: 1.45,
-                                    textShadow: "0 1px 2px rgba(15, 23, 42, 0.25)",
-                                  }}
-                                >
-                                  {guidedCtaForPreview}
-                                </div>
-                                <div
-                                  style={{
-                                    marginTop: 12,
-                                    display: "inline-block",
-                                    padding: "8px 18px",
-                                    borderRadius: 999,
-                                    background: "rgba(255, 255, 255, 0.95)",
-                                    fontSize: 11,
-                                    fontWeight: 900,
-                                    color: "#c2410c",
-                                    letterSpacing: "0.04em",
-                                  }}
-                                >
-                                  Reply or forward in your workflow — preview only
-                                </div>
-                              </div>
-
-                              <div style={{ display: "grid", gap: 10 }}>
-                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#64748b" }}>
-                              ATTACHMENTS (PREVIEW)
-                            </div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                              {seGuidedAttachPds ? (
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    padding: "6px 12px",
-                                    borderRadius: 10,
-                                    background: "#eff6ff",
-                                    color: "#1e40af",
-                                    border: "1px solid rgba(59, 130, 246, 0.38)",
-                                    boxShadow: "0 2px 6px rgba(37, 99, 235, 0.12)",
-                                  }}
-                                >
-                                  <span aria-hidden>📄</span>
-                                  PDS · spec PDF
-                                </span>
-                              ) : (
-                                <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>No PDS attachment</span>
-                              )}
-                              {seGuidedIncludeProductImage ? (
-                                <span
-                                  title="Preview-only mock selection—not attached to outbound email."
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    padding: "6px 12px",
-                                    borderRadius: 10,
-                                    background: "#fff7ed",
-                                    color: "#c2410c",
-                                    border: "1px solid rgba(251, 146, 60, 0.42)",
-                                    boxShadow: "0 2px 6px rgba(234, 88, 12, 0.1)",
-                                    maxWidth: "100%",
-                                  }}
-                                >
-                                  <span aria-hidden>🖼</span>
-                                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
-                                    Product hero · {guidedPreviewProductLabel}
-                                  </span>
-                                </span>
-                              ) : null}
-                              {salesEnablementGuidedTemplateLines.trainingAttachmentSuggested ? (
-                                <span
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                    fontSize: 11,
-                                    fontWeight: 800,
-                                    padding: "6px 12px",
-                                    borderRadius: 10,
-                                    background: "#ecfdf5",
-                                    color: "#047857",
-                                    border: "1px solid rgba(52, 211, 153, 0.45)",
-                                    boxShadow: "0 2px 6px rgba(5, 150, 105, 0.08)",
-                                  }}
-                                >
-                                  <span aria-hidden>▶</span>
-                                  Training module · KL-U prep
-                                </span>
-                              ) : null}
-                            </div>
-                            {guidedWizardPdsUrl && !previewSendUsesFlagship ? (
-                              <div style={{ marginTop: 4 }}>
-                                <a
-                                  href={guidedWizardPdsUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    fontSize: 12,
-                                    fontWeight: 800,
-                                    color: "#2563eb",
-                                    textDecoration: "underline",
-                                    textUnderlineOffset: "2px",
-                                  }}
-                                >
-                                  View Product Data Sheet
-                                </a>
-                                <span
-                                  style={{
-                                    display: "block",
-                                    marginTop: 4,
-                                    fontSize: 10,
-                                    fontWeight: 600,
-                                    color: "#94a3b8",
-                                    lineHeight: 1.35,
-                                  }}
-                                >
-                                  Opens the indexed PDF from site static files (/pds). Preview only—not added to send payload.
-                                </span>
-                              </div>
-                            ) : null}
-                          </div>
-                          </>
-                          ) : null}
-
-                          {previewSendUsesFlagship ? (
+                          {false && previewSendUsesFlagship ? (
                             <details
                               style={{
                                 padding: "8px 10px",
@@ -14466,6 +14185,7 @@ const handleFinishDealerEnrollment = async () => {
                       </div>
 
                       <details
+                        id="kl-se-guided-send-workflow"
                         style={{
                           borderRadius: 12,
                           padding: "10px 12px",
@@ -14680,7 +14400,25 @@ const handleFinishDealerEnrollment = async () => {
                         </div>
                       </details>
 
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                      <div
+                        style={{
+                          position: "sticky",
+                          bottom: 0,
+                          zIndex: 4,
+                          marginTop: 14,
+                          padding: "14px 16px",
+                          borderRadius: 16,
+                          background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+                          border: "1px solid rgba(30, 58, 138, 0.18)",
+                          boxShadow: "0 -12px 32px rgba(15, 23, 42, 0.1)",
+                          display: "grid",
+                          gap: 12,
+                        }}
+                      >
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", color: "#1e3a8a" }}>
+                          NEXT STEPS · SEND
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                         <button
                           type="button"
                           onClick={() => {
@@ -14708,15 +14446,70 @@ const handleFinishDealerEnrollment = async () => {
                           style={{
                             cursor: "pointer",
                             borderRadius: 10,
-                            padding: "10px 16px",
+                            padding: "11px 18px",
                             fontSize: 13,
                             fontWeight: 900,
-                            border: "1px solid rgba(234, 88, 12, 0.55)",
+                            letterSpacing: "0.04em",
+                            border: "none",
                             background: "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
                             color: "#ffffff",
+                            boxShadow: "0 6px 18px rgba(234, 88, 12, 0.35)",
                           }}
                         >
-                          {seGuidedStageDraft ? "Confirm mock staging" : "Open Prepare Send"}
+                          {seGuidedStageDraft ? "Confirm mock staging" : "Send to Reps"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            try {
+                              const el = document.getElementById("kl-se-guided-advanced-edit");
+                              if (el && typeof el === "object" && "open" in el) {
+                                /** @type {HTMLDetailsElement} */ (el).open = true;
+                              }
+                              el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                            } catch {
+                              /* ignore */
+                            }
+                          }}
+                          style={{
+                            cursor: "pointer",
+                            borderRadius: 10,
+                            padding: "10px 16px",
+                            fontSize: 13,
+                            fontWeight: 800,
+                            border: "1px solid rgba(100, 116, 139, 0.45)",
+                            background: "#ffffff",
+                            color: "#475569",
+                          }}
+                        >
+                          Edit Draft
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            try {
+                              const el = document.getElementById("kl-se-guided-send-workflow");
+                              if (el && typeof el === "object" && "open" in el) {
+                                /** @type {HTMLDetailsElement} */ (el).open = true;
+                              }
+                              el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                            } catch {
+                              /* ignore */
+                            }
+                            setSeGuidedApprovedSendDryRunOpen(true);
+                          }}
+                          style={{
+                            cursor: "pointer",
+                            borderRadius: 10,
+                            padding: "10px 16px",
+                            fontSize: 13,
+                            fontWeight: 800,
+                            border: "1px solid rgba(37, 99, 235, 0.4)",
+                            background: "#ffffff",
+                            color: "#1d4ed8",
+                          }}
+                        >
+                          Preview Send
                         </button>
                         <button
                           type="button"
@@ -14746,8 +14539,9 @@ const handleFinishDealerEnrollment = async () => {
                             color: "#1d4ed8",
                           }}
                         >
-                          Use approved send panel
+                          Open Prepare Send
                         </button>
+                      </div>
                       </div>
                     </div>
                   </div>
