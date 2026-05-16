@@ -11545,198 +11545,1061 @@ const handleFinishDealerEnrollment = async () => {
                     ? "PRODUCT SPOTLIGHT"
                     : seTrainingPackageTypeRaw.replace(/_/g, " ").toUpperCase();
             const seTrainingHeroBadges = seAssemblyPkg ? inferKlondikePackageHeroBadges(seAssemblyPkg) : [];
-            const seTrainingSectionShell = (eyebrow, title, sub, children) =>
-              title || children ? (
-                <div
-                  key={String(title) + String(eyebrow)}
-                  style={{
-                    borderRadius: 14,
-                    padding: "14px 16px",
-                    background: "#ffffff",
-                    border: "1px solid rgba(226, 232, 240, 0.98)",
-                    boxShadow: "0 6px 20px rgba(15, 23, 42, 0.06)",
-                    display: "grid",
-                    gap: 10,
-                  }}
-                >
-                  {eyebrow ? (
-                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#1e3a8a" }}>
-                      {eyebrow}
+            const seGuardrailLines = (() => {
+              if (!seAssemblyPkg) return [];
+              const complianceSec = sePkgPickSection((t) =>
+                /compliance|oem|caution|environmental|trigger|probe|preserve/.test(t)
+              );
+              const complianceBullets = Array.isArray(complianceSec?.bullets)
+                ? complianceSec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean)
+                : [];
+              const gr = [
+                ...(Array.isArray(seAssemblyPkg.guardrails) ? seAssemblyPkg.guardrails : []),
+                ...(Array.isArray(seAssemblyPkg.sourceNotes) ? seAssemblyPkg.sourceNotes : []),
+                ...complianceBullets,
+              ]
+                .map((g) => String(g ?? "").trim())
+                .filter(Boolean);
+              const uniq = [];
+              const seen = new Set();
+              for (const line of gr) {
+                const k = line.toLowerCase().slice(0, 120);
+                if (seen.has(k)) continue;
+                seen.add(k);
+                uniq.push(line);
+                if (uniq.length >= 12) break;
+              }
+              return uniq;
+            })();
+            const seSpecBulletsList = (() => {
+              if (!seAssemblyPkg) return [];
+              const sec = sePkgPickSection((t) => /spec|approval|registration/.test(t));
+              let bullets = Array.isArray(sec?.bullets)
+                ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean)
+                : [];
+              if (!bullets.length && Array.isArray(seAssemblyPkg.productCards) && seAssemblyPkg.productCards[0]) {
+                const row = seAssemblyPkg.productCards[0];
+                const specs = Array.isArray(row?.keySpecs)
+                  ? row.keySpecs.map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+                const approvals = Array.isArray(row?.approvals)
+                  ? row.approvals.map((x) => String(x ?? "").trim()).filter(Boolean)
+                  : [];
+                bullets = [...specs, ...approvals].filter(Boolean).slice(0, 12);
+              }
+              return bullets;
+            })();
+            const seBenefitTiles = (() => {
+              const tiles = [];
+              const add = (icon, label, sub) => {
+                if (tiles.length >= 4) return;
+                tiles.push({
+                  icon: String(icon || "•"),
+                  label: String(label || "").slice(0, 32),
+                  sub: String(sub || "").slice(0, 120),
+                });
+              };
+              const chips =
+                previewSendUsesFlagship &&
+                Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips)
+                  ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips
+                  : [];
+              if (Array.isArray(chips) && chips[0]) {
+                add("🛡️", String(chips[0].label || "Field proof").trim(), String(chips[0].value || "").trim());
+              }
+              if (Array.isArray(chips) && chips[1]) {
+                add("⚙️", String(chips[1].label || "Performance").trim(), String(chips[1].value || "").trim());
+              }
+              const ang = Array.isArray(seAssemblyPkg?.salesAngles)
+                ? seAssemblyPkg.salesAngles.map((x) => String(x ?? "").trim()).filter(Boolean)
+                : [];
+              if (tiles.length < 4 && ang[0]) add("🎯", "Application Fit", ang[0]);
+              if (tiles.length < 4 && ang[1]) add("💬", "Rep Confidence", ang[1]);
+              if (tiles.length < 4) add("🛡️", "Protection", ang[2] || "");
+              if (tiles.length < 4) add("⚙️", "Uptime", ang[3] || "");
+              if (tiles.length < 4) add("🎯", "Application Fit", "");
+              if (tiles.length < 4) add("💬", "Rep Confidence", "");
+              return tiles.slice(0, 4);
+            })();
+            const seInfographicCard = (code, title, body) => (
+              <div
+                style={{
+                  borderRadius: 12,
+                  overflow: "hidden",
+                  border: "1px solid rgba(30, 58, 138, 0.22)",
+                  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.09)",
+                  background: "#ffffff",
+                  minWidth: 0,
+                }}
+              >
+                <div style={{ display: "grid", gridTemplateColumns: "5px 1fr", alignItems: "stretch" }}>
+                  <div style={{ background: "#ea580c", minHeight: 44 }} aria-hidden />
+                  <div
+                    style={{
+                      background: "linear-gradient(90deg, #0f172a 0%, #1e40af 100%)",
+                      padding: "10px 14px",
+                      display: "grid",
+                      gap: 2,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 900,
+                        letterSpacing: "0.14em",
+                        color: "rgba(248, 250, 252, 0.72)",
+                      }}
+                    >
+                      {code}
                     </div>
-                  ) : null}
-                  {title ? (
-                    <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.3 }}>{title}</div>
-                  ) : null}
-                  {sub ? (
-                    <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5, fontWeight: 600 }}>{sub}</p>
-                  ) : null}
-                  {children}
+                    <div style={{ fontSize: 14, fontWeight: 900, color: "#ffffff", lineHeight: 1.2 }}>{title}</div>
+                  </div>
                 </div>
-              ) : null;
+                <div style={{ padding: "14px 16px", background: "#ffffff" }}>{body}</div>
+              </div>
+            );
             const guidedSeTrainingInfographicInner = (
               <>
                 <div
                   style={{
                     borderRadius: 18,
-                    padding: "22px 22px 20px",
-                    background: "#ffffff",
-                    border: "1px solid rgba(30, 58, 138, 0.18)",
-                    boxShadow: "0 14px 40px rgba(15, 23, 42, 0.1)",
-                    display: "grid",
-                    gap: 16,
-                    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 148px)",
-                    alignItems: "start",
+                    overflow: "hidden",
+                    border: "1px solid rgba(30, 58, 138, 0.26)",
+                    boxShadow: "0 20px 50px rgba(15, 23, 42, 0.14)",
+                    background: "#f8fafc",
                   }}
                 >
-                  <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 900,
-                        letterSpacing: "0.16em",
-                        color: "#ea580c",
-                      }}
-                    >
-                      {seTrainingPackageEyebrow}
-                    </div>
-                    <h4
-                      style={{
-                        margin: 0,
-                        fontSize: 26,
-                        fontWeight: 900,
-                        color: "#0f172a",
-                        letterSpacing: "-0.02em",
-                        lineHeight: 1.15,
-                      }}
-                    >
-                      {seTrainingHeroTitle}
-                    </h4>
-                    {(() => {
-                      const sub = String(seAssemblyPkg?.subtitle || "").trim();
-                      const sum = seTrainingSummary;
-                      const lead = sub || sum || "";
-                      if (!lead) return null;
-                      return (
-                        <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#334155", lineHeight: 1.45 }}>
-                          {lead.length > 260 ? `${lead.slice(0, 257)}…` : lead}
-                        </p>
-                      );
-                    })()}
-                    {(() => {
-                      const sub = String(seAssemblyPkg?.subtitle || "").trim();
-                      const sum = seTrainingSummary;
-                      if (!sum || sum === sub) return null;
-                      return (
-                        <p style={{ margin: 0, fontSize: 13, color: "#475569", lineHeight: 1.5, fontWeight: 600 }}>
-                          {sum.length > 300 ? `${sum.slice(0, 297)}…` : sum}
-                        </p>
-                      );
-                    })()}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                      {seTrainingHeroBadges.map((b) => (
-                        <span
-                          key={b}
-                          style={{
-                            fontSize: 9,
-                            fontWeight: 900,
-                            letterSpacing: "0.07em",
-                            padding: "5px 11px",
-                            borderRadius: 999,
-                            background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
-                            color: "#9a3412",
-                            border: "1px solid rgba(251, 146, 60, 0.45)",
-                          }}
-                        >
-                          {b}
-                        </span>
-                      ))}
-                      {buildMessageTypeLabel ? (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 900,
-                            letterSpacing: "0.06em",
-                            padding: "5px 10px",
-                            borderRadius: 999,
-                            background: "#eff6ff",
-                            color: "#1e40af",
-                            border: "1px solid rgba(59, 130, 246, 0.35)",
-                          }}
-                        >
-                          {buildMessageTypeLabel}
-                        </span>
-                      ) : null}
-                      {seTrainingCategoryTag ? (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 800,
-                            padding: "5px 10px",
-                            borderRadius: 999,
-                            background: "#f8fafc",
-                            color: "#475569",
-                            border: "1px solid rgba(203, 213, 225, 0.95)",
-                          }}
-                        >
-                          {seTrainingCategoryTag}
-                        </span>
-                      ) : null}
-                      {salesEnablementGuidedTemplateLines.audience || seTrainingAudienceTag ? (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 800,
-                            padding: "5px 10px",
-                            borderRadius: 999,
-                            background: "#f1f5f9",
-                            color: "#475569",
-                            border: "1px solid rgba(203, 213, 225, 0.95)",
-                          }}
-                        >
-                          {String(seTrainingAudienceTag || salesEnablementGuidedTemplateLines.audience || "")
-                            .trim()
-                            .slice(0, 72) || "Audience"}
-                        </span>
-                      ) : null}
-                      {seTrainingPriorityTag ? (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 900,
-                            padding: "5px 10px",
-                            borderRadius: 999,
-                            background: "#fef3c7",
-                            color: "#92400e",
-                            border: "1px solid rgba(245, 158, 11, 0.5)",
-                          }}
-                        >
-                          {seTrainingPriorityTag}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", fontWeight: 600, lineHeight: 1.45 }}>
-                      Generated from KLONDIKE product intelligence.
-                    </p>
-                  </div>
                   <div
-                    data-kl-phase5c-hero-image
                     style={{
-                      borderRadius: 14,
-                      minHeight: 140,
-                      border: "2px dashed rgba(203, 213, 225, 0.95)",
-                      background: "linear-gradient(165deg, #f8fafc 0%, #eff6ff 45%, #ffffff 100%)",
-                      display: "grid",
-                      placeItems: "center",
-                      padding: 12,
-                      textAlign: "center",
-                      gap: 6,
+                      background: "linear-gradient(135deg, #020617 0%, #0f172a 38%, #1e3a8a 92%)",
+                      padding: "20px 22px 22px",
+                      color: "#ffffff",
                     }}
                   >
-                    <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: "#1e3a8a" }}>
-                      PRODUCT IMAGE AREA
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 4,
+                        marginBottom: 16,
+                        paddingBottom: 12,
+                        borderBottom: "1px solid rgba(234, 88, 12, 0.55)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 900,
+                          letterSpacing: "0.2em",
+                          color: "rgba(248, 250, 252, 0.95)",
+                        }}
+                      >
+                        KLONDIKE PERFORMANCE LUBRICANTS
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 800,
+                          letterSpacing: "0.14em",
+                          color: "rgba(251, 146, 60, 0.98)",
+                        }}
+                      >
+                        WE GROW INDEPENDENT BUSINESS
+                      </div>
                     </div>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "#64748b", lineHeight: 1.35 }}>
-                      Placeholder for product visual — Phase 5C upload
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "minmax(0, 1.55fr) minmax(280px, 0.9fr)",
+                        gap: 20,
+                        alignItems: "stretch",
+                      }}
+                    >
+                      <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 900,
+                            letterSpacing: "0.2em",
+                            color: "#fb923c",
+                          }}
+                        >
+                          {seTrainingPackageEyebrow}
+                        </div>
+                        <h4
+                          style={{
+                            margin: 0,
+                            fontSize: 30,
+                            fontWeight: 900,
+                            color: "#ffffff",
+                            letterSpacing: "-0.03em",
+                            lineHeight: 1.1,
+                            textShadow: "0 2px 18px rgba(0,0,0,0.35)",
+                          }}
+                        >
+                          {seTrainingHeroTitle}
+                        </h4>
+                        <div
+                          style={{
+                            height: 5,
+                            width: 110,
+                            borderRadius: 3,
+                            background: "linear-gradient(90deg, #ea580c 0%, #fb923c 100%)",
+                          }}
+                          aria-hidden
+                        />
+                        {(() => {
+                          const sub = String(seAssemblyPkg?.subtitle || "").trim();
+                          const sum = seTrainingSummary;
+                          const lead = sub || sum || "";
+                          if (!lead) return null;
+                          return (
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: 15,
+                                fontWeight: 700,
+                                color: "rgba(226, 232, 240, 0.95)",
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              {lead.length > 260 ? `${lead.slice(0, 257)}…` : lead}
+                            </p>
+                          );
+                        })()}
+                        {(() => {
+                          const sub = String(seAssemblyPkg?.subtitle || "").trim();
+                          const sum = seTrainingSummary;
+                          if (!sum || sum === sub) return null;
+                          return (
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: 13,
+                                color: "rgba(203, 213, 225, 0.9)",
+                                lineHeight: 1.5,
+                                fontWeight: 600,
+                              }}
+                            >
+                              {sum.length > 300 ? `${sum.slice(0, 297)}…` : sum}
+                            </p>
+                          );
+                        })()}
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                          {seTrainingHeroBadges.map((b) => (
+                            <span
+                              key={b}
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 900,
+                                letterSpacing: "0.07em",
+                                padding: "5px 11px",
+                                borderRadius: 999,
+                                background: "rgba(251, 146, 60, 0.18)",
+                                color: "#ffedd5",
+                                border: "1px solid rgba(251, 146, 60, 0.45)",
+                              }}
+                            >
+                              {b}
+                            </span>
+                          ))}
+                          {buildMessageTypeLabel ? (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 900,
+                                letterSpacing: "0.06em",
+                                padding: "5px 10px",
+                                borderRadius: 999,
+                                background: "rgba(59, 130, 246, 0.22)",
+                                color: "#dbeafe",
+                                border: "1px solid rgba(147, 197, 253, 0.45)",
+                              }}
+                            >
+                              {buildMessageTypeLabel}
+                            </span>
+                          ) : null}
+                          {seTrainingCategoryTag ? (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                padding: "5px 10px",
+                                borderRadius: 999,
+                                background: "rgba(255,255,255,0.08)",
+                                color: "#e2e8f0",
+                                border: "1px solid rgba(148, 163, 184, 0.4)",
+                              }}
+                            >
+                              {seTrainingCategoryTag}
+                            </span>
+                          ) : null}
+                          {salesEnablementGuidedTemplateLines.audience || seTrainingAudienceTag ? (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                padding: "5px 10px",
+                                borderRadius: 999,
+                                background: "rgba(255,255,255,0.08)",
+                                color: "#e2e8f0",
+                                border: "1px solid rgba(148, 163, 184, 0.35)",
+                              }}
+                            >
+                              {String(seTrainingAudienceTag || salesEnablementGuidedTemplateLines.audience || "")
+                                .trim()
+                                .slice(0, 72) || "Audience"}
+                            </span>
+                          ) : null}
+                          {seTrainingPriorityTag ? (
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 900,
+                                padding: "5px 10px",
+                                borderRadius: 999,
+                                background: "rgba(250, 204, 21, 0.2)",
+                                color: "#fef9c3",
+                                border: "1px solid rgba(253, 224, 71, 0.55)",
+                              }}
+                            >
+                              {seTrainingPriorityTag}
+                            </span>
+                          ) : null}
+                        </div>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 10,
+                            color: "rgba(148, 163, 184, 0.95)",
+                            fontWeight: 600,
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          Generated from KLONDIKE product intelligence.
+                        </p>
+                      </div>
+                      <div
+                        data-kl-phase5c-hero-image
+                        style={{
+                          borderRadius: 16,
+                          minHeight: 220,
+                          alignSelf: "stretch",
+                          border: "2px solid rgba(248, 250, 252, 0.35)",
+                          background:
+                            "linear-gradient(150deg, rgba(15,23,42,0.65) 0%, rgba(30,58,138,0.35) 45%, rgba(226,232,240,0.12) 100%)",
+                          display: "grid",
+                          placeItems: "center",
+                          padding: 20,
+                          textAlign: "center",
+                          gap: 10,
+                          boxShadow: "inset 0 0 0 1px rgba(15, 23, 42, 0.25)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 56,
+                            height: 56,
+                            borderRadius: "50%",
+                            background: "rgba(15, 23, 42, 0.45)",
+                            border: "2px dashed rgba(248, 250, 252, 0.45)",
+                            display: "grid",
+                            placeItems: "center",
+                            fontSize: 26,
+                            lineHeight: 1,
+                          }}
+                          aria-hidden
+                        >
+                          📷
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 900,
+                            letterSpacing: "0.12em",
+                            color: "rgba(248, 250, 252, 0.95)",
+                          }}
+                        >
+                          PRODUCT IMAGE
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color: "rgba(226, 232, 240, 0.92)",
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          Upload image in Phase 5C
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: "16px 18px",
+                      background: "#ffffff",
+                      borderBottom: "1px solid rgba(30, 58, 138, 0.1)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+                        gap: 12,
+                      }}
+                    >
+                      {seBenefitTiles.map((t, i) => (
+                        <div
+                          key={`se-ben-${i}-${t.label}`}
+                          style={{
+                            display: "grid",
+                            justifyItems: "center",
+                            textAlign: "center",
+                            gap: 8,
+                            padding: "12px 10px",
+                            borderRadius: 14,
+                            background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+                            border: "1px solid rgba(30, 58, 138, 0.14)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 44,
+                              height: 44,
+                              borderRadius: "50%",
+                              background: "linear-gradient(145deg, #fff7ed 0%, #ffedd5 100%)",
+                              border: "2px solid rgba(234, 88, 12, 0.35)",
+                              display: "grid",
+                              placeItems: "center",
+                              fontSize: 20,
+                              lineHeight: 1,
+                            }}
+                          >
+                            {t.icon}
+                          </div>
+                          <div
+                            style={{ fontSize: 12, fontWeight: 900, color: "#0f172a", lineHeight: 1.25 }}
+                          >
+                            {t.label}
+                          </div>
+                          {t.sub ? (
+                            <div
+                              style={{ fontSize: 10, fontWeight: 600, color: "#64748b", lineHeight: 1.35 }}
+                            >
+                              {t.sub.length > 96 ? `${t.sub.slice(0, 93)}…` : t.sub}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {Array.isArray(seAssemblyPkg?.productCards) && seAssemblyPkg.productCards.length ? (
+                      <div
+                        style={{
+                          padding: "18px 20px 8px",
+                          background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+                          borderTop: "1px solid rgba(30, 58, 138, 0.08)",
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 900,
+                            letterSpacing: "0.16em",
+                            color: "#ea580c",
+                            marginBottom: 12,
+                          }}
+                        >
+                          FEATURED PRODUCTS
+                        </div>
+                        <div
+                          style={{
+                            display: "grid",
+                            gap: 12,
+                            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))",
+                          }}
+                        >
+                          {seAssemblyPkg.productCards.slice(0, 6).map((row, idx) => {
+                            const badges = inferKlondikeTrainingBadges(row);
+                            const specs = Array.isArray(row?.keySpecs)
+                              ? row.keySpecs.map((x) => String(x ?? "").trim()).filter(Boolean)
+                              : [];
+                            const approvals = Array.isArray(row?.approvals)
+                              ? row.approvals.map((x) => String(x ?? "").trim()).filter(Boolean)
+                              : [];
+                            const chipPool = [...specs, ...approvals].filter(Boolean).slice(0, 8);
+                            const pos = String(row?.positioningLine || row?.oneLiner || "").trim();
+                            return (
+                              <div
+                                key={`se-train-pc-${String(row?.pdsMapKey || idx)}`}
+                                style={{
+                                  borderRadius: 12,
+                                  overflow: "hidden",
+                                  border: "1px solid rgba(30, 58, 138, 0.24)",
+                                  boxShadow: "0 10px 26px rgba(15, 23, 42, 0.08)",
+                                  background: "#ffffff",
+                                  minWidth: 0,
+                                  display: "grid",
+                                  gridTemplateRows: "auto 1fr",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    background: "linear-gradient(90deg, #0f172a 0%, #1e40af 100%)",
+                                    padding: "10px 14px 12px",
+                                    borderLeft: "4px solid #ea580c",
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 900,
+                                      letterSpacing: "0.14em",
+                                      color: "rgba(251, 146, 60, 0.95)",
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    FEATURED PRODUCT
+                                  </div>
+                                  <div style={{ fontSize: 15, fontWeight: 900, color: "#ffffff", lineHeight: 1.2 }}>
+                                    {String(row?.productName || "Product").trim()}
+                                  </div>
+                                  <div
+                                    style={{
+                                      marginTop: 4,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      color: "rgba(226, 232, 240, 0.92)",
+                                    }}
+                                  >
+                                    {String(row?.canonicalFamily || "").trim() || "Klondike line"}
+                                  </div>
+                                </div>
+                                <div style={{ padding: "12px 14px 14px", display: "grid", gap: 10 }}>
+                                  {badges.length ? (
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                      {badges.slice(0, 6).map((b) => (
+                                        <span
+                                          key={b}
+                                          style={{
+                                            fontSize: 8,
+                                            fontWeight: 900,
+                                            letterSpacing: "0.06em",
+                                            padding: "3px 8px",
+                                            borderRadius: 999,
+                                            background: "#fff7ed",
+                                            color: "#c2410c",
+                                            border: "1px solid rgba(251, 146, 60, 0.42)",
+                                          }}
+                                        >
+                                          {b}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                  {chipPool.length ? (
+                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                      {chipPool.map((s, si) => (
+                                        <span
+                                          key={`fpc-${si}`}
+                                          style={{
+                                            fontSize: 10,
+                                            fontWeight: 700,
+                                            padding: "5px 9px",
+                                            borderRadius: 999,
+                                            background: "#eff6ff",
+                                            color: "#1e40af",
+                                            border: "1px solid rgba(59, 130, 246, 0.35)",
+                                          }}
+                                        >
+                                          {s.length > 52 ? `${s.slice(0, 49)}…` : s}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                  {pos ? (
+                                    <p
+                                      style={{
+                                        margin: 0,
+                                        fontSize: 12,
+                                        color: "#475569",
+                                        lineHeight: 1.45,
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      {pos.length > 180 ? `${pos.slice(0, 177)}…` : pos}
+                                    </p>
+                                  ) : null}
+                                  {row?.pdsMapKey ? (
+                                    <div style={{ fontSize: 10, fontWeight: 800, color: "#94a3b8" }}>
+                                      pdsMapKey / ref: {String(row.pdsMapKey).slice(0, 56)}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div
+                      style={{
+                        padding: "18px 20px 4px",
+                        background: "linear-gradient(180deg, #eef2ff 0%, #f8fafc 35%, #ffffff 100%)",
+                        display: "grid",
+                        gap: 16,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+                          gap: 16,
+                          alignItems: "start",
+                        }}
+                      >
+                        <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
+                          {seInfographicCard(
+                            "APPLICATIONS",
+                            "Best-fit applications",
+                            (() => {
+                              const sec =
+                                sePkgPickSection((t) => /application|use when|fit|deploy|when to/.test(t)) ||
+                                sePkgPickSection((t) => /market|segment|fleet/.test(t));
+                              const bullets = Array.isArray(sec?.bullets)
+                                ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 8)
+                                : [];
+                              const chips = bullets.length
+                                ? bullets
+                                : (tplProofDisplay || []).slice(0, 4).map((x) => String(x).trim());
+                              if (!chips.length) {
+                                return (
+                                  <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
+                                    Refine search or generate a draft for application cues.
+                                  </p>
+                                );
+                              }
+                              return (
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                  {chips.map((c, i) => (
+                                    <div
+                                      key={`app-${i}`}
+                                      style={{
+                                        flex: "1 1 160px",
+                                        minWidth: 0,
+                                        padding: "8px 10px",
+                                        borderRadius: 999,
+                                        background: "#eff6ff",
+                                        border: "1px solid rgba(59, 130, 246, 0.28)",
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: "#1e3a8a",
+                                        lineHeight: 1.35,
+                                      }}
+                                    >
+                                      {c.length > 120 ? `${c.slice(0, 117)}…` : c}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()
+                          )}
+                          {seInfographicCard(
+                            "DISCOVERY",
+                            "Questions reps should ask",
+                            (() => {
+                              const dq = [
+                                ...(Array.isArray(seAssemblyPkg?.repQuestions) ? seAssemblyPkg.repQuestions : []),
+                                ...(Array.isArray(seAssemblyPkg?.customerProfileQuestions)
+                                  ? seAssemblyPkg.customerProfileQuestions
+                                  : []),
+                              ]
+                                .map((q) => String(q ?? "").trim())
+                                .filter(Boolean)
+                                .slice(0, 12);
+                              if (!dq.length) {
+                                return (
+                                  <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
+                                    Generate a draft to surface rep discovery prompts.
+                                  </p>
+                                );
+                              }
+                              return (
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  {dq.map((q, i) => (
+                                    <div
+                                      key={`dq-${i}`}
+                                      style={{
+                                        display: "flex",
+                                        gap: 10,
+                                        alignItems: "flex-start",
+                                        padding: "8px 10px",
+                                        borderRadius: 10,
+                                        background: "#f8fafc",
+                                        border: "1px solid rgba(226, 232, 240, 0.98)",
+                                      }}
+                                    >
+                                      <span
+                                        style={{
+                                          marginTop: 2,
+                                          width: 20,
+                                          height: 20,
+                                          borderRadius: 6,
+                                          border: "2px solid rgba(234, 88, 12, 0.55)",
+                                          background: "#ffffff",
+                                          flexShrink: 0,
+                                        }}
+                                        aria-hidden
+                                      />
+                                      <span
+                                        style={{ fontSize: 12, fontWeight: 700, color: "#334155", lineHeight: 1.45 }}
+                                      >
+                                        {q}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()
+                          )}
+                          {seInfographicCard(
+                            "CUSTOMER REALITY",
+                            "Customer pain points",
+                            (() => {
+                              const pains = Array.isArray(seAssemblyPkg?.operationalPainPoints)
+                                ? seAssemblyPkg.operationalPainPoints.map((x) => String(x ?? "").trim()).filter(Boolean)
+                                : [];
+                              const flagshipPains =
+                                previewSendUsesFlagship &&
+                                Array.isArray(
+                                  salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals
+                                )
+                                  ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals
+                                  : [];
+                              const merged = [...pains, ...flagshipPains].slice(0, 8);
+                              if (!merged.length) {
+                                return (
+                                  <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
+                                    Generate a draft to surface operational pain language.
+                                  </p>
+                                );
+                              }
+                              return (
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                  {merged.map((p, i) => (
+                                    <div
+                                      key={`pain-${i}`}
+                                      style={{
+                                        padding: "8px 10px",
+                                        borderRadius: 999,
+                                        background: "#fffbeb",
+                                        border: "1px solid rgba(251, 191, 36, 0.45)",
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: "#78350f",
+                                        lineHeight: 1.4,
+                                        flex: "1 1 200px",
+                                        minWidth: 0,
+                                      }}
+                                    >
+                                      {p.length > 160 ? `${p.slice(0, 157)}…` : p}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()
+                          )}
+                        </div>
+                        <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
+                          {seInfographicCard(
+                            "SPECS",
+                            "Key specs / approvals / registrations",
+                            seSpecBulletsList.length ? (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                {seSpecBulletsList.slice(0, 14).map((s, i) => (
+                                  <div
+                                    key={`spec-chip-${i}`}
+                                    style={{
+                                      padding: "6px 10px",
+                                      borderRadius: 999,
+                                      background: "#f1f5f9",
+                                      border: "1px solid rgba(30, 58, 138, 0.18)",
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      color: "#0f172a",
+                                      lineHeight: 1.3,
+                                    }}
+                                  >
+                                    {s.length > 72 ? `${s.slice(0, 69)}…` : s}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
+                                Refine search or generate a draft for specification detail.
+                              </p>
+                            )
+                          )}
+                          {seInfographicCard("COACHING", "What reps should know", (() => {
+                            const metricChipsOk =
+                              previewSendUsesFlagship &&
+                              Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips) &&
+                              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips.length;
+                            const ang = Array.isArray(seAssemblyPkg?.salesAngles)
+                              ? seAssemblyPkg.salesAngles.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 8)
+                              : [];
+                            const sea = Array.isArray(seAssemblyPkg?.salesEnablementAngles)
+                              ? seAssemblyPkg.salesEnablementAngles
+                                  .map((x) => String(x ?? "").trim())
+                                  .filter(Boolean)
+                                  .slice(0, 8)
+                              : [];
+                            const mergedAngles = [...ang, ...sea.filter((x) => !ang.includes(x))].slice(0, 8);
+                            const talkOk =
+                              previewSendUsesFlagship &&
+                              Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack) &&
+                              salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack.length;
+                            const secKnow = sePkgPickSection((t) => /rep|coach|talk|enable|know/.test(t));
+                            const repBullets = Array.isArray(secKnow?.bullets)
+                              ? secKnow.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 8)
+                              : [];
+                            const hasAny =
+                              metricChipsOk || mergedAngles.length > 0 || talkOk || repBullets.length > 0;
+                            return (
+                              <div style={{ display: "grid", gap: 10 }}>
+                                {metricChipsOk ? (
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                    {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips
+                                      .slice(0, 4)
+                                      .map((chip) => (
+                                        <div
+                                          key={chip.id}
+                                          style={{
+                                            flex: "1 1 120px",
+                                            minWidth: 108,
+                                            padding: "10px 12px",
+                                            borderRadius: 12,
+                                            background: "linear-gradient(145deg, #ecfdf5 0%, #f0fdfa 100%)",
+                                            border: "1px solid rgba(45, 212, 191, 0.4)",
+                                            boxShadow: "0 4px 12px rgba(15, 118, 110, 0.08)",
+                                          }}
+                                        >
+                                          <div
+                                            style={{
+                                              fontSize: 9,
+                                              fontWeight: 900,
+                                              color: "#0f766e",
+                                              letterSpacing: "0.06em",
+                                            }}
+                                          >
+                                            {chip.label}
+                                          </div>
+                                          <div
+                                            style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.2 }}
+                                          >
+                                            {chip.value}
+                                          </div>
+                                          <div style={{ fontSize: 10, color: "#64748b", marginTop: 4, lineHeight: 1.3 }}>
+                                            {chip.hint}
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                ) : null}
+                                {mergedAngles.length ? (
+                                  <div
+                                    style={{
+                                      display: "grid",
+                                      gap: 8,
+                                      gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
+                                    }}
+                                  >
+                                    {mergedAngles.map((line, i) => (
+                                      <div
+                                        key={`sales-ang-${i}`}
+                                        style={{
+                                          padding: "8px 10px",
+                                          borderRadius: 10,
+                                          background: "#ffffff",
+                                          border: "1px solid rgba(30, 64, 175, 0.18)",
+                                          fontSize: 12,
+                                          fontWeight: 700,
+                                          color: "#1e3a8a",
+                                          lineHeight: 1.4,
+                                        }}
+                                      >
+                                        {line.length > 160 ? `${line.slice(0, 157)}…` : line}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : null}
+                                {talkOk ? (
+                                  <div
+                                    style={{
+                                      padding: "10px 12px",
+                                      borderRadius: 12,
+                                      background: "#faf5ff",
+                                      border: "1px solid rgba(167, 139, 250, 0.4)",
+                                      display: "grid",
+                                      gap: 6,
+                                    }}
+                                  >
+                                    {guidedFlagshipBulletRows(
+                                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack,
+                                      "se-train-rep",
+                                      "#7c3aed"
+                                    )}
+                                  </div>
+                                ) : null}
+                                {repBullets.length ? (
+                                  <ul
+                                    style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#334155", lineHeight: 1.45 }}
+                                  >
+                                    {repBullets.map((b, i) => (
+                                      <li key={`rep-know-${i}`}>{b}</li>
+                                    ))}
+                                  </ul>
+                                ) : null}
+                                {!hasAny ? (
+                                  <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
+                                    Generate a draft to surface rep coaching angles and talk tracks.
+                                  </p>
+                                ) : null}
+                              </div>
+                            );
+                          })()
+                          )}
+                          {seInfographicCard(
+                            "GUARDRAILS",
+                            "Guardrails / compliance notes",
+                            seGuardrailLines.length ? (
+                              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#78350f", lineHeight: 1.45 }}>
+                                {seGuardrailLines.map((g, i) => (
+                                  <li key={`gr-ig-${i}`}>{g.length > 200 ? `${g.slice(0, 197)}…` : g}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
+                                Compliance notes appear when present in the generated package.
+                              </p>
+                            )
+                          )}
+                        </div>
+                      </div>
+
+                    {(() => {
+                      const xs = Array.isArray(seAssemblyPkg?.crossSellOpportunities)
+                        ? seAssemblyPkg.crossSellOpportunities.map((x) => String(x ?? "").trim()).filter(Boolean)
+                        : [];
+                      const rec = String(seAssemblyPkg?.recommendedAction || "").trim();
+                      const cta = String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview || "").trim();
+                      return (
+                        <div
+                          style={{
+                            borderRadius: 14,
+                            padding: "18px 20px",
+                            background: "linear-gradient(92deg, #ea580c 0%, #c2410c 38%, #1e3a8a 100%)",
+                            border: "1px solid rgba(251, 146, 60, 0.5)",
+                            boxShadow: "0 14px 34px rgba(194, 65, 12, 0.22)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 900,
+                              letterSpacing: "0.14em",
+                              color: "rgba(255, 255, 255, 0.9)",
+                            }}
+                          >
+                            RECOMMENDED NEXT STEP
+                          </div>
+                          <div
+                            style={{
+                              marginTop: 8,
+                              fontSize: 17,
+                              fontWeight: 900,
+                              color: "#ffffff",
+                              lineHeight: 1.35,
+                              textShadow: "0 1px 2px rgba(15, 23, 42, 0.25)",
+                            }}
+                          >
+                            {rec ||
+                              "Open Prepare Send when routing is confirmed — reps get this narrative through the standard workflow."}
+                          </div>
+                          {cta ? (
+                            <div
+                              style={{
+                                marginTop: 12,
+                                padding: "10px 14px",
+                                borderRadius: 10,
+                                background: "rgba(255, 255, 255, 0.96)",
+                                fontSize: 13,
+                                fontWeight: 900,
+                                color: "#c2410c",
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              {cta}
+                            </div>
+                          ) : null}
+                          {xs.length ? (
+                            <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                              {xs.slice(0, 10).map((c, i) => (
+                                <span
+                                  key={`xs-ban-${i}`}
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    padding: "6px 11px",
+                                    borderRadius: 999,
+                                    background: "rgba(255, 255, 255, 0.16)",
+                                    color: "#ffffff",
+                                    border: "1px solid rgba(255, 255, 255, 0.35)",
+                                    lineHeight: 1.3,
+                                  }}
+                                >
+                                  {c.length > 72 ? `${c.slice(0, 69)}…` : c}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "14px 18px",
+                        background: "#0f172a",
+                        borderRadius: 12,
+                        borderTop: "3px solid #ea580c",
+                      }}
+                    >
+                      <div style={{ fontSize: 11, fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
+                        KLONDIKE | Dependable Products. Real Solutions.
+                      </div>
+                      <a
+                        href="https://klondikelubricants.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 800,
+                          color: "#fb923c",
+                          textDecoration: "none",
+                        }}
+                      >
+                        klondikelubricants.com
+                      </a>
+                    </div>
                     </div>
                   </div>
                 </div>
@@ -11771,567 +12634,6 @@ const handleFinishDealerEnrollment = async () => {
                     <div style={{ marginTop: 10 }}>{stagedKnowledgeInnerPreview}</div>
                   </details>
                 ) : null}
-
-                <div style={{ display: "grid", gap: 12 }}>
-                  {Array.isArray(seAssemblyPkg?.productCards) && seAssemblyPkg.productCards.length ? (
-                    <div style={{ display: "grid", gap: 10 }}>
-                      {seTrainingSectionShell(
-                        "FEATURED",
-                        "Featured products",
-                        "Primary lines to anchor the conversation.",
-                        <div
-                          style={{
-                            display: "grid",
-                            gap: 10,
-                            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))",
-                          }}
-                        >
-                          {seAssemblyPkg.productCards.slice(0, 6).map((row, idx) => {
-                            const badges = inferKlondikeTrainingBadges(row);
-                            const specs = Array.isArray(row?.keySpecs)
-                              ? row.keySpecs.map((x) => String(x ?? "").trim()).filter(Boolean)
-                              : [];
-                            const approvals = Array.isArray(row?.approvals)
-                              ? row.approvals.map((x) => String(x ?? "").trim()).filter(Boolean)
-                              : [];
-                            const specLines = [...specs, ...approvals].filter(Boolean).slice(0, 4);
-                            const pos = String(row?.positioningLine || row?.oneLiner || "").trim();
-                            return (
-                              <div
-                                key={`se-train-pc-${String(row?.pdsMapKey || idx)}`}
-                                style={{
-                                  borderRadius: 12,
-                                  padding: "12px 12px 14px",
-                                  border: "1px solid rgba(30, 64, 175, 0.22)",
-                                  background: "linear-gradient(160deg, #f8fafc 0%, #ffffff 100%)",
-                                  display: "grid",
-                                  gap: 8,
-                                  minWidth: 0,
-                                }}
-                              >
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                                  {badges.map((b) => (
-                                    <span
-                                      key={b}
-                                      style={{
-                                        fontSize: 8,
-                                        fontWeight: 900,
-                                        letterSpacing: "0.06em",
-                                        padding: "3px 8px",
-                                        borderRadius: 999,
-                                        background: "#fff7ed",
-                                        color: "#c2410c",
-                                        border: "1px solid rgba(251, 146, 60, 0.42)",
-                                      }}
-                                    >
-                                      {b}
-                                    </span>
-                                  ))}
-                                </div>
-                                <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", lineHeight: 1.25 }}>
-                                  {String(row?.productName || "Product").trim()}
-                                </div>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: "#475569" }}>
-                                  {String(row?.canonicalFamily || "").trim() || "Klondike line"}
-                                </div>
-                                {specLines.length ? (
-                                  <ul
-                                    style={{
-                                      margin: 0,
-                                      paddingLeft: 16,
-                                      fontSize: 11,
-                                      color: "#334155",
-                                      lineHeight: 1.4,
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    {specLines.map((s, i) => (
-                                      <li key={`spec-${i}`}>{s.length > 96 ? `${s.slice(0, 93)}…` : s}</li>
-                                    ))}
-                                  </ul>
-                                ) : null}
-                                {pos ? (
-                                  <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.4, fontWeight: 600 }}>
-                                    {pos.length > 140 ? `${pos.slice(0, 137)}…` : pos}
-                                  </p>
-                                ) : null}
-                                {row?.pdsMapKey ? (
-                                  <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8" }}>
-                                    Ref: {String(row.pdsMapKey).slice(0, 48)}
-                                  </div>
-                                ) : null}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-
-                  {seTrainingSectionShell(
-                    "POSITIONING",
-                    "Why this matters",
-                    null,
-                    (() => {
-                      const sec = sePkgPickSection((t) => /why|matter|value|wins/.test(t));
-                      const bullets = Array.isArray(sec?.bullets)
-                        ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 6)
-                        : [];
-                      const rec = String(seAssemblyPkg?.recommendedAction || "").trim();
-                      return (
-                        <div style={{ display: "grid", gap: 10 }}>
-                          {rec ? (
-                            <div
-                              style={{
-                                padding: "12px 14px",
-                                borderRadius: 12,
-                                background: "linear-gradient(135deg, #fff7ed 0%, #ffffff 100%)",
-                                border: "1px solid rgba(251, 146, 60, 0.4)",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontSize: 9,
-                                  fontWeight: 900,
-                                  letterSpacing: "0.12em",
-                                  color: "#c2410c",
-                                  marginBottom: 6,
-                                }}
-                              >
-                                RECOMMENDED ACTION
-                              </div>
-                              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", lineHeight: 1.45 }}>
-                                {rec}
-                              </div>
-                            </div>
-                          ) : null}
-                          {bullets.length ? (
-                            <ul
-                              style={{
-                                margin: 0,
-                                paddingLeft: 18,
-                                fontSize: 13,
-                                color: "#334155",
-                                lineHeight: 1.45,
-                                fontWeight: 600,
-                              }}
-                            >
-                              {bullets.map((b, i) => (
-                                <li key={`why-b-${i}`}>{b}</li>
-                              ))}
-                            </ul>
-                          ) : null}
-                          {!bullets.length ? (
-                            <p style={{ margin: 0, fontSize: 13, color: "#334155", lineHeight: 1.5, fontWeight: 700 }}>
-                              {seTrainingSummary ||
-                                (previewSendUsesFlagship
-                                  ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewWhyItWins
-                                  : "") ||
-                                (!rec
-                                  ? "Build confidence with clear customer outcomes and proof-backed Klondike positioning."
-                                  : "")}
-                            </p>
-                          ) : null}
-                        </div>
-                      );
-                    })()
-                  )}
-
-                  {seTrainingSectionShell(
-                    "APPLICATIONS",
-                    "Best-fit applications",
-                    null,
-                    (() => {
-                      const sec =
-                        sePkgPickSection((t) => /application|use when|fit|deploy|when to/.test(t)) ||
-                        sePkgPickSection((t) => /market|segment|fleet/.test(t));
-                      const bullets = Array.isArray(sec?.bullets)
-                        ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 8)
-                        : [];
-                      const chips = bullets.length
-                        ? bullets
-                        : (tplProofDisplay || []).slice(0, 4).map((x) => String(x).trim());
-                      if (!chips.length) {
-                        return (
-                          <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                            Refine search or generate a draft for application cues.
-                          </p>
-                        );
-                      }
-                      return (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          {chips.map((c, i) => (
-                            <div
-                              key={`app-${i}`}
-                              style={{
-                                flex: "1 1 180px",
-                                minWidth: 0,
-                                padding: "10px 12px",
-                                borderRadius: 10,
-                                background: "#eff6ff",
-                                border: "1px solid rgba(59, 130, 246, 0.28)",
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: "#1e3a8a",
-                                lineHeight: 1.35,
-                              }}
-                            >
-                              {c.length > 120 ? `${c.slice(0, 117)}…` : c}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()
-                  )}
-
-                  {seTrainingSectionShell(
-                    "COACHING",
-                    "What reps should know",
-                    null,
-                    <div style={{ display: "grid", gap: 10 }}>
-                      {previewSendUsesFlagship &&
-                      Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips) &&
-                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips.length ? (
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          {salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips
-                            .slice(0, 4)
-                            .map((chip) => (
-                              <div
-                                key={chip.id}
-                                style={{
-                                  flex: "1 1 120px",
-                                  minWidth: 108,
-                                  padding: "10px 12px",
-                                  borderRadius: 12,
-                                  background: "linear-gradient(145deg, #ecfdf5 0%, #f0fdfa 100%)",
-                                  border: "1px solid rgba(45, 212, 191, 0.4)",
-                                  boxShadow: "0 4px 12px rgba(15, 118, 110, 0.08)",
-                                }}
-                              >
-                                <div style={{ fontSize: 9, fontWeight: 900, color: "#0f766e", letterSpacing: "0.06em" }}>
-                                  {chip.label}
-                                </div>
-                                <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a", lineHeight: 1.2 }}>
-                                  {chip.value}
-                                </div>
-                                <div style={{ fontSize: 10, color: "#64748b", marginTop: 4, lineHeight: 1.3 }}>
-                                  {chip.hint}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      ) : null}
-                      {(() => {
-                        const ang = Array.isArray(seAssemblyPkg?.salesAngles)
-                          ? seAssemblyPkg.salesAngles.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 8)
-                          : [];
-                        const sea = Array.isArray(seAssemblyPkg?.salesEnablementAngles)
-                          ? seAssemblyPkg.salesEnablementAngles
-                              .map((x) => String(x ?? "").trim())
-                              .filter(Boolean)
-                              .slice(0, 8)
-                          : [];
-                        const mergedAngles = [...ang, ...sea.filter((x) => !ang.includes(x))].slice(0, 8);
-                        if (!mergedAngles.length) return null;
-                        return (
-                          <div
-                            style={{
-                              display: "grid",
-                              gap: 8,
-                              gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
-                            }}
-                          >
-                            {mergedAngles.map((line, i) => (
-                              <div
-                                key={`sales-ang-${i}`}
-                                style={{
-                                  padding: "10px 12px",
-                                  borderRadius: 12,
-                                  background: "#ffffff",
-                                  border: "1px solid rgba(30, 64, 175, 0.18)",
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  color: "#1e3a8a",
-                                  lineHeight: 1.4,
-                                }}
-                              >
-                                {line.length > 160 ? `${line.slice(0, 157)}…` : line}
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                      {previewSendUsesFlagship &&
-                      Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack) &&
-                      salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack.length ? (
-                        <div
-                          style={{
-                            padding: "10px 12px",
-                            borderRadius: 12,
-                            background: "#faf5ff",
-                            border: "1px solid rgba(167, 139, 250, 0.4)",
-                            display: "grid",
-                            gap: 6,
-                          }}
-                        >
-                          {guidedFlagshipBulletRows(
-                            salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack,
-                            "se-train-rep",
-                            "#7c3aed"
-                          )}
-                        </div>
-                      ) : null}
-                      {(() => {
-                        const sec = sePkgPickSection((t) => /rep|coach|talk|enable|know/.test(t));
-                        const bullets = Array.isArray(sec?.bullets)
-                          ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean).slice(0, 8)
-                          : [];
-                        if (!bullets.length) return null;
-                        return (
-                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#334155", lineHeight: 1.45 }}>
-                            {bullets.map((b, i) => (
-                              <li key={`rep-know-${i}`}>{b}</li>
-                            ))}
-                          </ul>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {(() => {
-                    const dq = [
-                      ...(Array.isArray(seAssemblyPkg?.repQuestions) ? seAssemblyPkg.repQuestions : []),
-                      ...(Array.isArray(seAssemblyPkg?.customerProfileQuestions)
-                        ? seAssemblyPkg.customerProfileQuestions
-                        : []),
-                    ]
-                      .map((q) => String(q ?? "").trim())
-                      .filter(Boolean)
-                      .slice(0, 12);
-                    if (!dq.length) return null;
-                    return seTrainingSectionShell(
-                      "DISCOVERY",
-                      "Questions reps should ask",
-                      "Interview & discovery prompts from the generated package.",
-                      <div style={{ display: "grid", gap: 8 }}>
-                        {dq.map((q, i) => (
-                          <div
-                            key={`dq-${i}`}
-                            style={{
-                              display: "flex",
-                              gap: 10,
-                              alignItems: "flex-start",
-                              padding: "10px 12px",
-                              borderRadius: 10,
-                              background: "#f8fafc",
-                              border: "1px solid rgba(226, 232, 240, 0.98)",
-                            }}
-                          >
-                            <span
-                              style={{
-                                marginTop: 2,
-                                width: 22,
-                                height: 22,
-                                borderRadius: 6,
-                                border: "2px solid rgba(30, 64, 175, 0.35)",
-                                background: "#ffffff",
-                                flexShrink: 0,
-                              }}
-                              aria-hidden
-                            />
-                            <span style={{ fontSize: 12, fontWeight: 700, color: "#334155", lineHeight: 1.45 }}>
-                              {q}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-
-                  {seTrainingSectionShell(
-                    "CUSTOMER REALITY",
-                    "Customer pain points",
-                    null,
-                    (() => {
-                      const pains = Array.isArray(seAssemblyPkg?.operationalPainPoints)
-                        ? seAssemblyPkg.operationalPainPoints.map((x) => String(x ?? "").trim()).filter(Boolean)
-                        : [];
-                      const flagshipPains =
-                        previewSendUsesFlagship &&
-                        Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals)
-                          ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals
-                          : [];
-                      const merged = [...pains, ...flagshipPains].slice(0, 8);
-                      if (!merged.length) {
-                        return (
-                          <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                            Generate a draft to surface operational pain language.
-                          </p>
-                        );
-                      }
-                      return (
-                        <div style={{ display: "grid", gap: 8 }}>
-                          {merged.map((p, i) => (
-                            <div
-                              key={`pain-${i}`}
-                              style={{
-                                padding: "8px 10px",
-                                borderRadius: 10,
-                                background: "#fffbeb",
-                                border: "1px solid rgba(251, 191, 36, 0.45)",
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: "#78350f",
-                                lineHeight: 1.4,
-                              }}
-                            >
-                              {p.length > 160 ? `${p.slice(0, 157)}…` : p}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })()
-                  )}
-
-                  {seTrainingSectionShell(
-                    "GROWTH",
-                    "Cross-sell opportunities",
-                    "Suggested companion products and adjacencies.",
-                    Array.isArray(seAssemblyPkg?.crossSellOpportunities) &&
-                    seAssemblyPkg.crossSellOpportunities.length ? (
-                      <div
-                        style={{
-                          display: "grid",
-                          gap: 8,
-                          gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))",
-                        }}
-                      >
-                        {seAssemblyPkg.crossSellOpportunities.slice(0, 10).map((c, i) => (
-                          <div
-                            key={`xs-${i}`}
-                            style={{
-                              padding: "10px 12px",
-                              borderRadius: 12,
-                              background: "linear-gradient(145deg, #ecfdf5 0%, #ffffff 100%)",
-                              border: "1px solid rgba(52, 211, 153, 0.38)",
-                              fontSize: 12,
-                              fontWeight: 800,
-                              color: "#047857",
-                              lineHeight: 1.35,
-                              boxShadow: "0 2px 8px rgba(5, 150, 105, 0.08)",
-                            }}
-                          >
-                            {String(c).length > 120 ? `${String(c).slice(0, 117)}…` : String(c)}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p style={{ margin: 0, fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>
-                        Cross-sell ideas appear after generating a draft for this spotlight.
-                      </p>
-                    )
-                  )}
-
-                  <div
-                    style={{
-                      borderRadius: 14,
-                      padding: "16px 18px",
-                      background: "linear-gradient(135deg, #ea580c 0%, #c2410c 50%, #1e3a8a 100%)",
-                      border: "1px solid rgba(251, 146, 60, 0.45)",
-                      boxShadow: "0 12px 28px rgba(194, 65, 12, 0.2)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 900,
-                        letterSpacing: "0.14em",
-                        color: "rgba(255, 255, 255, 0.9)",
-                      }}
-                    >
-                      RECOMMENDED NEXT STEP
-                    </div>
-                    <div
-                      style={{
-                        marginTop: 8,
-                        fontSize: 16,
-                        fontWeight: 900,
-                        color: "#ffffff",
-                        lineHeight: 1.35,
-                        textShadow: "0 1px 2px rgba(15, 23, 42, 0.25)",
-                      }}
-                    >
-                      {String(seAssemblyPkg?.recommendedAction || "").trim() ||
-                        "Open Prepare Send when routing is confirmed — reps get this narrative through the standard workflow."}
-                    </div>
-                    {String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview || "").trim() ? (
-                      <div
-                        style={{
-                          marginTop: 12,
-                          padding: "10px 14px",
-                          borderRadius: 10,
-                          background: "rgba(255, 255, 255, 0.95)",
-                          fontSize: 13,
-                          fontWeight: 900,
-                          color: "#c2410c",
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview).trim()}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {(() => {
-                    const complianceSec = sePkgPickSection((t) =>
-                      /compliance|oem|caution|environmental|trigger|probe|preserve/.test(t)
-                    );
-                    const complianceBullets = Array.isArray(complianceSec?.bullets)
-                      ? complianceSec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean)
-                      : [];
-                    const gr = [
-                      ...(Array.isArray(seAssemblyPkg?.guardrails) ? seAssemblyPkg.guardrails : []),
-                      ...(Array.isArray(seAssemblyPkg?.sourceNotes) ? seAssemblyPkg.sourceNotes : []),
-                      ...complianceBullets,
-                    ]
-                      .map((g) => String(g ?? "").trim())
-                      .filter(Boolean);
-                    const uniq = [];
-                    const seen = new Set();
-                    for (const line of gr) {
-                      const k = line.toLowerCase().slice(0, 120);
-                      if (seen.has(k)) continue;
-                      seen.add(k);
-                      uniq.push(line);
-                      if (uniq.length >= 12) break;
-                    }
-                    if (!uniq.length) return null;
-                    return (
-                      <div
-                        style={{
-                          borderRadius: 14,
-                          padding: "14px 16px",
-                          background: "linear-gradient(135deg, #fffbeb 0%, #ffedd5 100%)",
-                          border: "1px solid rgba(245, 158, 11, 0.45)",
-                          display: "grid",
-                          gap: 10,
-                        }}
-                      >
-                        <div
-                          style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#92400e" }}
-                        >
-                          GUARDRAILS & COMPLIANCE NOTES
-                        </div>
-                        <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#78350f", lineHeight: 1.45 }}>
-                          {uniq.map((g, i) => (
-                            <li key={`gr-train-${i}`}>{g.length > 200 ? `${g.slice(0, 197)}…` : g}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  })()}
-
-                </div>
 
                 {guidedWizardPdsUrl ? (
                   <div
