@@ -4669,6 +4669,10 @@ useEffect(() => {
   const [seGuidedAssemblyDraftPackage, setSeGuidedAssemblyDraftPackage] = useState(null);
   const [seGuidedAssemblyDraftError, setSeGuidedAssemblyDraftError] = useState(null);
   const [seGuidedAssemblyDraftBusy, setSeGuidedAssemblyDraftBusy] = useState(false);
+  /** Phase 5N — AI sales sheet copy for Product Spotlight preview (local only; send unchanged). */
+  const [seAiSalesSheetContent, setSeAiSalesSheetContent] = useState(null);
+  const [seAiSalesSheetLoading, setSeAiSalesSheetLoading] = useState(false);
+  const [seAiSalesSheetError, setSeAiSalesSheetError] = useState(null);
   const [seGuidedAssemblySelectedCanonicalIds, setSeGuidedAssemblySelectedCanonicalIds] = useState([]);
   const [seGuidedAssemblyRecommendedActions, setSeGuidedAssemblyRecommendedActions] = useState([]);
   const [seGuidedAssemblyContextNote, setSeGuidedAssemblyContextNote] = useState("");
@@ -4680,6 +4684,9 @@ useEffect(() => {
   useEffect(() => {
     setSeGuidedAssemblyDraftPackage(null);
     setSeGuidedAssemblyDraftError(null);
+    setSeAiSalesSheetContent(null);
+    setSeAiSalesSheetLoading(false);
+    setSeAiSalesSheetError(null);
     setSeGuidedAssemblySelectedCanonicalIds([]);
     setSeGuidedAssemblyRecommendedActions([]);
     setSeGuidedStep3CategoryKey("");
@@ -7986,6 +7993,43 @@ const handleFinishDealerEnrollment = async () => {
       .sort((a, b) => String(a.productName || "").localeCompare(String(b.productName || "")));
   }, [seGuidedStep3CanonicalRows, seGuidedStep3CategoryKey]);
 
+  const requestSeAiSalesSheetCopy = useCallback(async ({ productId, audience, context }) => {
+    const pid = String(productId || "").trim();
+    if (!pid) return;
+    setSeAiSalesSheetLoading(true);
+    setSeAiSalesSheetError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-sales-copy", {
+        body: {
+          productId: pid,
+          packageType: "product_spotlight",
+          audience: String(audience || "rep").trim() || "rep",
+          context: String(context || "").trim() || undefined,
+        },
+      });
+      if (error) {
+        throw error;
+      }
+      if (!data?.ok || !data?.copy) {
+        setSeAiSalesSheetContent(null);
+        setSeAiSalesSheetError(
+          "Using standard spotlight template while AI copy generation is unavailable."
+        );
+        return;
+      }
+      setSeAiSalesSheetContent(data.copy);
+      setSeAiSalesSheetError(null);
+    } catch (err) {
+      console.error("generate-sales-copy failed:", err);
+      setSeAiSalesSheetContent(null);
+      setSeAiSalesSheetError(
+        "Using standard spotlight template while AI copy generation is unavailable."
+      );
+    } finally {
+      setSeAiSalesSheetLoading(false);
+    }
+  }, []);
+
   const runSeGuidedSpotlightAssemblyDraft = useCallback(
     (opts = {}) => {
       const overrideProductIds = Array.isArray(opts.overrideProductIds)
@@ -7994,8 +8038,14 @@ const handleFinishDealerEnrollment = async () => {
       const s3 = opts.step3 && typeof opts.step3 === "object" ? opts.step3 : null;
       setSeGuidedAssemblyDraftBusy(true);
       setSeGuidedAssemblyDraftError(null);
+      const draftKind = seGuidedWizardMessageKind || "product";
+      if (draftKind === "product") {
+        setSeAiSalesSheetContent(null);
+        setSeAiSalesSheetError(null);
+        setSeAiSalesSheetLoading(false);
+      }
       try {
-        const kind = seGuidedWizardMessageKind || "product";
+        const kind = draftKind;
         const packageType =
           kind === "category"
             ? SPOTLIGHT_PACKAGE_TYPES[1]
@@ -8224,6 +8274,14 @@ const handleFinishDealerEnrollment = async () => {
           spotlightContextLine: String(pkg.subtitle || pkg.title || "").slice(0, 80),
           pdsFileHint: String(pc?.pdsMapKey || "").trim(),
         });
+
+        if (kind === "product" && packageType === SPOTLIGHT_PACKAGE_TYPES[0] && productIds[0]) {
+          void requestSeAiSalesSheetCopy({
+            productId: productIds[0],
+            audience,
+            context: ctxNote,
+          });
+        }
       } catch {
         setSeGuidedAssemblyDraftPackage(null);
         setSeGuidedAssemblyDraftError({
@@ -8244,6 +8302,7 @@ const handleFinishDealerEnrollment = async () => {
       salesEnablementDealerOrgId,
       dealerNetworkPerformance,
       seGuidedWizardProfileRefId,
+      requestSeAiSalesSheetCopy,
     ]
   );
 
@@ -11905,6 +11964,106 @@ const handleFinishDealerEnrollment = async () => {
               const cta = String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview || "").trim();
               return rec || cta || "";
             })();
+            const seAiSalesSheet = seAiSalesSheetContent;
+            const seAiSalesSheetActive =
+              Boolean(seAiSalesSheet) && typeof seAiSalesSheet === "object" && !seAiSalesSheetLoading;
+            const seAiSalesLineBlocked = (line) => {
+              const t = String(line || "").trim();
+              if (!t || sePosterIsLowValueLine(t)) return true;
+              return /indexed pds row|canonical only|indexed canonical|assembled from indexed|\bresolver\b|pdsmapkey/i.test(
+                t
+              );
+            };
+            const seAiSalesSanitizeLine = (line) => {
+              const t = String(line || "").trim();
+              return seAiSalesLineBlocked(t) ? "" : t;
+            };
+            const seAiSalesSanitizeList = (items, max = 12) => {
+              const out = [];
+              const seen = new Set();
+              for (const raw of Array.isArray(items) ? items : []) {
+                const line = seAiSalesSanitizeLine(raw);
+                if (!line) continue;
+                const key = line.toLowerCase().slice(0, 96);
+                if (seen.has(key)) continue;
+                seen.add(key);
+                out.push(line);
+                if (out.length >= max) break;
+              }
+              return out;
+            };
+            const seAiBenefitsFromKeyBenefits = (keyBenefits) => {
+              const kb = seAiSalesSanitizeList(keyBenefits, 4);
+              if (kb.length < 2) return null;
+              const icons = ["EP", "WS₂", "SD", "H₂O"];
+              return kb.map((line, i) => {
+                const dash = line.match(/^([^:—–-]{1,42})\s*[:—–-]\s*(.+)$/);
+                return {
+                  icon: icons[i] || "•",
+                  label: String(dash ? dash[1] : line).slice(0, 32).trim(),
+                  sub: String(dash ? dash[2] : line).slice(0, 120).trim(),
+                };
+              });
+            };
+            const seFinalSellSheetTitle =
+              seAiSalesSheetActive && seAiSalesSanitizeLine(seAiSalesSheet.title)
+                ? seAiSalesSanitizeLine(seAiSalesSheet.title)
+                : seTrainingHeroTitle;
+            const seFinalSellSheetSubtitle =
+              seAiSalesSheetActive && seAiSalesSanitizeLine(seAiSalesSheet.subtitle)
+                ? seAiSalesSanitizeLine(seAiSalesSheet.subtitle)
+                : sePosterHeroSubtitle;
+            const seFinalSellSheetSummary =
+              seAiSalesSheetActive && seAiSalesSanitizeLine(seAiSalesSheet.heroSummary)
+                ? seAiSalesSanitizeLine(seAiSalesSheet.heroSummary)
+                : sePosterHeroSummary;
+            const seFinalSellSheetKeySpecs =
+              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.keySpecs, 7).length
+                ? seAiSalesSanitizeList(seAiSalesSheet.keySpecs, 7)
+                : sePosterUniqueLines(seSpecBulletsList, 7);
+            const seFinalSellSheetBenefits = (() => {
+              const fromAi = seAiSalesSheetActive
+                ? seAiBenefitsFromKeyBenefits(seAiSalesSheet.keyBenefits)
+                : null;
+              if (fromAi && fromAi.length >= 2) return fromAi;
+              return seSellSheetBenefits;
+            })();
+            const seFinalSellSheetApplications =
+              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.applications, 8).length
+                ? seAiSalesSanitizeList(seAiSalesSheet.applications, 8)
+                : sePosterAppLines;
+            const seFinalSellSheetWhyThisProduct = (() => {
+              if (!seAiSalesSheetActive) return seSellSheetWhyThisProduct;
+              const whyRaw = String(seAiSalesSheet.whyThisProduct || "").trim();
+              if (whyRaw) {
+                const parts = seAiSalesSanitizeList(
+                  whyRaw.split(/\n+|\.\s+(?=[A-Z])/).map((x) => x.trim()).filter(Boolean),
+                  6
+                );
+                if (parts.length) return parts;
+              }
+              return seSellSheetWhyThisProduct;
+            })();
+            const seFinalSellSheetRepTalk =
+              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.repTalkTrack, 6).length
+                ? seAiSalesSanitizeList(seAiSalesSheet.repTalkTrack, 6)
+                : sePosterRepTalkLines;
+            const seFinalSellSheetCrossSell =
+              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.crossSell, 6).length
+                ? seAiSalesSanitizeList(seAiSalesSheet.crossSell, 6)
+                : sePosterCrossSell;
+            const seFinalSellSheetQuestions =
+              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.discoveryQuestions, 8).length
+                ? seAiSalesSanitizeList(seAiSalesSheet.discoveryQuestions, 8)
+                : sePosterDiscoveryQs;
+            const seFinalSellSheetCautions =
+              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.cautions, 10).length
+                ? seAiSalesSanitizeList(seAiSalesSheet.cautions, 10)
+                : sePosterGuardrailLines;
+            const seFinalSellSheetNextStep =
+              seAiSalesSheetActive && seAiSalesSanitizeLine(seAiSalesSheet.recommendedNextStep)
+                ? seAiSalesSanitizeLine(seAiSalesSheet.recommendedNextStep)
+                : seSellSheetRecommendedNextStep;
             const seUseProductSpotlightSellSheet =
               Boolean(seAssemblyPkg) &&
               seGuidedWizardMessageKind === "product" &&
@@ -11923,20 +12082,20 @@ const handleFinishDealerEnrollment = async () => {
             })();
             const productSpotlightSellSheetPreview = (
               <ProductSpotlightSellSheet
-                title={seTrainingHeroTitle}
-                subtitle={sePosterHeroSubtitle}
-                summary={sePosterHeroSummary}
+                title={seFinalSellSheetTitle}
+                subtitle={seFinalSellSheetSubtitle}
+                summary={seFinalSellSheetSummary}
                 productImageUrl={seSellSheetProductImageUrl || undefined}
                 backgroundImageUrl={seSellSheetBackgroundUrl || undefined}
-                keySpecs={sePosterUniqueLines(seSpecBulletsList, 7)}
-                benefits={seSellSheetBenefits}
-                applications={sePosterAppLines}
-                whyThisProduct={seSellSheetWhyThisProduct}
-                repTalkTrack={sePosterRepTalkLines}
-                crossSell={sePosterCrossSell}
-                questions={sePosterDiscoveryQs}
-                cautions={sePosterGuardrailLines}
-                recommendedNextStep={seSellSheetRecommendedNextStep}
+                keySpecs={seFinalSellSheetKeySpecs}
+                benefits={seFinalSellSheetBenefits}
+                applications={seFinalSellSheetApplications}
+                whyThisProduct={seFinalSellSheetWhyThisProduct}
+                repTalkTrack={seFinalSellSheetRepTalk}
+                crossSell={seFinalSellSheetCrossSell}
+                questions={seFinalSellSheetQuestions}
+                cautions={seFinalSellSheetCautions}
+                recommendedNextStep={seFinalSellSheetNextStep}
               />
             );
             const guidedSeTrainingLegacyPosterInner = (
@@ -13213,6 +13372,30 @@ const handleFinishDealerEnrollment = async () => {
                             </button>
                             {seGuidedAssemblyDraftBusy ? (
                               <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Working…</span>
+                            ) : seAiSalesSheetLoading ? (
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  color: "#1e3a8a",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <span
+                                  aria-hidden
+                                  style={{
+                                    width: 14,
+                                    height: 14,
+                                    borderRadius: "50%",
+                                    border: "2px solid rgba(30, 58, 138, 0.25)",
+                                    borderTopColor: "#ea580c",
+                                    animation: "seAiSpin 0.75s linear infinite",
+                                  }}
+                                />
+                                Generating KLONDIKE sales material…
+                              </span>
                             ) : null}
                           </div>
                           {seGuidedAssemblyDraftError ? (
@@ -13747,6 +13930,7 @@ const handleFinishDealerEnrollment = async () => {
                       gap: 14,
                     }}
                   >
+                    <style>{`@keyframes seAiSpin { to { transform: rotate(360deg); } }`}</style>
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#1e3a8a" }}>
                       STEP 4 — PREVIEW & SEND
                     </div>
@@ -13892,6 +14076,58 @@ const handleFinishDealerEnrollment = async () => {
                     >
                       {seUseProductSpotlightSellSheet ? (
                         <>
+                          {seAiSalesSheetLoading ? (
+                            <div
+                              style={{
+                                width: "100%",
+                                maxWidth: 1140,
+                                margin: "0 auto",
+                                padding: "12px 16px",
+                                borderRadius: 10,
+                                background: "rgba(30, 58, 138, 0.08)",
+                                border: "1px solid rgba(30, 58, 138, 0.18)",
+                                fontSize: 12,
+                                fontWeight: 800,
+                                color: "#1e3a8a",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                              }}
+                            >
+                              <span
+                                aria-hidden
+                                style={{
+                                  width: 16,
+                                  height: 16,
+                                  borderRadius: "50%",
+                                  border: "2px solid rgba(30, 58, 138, 0.25)",
+                                  borderTopColor: "#ea580c",
+                                  animation: "seAiSpin 0.75s linear infinite",
+                                  flexShrink: 0,
+                                }}
+                              />
+                              Generating KLONDIKE sales material…
+                            </div>
+                          ) : null}
+                          {seAiSalesSheetError ? (
+                            <div
+                              style={{
+                                width: "100%",
+                                maxWidth: 1140,
+                                margin: "0 auto",
+                                padding: "10px 14px",
+                                borderRadius: 10,
+                                background: "#fff7ed",
+                                border: "1px solid rgba(251, 146, 60, 0.45)",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: "#9a3412",
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              {seAiSalesSheetError}
+                            </div>
+                          ) : null}
                           <section
                             style={{
                               width: "100%",
