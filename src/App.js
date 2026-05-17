@@ -7995,7 +7995,15 @@ const handleFinishDealerEnrollment = async () => {
 
   const requestSeAiSalesSheetCopy = useCallback(async ({ productId, audience, context }) => {
     const pid = String(productId || "").trim();
-    if (!pid) return;
+    const SE_AI_DEBUG = "[SE-AI-COPY-DEBUG]";
+    console.log(SE_AI_DEBUG, "request start — productId:", pid, {
+      audience: String(audience || "rep").trim() || "rep",
+      context: String(context || "").trim() || undefined,
+    });
+    if (!pid) {
+      console.log(SE_AI_DEBUG, "skipped — empty productId");
+      return;
+    }
     setSeAiSalesSheetLoading(true);
     setSeAiSalesSheetError(null);
     try {
@@ -8007,20 +8015,37 @@ const handleFinishDealerEnrollment = async () => {
           context: String(context || "").trim() || undefined,
         },
       });
+      console.log(SE_AI_DEBUG, "Supabase function response data:", data);
+      console.log(SE_AI_DEBUG, "Supabase function error:", error);
       if (error) {
         throw error;
       }
       if (!data?.ok || !data?.copy) {
+        console.log(SE_AI_DEBUG, "setting seAiSalesSheetContent:", null);
+        console.log(
+          SE_AI_DEBUG,
+          "setting seAiSalesSheetError:",
+          "Using standard spotlight template while AI copy generation is unavailable.",
+          { dataOk: data?.ok, hasCopy: Boolean(data?.copy) }
+        );
         setSeAiSalesSheetContent(null);
         setSeAiSalesSheetError(
           "Using standard spotlight template while AI copy generation is unavailable."
         );
         return;
       }
+      console.log(SE_AI_DEBUG, "setting seAiSalesSheetContent:", data.copy);
+      console.log(SE_AI_DEBUG, "setting seAiSalesSheetError:", null);
       setSeAiSalesSheetContent(data.copy);
       setSeAiSalesSheetError(null);
     } catch (err) {
-      console.error("generate-sales-copy failed:", err);
+      console.error(SE_AI_DEBUG, "generate-sales-copy failed:", err);
+      console.log(SE_AI_DEBUG, "setting seAiSalesSheetContent:", null);
+      console.log(
+        SE_AI_DEBUG,
+        "setting seAiSalesSheetError:",
+        "Using standard spotlight template while AI copy generation is unavailable."
+      );
       setSeAiSalesSheetContent(null);
       setSeAiSalesSheetError(
         "Using standard spotlight template while AI copy generation is unavailable."
@@ -11964,9 +11989,11 @@ const handleFinishDealerEnrollment = async () => {
               const cta = String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview || "").trim();
               return rec || cta || "";
             })();
-            const seAiSalesSheet = seAiSalesSheetContent;
-            const seAiSalesSheetActive =
-              Boolean(seAiSalesSheet) && typeof seAiSalesSheet === "object" && !seAiSalesSheetLoading;
+            const seAiSalesSheet =
+              seAiSalesSheetContent && typeof seAiSalesSheetContent === "object"
+                ? seAiSalesSheetContent
+                : null;
+            const seAiSalesSheetReady = Boolean(seAiSalesSheet) && !seAiSalesSheetLoading;
             const seAiSalesLineBlocked = (line) => {
               const t = String(line || "").trim();
               if (!t || sePosterIsLowValueLine(t)) return true;
@@ -11992,83 +12019,92 @@ const handleFinishDealerEnrollment = async () => {
               }
               return out;
             };
+            const seAiSalesListFromField = (value, max = 12) => {
+              if (Array.isArray(value)) return seAiSalesSanitizeList(value, max);
+              const text = seAiSalesSanitizeLine(value);
+              if (!text) return [];
+              return seAiSalesSanitizeList(
+                text.split(/\n+|\.\s+(?=[A-Z])/).map((x) => x.trim()).filter(Boolean),
+                max
+              );
+            };
+            const seAiPickText = (aiValue, fallback) => {
+              if (!seAiSalesSheetReady) return fallback;
+              const picked = seAiSalesSanitizeLine(aiValue);
+              return picked || fallback;
+            };
+            const seAiPickList = (aiValue, fallback, max = 12) => {
+              if (!seAiSalesSheetReady) return fallback;
+              const picked = seAiSalesListFromField(aiValue, max);
+              return picked.length ? picked : fallback;
+            };
             const seAiBenefitsFromKeyBenefits = (keyBenefits) => {
               const kb = seAiSalesSanitizeList(keyBenefits, 4);
-              if (kb.length < 2) return null;
+              if (!kb.length) return null;
               const icons = ["EP", "WS₂", "SD", "H₂O"];
               return kb.map((line, i) => {
                 const dash = line.match(/^([^:—–-]{1,42})\s*[:—–-]\s*(.+)$/);
+                const label = String(dash ? dash[1] : line).slice(0, 32).trim();
+                const sub = String(dash ? dash[2] : line).slice(0, 120).trim();
                 return {
                   icon: icons[i] || "•",
-                  label: String(dash ? dash[1] : line).slice(0, 32).trim(),
-                  sub: String(dash ? dash[2] : line).slice(0, 120).trim(),
+                  label: label || line.slice(0, 32),
+                  sub: sub || label || line.slice(0, 120),
                 };
               });
             };
-            const seFinalSellSheetTitle =
-              seAiSalesSheetActive && seAiSalesSanitizeLine(seAiSalesSheet.title)
-                ? seAiSalesSanitizeLine(seAiSalesSheet.title)
-                : seTrainingHeroTitle;
-            const seFinalSellSheetSubtitle =
-              seAiSalesSheetActive && seAiSalesSanitizeLine(seAiSalesSheet.subtitle)
-                ? seAiSalesSanitizeLine(seAiSalesSheet.subtitle)
-                : sePosterHeroSubtitle;
-            const seFinalSellSheetSummary =
-              seAiSalesSheetActive && seAiSalesSanitizeLine(seAiSalesSheet.heroSummary)
-                ? seAiSalesSanitizeLine(seAiSalesSheet.heroSummary)
-                : sePosterHeroSummary;
-            const seFinalSellSheetKeySpecs =
-              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.keySpecs, 7).length
-                ? seAiSalesSanitizeList(seAiSalesSheet.keySpecs, 7)
-                : sePosterUniqueLines(seSpecBulletsList, 7);
+            const seFinalSellSheetTitle = seAiPickText(seAiSalesSheet?.title, seTrainingHeroTitle);
+            const seFinalSellSheetSubtitle = seAiPickText(seAiSalesSheet?.subtitle, sePosterHeroSubtitle);
+            const seFinalSellSheetSummary = seAiPickText(seAiSalesSheet?.heroSummary, sePosterHeroSummary);
+            const seFinalSellSheetKeySpecs = seAiPickList(
+              seAiSalesSheet?.keySpecs,
+              sePosterUniqueLines(seSpecBulletsList, 7),
+              7
+            );
             const seFinalSellSheetBenefits = (() => {
-              const fromAi = seAiSalesSheetActive
-                ? seAiBenefitsFromKeyBenefits(seAiSalesSheet.keyBenefits)
-                : null;
-              if (fromAi && fromAi.length >= 2) return fromAi;
+              if (!seAiSalesSheetReady) return seSellSheetBenefits;
+              const fromAi = seAiBenefitsFromKeyBenefits(seAiSalesSheet.keyBenefits);
+              if (fromAi && fromAi.length) return fromAi;
               return seSellSheetBenefits;
             })();
-            const seFinalSellSheetApplications =
-              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.applications, 8).length
-                ? seAiSalesSanitizeList(seAiSalesSheet.applications, 8)
-                : sePosterAppLines;
-            const seFinalSellSheetWhyThisProduct = (() => {
-              if (!seAiSalesSheetActive) return seSellSheetWhyThisProduct;
-              const whyRaw = String(seAiSalesSheet.whyThisProduct || "").trim();
-              if (whyRaw) {
-                const parts = seAiSalesSanitizeList(
-                  whyRaw.split(/\n+|\.\s+(?=[A-Z])/).map((x) => x.trim()).filter(Boolean),
-                  6
-                );
-                if (parts.length) return parts;
-              }
-              return seSellSheetWhyThisProduct;
-            })();
-            const seFinalSellSheetRepTalk =
-              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.repTalkTrack, 6).length
-                ? seAiSalesSanitizeList(seAiSalesSheet.repTalkTrack, 6)
-                : sePosterRepTalkLines;
-            const seFinalSellSheetCrossSell =
-              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.crossSell, 6).length
-                ? seAiSalesSanitizeList(seAiSalesSheet.crossSell, 6)
-                : sePosterCrossSell;
-            const seFinalSellSheetQuestions =
-              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.discoveryQuestions, 8).length
-                ? seAiSalesSanitizeList(seAiSalesSheet.discoveryQuestions, 8)
-                : sePosterDiscoveryQs;
-            const seFinalSellSheetCautions =
-              seAiSalesSheetActive && seAiSalesSanitizeList(seAiSalesSheet.cautions, 10).length
-                ? seAiSalesSanitizeList(seAiSalesSheet.cautions, 10)
-                : sePosterGuardrailLines;
-            const seFinalSellSheetNextStep =
-              seAiSalesSheetActive && seAiSalesSanitizeLine(seAiSalesSheet.recommendedNextStep)
-                ? seAiSalesSanitizeLine(seAiSalesSheet.recommendedNextStep)
-                : seSellSheetRecommendedNextStep;
+            const seFinalSellSheetApplications = seAiPickList(
+              seAiSalesSheet?.applications,
+              sePosterAppLines,
+              8
+            );
+            const seFinalSellSheetWhyThisProduct = seAiPickList(
+              seAiSalesSheet?.whyThisProduct,
+              seSellSheetWhyThisProduct,
+              6
+            );
+            const seFinalSellSheetRepTalk = seAiPickList(
+              seAiSalesSheet?.repTalkTrack,
+              sePosterRepTalkLines,
+              6
+            );
+            const seFinalSellSheetCrossSell = seAiPickList(
+              seAiSalesSheet?.crossSell,
+              sePosterCrossSell,
+              6
+            );
+            const seFinalSellSheetQuestions = seAiPickList(
+              seAiSalesSheet?.discoveryQuestions,
+              sePosterDiscoveryQs,
+              8
+            );
+            const seFinalSellSheetCautions = seAiPickList(
+              seAiSalesSheet?.cautions,
+              sePosterGuardrailLines,
+              10
+            );
+            const seFinalSellSheetNextStep = seAiPickText(
+              seAiSalesSheet?.recommendedNextStep,
+              seSellSheetRecommendedNextStep
+            );
             const seUseProductSpotlightSellSheet =
               Boolean(seAssemblyPkg) &&
               seGuidedWizardMessageKind === "product" &&
-              (seTrainingPackageTypeRaw === "product_spotlight" || seTrainingPackageTypeRaw === "") &&
-              Boolean(String(seTrainingHeroTitle || sePosterHeroSummary || "").trim());
+              (seTrainingPackageTypeRaw === "product_spotlight" || seTrainingPackageTypeRaw === "");
             const seSellSheetProductImageUrl = (() => {
               if (seGuidedUploadedProductImagePreviewFailed) return "";
               return String(seGuidedUploadedProductImageUrl || "").trim();
@@ -12080,13 +12116,29 @@ const handleFinishDealerEnrollment = async () => {
               }
               return "";
             })();
+            if (seAiSalesSheetReady) {
+              console.log("[SE-AI-SELLSHEET-PROPS]", {
+                title: seFinalSellSheetTitle,
+                subtitle: seFinalSellSheetSubtitle,
+                summary: seFinalSellSheetSummary,
+                seFinalSellSheetBenefits,
+                seFinalSellSheetWhyThisProduct,
+                seFinalSellSheetRepTalkTrack: seFinalSellSheetRepTalk,
+                seFinalSellSheetQuestions,
+                keySpecs: seFinalSellSheetKeySpecs,
+                applications: seFinalSellSheetApplications,
+                cautions: seFinalSellSheetCautions,
+                recommendedNextStep: seFinalSellSheetNextStep,
+                aiReady: seAiSalesSheetReady,
+              });
+            }
             const productSpotlightSellSheetPreview = (
               <ProductSpotlightSellSheet
+                key={`se-sell-sheet-${seFinalSellSheetTitle}-${seAiSalesSheetReady ? "ai" : "pkg"}`}
                 title={seFinalSellSheetTitle}
                 subtitle={seFinalSellSheetSubtitle}
                 summary={seFinalSellSheetSummary}
                 productImageUrl={seSellSheetProductImageUrl || undefined}
-                backgroundImageUrl={seSellSheetBackgroundUrl || undefined}
                 keySpecs={seFinalSellSheetKeySpecs}
                 benefits={seFinalSellSheetBenefits}
                 applications={seFinalSellSheetApplications}
