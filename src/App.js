@@ -1,4 +1,4 @@
-import "./styles.css";
+﻿import "./styles.css";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { PDS_MAP } from "./data/pdsMap";
 import { PDS_LIBRARY_INDEX } from "./data/pdsLibraryIndex";
@@ -53,6 +53,7 @@ import { getEnablementRecommendationForActionItem } from "./data/salesEnablement
 import { getSalesEnablementProductImageHint } from "./data/salesEnablement/salesEnablementProductImageHints";
 import { getKlAdminIntelligenceRecommendation } from "./data/salesEnablement/klAdminIntelligenceAssistant";
 import { LubricationConceptAdvisorPanel } from "./components/LubricationConceptAdvisorPanel";
+import ProductSpotlightSellSheet from "./components/ProductSpotlightSellSheet";
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -71,10 +72,10 @@ const SALES_ENABLEMENT_LIST_STYLE = {
 const KL_SPOTLIGHT_SENT_HISTORY_KEY = "kl_sales_enablement_sent_v1";
 /** KL Admin dashboard Action Center daily list cap (Phase 71D). */
 const KL_ADMIN_ACTION_CENTER_LIMIT = 18;
-/** Local-only territory incentive / contest definitions (Phase 72 — no backend schema). */
+/** Local-only territory incentive / contest definitions (Phase 72 â€” no backend schema). */
 const KL_TERRITORY_CONTESTS_KEY = "kl_territory_contests_v1";
 
-/** Phase 5A.1 — Guided Step 3: customer profile dropdown lists (local-only). */
+/** Phase 5A.1 â€” Guided Step 3: customer profile dropdown lists (local-only). */
 const SE_GUIDED_STEP3_PROFILE_INDUSTRIES = [
   "Agriculture",
   "Forestry / Logging",
@@ -167,6 +168,217 @@ function mapCanonicalRowToSeGuidedStep3CategoryKey(row) {
   return "other";
 }
 
+/** Phase 5G â€” junk/internal phrasing to strip from guided sales-sheet poster content. */
+const SE_SALES_SHEET_JUNK_RE =
+  /indexed\s+pds|pds\s*row|source\s+canonical|\bcanonical\b|pds-backed\s+product\s+intelligence|generated\s+from|\bassembly\b|\bresolver\b|\bmock\b|pdsmapkey|internal\s+reference|ref:\s|reference\s+only|enablement\s+package|draft\s+package/i;
+
+function seSalesSheetPickSection(pkg, pred) {
+  const secs = Array.isArray(pkg?.sections) ? pkg.sections : [];
+  return secs.find((s) => pred(String(s?.title || "").toLowerCase())) || null;
+}
+
+function seSalesSheetCleanLine(raw) {
+  let line = String(raw ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!line || line === "â€”" || line === "-") return "";
+  if (SE_SALES_SHEET_JUNK_RE.test(line)) return "";
+  if (/\blithium\s+complex\b/i.test(line)) return "";
+  if (/[{}\[\]]|undefined|null/i.test(line)) return "";
+  if (/(?:\.{3}|â€¦)\s*$/u.test(line)) return "";
+  line = line.replace(/(?:\.{3}|â€¦)+$/u, "").trim();
+  if (line.length > 150) line = `${line.slice(0, 147).trim()}â€¦`;
+  return line;
+}
+
+function seSalesSheetNormalizeKey(line) {
+  return String(line || "")
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 96);
+}
+
+function seSalesSheetUniqueLines(items, max, { minLen = 12 } = {}) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(items) ? items : []) {
+    const line = seSalesSheetCleanLine(raw);
+    if (!line || line.length < minLen) continue;
+    const key = seSalesSheetNormalizeKey(line);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(line);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function seSalesSheetUniqueQuestions(items, max) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(items) ? items : []) {
+    let line = seSalesSheetCleanLine(raw);
+    if (!line || line.length < 18) continue;
+    if (!/\?/.test(line) && line.length < 28) continue;
+    const key = seSalesSheetNormalizeKey(line.replace(/\?+$/g, ""));
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    if (!line.endsWith("?") && /\b(what|which|how|when|where|who|do|does|are|is)\b/i.test(line)) {
+      line = `${line.replace(/[.â€¦]+$/u, "")}?`;
+    }
+    out.push(line);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/**
+ * Phase 5G â€” Convert guided assembly draft package into polished, field-ready sales-sheet content.
+ * Does not invent technical facts; omits weak or internal lines.
+ */
+function buildSalesSheetContentFromPackage(pkg) {
+  const empty = {
+    title: "",
+    subtitle: "",
+    summary: "",
+    productName: "",
+    benefitTiles: [],
+    applications: [],
+    keySpecs: [],
+    whyThisProduct: [],
+    repTalkTrack: [],
+    discoveryQuestions: [],
+    crossSell: [],
+    cautions: [],
+    recommendedNextStep: "",
+  };
+  if (!pkg?.ok) return empty;
+
+  const firstCard = Array.isArray(pkg.productCards) ? pkg.productCards[0] : null;
+  const productName =
+    seSalesSheetCleanLine(firstCard?.productName) || seSalesSheetCleanLine(pkg.title) || "";
+  const title = seSalesSheetCleanLine(pkg.title) || productName;
+  const subtitle = seSalesSheetCleanLine(pkg.subtitle);
+
+  const summaryParts = [];
+  const pkgSummary = seSalesSheetCleanLine(pkg.summary);
+  if (pkgSummary && pkgSummary !== subtitle) summaryParts.push(pkgSummary);
+  const summarySec = seSalesSheetPickSection(pkg, (t) => /summary|overview|intro/.test(t));
+  if (Array.isArray(summarySec?.bullets)) summaryParts.push(...summarySec.bullets);
+  const summaryLines = seSalesSheetUniqueLines(summaryParts, 3, { minLen: 24 });
+  const summary = summaryLines.join(" ").slice(0, 380);
+
+  const specSec = seSalesSheetPickSection(pkg, (t) => /spec|approval|registration/.test(t));
+  let specRaw = Array.isArray(specSec?.bullets) ? specSec.bullets : [];
+  if (!specRaw.length && firstCard) {
+    specRaw = [
+      ...(Array.isArray(firstCard.keySpecs) ? firstCard.keySpecs : []),
+      ...(Array.isArray(firstCard.approvals) ? firstCard.approvals : []),
+    ];
+  }
+  const keySpecs = seSalesSheetUniqueLines(specRaw, 6, { minLen: 8 });
+
+  const appSec =
+    seSalesSheetPickSection(pkg, (t) => /application|use when|fit|deploy|when to/.test(t)) ||
+    seSalesSheetPickSection(pkg, (t) => /market|segment|fleet|best.?fit/.test(t));
+  const applications = seSalesSheetUniqueLines(
+    Array.isArray(appSec?.bullets) ? appSec.bullets : [],
+    5,
+    { minLen: 8 }
+  );
+
+  const whySec = seSalesSheetPickSection(pkg, (t) => /why|differentiator|value|benefit|matters/.test(t));
+  const whyThisProduct = seSalesSheetUniqueLines(
+    [
+      ...(Array.isArray(whySec?.bullets) ? whySec.bullets : []),
+      ...(Array.isArray(pkg.salesAngles) ? pkg.salesAngles : []),
+      ...(Array.isArray(pkg.salesEnablementAngles) ? pkg.salesEnablementAngles : []),
+    ],
+    5
+  );
+
+  const repSec = seSalesSheetPickSection(pkg, (t) => /rep|coach|talk|enable|know/.test(t));
+  const repTalkTrack = seSalesSheetUniqueLines(
+    Array.isArray(repSec?.bullets) ? repSec.bullets : [],
+    4,
+    { minLen: 20 }
+  );
+
+  const discoveryQuestions = seSalesSheetUniqueQuestions(
+    [
+      ...(Array.isArray(pkg.repQuestions) ? pkg.repQuestions : []),
+      ...(Array.isArray(pkg.customerProfileQuestions) ? pkg.customerProfileQuestions : []),
+    ],
+    5
+  );
+
+  const xs = Array.isArray(pkg.crossSellOpportunities) ? pkg.crossSellOpportunities : [];
+  const cardNames = (Array.isArray(pkg.productCards) ? pkg.productCards : [])
+    .map((row) => seSalesSheetCleanLine(row?.productName))
+    .filter(Boolean);
+  const crossSell = seSalesSheetUniqueLines(xs.length ? xs : cardNames, 4, { minLen: 10 });
+
+  const complianceSec = seSalesSheetPickSection(pkg, (t) =>
+    /compliance|oem|caution|warning|environmental|not for|preserve/.test(t)
+  );
+  const cautionRaw = [
+    ...(Array.isArray(pkg.guardrails) ? pkg.guardrails : []),
+    ...(Array.isArray(complianceSec?.bullets) ? complianceSec.bullets : []),
+  ];
+  const cautionUseful = (line) => {
+    const t = String(line || "").toLowerCase();
+    return /nsf|h1|h2|oem|disclaimer|biodegradable|gl-4|gl-5|compliance|not for|warning|caution|epa|food grade|sds|pds|see pds/i.test(
+      t
+    );
+  };
+  let cautions = seSalesSheetUniqueLines(
+    cautionRaw.filter((line) => cautionUseful(line)),
+    4,
+    { minLen: 16 }
+  );
+  if (cautions.length && !cautions.some((l) => /pds|sds/i.test(l))) {
+    cautions = [...cautions, "See PDS/SDS for full details."].slice(0, 4);
+  }
+
+  const angleSubs = seSalesSheetUniqueLines(
+    Array.isArray(pkg.salesAngles) ? pkg.salesAngles : [],
+    4,
+    { minLen: 16 }
+  );
+  const nanoBenefitHeadings = [
+    { label: "Extreme Pressure Protection", short: "Protection", icon: "ðŸ›¡ï¸" },
+    { label: "Exceptional Water Resistance", short: "Water Resistance", icon: "ðŸ’§" },
+    { label: "High Thermal Stability", short: "Thermal Stability", icon: "ðŸŒ¡ï¸" },
+    { label: "Extended Equipment Life & Reliability", short: "Uptime", icon: "âš™ï¸" },
+  ];
+  const benefitTiles = nanoBenefitHeadings.map((tile, i) => ({
+    icon: tile.icon,
+    label: tile.label,
+    shortLabel: tile.short,
+    sub: angleSubs[i] || "",
+  }));
+
+  const recommendedNextStep = seSalesSheetCleanLine(pkg.recommendedAction);
+
+  return {
+    title,
+    subtitle,
+    summary,
+    productName,
+    benefitTiles,
+    applications,
+    keySpecs,
+    whyThisProduct,
+    repTalkTrack,
+    discoveryQuestions,
+    crossSell,
+    cautions,
+    recommendedNextStep,
+  };
+}
+
 const CONTEST_METRIC_OPTIONS = [
   { value: "revenue_booked", label: "Revenue booked" },
   { value: "grease_sales", label: "Grease sales (quoted mix)" },
@@ -184,7 +396,7 @@ function isTerritoryContestLive(c) {
 
 function formatContestTimeRemaining(contest) {
   const endMs = Date.parse(String(contest?.endDate || ""));
-  if (!Number.isFinite(endMs)) return "—";
+  if (!Number.isFinite(endMs)) return "â€”";
   const ms = endMs - Date.now();
   if (ms <= 0) return "Ended";
   const d = Math.floor(ms / 86400000);
@@ -195,18 +407,18 @@ function formatContestTimeRemaining(contest) {
 function formatContestQualificationSummary(c) {
   const parts = [];
   if (Number(c?.qualMinRevenue || 0) > 0) {
-    parts.push(`Book ≥ $${Number(c.qualMinRevenue).toLocaleString()} revenue`);
+    parts.push(`Book â‰¥ $${Number(c.qualMinRevenue).toLocaleString()} revenue`);
   }
   if (Number(c?.qualMinUnits || 0) > 0) {
-    parts.push(`≥ ${Number(c.qualMinUnits).toLocaleString()} units / lines / scans (as configured)`);
+    parts.push(`â‰¥ ${Number(c.qualMinUnits).toLocaleString()} units / lines / scans (as configured)`);
   }
   if (Number(c?.qualMinProposals || 0) > 0) {
-    parts.push(`≥ ${Number(c.qualMinProposals).toLocaleString()} proposals`);
+    parts.push(`â‰¥ ${Number(c.qualMinProposals).toLocaleString()} proposals`);
   }
   if (Number(c?.qualMinApprovedDemand || 0) > 0) {
-    parts.push(`≥ ${Number(c.qualMinApprovedDemand).toLocaleString()} approved demand units`);
+    parts.push(`â‰¥ ${Number(c.qualMinApprovedDemand).toLocaleString()} approved demand units`);
   }
-  return parts.length ? parts.join(" · ") : "No minimum qualification thresholds set.";
+  return parts.length ? parts.join(" Â· ") : "No minimum qualification thresholds set.";
 }
 
 function contestScopeDescription(c) {
@@ -238,30 +450,30 @@ function contestVisibleToPortalMembership(contest, membership) {
   return false;
 }
 
-/** Phase 72B.7 — mock training / visit scheduler banner copy (no invites, APIs, or email). */
+/** Phase 72B.7 â€” mock training / visit scheduler banner copy (no invites, APIs, or email). */
 function formatKlAdminTrainingSchedulerMockNotice({ topic, audience, nextStep, detail }) {
   const lines = [
-    "Training & field touch · MOCK scheduler (prepared, not sent)",
+    "Training & field touch Â· MOCK scheduler (prepared, not sent)",
     `Topic: ${String(topic || "Territory coaching").trim()}`,
     `Audience / scope: ${String(audience || "Territory").trim()}`,
     `Suggested next step: ${String(
       nextStep || "Align with dealer leadership on timing and attendees."
     ).trim()}`,
-    "Status: Prepared · invites disabled · no calendar sync or outbound sends",
+    "Status: Prepared Â· invites disabled Â· no calendar sync or outbound sends",
   ];
   const d = String(detail || "").trim();
   if (d) lines.push(`Notes: ${d}`);
   return lines.join("\n");
 }
 
-/** Phase 72B.8 — mock message composer (draft only; no Resend/outbound). */
+/** Phase 72B.8 â€” mock message composer (draft only; no Resend/outbound). */
 function formatKlAdminMessageComposerMockNotice({ recipient, subject, purpose, nextSuggestedAction, detail }) {
   const lines = [
-    "Message composer · MOCK outbound (draft staged, not sent)",
+    "Message composer Â· MOCK outbound (draft staged, not sent)",
     `To / audience: ${String(recipient || "Territory stakeholders").trim()}`,
     `Subject / topic: ${String(subject || "Klondike BDM update").trim()}`,
     `Purpose: ${String(purpose || "Operational alignment").trim()}`,
-    "Draft status: Prepared · not sent · no email send pipeline",
+    "Draft status: Prepared Â· not sent Â· no email send pipeline",
     `Next suggested action: ${String(
       nextSuggestedAction || "Edit tone with BD, then hold for real delivery later."
     ).trim()}`,
@@ -271,7 +483,7 @@ function formatKlAdminMessageComposerMockNotice({ recipient, subject, purpose, n
   return lines.join("\n");
 }
 
-/** Phase 72B.16 — KL Admin dashboard demo slice only (no persistence). */
+/** Phase 72B.16 â€” KL Admin dashboard demo slice only (no persistence). */
 function buildAdminTerritoryPerformanceRollupFromDealers(
   dealersInput,
   totalOcrScansIn,
@@ -512,9 +724,9 @@ const KL_ADMIN_DEMO_INVENTORY_MODEL = {
     { sku: "KL-SYN-5W40", label: "Full synthetic CK-4 heavy duty" },
   ],
   insights: [
-    "Hydraulic velocity is ahead of prior period in Prairie routes—align AW ISO VG stocking before peak construction demand.",
+    "Hydraulic velocity is ahead of prior period in Prairie routesâ€”align AW ISO VG stocking before peak construction demand.",
     "Synthetic share on approved demand trails benchmark; OEM refresh cycles on fleet accounts warrant upgrade positioning.",
-    "Grease line density remains below attach targets—pair PM bundles with high-frequency chassis grease SKUs.",
+    "Grease line density remains below attach targetsâ€”pair PM bundles with high-frequency chassis grease SKUs.",
   ],
   topSkus: [],
   packageTrendRows: [],
@@ -542,7 +754,7 @@ const KL_ADMIN_DEMO_PROPOSAL_SIGNALS = {
 const KL_ADMIN_DEMO_LIVE_CONTESTS = [
   {
     id: "demo-contest-grease-momentum",
-    title: "Grease attach acceleration · field sprint",
+    title: "Grease attach acceleration Â· field sprint",
     metricKey: "grease_sales",
     startDate: "2026-05-01",
     endDate: "2026-05-31",
@@ -553,7 +765,7 @@ const KL_ADMIN_DEMO_LIVE_CONTESTS = [
   },
   {
     id: "demo-contest-proposal-discipline",
-    title: "Proposal discipline · outbound cadence",
+    title: "Proposal discipline Â· outbound cadence",
     metricKey: "proposal_activity",
     startDate: "2026-05-01",
     endDate: "2026-06-30",
@@ -564,7 +776,7 @@ const KL_ADMIN_DEMO_LIVE_CONTESTS = [
   },
   {
     id: "demo-contest-approved-demand",
-    title: "Approved demand intelligence · inventory alignment",
+    title: "Approved demand intelligence Â· inventory alignment",
     metricKey: "approved_demand",
     startDate: "2026-05-01",
     endDate: "2026-09-30",
@@ -575,7 +787,7 @@ const KL_ADMIN_DEMO_LIVE_CONTESTS = [
   },
 ];
 
-/** Phase 72C.3 — mock product image picks for Sales Enablement preview only (no upload / no email attach). */
+/** Phase 72C.3 â€” mock product image picks for Sales Enablement preview only (no upload / no email attach). */
 const SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS = [
   { id: "nano_ep2_grease", label: "Nano EP 2 Grease" },
   { id: "hydraulic_fluids", label: "Hydraulic Fluids" },
@@ -596,7 +808,7 @@ function sumRepBookedRevenueFromDealers(dealers, repName) {
   return sum;
 }
 
-/** Phase 72B.17 — dashboard Top 10 fallback when rep leaderboard is sparse (not incentive scoring). */
+/** Phase 72B.17 â€” dashboard Top 10 fallback when rep leaderboard is sparse (not incentive scoring). */
 const KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS = [
   {
     rank: 1,
@@ -605,7 +817,7 @@ const KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS = [
     proposals: 14,
     approvedLabel: "$86,200 booked",
     approvalPct: 57,
-    coaching: "Overall territory leader—sustain synthetic + hydraulic attach on fleet renewals.",
+    coaching: "Overall territory leaderâ€”sustain synthetic + hydraulic attach on fleet renewals.",
   },
   {
     rank: 2,
@@ -614,7 +826,7 @@ const KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS = [
     proposals: 10,
     approvedLabel: "3.8k approved units (demand)",
     approvalPct: 55,
-    coaching: "Strong approved-demand capture—tighten grease line density on mixed fleets.",
+    coaching: "Strong approved-demand captureâ€”tighten grease line density on mixed fleets.",
   },
   {
     rank: 3,
@@ -623,7 +835,7 @@ const KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS = [
     proposals: 11,
     approvedLabel: "$62,400 booked",
     approvalPct: 48,
-    coaching: "Proposal velocity high—focus customer decision follow-through within 48h.",
+    coaching: "Proposal velocity highâ€”focus customer decision follow-through within 48h.",
   },
   {
     rank: 4,
@@ -632,7 +844,7 @@ const KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS = [
     proposals: 8,
     approvedLabel: "$44,100 booked",
     approvalPct: 50,
-    coaching: "Hydraulic growth signal—pair AW ISO VG story with bulk stocking.",
+    coaching: "Hydraulic growth signalâ€”pair AW ISO VG story with bulk stocking.",
   },
   {
     rank: 5,
@@ -641,7 +853,7 @@ const KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS = [
     proposals: 3,
     approvedLabel: "$21,400 booked",
     approvalPct: 33,
-    coaching: "Activation risk pocket—convert quotes to proposals before expanding campaigns.",
+    coaching: "Activation risk pocketâ€”convert quotes to proposals before expanding campaigns.",
   },
   {
     rank: 6,
@@ -650,7 +862,7 @@ const KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS = [
     proposals: 9,
     approvedLabel: "1.1k approved units (demand)",
     approvalPct: 44,
-    coaching: "OCR utilization below peers—mandate scans on competitive counter bids.",
+    coaching: "OCR utilization below peersâ€”mandate scans on competitive counter bids.",
   },
   {
     rank: 7,
@@ -668,7 +880,7 @@ const KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS = [
     proposals: 6,
     approvedLabel: "$29,200 booked",
     approvalPct: 38,
-    coaching: "Grease penetration lagging—bundle PM chassis packs with HD engine quotes.",
+    coaching: "Grease penetration laggingâ€”bundle PM chassis packs with HD engine quotes.",
   },
   {
     rank: 9,
@@ -677,21 +889,21 @@ const KL_ADMIN_DEMO_REP_LEADERBOARD_ROWS = [
     proposals: 5,
     approvedLabel: "$18,900 booked",
     approvalPct: 40,
-    coaching: "Proposal discipline opportunity—stage outbound before scaling enablement sends.",
+    coaching: "Proposal discipline opportunityâ€”stage outbound before scaling enablement sends.",
   },
   {
     rank: 10,
     name: "H. Okada",
     dealer: "Calgary Jobbers Cooperative",
     proposals: 0,
-    approvedLabel: "—",
+    approvedLabel: "â€”",
     approvalPct: 0,
-    coaching: "No logged proposals yet—prioritize first outbound win before contest overlays.",
+    coaching: "No logged proposals yetâ€”prioritize first outbound win before contest overlays.",
   },
 ];
 
 /**
- * Phase 72B.17 — Product Strategy incentive leaderboard fallback (contest-weighted points only).
+ * Phase 72B.17 â€” Product Strategy incentive leaderboard fallback (contest-weighted points only).
  * Shape matches adminIncentiveLeaderboardFoundation rows for existing UI.
  */
 function buildKlIncentiveLeaderboardDemoRows(metricKey) {
@@ -835,7 +1047,7 @@ function TerritoryIncentiveReadOnlyCard({
           <strong style={{ color: "#475569" }}>Prize:</strong> {prize}
         </div>
       ) : null}
-      {leaderLine !== "—" || leaderFootnote ? (
+      {leaderLine !== "â€”" || leaderFootnote ? (
         <div style={{ fontSize: compact ? 11 : 12, color: "#64748b", marginTop: 8 }}>
           <strong style={{ color: "#475569" }}>Standing / leader:</strong> {leaderLine}
           {leaderFootnote ? (
@@ -937,7 +1149,7 @@ function KlondikeAdminCreateUsersIcon() {
   );
 }
 
-/** Phase 51B — proposal mobile/print layout (injected where proposal UI renders) */
+/** Phase 51B â€” proposal mobile/print layout (injected where proposal UI renders) */
 const KD_PROPOSAL_MOBILE_CSS = `
 @media screen {
   .kd-public-proposal-root,
@@ -1141,7 +1353,7 @@ function collectApprovedProductLines(eligibleResponses) {
         createdAt: res.created_at,
         customerName,
         customerEmail,
-        product: row.product || "—",
+        product: row.product || "â€”",
         package: row.package || "",
         price: Number(row.price || 0),
         quoteItemId: row.quote_item_id,
@@ -1197,7 +1409,7 @@ function formatTimelineDateLabel(iso) {
   }
 }
 
-/** Library row badge — deterministic labels from quote fields only. */
+/** Library row badge â€” deterministic labels from quote fields only. */
 function quoteLibraryStatusMeta(quote) {
   const status = String(quote?.status || "").trim().toLowerCase();
   const review = String(quote?.review_status || "").trim().toLowerCase();
@@ -1358,7 +1570,7 @@ function buildCrmTimelineEntries({
       q.id != null
         ? String(q.id).replace(/-/g, "").slice(0, 8).toUpperCase()
         : "";
-    const refSuffix = ref ? ` · ${ref}` : "";
+    const refSuffix = ref ? ` Â· ${ref}` : "";
     const cms = parseTimelineMs(q.created_at);
     rows.push({
       id: `qc-${q.id}`,
@@ -1421,7 +1633,7 @@ function buildCrmTimelineEntries({
           badge: "Waiting",
           accent: "orange",
           title: "Awaiting response",
-          detail: `No customer submission yet · ${cust}${refSuffix}`,
+          detail: `No customer submission yet Â· ${cust}${refSuffix}`,
         });
       }
     }
@@ -1442,7 +1654,7 @@ function buildCrmTimelineEntries({
       res.quote_id != null
         ? String(res.quote_id).replace(/-/g, "").slice(0, 8).toUpperCase()
         : "";
-    const refSuffix = ref ? ` · ${ref}` : "";
+    const refSuffix = ref ? ` Â· ${ref}` : "";
 
     rows.push({
       id: `cr-${res.id}`,
@@ -1452,7 +1664,7 @@ function buildCrmTimelineEntries({
       badge: "Responded",
       accent: "blue",
       title: "Customer responded",
-      detail: `${cust}${refSuffix} · Approved ${approved} · Declined ${declined}`,
+      detail: `${cust}${refSuffix} Â· Approved ${approved} Â· Declined ${declined}`,
     });
 
     if (approved > 0) {
@@ -1464,7 +1676,7 @@ function buildCrmTimelineEntries({
         badge: "Demand",
         accent: "green",
         title: "Approved demand generated",
-        detail: `${approved} approved line(s) · ${cust}${refSuffix}`,
+        detail: `${approved} approved line(s) Â· ${cust}${refSuffix}`,
       });
     }
 
@@ -1477,7 +1689,7 @@ function buildCrmTimelineEntries({
         badge: "Follow-up",
         accent: "orange",
         title: "Declined lines requiring follow-up",
-        detail: `${declined} declined line(s) · ${cust}${refSuffix}`,
+        detail: `${declined} declined line(s) Â· ${cust}${refSuffix}`,
       });
     }
   });
@@ -1502,7 +1714,7 @@ function buildCrmTimelineEntries({
       badge: "OCR",
       accent: "blue",
       title: "Label scan activity",
-      detail: bits.join(" · "),
+      detail: bits.join(" Â· "),
     });
   });
 
@@ -1588,15 +1800,15 @@ function buildProposalConversionIntelligence(quotes, proposalResponses, mode) {
 
   responses.forEach((res) => {
     collectProposalDecisionLines(res).forEach((ln) => {
-      const productLabel = String(ln.product || "").trim() || "—";
+      const productLabel = String(ln.product || "").trim() || "â€”";
       if (ln.decision === "approved") {
         approvedLines += 1;
-        incrementCount(approvedProductCounts, ln.product, "—");
+        incrementCount(approvedProductCounts, ln.product, "â€”");
         const cat = getDashboardDemandCategoryFromProductName(productLabel);
         incrementCount(approvedCategoryCounts, cat, "Other");
       } else if (ln.decision === "declined") {
         declinedLines += 1;
-        incrementCount(declinedProductCounts, ln.product, "—");
+        incrementCount(declinedProductCounts, ln.product, "â€”");
         const cat = getDashboardDemandCategoryFromProductName(productLabel);
         incrementCount(declinedCategoryCounts, cat, "Other");
       }
@@ -1615,11 +1827,11 @@ function buildProposalConversionIntelligence(quotes, proposalResponses, mode) {
   const topDeclinedCategoryRow = pickTopDemandLabel(declinedCategoryCounts);
 
   const topApprovedProductLabel =
-    topApprovedProductRow && topApprovedProductRow.label !== "—"
+    topApprovedProductRow && topApprovedProductRow.label !== "â€”"
       ? topApprovedProductRow.label
       : null;
   const topDeclinedProductLabel =
-    topDeclinedProductRow && topDeclinedProductRow.label !== "—"
+    topDeclinedProductRow && topDeclinedProductRow.label !== "â€”"
       ? topDeclinedProductRow.label
       : null;
   const topApprovedCategoryLabel = topApprovedCategoryRow?.label || null;
@@ -1665,13 +1877,13 @@ function buildProposalConversionIntelligence(quotes, proposalResponses, mode) {
         : 0;
     if (catShareDeclined >= 0.45 && topDeclinedCategoryLabel !== "Other") {
       insights.push(
-        `Most declined rows group under ${topDeclinedCategoryLabel}—review competitiveness on the next recommendation pass.`
+        `Most declined rows group under ${topDeclinedCategoryLabel}â€”review competitiveness on the next recommendation pass.`
       );
     }
   }
   if (proposalsSent > 0 && responsesReceived === 0) {
     insights.push(
-      "Outbound proposals recorded—customer decision submissions will appear once responses arrive."
+      "Outbound proposals recordedâ€”customer decision submissions will appear once responses arrive."
     );
   }
 
@@ -1758,7 +1970,7 @@ function ProposalConversionIntelligenceSection({ styles, intel, scopeLabel }) {
       >
         Quote and proposal acceptance signals from customer decision rows on your
         lubricant recommendations
-        {scopeLabel ? ` (${scopeLabel})` : ""}. Execution-focused visibility—not a
+        {scopeLabel ? ` (${scopeLabel})` : ""}. Execution-focused visibilityâ€”not a
         CRM workspace.
       </p>
 
@@ -1891,7 +2103,7 @@ function ProposalConversionIntelligenceSection({ styles, intel, scopeLabel }) {
               <div style={{ ...styles.listMeta, marginTop: 6, lineHeight: 1.45 }}>
                 {decisionsTotal > 0 ? (
                   <>
-                    {approvedLines} approved • {declinedLines} declined of{" "}
+                    {approvedLines} approved â€¢ {declinedLines} declined of{" "}
                     {decisionsTotal} counted rows
                   </>
                 ) : (
@@ -1923,14 +2135,14 @@ function ProposalConversionIntelligenceSection({ styles, intel, scopeLabel }) {
               <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.55 }}>
                 <strong style={{ color: "#1e40af" }}>Approved:</strong>{" "}
                 {topApprovedProductLabel ||
-                  (approvedLines === 0 ? "—" : "(product labels vary)")}
+                  (approvedLines === 0 ? "â€”" : "(product labels vary)")}
               </div>
               <div
                 style={{ fontSize: 13, color: "#334155", marginTop: 6, lineHeight: 1.55 }}
               >
                 <strong style={{ color: "#c2410c" }}>Declined:</strong>{" "}
                 {topDeclinedProductLabel ||
-                  (declinedLines === 0 ? "—" : "(product labels vary)")}
+                  (declinedLines === 0 ? "â€”" : "(product labels vary)")}
               </div>
               <div
                 style={{
@@ -1969,7 +2181,7 @@ function ProposalConversionIntelligenceSection({ styles, intel, scopeLabel }) {
                 <strong style={{ color: "#1e40af" }}>Approved:</strong>{" "}
                 {topApprovedCategoryLabel && approvedLines > 0
                   ? topApprovedCategoryLabel
-                  : "—"}
+                  : "â€”"}
               </div>
               <div
                 style={{ fontSize: 13, color: "#334155", marginTop: 6, lineHeight: 1.55 }}
@@ -1977,10 +2189,10 @@ function ProposalConversionIntelligenceSection({ styles, intel, scopeLabel }) {
                 <strong style={{ color: "#c2410c" }}>Declined:</strong>{" "}
                 {topDeclinedCategoryLabel && declinedLines > 0
                   ? topDeclinedCategoryLabel
-                  : "—"}
+                  : "â€”"}
               </div>
               <div style={{ ...styles.listMeta, marginTop: 6, lineHeight: 1.45 }}>
-                Grouping uses lubricant-program heuristics on product names—not catalog
+                Grouping uses lubricant-program heuristics on product namesâ€”not catalog
                 truth.
               </div>
             </div>
@@ -2192,7 +2404,7 @@ function ProposalDeliveryIntelligenceSection({ styles, intel }) {
         }}
       >
         Public proposal views (link openings) translated into operational engagement
-        metrics—no CRM tasks, notes, or messages.
+        metricsâ€”no CRM tasks, notes, or messages.
       </p>
 
       {!hasViewData ? (
@@ -2309,7 +2521,7 @@ function ProposalDeliveryIntelligenceSection({ styles, intel }) {
                 Average response time after first view
               </div>
               <div style={{ fontSize: 22, fontWeight: 900, color: "#0f172a" }}>
-                {avgResponseTimeLabel || "—"}
+                {avgResponseTimeLabel || "â€”"}
               </div>
               <div style={{ ...styles.listMeta, marginTop: 6, lineHeight: 1.45 }}>
                 Computed from timestamps when both a public view and a response exist.
@@ -2444,7 +2656,7 @@ function approvedDemandLineQty(item, quoteItemById) {
 
 /**
  * Territory-wide approved-demand rollup for Klondike Admin inventory intelligence.
- * Uses proposal responses + quote_items only—no warehouse or stock data.
+ * Uses proposal responses + quote_items onlyâ€”no warehouse or stock data.
  */
 function buildKlondikeTerritoryInventoryModel({
   responseRows,
@@ -2521,8 +2733,8 @@ function buildKlondikeTerritoryInventoryModel({
 
     if (!skuMap[pk]) {
       skuMap[pk] = {
-        product: String(item.product || "").trim() || "—",
-        package: String(item.package || "").trim() || "—",
+        product: String(item.product || "").trim() || "â€”",
+        package: String(item.package || "").trim() || "â€”",
         totalUnits: 0,
         lineCount: 0,
       };
@@ -2744,7 +2956,7 @@ function buildKlondikeTerritoryInventoryModel({
     dealerConcentration.length >= 2
   ) {
     insights.push(
-      `Territory demand is concentrated among dealers—${topDealer.name} accounts for a leading share of approved units in this rollup.`
+      `Territory demand is concentrated among dealersâ€”${topDealer.name} accounts for a leading share of approved units in this rollup.`
     );
   }
 
@@ -2811,7 +3023,7 @@ function buildDealerAdminDashboardInsights(perf) {
     (perf?.approvedDemandLineCount || 0) === 0
   ) {
     insights.push(
-      "Customers have responded—approved SKUs surface after individual proposal lines are approved."
+      "Customers have respondedâ€”approved SKUs surface after individual proposal lines are approved."
     );
   }
 
@@ -2856,7 +3068,7 @@ function buildManagerDashboardInsights(repSnapshot, demandIntel, assignedRepCoun
 
   if ((assignedRepCount || 0) > 0 && (repSnapshot?.quotes || 0) === 0) {
     insights.push(
-      "Assigned reps are provisioned—quote volume will populate as reps create opportunities."
+      "Assigned reps are provisionedâ€”quote volume will populate as reps create opportunities."
     );
   }
 
@@ -2915,7 +3127,7 @@ function buildPortalFollowUpIntelligenceRows({
       label: "Approved proposal demand captured",
       value:
         (distinctApprovedSkus || 0) > 0
-          ? `${distinctApprovedSkus} SKU(s) · ${approvedDemandLineCount || 0} line(s)`
+          ? `${distinctApprovedSkus} SKU(s) Â· ${approvedDemandLineCount || 0} line(s)`
           : `${approvedDemandLineCount || 0} line(s)`,
       hint: "Rolls up approved lubricant rows from customer-submitted decisions.",
       accent: "orange",
@@ -2926,7 +3138,7 @@ function buildPortalFollowUpIntelligenceRows({
       key: "declined",
       label: "Declined items needing attention",
       value: String(declinedLineCount),
-      hint: "Product or equipment lines marked declined—follow up with the customer.",
+      hint: "Product or equipment lines marked declinedâ€”follow up with the customer.",
       accent: "orange",
     });
   }
@@ -2935,7 +3147,7 @@ function buildPortalFollowUpIntelligenceRows({
       key: "inventory",
       label: "Inventory alert data available",
       value: String(inventoryApprovedLineCount),
-      hint: "Approved SKU lines feeding inventory views—open Inventory Alerts for detail.",
+      hint: "Approved SKU lines feeding inventory viewsâ€”open Inventory Alerts for detail.",
       accent: "blue",
     });
   }
@@ -2968,7 +3180,7 @@ function buildDealerAdminFollowUpIntelligenceRows(perf) {
       label: "Approved proposal demand captured",
       value:
         (perf?.demandDistinctSkus || 0) > 0
-          ? `${perf.demandDistinctSkus} SKU(s) · ${perf.approvedDemandLineCount || 0} line(s)`
+          ? `${perf.demandDistinctSkus} SKU(s) Â· ${perf.approvedDemandLineCount || 0} line(s)`
           : `${perf.approvedDemandLineCount || 0} line(s)`,
       hint: "Rolls up approved lubricant lines from customer-submitted decisions.",
       accent: "orange",
@@ -2991,7 +3203,7 @@ function buildDealerAdminFollowUpIntelligenceRows(perf) {
       key: "inventory",
       label: "Inventory alert data available",
       value: "Yes",
-      hint: "Approved demand exists—open Inventory Alerts for SKU-level rollup.",
+      hint: "Approved demand existsâ€”open Inventory Alerts for SKU-level rollup.",
       accent: "blue",
     });
   }
@@ -3092,7 +3304,7 @@ function CrmTimelineCard({
         pillBg: "#fff7ed",
         pillFg: "#c2410c",
         pillBorder: "1px solid rgba(246, 165, 49, 0.35)",
-        glyph: "◎",
+        glyph: "â—Ž",
       };
     }
     if (accent === "green") {
@@ -3104,7 +3316,7 @@ function CrmTimelineCard({
         pillBg: "#ecfdf5",
         pillFg: "#15803d",
         pillBorder: "1px solid rgba(34, 197, 94, 0.35)",
-        glyph: "●",
+        glyph: "â—",
       };
     }
     return {
@@ -3114,7 +3326,7 @@ function CrmTimelineCard({
       pillBg: "#eff6ff",
       pillFg: "#1e40af",
       pillBorder: "1px solid rgba(30, 58, 138, 0.2)",
-      glyph: "◆",
+      glyph: "â—†",
     };
   };
 
@@ -3240,7 +3452,7 @@ function CrmTimelineCard({
                       <span style={{ ...styles.listMeta, fontSize: 12 }}>{e.dateLabel}</span>
                     ) : (
                       <span style={{ ...styles.listMeta, fontSize: 12, fontStyle: "italic" }}>
-                        Timing unavailable · operational status shown
+                        Timing unavailable Â· operational status shown
                       </span>
                     )}
                   </div>
@@ -3435,7 +3647,7 @@ function InventoryAlertsSection({
       if (!groups[key]) {
         groups[key] = {
           product: line.product,
-          package: line.package || "—",
+          package: line.package || "â€”",
           quoteIds: new Set(),
           totalUnits: 0,
           gallonsEstimate: null,
@@ -3470,8 +3682,8 @@ function InventoryAlertsSection({
       return {
         approvedProductSkus: 0,
         totalAcceptedUnits: 0,
-        topProduct: "—",
-        topPackage: "—",
+        topProduct: "â€”",
+        topPackage: "â€”",
       };
     }
     const approvedProductSkus = demandRows.length;
@@ -3485,10 +3697,10 @@ function InventoryAlertsSection({
     );
     const packageCounts = {};
     demandRows.forEach((r) => {
-      const p = String(r.package || "—").trim() || "—";
+      const p = String(r.package || "â€”").trim() || "â€”";
       packageCounts[p] = (packageCounts[p] || 0) + r.totalUnits;
     });
-    let topPackage = "—";
+    let topPackage = "â€”";
     let topPkgCount = -1;
     Object.entries(packageCounts).forEach(([pkg, c]) => {
       if (c > topPkgCount) {
@@ -3499,7 +3711,7 @@ function InventoryAlertsSection({
     return {
       approvedProductSkus,
       totalAcceptedUnits,
-      topProduct: top?.product || "—",
+      topProduct: top?.product || "â€”",
       topPackage,
     };
   }, [demandRows]);
@@ -3667,7 +3879,7 @@ function InventoryAlertsSection({
                         Est. volume: ~{row.gallonsEstimate.toLocaleString()} gal
                         <span style={{ fontWeight: 600, color: "#64748b" }}>
                           {" "}
-                          (from package label text × qty)
+                          (from package label text Ã— qty)
                         </span>
                       </div>
                     ) : (
@@ -3720,7 +3932,7 @@ Our team is committed to delivering not only high-quality products, but also the
 Your representative will follow up to review next steps and ensure a smooth implementation.`;
 
 /**
- * Label OCR stub. Do not put API keys here — real OCR should call a Supabase Edge Function
+ * Label OCR stub. Do not put API keys here â€” real OCR should call a Supabase Edge Function
  * (or other backend) so secrets stay off the client.
  * @param {File} imageFile
  * @returns {Promise<{ text: string }>}
@@ -3832,7 +4044,7 @@ function deriveOcrApplicationSignal(text) {
 function normalizeSignalToken(value) {
   return String(value || "")
     .toLowerCase()
-    .replace(/[®™]/g, "")
+    .replace(/[Â®â„¢]/g, "")
     .replace(/[^a-z0-9\-/. ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -3899,14 +4111,14 @@ function extractMatchedSignalOverlap({
 
 function shortIdLabel(prefix, value) {
   const raw = String(value || "").trim();
-  if (!raw) return `${prefix} —`;
+  if (!raw) return `${prefix} â€”`;
   return `${prefix} ${raw.slice(0, 4)}...`;
 }
 
 function normalizeAdvisorText(value) {
   return String(value || "")
     .toLowerCase()
-    .replace(/[®™]/g, "")
+    .replace(/[Â®â„¢]/g, "")
     .replace(/[^a-z0-9\-/. ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -4278,7 +4490,7 @@ function LeaderboardBadgeTray({
     badges.push({
       key: "top",
       className: "kd-lb-badge kd-lb-badge--top",
-      label: "Rank #1 — top performer",
+      label: "Rank #1 â€” top performer",
       node: (
         <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden>
           <path
@@ -4629,7 +4841,7 @@ useEffect(() => {
   const [salesEnablementSelectedId, setSalesEnablementSelectedId] = useState(null);
   const [salesEnablementSendPanelOpen, setSalesEnablementSendPanelOpen] = useState(false);
   const [salesEnablementPreparedIntro, setSalesEnablementPreparedIntro] = useState("");
-  /** Phase 72C.1 — guided workspace mock preview toggles (local UI only). */
+  /** Phase 72C.1 â€” guided workspace mock preview toggles (local UI only). */
   const [seGuidedIncludeBranding, setSeGuidedIncludeBranding] = useState(true);
   const [seGuidedIncludeProductImage, setSeGuidedIncludeProductImage] = useState(false);
   const [seGuidedMockProductImageId, setSeGuidedMockProductImageId] = useState(
@@ -4637,38 +4849,41 @@ useEffect(() => {
   );
   const [seGuidedAttachPds, setSeGuidedAttachPds] = useState(true);
   const [seGuidedStageDraft, setSeGuidedStageDraft] = useState(true);
-  /** Phase 76.4 — preview-only; does not alter invoke payload. */
+  /** Phase 76.4 â€” preview-only; does not alter invoke payload. */
   const [useFlagshipNarrativeForPreviewSend, setUseFlagshipNarrativeForPreviewSend] = useState(false);
-  /** Phase 78.1 — transient confirmation when applying Guided builder recommendation (preview only). */
+  /** Phase 78.1 â€” transient confirmation when applying Guided builder recommendation (preview only). */
   const [seGuidedRecommendedApplyBanner, setSeGuidedRecommendedApplyBanner] = useState("");
   const guidedFlagshipSelectionKeyRef = React.useRef("");
-  /** Phase 5E — registry background visual load (preview only). */
+  /** Phase 5E â€” registry background visual load (preview only). */
   const [seGuidedStep4RegistryBgFailed, setSeGuidedStep4RegistryBgFailed] = useState(false);
   const [seGuidedStep4ProductImgFailed, setSeGuidedStep4ProductImgFailed] = useState(false);
-  /** Phase 5E — local-only product photo for infographic hero (session; not sent). */
+  /** Phase 5E â€” local-only product photo for infographic hero (session; not sent). */
   const [seGuidedUploadedProductImageFile, setSeGuidedUploadedProductImageFile] = useState(null);
   const [seGuidedUploadedProductImageUrl, setSeGuidedUploadedProductImageUrl] = useState(null);
-  /** Phase 5E — decode/load failure for uploaded hero preview only. */
+  /** Phase 5F â€” validation / decode errors for local product image (preview only). */
+  const [seGuidedUploadedProductImageError, setSeGuidedUploadedProductImageError] = useState("");
+  const [seGuidedProductImageDropActive, setSeGuidedProductImageDropActive] = useState(false);
+  /** Phase 5E â€” decode/load failure for uploaded hero preview only. */
   const [seGuidedUploadedProductImagePreviewFailed, setSeGuidedUploadedProductImagePreviewFailed] =
     useState(false);
-  /** Phase 76.5 — Step 5 dry-run panel (read-only; does not alter invoke payload). */
+  /** Phase 76.5 â€” Step 5 dry-run panel (read-only; does not alter invoke payload). */
   const [seGuidedApprovedSendDryRunOpen, setSeGuidedApprovedSendDryRunOpen] = useState(false);
-  /** Phase 73.22 — Guided audience wizard (UI/local labels; send payloads unchanged). */
+  /** Phase 73.22 â€” Guided audience wizard (UI/local labels; send payloads unchanged). */
   const [seGuidedWizardAudienceAll, setSeGuidedWizardAudienceAll] = useState(false);
   const [seGuidedWizardMessageKind, setSeGuidedWizardMessageKind] = useState(null);
   const [seGuidedWizardProfileRefId, setSeGuidedWizardProfileRefId] = useState(
     () => String(SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles?.[0]?.id || "")
   );
-  /** Phase 77.0 — Guided builder query (preview selection only; send payloads unchanged). */
+  /** Phase 77.0 â€” Guided builder query (preview selection only; send payloads unchanged). */
   const [seGuidedBuilderQuery, setSeGuidedBuilderQuery] = useState("");
-  /** Phase 3 — Spotlight Assembly Engine: draft assist (local only; send payloads unchanged). */
+  /** Phase 3 â€” Spotlight Assembly Engine: draft assist (local only; send payloads unchanged). */
   const [seGuidedAssemblyDraftPackage, setSeGuidedAssemblyDraftPackage] = useState(null);
   const [seGuidedAssemblyDraftError, setSeGuidedAssemblyDraftError] = useState(null);
   const [seGuidedAssemblyDraftBusy, setSeGuidedAssemblyDraftBusy] = useState(false);
   const [seGuidedAssemblySelectedCanonicalIds, setSeGuidedAssemblySelectedCanonicalIds] = useState([]);
   const [seGuidedAssemblyRecommendedActions, setSeGuidedAssemblyRecommendedActions] = useState([]);
   const [seGuidedAssemblyContextNote, setSeGuidedAssemblyContextNote] = useState("");
-  /** Phase 5A.1 — Step 3 dropdown selections (canonical categories from `listAvailableCanonicalProducts`). */
+  /** Phase 5A.1 â€” Step 3 dropdown selections (canonical categories from `listAvailableCanonicalProducts`). */
   const [seGuidedStep3CategoryKey, setSeGuidedStep3CategoryKey] = useState("");
   const [seGuidedStep3ProductId, setSeGuidedStep3ProductId] = useState("");
   const [seGuidedStep3ProfileIndustry, setSeGuidedStep3ProfileIndustry] = useState("");
@@ -4694,6 +4909,8 @@ useEffect(() => {
       return null;
     });
     setSeGuidedUploadedProductImagePreviewFailed(false);
+    setSeGuidedUploadedProductImageError("");
+    setSeGuidedProductImageDropActive(false);
   }, [seGuidedWizardMessageKind]);
   useEffect(() => {
     setSeGuidedStep4RegistryBgFailed(false);
@@ -4710,6 +4927,53 @@ useEffect(() => {
       }
     };
   }, [seGuidedUploadedProductImageUrl]);
+  const clearSeGuidedUploadedProductImage = useCallback(() => {
+    setSeGuidedUploadedProductImageError("");
+    setSeGuidedUploadedProductImagePreviewFailed(false);
+    setSeGuidedProductImageDropActive(false);
+    setSeGuidedUploadedProductImageFile(null);
+    setSeGuidedUploadedProductImageUrl((prev) => {
+      if (prev) {
+        try {
+          URL.revokeObjectURL(prev);
+        } catch {
+          /* ignore */
+        }
+      }
+      return null;
+    });
+  }, []);
+  const applySeGuidedUploadedProductImageFile = useCallback((file) => {
+    if (!file) return;
+    const mimeOk = /^image\/(png|jpeg|webp)$/i.test(String(file.type || ""));
+    const nameOk = /\.(png|jpe?g|webp)$/i.test(String(file.name || ""));
+    if (!mimeOk && !nameOk) {
+      setSeGuidedUploadedProductImageError("Please choose a PNG, JPG, or WebP image.");
+      return;
+    }
+    setSeGuidedUploadedProductImageError("");
+    setSeGuidedUploadedProductImagePreviewFailed(false);
+    setSeGuidedUploadedProductImageUrl((prev) => {
+      if (prev) {
+        try {
+          URL.revokeObjectURL(prev);
+        } catch {
+          /* ignore */
+        }
+      }
+      return URL.createObjectURL(file);
+    });
+    setSeGuidedUploadedProductImageFile(file);
+  }, []);
+  const handleSeGuidedProductImageFileInput = useCallback(
+    (ev) => {
+      const file = ev.target?.files?.[0];
+      if (ev.target) ev.target.value = "";
+      if (!file) return;
+      applySeGuidedUploadedProductImageFile(file);
+    },
+    [applySeGuidedUploadedProductImageFile]
+  );
   useEffect(() => {
     setSeGuidedStep3ProductId("");
   }, [seGuidedStep3CategoryKey]);
@@ -4720,9 +4984,9 @@ useEffect(() => {
       return salesEnablementSpotlightMode === "category" ? "category" : "product";
     });
   }, [klondikeAdminTab, salesEnablementSpotlightMode]);
-  /** Phase 73.24 — optional knowledge tools panel (collapsed by default). */
+  /** Phase 73.24 â€” optional knowledge tools panel (collapsed by default). */
   const [seGuidedKnowledgeToolsOpen, setSeGuidedKnowledgeToolsOpen] = useState(false);
-  /** Phase 73.17 — Knowledge Engine Preview (read-only; not wired to send payloads). */
+  /** Phase 73.17 â€” Knowledge Engine Preview (read-only; not wired to send payloads). */
   const [seKnowledgePreviewType, setSeKnowledgePreviewType] = useState("product");
   const [seKnowledgeProductOverlayId, setSeKnowledgeProductOverlayId] = useState(
     "overlay-nano-ep2-grease"
@@ -4748,9 +5012,9 @@ useEffect(() => {
     seKnowledgeCategoryOverlayId,
     seKnowledgeCustomerProfileId,
   ]);
-  /** Phase 73.18 — Staged knowledge → template preview only (session/local; not send payload). */
+  /** Phase 73.18 â€” Staged knowledge â†’ template preview only (session/local; not send payload). */
   const [seKnowledgeStagedTemplateSnapshot, setSeKnowledgeStagedTemplateSnapshot] = useState(null);
-  /** Phase 73.20 — Guided mock labels from Knowledge Apply (preview only; never send payloads). */
+  /** Phase 73.20 â€” Guided mock labels from Knowledge Apply (preview only; never send payloads). */
   const [seGuidedKnowledgePreviewMock, setSeGuidedKnowledgePreviewMock] = useState(null);
   /** Enablement Library subsection: product/category browsers, customer profile placeholders, training catalog. */
   const [salesEnablementLibraryTab, setSalesEnablementLibraryTab] = useState("product");
@@ -4804,7 +5068,7 @@ useEffect(() => {
     goLiveOnSave: false,
   });
   const [productStrategyWorkflowNotice, setProductStrategyWorkflowNotice] = useState(null);
-  /** KL Admin Action Center per-card completion (session-local only — Phase 72B.9). */
+  /** KL Admin Action Center per-card completion (session-local only â€” Phase 72B.9). */
   const [klAdminActionCenterCompletionById, setKlAdminActionCenterCompletionById] = useState({});
   useEffect(() => {
     try {
@@ -4855,13 +5119,13 @@ useEffect(() => {
         { id: Date.now(), name: dealerName },
       ]);
 
-      setDealerMessage("Dealer created successfully ✅");
+      setDealerMessage("Dealer created successfully âœ…");
       setDealerName("");
       setDealerAdminEmail("");
       setDealerAdminName("");
     } catch (err) {
       console.error(err);
-      setDealerMessage("Failed to create dealer ❌");
+      setDealerMessage("Failed to create dealer âŒ");
     }
   };
 
@@ -4885,13 +5149,13 @@ useEffect(() => {
         },
       ]);
 
-      setUserMessage("User created & invite sent ✅");
+      setUserMessage("User created & invite sent âœ…");
       setNewUserName("");
       setNewUserEmail("");
       setNewUserRole("rep");
     } catch (err) {
       console.error(err);
-      setUserMessage("Failed to create user ❌");
+      setUserMessage("Failed to create user âŒ");
     }
   };
 
@@ -6154,13 +6418,13 @@ const handleFinishDealerEnrollment = async () => {
     return;
   }
 
-  // ✅ Leave enrollment mode
+  // âœ… Leave enrollment mode
   setDealerEnrollmentStarted(false);
 
-  // ✅ Clear any stale UI state
+  // âœ… Clear any stale UI state
   setDealerSaveMessage("");
 
-  // 🔥 Force full UI refresh → shows real dashboard
+  // ðŸ”¥ Force full UI refresh â†’ shows real dashboard
   window.location.reload();
 };
   const handleSaveRepEnrollment = async (e) => {
@@ -6458,7 +6722,7 @@ const handleFinishDealerEnrollment = async () => {
     };
   }, [dealerNetworkPerformance]);
 
-  /** KL Admin dashboard — compact product coaching cards (placeholder intelligence, Phase 72B.2). */
+  /** KL Admin dashboard â€” compact product coaching cards (placeholder intelligence, Phase 72B.2). */
   const adminDashboardProductPerformanceCards = React.useMemo(
     () => [
       {
@@ -6468,7 +6732,7 @@ const handleFinishDealerEnrollment = async () => {
         pctCaption: "Territory share (mock)",
         trend: { dir: "up", label: "Momentum", detail: "+1.6 pp vs prior snapshot" },
         operationalStatus:
-          "Fleet-heavy routes are holding HD pull-through—watch for price-only battles on bulk bids.",
+          "Fleet-heavy routes are holding HD pull-throughâ€”watch for price-only battles on bulk bids.",
         recommendedAction:
           "Reinforce OEM spec stories before discount talk; keep HD conversion spotlights in rotation.",
         spotlightId: CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY["HD Engine Oils"],
@@ -6479,9 +6743,9 @@ const handleFinishDealerEnrollment = async () => {
         title: "Grease",
         pct: 12,
         pctCaption: "Territory share (mock)",
-        trend: { dir: "flat", label: "Steady", detail: "±0.3 pp vs prior snapshot" },
+        trend: { dir: "flat", label: "Steady", detail: "Â±0.3 pp vs prior snapshot" },
         operationalStatus:
-          "Attach is consistent—construction seasonality can swing weekly volumes without warning.",
+          "Attach is consistentâ€”construction seasonality can swing weekly volumes without warning.",
         recommendedAction:
           "Bundle PM-interval grease messaging with filters and fluids on joint dealer calls.",
         spotlightId: CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY.Grease,
@@ -6492,9 +6756,9 @@ const handleFinishDealerEnrollment = async () => {
         title: "Hydraulic Fluids",
         pct: 19,
         pctCaption: "Territory share (mock)",
-        trend: { dir: "down", label: "Pressure", detail: "−0.9 pp vs prior snapshot" },
+        trend: { dir: "down", label: "Pressure", detail: "âˆ’0.9 pp vs prior snapshot" },
         operationalStatus:
-          "Competitive stocking is loud—teams may be skipping contamination discovery on repairs.",
+          "Competitive stocking is loudâ€”teams may be skipping contamination discovery on repairs.",
         recommendedAction:
           "Lead coaching with downtime and particle stories before matching competitor price cards.",
         spotlightId: CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY["Hydraulic Fluids"],
@@ -6507,7 +6771,7 @@ const handleFinishDealerEnrollment = async () => {
         pctCaption: "Territory share (mock)",
         trend: { dir: "up", label: "Lift", detail: "+2.1 pp vs prior snapshot" },
         operationalStatus:
-          "Premium positioning is winning where fleets allow upgrades—margin narrative still fragile.",
+          "Premium positioning is winning where fleets allow upgradesâ€”margin narrative still fragile.",
         recommendedAction:
           "Tie synthetic upgrades to OEM allowances and warranty language in enablement sends.",
         spotlightId: "cs-synthetic-upgrade",
@@ -6535,7 +6799,7 @@ const handleFinishDealerEnrollment = async () => {
         Number(dealer?.proposalsSent || 0) +
         Number(dealer?.customerResponses || 0);
       if (!best || score > best.score) {
-        return { name: String(dealer?.name || "—"), score };
+        return { name: String(dealer?.name || "â€”"), score };
       }
       return best;
     }, null);
@@ -6825,11 +7089,11 @@ const handleFinishDealerEnrollment = async () => {
             ? 100
             : 0;
       let coaching = "Balance quote volume with proposal discipline.";
-      if (quotes > 0 && proposals === 0) coaching = "Convert quotes to proposals—pipeline stalls without outbound.";
-      else if (proposals > 0 && responses === 0) coaching = "Chase proposal decisions—response gap burns cycle time.";
+      if (quotes > 0 && proposals === 0) coaching = "Convert quotes to proposalsâ€”pipeline stalls without outbound.";
+      else if (proposals > 0 && responses === 0) coaching = "Chase proposal decisionsâ€”response gap burns cycle time.";
       else if (Number(r.ocrScans || 0) === 0) coaching = "Increase OCR scans to sharpen competitive counter bids.";
-      else if (approvalPct >= 55 && rev > 40000) coaching = "Top performer—protect key accounts and coach adjacency SKUs.";
-      else if (approvalPct < 35 && proposals > 0) coaching = "Tighten customer decision language—approval rate below territory norm.";
+      else if (approvalPct >= 55 && rev > 40000) coaching = "Top performerâ€”protect key accounts and coach adjacency SKUs.";
+      else if (approvalPct < 35 && proposals > 0) coaching = "Tighten customer decision languageâ€”approval rate below territory norm.";
       const approvedLabel =
         rev > 500
           ? `$${Math.round(rev).toLocaleString()} booked`
@@ -6837,11 +7101,11 @@ const handleFinishDealerEnrollment = async () => {
             ? `${responses} decision${responses === 1 ? "" : "s"} captured`
             : proposals > 0
               ? "Awaiting booked revenue signal"
-              : "—";
+              : "â€”";
       return {
         rank: idx + 1,
-        name: String(r.name || "—").trim(),
-        dealer: String(r.dealer || "—").trim(),
+        name: String(r.name || "â€”").trim(),
+        dealer: String(r.dealer || "â€”").trim(),
         proposals,
         approvedLabel,
         approvalPct,
@@ -6940,8 +7204,8 @@ const handleFinishDealerEnrollment = async () => {
       rows,
       demoFallback: true,
       contestHint: anchor?.title
-        ? `Contest preview · ${String(anchor.title).trim()}`
-        : "Contest preview · weighted scoring",
+        ? `Contest preview Â· ${String(anchor.title).trim()}`
+        : "Contest preview Â· weighted scoring",
       metricKey,
     };
   }, [
@@ -7019,13 +7283,13 @@ const handleFinishDealerEnrollment = async () => {
         const touches = Number(top?.activityCount || 0);
         const proposals = Number(top?.proposals || 0);
         if (!top || touches <= 0) {
-          return { line: "—", qualified: false, footnote: null };
+          return { line: "â€”", qualified: false, footnote: null };
         }
         if (minProp > 0 && proposals < minProp) {
-          return pending(`Leading rep needs ≥ ${minProp} proposals (currently ${proposals}).`);
+          return pending(`Leading rep needs â‰¥ ${minProp} proposals (currently ${proposals}).`);
         }
         return {
-          line: `${String(top.name || "Rep").trim()} · ${touches} combined touches`,
+          line: `${String(top.name || "Rep").trim()} Â· ${touches} combined touches`,
           qualified: true,
           footnote: null,
         };
@@ -7037,14 +7301,14 @@ const handleFinishDealerEnrollment = async () => {
             return { line: "Revenue not in current load", qualified: false, footnote: null };
           }
           const { dealer, score } = pickBestDealer((d) => Number(d.revenueWon || 0));
-          if (!dealer || score <= 0) return { line: "—", qualified: false, footnote: null };
+          if (!dealer || score <= 0) return { line: "â€”", qualified: false, footnote: null };
           if (minRev > 0 && score < minRev) {
             return pending(
-              `Participants must book ≥ $${minRev.toLocaleString()} (leading dealer ${Math.round(score).toLocaleString()}).`
+              `Participants must book â‰¥ $${minRev.toLocaleString()} (leading dealer ${Math.round(score).toLocaleString()}).`
             );
           }
           return {
-            line: `${String(dealer.name || "Dealer").trim()} · $${Math.round(score).toLocaleString()}`,
+            line: `${String(dealer.name || "Dealer").trim()} Â· $${Math.round(score).toLocaleString()}`,
             qualified: true,
             footnote: null,
           };
@@ -7055,12 +7319,12 @@ const handleFinishDealerEnrollment = async () => {
             const g = mix.find((r) => String(r?.name || "").trim() === "Grease");
             return Number(g?.count || 0);
           });
-          if (!dealer || score < 0) return { line: "—", qualified: false, footnote: null };
+          if (!dealer || score < 0) return { line: "â€”", qualified: false, footnote: null };
           if (minUnits > 0 && score < minUnits) {
-            return pending(`Leader needs ≥ ${minUnits} grease lines (top ${Math.round(score)}).`);
+            return pending(`Leader needs â‰¥ ${minUnits} grease lines (top ${Math.round(score)}).`);
           }
           return {
-            line: `${String(dealer.name || "Dealer").trim()} · ${Math.round(score)} grease lines`,
+            line: `${String(dealer.name || "Dealer").trim()} Â· ${Math.round(score)} grease lines`,
             qualified: true,
             footnote: null,
           };
@@ -7068,7 +7332,7 @@ const handleFinishDealerEnrollment = async () => {
         case "synthetic_conversions": {
           const inv = invModel;
           if (!inv?.hasData) {
-            return { line: "—", qualified: false, footnote: null };
+            return { line: "â€”", qualified: false, footnote: null };
           }
           const pct = Math.round(Number(inv.syntheticSharePct || 0));
           if (minUnits > 0 && pct < minUnits) {
@@ -7084,12 +7348,12 @@ const handleFinishDealerEnrollment = async () => {
         }
         case "proposal_activity": {
           const { dealer, score } = pickBestDealer((d) => Number(d.proposalsSent || 0));
-          if (!dealer || score <= 0) return { line: "—", qualified: false, footnote: null };
+          if (!dealer || score <= 0) return { line: "â€”", qualified: false, footnote: null };
           if (minProp > 0 && score < minProp) {
-            return pending(`Leader needs ≥ ${minProp} proposals (top ${Math.round(score)}).`);
+            return pending(`Leader needs â‰¥ ${minProp} proposals (top ${Math.round(score)}).`);
           }
           return {
-            line: `${String(dealer.name || "Dealer").trim()} · ${Math.round(score)} proposals`,
+            line: `${String(dealer.name || "Dealer").trim()} Â· ${Math.round(score)} proposals`,
             qualified: true,
             footnote: null,
           };
@@ -7097,19 +7361,19 @@ const handleFinishDealerEnrollment = async () => {
         case "ocr_activity": {
           const top = ocrSnapshot?.topDealers?.[0];
           const cnt = Number(top?.count || 0);
-          if (!top?.value) return { line: "—", qualified: false, footnote: null };
+          if (!top?.value) return { line: "â€”", qualified: false, footnote: null };
           if (minUnits > 0 && cnt < minUnits) {
-            return pending(`Leader needs ≥ ${minUnits} scans (top dealer ${cnt}).`);
+            return pending(`Leader needs â‰¥ ${minUnits} scans (top dealer ${cnt}).`);
           }
           return {
-            line: `${shortIdLabel("Dealer", top.value)} · ${cnt} scans`,
+            line: `${shortIdLabel("Dealer", top.value)} Â· ${cnt} scans`,
             qualified: true,
             footnote: null,
           };
         }
         case "approved_demand": {
           const inv = invModel;
-          if (!inv?.hasData) return { line: "—", qualified: false, footnote: null };
+          if (!inv?.hasData) return { line: "â€”", qualified: false, footnote: null };
           const u = Number(inv.totalApprovedUnits || 0);
           if (minDemand > 0 && u < minDemand) {
             return pending(
@@ -7129,18 +7393,18 @@ const handleFinishDealerEnrollment = async () => {
               0
             )
           );
-          if (!dealer || score <= 0) return { line: "—", qualified: false, footnote: null };
+          if (!dealer || score <= 0) return { line: "â€”", qualified: false, footnote: null };
           if (minUnits > 0 && score < minUnits) {
-            return pending(`Leader needs ≥ ${minUnits} quoted lines (top ${Math.round(score)}).`);
+            return pending(`Leader needs â‰¥ ${minUnits} quoted lines (top ${Math.round(score)}).`);
           }
           return {
-            line: `${String(dealer.name || "Dealer").trim()} · ${Math.round(score)} quoted lines`,
+            line: `${String(dealer.name || "Dealer").trim()} Â· ${Math.round(score)} quoted lines`,
             qualified: true,
             footnote: null,
           };
         }
         default:
-          return { line: "—", qualified: false, footnote: null };
+          return { line: "â€”", qualified: false, footnote: null };
       }
     },
     [
@@ -7258,7 +7522,7 @@ const handleFinishDealerEnrollment = async () => {
         id: "inventory",
         title: "Inventory Alerts active",
         detail:
-          "Approved proposal demand exists—the signal Inventory Alerts use for SKU rollup.",
+          "Approved proposal demand existsâ€”the signal Inventory Alerts use for SKU rollup.",
         pill: pillFrom(Boolean(a.inventoryAlertsActive), false),
       },
       {
@@ -7457,7 +7721,7 @@ const handleFinishDealerEnrollment = async () => {
         Number(dealer?.proposalsSent || 0) +
         Number(dealer?.customerResponses || 0);
       if (!best || score > best.score) {
-        return { name: String(dealer?.name || "—"), score };
+        return { name: String(dealer?.name || "â€”"), score };
       }
       return best;
     }, null);
@@ -7512,7 +7776,7 @@ const handleFinishDealerEnrollment = async () => {
         scope: String(al.dealerName || "Dealer").trim(),
         why:
           al.whyItMatters || "Rule-based signals flagged this dealer for coaching.",
-        recommended: `Send the “${al.spotlightTitle}” spotlight after you review copy.`,
+        recommended: `Send the â€œ${al.spotlightTitle}â€ spotlight after you review copy.`,
         buttonLabel: "Send Spotlight",
         accent: "blue",
         dealerOrgId: String(al.dealerOrgId || ""),
@@ -7587,7 +7851,7 @@ const handleFinishDealerEnrollment = async () => {
         scope: String(al.dealerName || "Dealer").trim(),
         why:
           al.whyItMatters || "Rule-based signals flagged this dealer for coaching.",
-        recommended: `Send the “${al.spotlightTitle}” spotlight after you review copy.`,
+        recommended: `Send the â€œ${al.spotlightTitle}â€ spotlight after you review copy.`,
         buttonLabel: "Send Spotlight",
         accent: "blue",
         dealerOrgId: String(al.dealerOrgId || ""),
@@ -8008,16 +8272,16 @@ const handleFinishDealerEnrollment = async () => {
               ? listAvailableCanonicalProducts().find((x) => String(x.id) === prodId)
               : null;
             const prodName = prow ? String(prow.productName || "").trim() : "";
-            qBase = [prodName, catLabel].filter(Boolean).join(" — ") || prodName || catLabel;
+            qBase = [prodName, catLabel].filter(Boolean).join(" â€” ") || prodName || catLabel;
           } else if (s3.mode === "category") {
             qBase = String(s3.categoryLabel || "").trim();
           } else if (s3.mode === "customer_profile") {
             const industry = String(s3.industry || "").trim();
             const focus = String(s3.focus || "").trim();
-            qBase = [industry, focus].filter(Boolean).join(" — ") || industry;
+            qBase = [industry, focus].filter(Boolean).join(" â€” ") || industry;
           }
         }
-        const qCombined = [qBase, ctxNote].filter(Boolean).join(" — ") || qBase;
+        const qCombined = [qBase, ctxNote].filter(Boolean).join(" â€” ") || qBase;
         const audience = seGuidedWizardAudienceAll ? "kl_admin" : "rep";
 
         const uniqueStrings = (arr) => {
@@ -8080,7 +8344,7 @@ const handleFinishDealerEnrollment = async () => {
           (d) => String(d.organization_id) === String(salesEnablementDealerOrgId)
         );
         const dealerName = String(dealerRow?.name || "").trim();
-        /** Demo-safe routing hints only for the assembly call — not persisted as fake dealer facts. */
+        /** Demo-safe routing hints only for the assembly call â€” not persisted as fake dealer facts. */
         const accountContext = {};
         if (dealerName) accountContext.dealerName = dealerName;
         if (customerProfileSignals.length) {
@@ -8095,7 +8359,7 @@ const handleFinishDealerEnrollment = async () => {
         if (s3 && s3.mode === "customer_profile") {
           const ind = String(s3.industry || "").trim();
           const fo = String(s3.focus || "").trim();
-          const pair = [ind, fo].filter(Boolean).join(" · ");
+          const pair = [ind, fo].filter(Boolean).join(" Â· ");
           if (pair) {
             accountContext.opportunitySignals = uniqueStrings([
               ...(accountContext.opportunitySignals || []),
@@ -8303,10 +8567,10 @@ const handleFinishDealerEnrollment = async () => {
     const clip = (s, n = 78) => {
       const t = String(s || "").trim();
       if (!t) return "";
-      return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+      return t.length > n ? `${t.slice(0, n - 1)}â€¦` : t;
     };
     const LFBB_FALLBACK = {
-      link: "Lead with what the shop or fleet is fighting—comebacks, slow circuits, cold reliability, or margin at the counter.",
+      link: "Lead with what the shop or fleet is fightingâ€”comebacks, slow circuits, cold reliability, or margin at the counter.",
       feature: "Klondike stays inside OEM guidance and PDS-backed claims reps can repeat with confidence.",
       bridge: "Connect spec discipline to how equipment actually runs: loads, seasons, and maintenance rhythm.",
       benefit: "Uptime improves, failures taper, quotes stick, and customers trust the recommendation.",
@@ -8349,16 +8613,16 @@ const handleFinishDealerEnrollment = async () => {
     if (!sp) {
       addProof("Severe-duty protection framing verified against approved PDS language.");
       addProof("Water resistance / contamination cues where specs support the claim.");
-      addProof("Synthetic upgrade opportunities anchored to OEM allowance—not blanket mileage.");
+      addProof("Synthetic upgrade opportunities anchored to OEM allowanceâ€”not blanket mileage.");
       addProof("Extended drain narratives only when manufacturer bulletins align.");
       return {
         spotlightTitle: "",
-        subject: "Klondike enablement · select spotlight",
+        subject: "Klondike enablement Â· select spotlight",
         audience: salesEnablementDealerOrgId
-          ? `Dealer admins, managers, active reps · ${dealerName || "selected dealer"}`
+          ? `Dealer admins, managers, active reps Â· ${dealerName || "selected dealer"}`
           : "Select a dealer organization to lock routing context.",
         bodyLead:
-          "Pick an opportunity card above or browse the Advanced Library—this preview updates from your chosen spotlight.",
+          "Pick an opportunity card above or browse the Advanced Libraryâ€”this preview updates from your chosen spotlight.",
         cta: "Reply with stocking questions or invite Klondike for a counter walk-through.",
         lfbb: buildLfbb(),
         technicalProofPoints,
@@ -8367,9 +8631,9 @@ const handleFinishDealerEnrollment = async () => {
         pdsPreviewUrl: "",
         flagshipNarrativeAvailable: false,
         standardGuidedPreviewBodyLead:
-          "Pick an opportunity card above or browse the Advanced Library—this preview updates from your chosen spotlight.",
+          "Pick an opportunity card above or browse the Advanced Libraryâ€”this preview updates from your chosen spotlight.",
         flagshipGuidedPreviewBodyLead:
-          "Pick an opportunity card above or browse the Advanced Library—this preview updates from your chosen spotlight.",
+          "Pick an opportunity card above or browse the Advanced Libraryâ€”this preview updates from your chosen spotlight.",
         standardGuidedPreviewTechnicalProofPoints: technicalProofPoints.slice(0, 4),
         flagshipGuidedPreviewTechnicalProofPoints: [],
         flagshipGuidedPreviewDealerTalkingPoints: [],
@@ -8405,7 +8669,7 @@ const handleFinishDealerEnrollment = async () => {
         addProof(sp.territorySignals[0]);
     }
     [
-      "Application highlights emphasize documented specs—not unsupported chemistry claims.",
+      "Application highlights emphasize documented specsâ€”not unsupported chemistry claims.",
       "Operational benefits framed for service managers and counter conversations.",
       "Synthetic upgrade or extended-drain notes only where OEM guidance supports.",
     ].forEach((line) => {
@@ -8497,15 +8761,15 @@ const handleFinishDealerEnrollment = async () => {
       : "";
     const FLAGSHIP_FIELD_CTA_BY_ID = {
       "flagship-nano-ep-2-grease":
-        "Walk their worst crushers, hammers, and wet pins together—trial the film where shock and washout already cost hours.",
+        "Walk their worst crushers, hammers, and wet pins togetherâ€”trial the film where shock and washout already cost hours.",
       "flagship-moly-tac-ep2-grease":
-        "Line up a moly-spec joint audit—grease the worst pin with Timken and washout lines on the table, not guesswork.",
+        "Line up a moly-spec joint auditâ€”grease the worst pin with Timken and washout lines on the table, not guesswork.",
       "flagship-15w40-ck4-full-synthetic-hd":
-        "Route a severe-cycle review with drains inside OEM max—let CK-4, VI, and license rows answer uptime pushback.",
+        "Route a severe-cycle review with drains inside OEM maxâ€”let CK-4, VI, and license rows answer uptime pushback.",
       "flagship-xvi-all-season-extreme-hydraulic":
-        "Overlay cold starts and hot tank temps on the HVLP band—prove first-shift response before the drum count debate.",
+        "Overlay cold starts and hot tank temps on the HVLP bandâ€”prove first-shift response before the drum count debate.",
       "flagship-utf-full-synthetic-tractor":
-        "Cold-start ride-along on premium iron—J20 and Brookfield lines beside axle tags before the sump fill.",
+        "Cold-start ride-along on premium ironâ€”J20 and Brookfield lines beside axle tags before the sump fill.",
     };
     const flagshipGuidedSalesPreviewCta = flagshipNarrativeAvailable
       ? String(FLAGSHIP_FIELD_CTA_BY_ID[flagshipNarrativeId] || "").trim()
@@ -8513,30 +8777,30 @@ const handleFinishDealerEnrollment = async () => {
     const flagshipGuidedPreviewHeroMetricChips =
       flagshipNarrativeAvailable && flagshipNarrativeId === "flagship-nano-ep-2-grease"
         ? [
-            { id: "load", label: "Load carrying", value: "800 kg", hint: "4-ball weld · PDS index" },
-            { id: "wash", label: "Washout resistance", value: "<1%", hint: "Water spray-off · PDS index" },
-            { id: "therm", label: "Thermal stability", value: "~316 °C", hint: "Dropping point class · index" },
+            { id: "load", label: "Load carrying", value: "800 kg", hint: "4-ball weld Â· PDS index" },
+            { id: "wash", label: "Washout resistance", value: "<1%", hint: "Water spray-off Â· PDS index" },
+            { id: "therm", label: "Thermal stability", value: "~316 Â°C", hint: "Dropping point class Â· index" },
             {
               id: "duty",
               label: "Severe-duty uptime",
               value: "Shock + wet",
-              hint: "Crushers · hammers · pins & bushings",
+              hint: "Crushers Â· hammers Â· pins & bushings",
             },
           ]
         : [];
     return {
       spotlightTitle: title,
-      subject: `Klondike · ${title}`,
+      subject: `Klondike Â· ${title}`,
       audience: salesEnablementDealerOrgId
-        ? `Dealer admins, managers, active reps · ${dealerName || "organization"}`
-        : "Dealer routing pending — select organization below.",
+        ? `Dealer admins, managers, active reps Â· ${dealerName || "organization"}`
+        : "Dealer routing pending â€” select organization below.",
       bodyLead:
         bodyLead ||
         "Concise positioning notes will mirror the approved spotlight library entry when you send.",
       cta:
         mode === "product"
           ? "Review the attached product snapshot and confirm NLGI / spec alignment before quoting."
-          : "Confirm OEM tags and operating bands with your shop lead—we’ll align enablement follow-up.",
+          : "Confirm OEM tags and operating bands with your shop leadâ€”weâ€™ll align enablement follow-up.",
       lfbb: buildLfbb(),
       technicalProofPoints: technicalProofPoints.slice(0, 4),
       trainingAttachmentSuggested,
@@ -8622,7 +8886,7 @@ const handleFinishDealerEnrollment = async () => {
           setSalesEnablementSendNotice({
             kind: "info",
             text:
-              "No valid recipients — ensure this dealer has active dealer admins, managers, or reps with email addresses.",
+              "No valid recipients â€” ensure this dealer has active dealer admins, managers, or reps with email addresses.",
           });
         } else if (code === "missing_resend" || data?.skipped) {
           setSalesEnablementSendNotice({
@@ -8736,7 +9000,7 @@ const handleFinishDealerEnrollment = async () => {
         <div style={styles.eyebrow}>KLONDIKE ADMIN</div>
         <h2 style={styles.heroTitle}>Klondike Admin Command Center</h2>
         <p style={styles.heroText}>
-          Start with today&apos;s recommended actions—then open deeper intelligence only when you
+          Start with today&apos;s recommended actionsâ€”then open deeper intelligence only when you
           need it. Dealers, activation, inventory, and enablement stay one click away.
         </p>
       </div>
@@ -8919,13 +9183,13 @@ const handleFinishDealerEnrollment = async () => {
             }}
           >
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: "#94a3b8" }}>
-              TERRITORY GROWTH · PRODUCT
+              TERRITORY GROWTH Â· PRODUCT
             </div>
             <h3 style={{ margin: "10px 0 0", fontSize: 22, fontWeight: 900, color: "#f8fafc", letterSpacing: "-0.02em" }}>
               Product Strategy &amp; Incentive Intelligence
             </h3>
             <p style={{ margin: "12px 0 0", fontSize: 14, color: "#cbd5e1", lineHeight: 1.55, maxWidth: 720 }}>
-              Category execution, live mix signals, and lightweight contests—anchored in tracked
+              Category execution, live mix signals, and lightweight contestsâ€”anchored in tracked
               quotes, proposals, demand, and field scans (not CRM overhead).
             </p>
             <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -8974,13 +9238,13 @@ const handleFinishDealerEnrollment = async () => {
             }}
           >
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-              INCENTIVE CENTER · FOUNDATION
+              INCENTIVE CENTER Â· FOUNDATION
             </div>
             <h4 style={{ margin: "8px 0 6px", fontSize: 17, fontWeight: 900, color: "#0f172a" }}>
               Territory incentives hub
             </h4>
             <p style={{ margin: "0 0 14px", fontSize: 13, color: "#64748b", lineHeight: 1.45, maxWidth: 720 }}>
-              Display-only preview—where KL Admin will steer contests, category pushes, and rep motivation.
+              Display-only previewâ€”where KL Admin will steer contests, category pushes, and rep motivation.
               Live schedules still surface below in Active incentives.
             </p>
             <div
@@ -8995,32 +9259,32 @@ const handleFinishDealerEnrollment = async () => {
                   key: "grease-sprint",
                   name: "Grease Growth Sprint",
                   category: "Grease",
-                  period: "Jun 1–Jun 30, 2026",
-                  threshold: "≥ $12K booked grease lines / rep",
+                  period: "Jun 1â€“Jun 30, 2026",
+                  threshold: "â‰¥ $12K booked grease lines / rep",
                   rewardType: "Territory bonus pool + leaderboard spotlight",
-                  status: "Live · Week 2 pacing",
+                  status: "Live Â· Week 2 pacing",
                   recommendedAction:
-                    "Spot-check dealers below 40% of threshold—pair grease PM messaging with filters.",
+                    "Spot-check dealers below 40% of thresholdâ€”pair grease PM messaging with filters.",
                 },
                 {
                   key: "synthetic-push",
                   name: "Synthetic Conversion Push",
                   category: "Synthetic products",
-                  period: "May 15–Jul 15, 2026",
-                  threshold: "≥ 18% synthetic share of approved demand (territory)",
+                  period: "May 15â€“Jul 15, 2026",
+                  threshold: "â‰¥ 18% synthetic share of approved demand (territory)",
                   rewardType: "Tiered SPIFF + executive shout-out",
-                  status: "Live · Conversion runway",
+                  status: "Live Â· Conversion runway",
                   recommendedAction:
-                    "Prioritize fleets with OEM allowances—lead coaching with warranty positioning, not price.",
+                    "Prioritize fleets with OEM allowancesâ€”lead coaching with warranty positioning, not price.",
                 },
                 {
                   key: "hydraulic-challenge",
                   name: "Hydraulic Opportunity Challenge",
                   category: "Hydraulic fluids",
-                  period: "Jun 10–Aug 10, 2026",
+                  period: "Jun 10â€“Aug 10, 2026",
                   threshold: "Top 3 reps by incremental hydraulic revenue",
                   rewardType: "Experience prize + customer dinner budget",
-                  status: "Warm-up · Kickoff week",
+                  status: "Warm-up Â· Kickoff week",
                   recommendedAction:
                     "Send contamination downtime stories before competitors match stocking SKUs.",
                 },
@@ -9086,7 +9350,7 @@ const handleFinishDealerEnrollment = async () => {
                       type="button"
                       onClick={() =>
                         setProductStrategyWorkflowNotice(
-                          `Review incentive (mock): ${inc.name} — editor flows arrive in a later phase.`
+                          `Review incentive (mock): ${inc.name} â€” editor flows arrive in a later phase.`
                         )
                       }
                       style={{
@@ -9107,11 +9371,11 @@ const handleFinishDealerEnrollment = async () => {
                       onClick={() =>
                         setProductStrategyWorkflowNotice(
                           formatKlAdminMessageComposerMockNotice({
-                            recipient: "Dealer & rep distribution (mock list) · incentive participants",
-                            subject: `Territory nudge · ${inc.name} (${inc.category})`,
-                            purpose: `Reinforce ${inc.category} progress during ${inc.period} — status: ${inc.status}.`,
+                            recipient: "Dealer & rep distribution (mock list) Â· incentive participants",
+                            subject: `Territory nudge Â· ${inc.name} (${inc.category})`,
+                            purpose: `Reinforce ${inc.category} progress during ${inc.period} â€” status: ${inc.status}.`,
                             nextSuggestedAction: String(inc.recommendedAction || "").trim(),
-                            detail: "Send Reminder · Incentive Center foundation · mock composer only",
+                            detail: "Send Reminder Â· Incentive Center foundation Â· mock composer only",
                           })
                         )
                       }
@@ -9144,7 +9408,7 @@ const handleFinishDealerEnrollment = async () => {
             }}
           >
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-              INCENTIVE CENTER · ACTIVE
+              INCENTIVE CENTER Â· ACTIVE
             </div>
             <h4 style={{ margin: "8px 0 6px", fontSize: 17, fontWeight: 900, color: "#0f172a" }}>
               Active incentives
@@ -9170,7 +9434,7 @@ const handleFinishDealerEnrollment = async () => {
                   const metricLabel =
                     CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label || c.metricKey;
                   const ld = resolveTerritoryContestLeaderDisplay(c);
-                  const showPh = ld.line === "—" && !ld.footnote;
+                  const showPh = ld.line === "â€”" && !ld.footnote;
                   return (
                     <TerritoryIncentiveReadOnlyCard
                       key={c.id}
@@ -9201,7 +9465,7 @@ const handleFinishDealerEnrollment = async () => {
             }}
           >
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-              INCENTIVE CENTER · BUILDER
+              INCENTIVE CENTER Â· BUILDER
             </div>
             <h4 style={{ margin: "8px 0 10px", fontSize: 17, fontWeight: 900, color: "#0f172a" }}>
               Contest builder
@@ -9307,7 +9571,7 @@ const handleFinishDealerEnrollment = async () => {
                       fontSize: 14,
                     }}
                   >
-                    <option value="">Select dealer…</option>
+                    <option value="">Select dealerâ€¦</option>
                     {(dealerNetworkPerformance || []).map((d) => (
                       <option key={d.organization_id} value={String(d.organization_id)}>
                         {d.name || "Dealer"}
@@ -9582,7 +9846,7 @@ const handleFinishDealerEnrollment = async () => {
                               `Min approved demand ${Number(c.qualMinApprovedDemand).toLocaleString()} u`,
                           ]
                             .filter(Boolean)
-                            .join(" · ") || "No qualification thresholds"}
+                            .join(" Â· ") || "No qualification thresholds"}
                         </div>
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
@@ -9718,7 +9982,7 @@ const handleFinishDealerEnrollment = async () => {
                   {
                     k: "Healthy",
                     n: adminDealerOperationalBuckets.healthy,
-                    d: "Customer responses logged — engagement is landing.",
+                    d: "Customer responses logged â€” engagement is landing.",
                     bg: "#ecfdf5",
                     bd: "#059669",
                   },
@@ -9732,7 +9996,7 @@ const handleFinishDealerEnrollment = async () => {
                   {
                     k: "Needs attention",
                     n: adminDealerOperationalBuckets.needsAttention,
-                    d: "Quotes without proposals/responses — coach the next step.",
+                    d: "Quotes without proposals/responses â€” coach the next step.",
                     bg: "#fff7ed",
                     bd: "#ea580c",
                   },
@@ -9918,8 +10182,8 @@ const handleFinishDealerEnrollment = async () => {
                         onClick={() => {
                           setProductStrategyWorkflowNotice(
                             formatKlAdminTrainingSchedulerMockNotice({
-                              topic: `${sug.title} · coaching reinforcement`,
-                              audience: `${String(sug.spotlightType || "category").toUpperCase()} · ${
+                              topic: `${sug.title} Â· coaching reinforcement`,
+                              audience: `${String(sug.spotlightType || "category").toUpperCase()} Â· ${
                                 sug.category || "Territory enablement"
                               }`,
                               nextStep:
@@ -9947,10 +10211,10 @@ const handleFinishDealerEnrollment = async () => {
                           setProductStrategyWorkflowNotice(
                             formatKlAdminTrainingSchedulerMockNotice({
                               topic: "KL University curriculum assignment",
-                              audience: "Dealer L&D stakeholders · territory program desk (preview)",
+                              audience: "Dealer L&D stakeholders Â· territory program desk (preview)",
                               nextStep:
                                 "Curriculum owners pick modules; dealer admins get a mock itinerary only.",
-                              detail: "Assign KL University · mock queue · no LMS enrollment",
+                              detail: "Assign KL University Â· mock queue Â· no LMS enrollment",
                             })
                           );
                         }}
@@ -10027,7 +10291,7 @@ const handleFinishDealerEnrollment = async () => {
               }}
             >
               <div style={{ ...styles.summaryLabel, color: "#1e40af" }}>
-                Team activity (quotes · proposals · responses · OCR)
+                Team activity (quotes Â· proposals Â· responses Â· OCR)
               </div>
               <div
                 style={{
@@ -10079,7 +10343,7 @@ const handleFinishDealerEnrollment = async () => {
                         textTransform: "uppercase",
                       }}
                     >
-                      Demo leaderboard active · contest-weighted only
+                      Demo leaderboard active Â· contest-weighted only
                     </div>
                   ) : null}
                   <p style={{ margin: "0 0 8px", fontSize: 12, color: "#94a3b8", lineHeight: 1.4 }}>
@@ -10088,7 +10352,7 @@ const handleFinishDealerEnrollment = async () => {
                         {productStrategyIncentiveLeaderboardView.contestHint}.{" "}
                       </span>
                     ) : null}
-                    Not overall territory rank—same logged counts as elsewhere, weighted for active contest
+                    Not overall territory rankâ€”same logged counts as elsewhere, weighted for active contest
                     pacing only.
                   </p>
                   {productStrategyIncentiveLeaderboardView.rows.length > 0 ? (
@@ -10118,7 +10382,7 @@ const handleFinishDealerEnrollment = async () => {
                             </span>
                           </div>
                           <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4, lineHeight: 1.35 }}>
-                            {rep.dealer ? String(rep.dealer).trim() : "—"}
+                            {rep.dealer ? String(rep.dealer).trim() : "â€”"}
                           </div>
                         </div>
                       ))}
@@ -10142,7 +10406,7 @@ const handleFinishDealerEnrollment = async () => {
             <div style={{ ...styles.eyebrow, color: "#1e3a8a" }}>FIELD INTELLIGENCE</div>
             <h3 style={styles.cardTitle}>OCR territory intelligence</h3>
             <p style={styles.cardBody}>
-              Scan activity from live OCR events—same rollup used across the admin workspace.
+              Scan activity from live OCR eventsâ€”same rollup used across the admin workspace.
             </p>
             {ocrSnapshotLoading ? (
               <p style={styles.muted}>Loading OCR scan activity...</p>
@@ -10166,12 +10430,12 @@ const handleFinishDealerEnrollment = async () => {
                 <div style={{ ...styles.summaryCard, background: "#f8fafc" }}>
                   <div style={styles.summaryLabel}>Top viscosity</div>
                   <div style={{ ...styles.summaryValue, color: "#0f172a" }}>
-                    {ocrSnapshot.topViscosity || "—"}
+                    {ocrSnapshot.topViscosity || "â€”"}
                   </div>
                 </div>
                 <div style={{ ...styles.summaryCard, background: "#f8fafc" }}>
                   <div style={styles.summaryLabel}>Top brand</div>
-                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>{ocrSnapshot.topBrand || "—"}</div>
+                  <div style={{ ...styles.summaryValue, color: "#0f172a" }}>{ocrSnapshot.topBrand || "â€”"}</div>
                 </div>
               </div>
             )}
@@ -10202,9 +10466,9 @@ const handleFinishDealerEnrollment = async () => {
                 lineHeight: 1.55,
               }}
             >
-              Review each onboarded dealer against live platform signals—profile,
+              Review each onboarded dealer against live platform signalsâ€”profile,
               access roles, field quotes, proposals, customer engagement, approved demand,
-              inventory visibility, and OCR adoption—before expanding rollout.
+              inventory visibility, and OCR adoptionâ€”before expanding rollout.
             </p>
             <p style={{ fontSize: 12, color: "#64748b", margin: 0, lineHeight: 1.45 }}>
               Status reflects existing records only; nothing here provisions test data or
@@ -10485,7 +10749,7 @@ const handleFinishDealerEnrollment = async () => {
                 lineHeight: 1.55,
               }}
             >
-              Forward-looking operational demand from customer-approved proposal lines only—built
+              Forward-looking operational demand from customer-approved proposal lines onlyâ€”built
               for Supply Chain visibility. Not ERP inventory, warehouse stock, or purchasing
               automation.
             </p>
@@ -10504,7 +10768,7 @@ const handleFinishDealerEnrollment = async () => {
               SUPPLY CHAIN READINESS
             </div>
             <p style={{ ...styles.cardBody, color: "#334155", marginTop: 12, lineHeight: 1.55 }}>
-              Approved proposal demand signals what customers intend to buy—it is a planning input
+              Approved proposal demand signals what customers intend to buyâ€”it is a planning input
               for operations, not a substitute for warehouse systems or on-hand counts.
             </p>
             <div
@@ -10522,7 +10786,7 @@ const handleFinishDealerEnrollment = async () => {
               </div>
               <p style={{ ...styles.listMeta, color: "#475569", margin: 0, lineHeight: 1.5 }}>
                 Review category mix, accelerating SKUs, and package trends below on a weekly
-                cadence with Supply Chain—no scheduling infrastructure required; use the optional
+                cadence with Supply Chainâ€”no scheduling infrastructure required; use the optional
                 email reminder when helpful.
               </p>
             </div>
@@ -10563,14 +10827,14 @@ const handleFinishDealerEnrollment = async () => {
                 }}
               >
                 {inventoryWeeklyReminderEmailStatus === "sending"
-                  ? "Sending…"
+                  ? "Sendingâ€¦"
                   : "Email me: Weekly Inventory Demand Review Reminder"}
               </button>
               <span style={{ ...styles.listMeta, color: "#64748b", alignSelf: "center" }}>
                 {inventoryWeeklyReminderEmailStatus === "sent"
                   ? "Reminder sent to your login email."
                   : inventoryWeeklyReminderEmailStatus === "skipped_config"
-                    ? "Email not configured (RESEND_API_KEY) — use in-app review only."
+                    ? "Email not configured (RESEND_API_KEY) â€” use in-app review only."
                     : inventoryWeeklyReminderEmailStatus === "error"
                       ? "Email could not be sent; check function logs."
                       : inventoryWeeklyReminderEmailStatus?.startsWith?.("skipped:")
@@ -10580,7 +10844,7 @@ const handleFinishDealerEnrollment = async () => {
             </div>
             <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 12, marginBottom: 0 }}>
               Recurring automation: use Supabase Scheduled Functions, pg_cron, or an external
-              scheduler calling this Edge Function with a service secret—no cron is deployed in
+              scheduler calling this Edge Function with a service secretâ€”no cron is deployed in
               this phase.
             </p>
           </div>
@@ -10759,7 +11023,7 @@ const handleFinishDealerEnrollment = async () => {
                     ACCELERATING SKUS (RECENT VS PRIOR 14D)
                   </div>
                   <p style={{ fontSize: 12, color: "#64748b", marginTop: 8, marginBottom: 12 }}>
-                    Higher recent approved-unit volume versus the prior 14-day window—same SKU key
+                    Higher recent approved-unit volume versus the prior 14-day windowâ€”same SKU key
                     (product + package).
                   </p>
                   <div style={{ display: "grid", gap: 8 }}>
@@ -10809,7 +11073,7 @@ const handleFinishDealerEnrollment = async () => {
                   PACKAGE TREND (14D VS PRIOR)
                 </div>
                 <p style={{ fontSize: 12, color: "#64748b", marginTop: 8, marginBottom: 12 }}>
-                  Approved-unit totals by package band—recent window compared with the prior 14 days.
+                  Approved-unit totals by package bandâ€”recent window compared with the prior 14 days.
                 </p>
                 <div style={{ display: "grid", gap: 8 }}>
                   {klondikeTerritoryInventoryModel.packageTrendRows
@@ -10832,7 +11096,7 @@ const handleFinishDealerEnrollment = async () => {
                         <span style={{ fontWeight: 800, color: "#0f172a" }}>{row.name}</span>
                         <span style={{ fontSize: 12, color: "#334155" }}>
                           Recent: <strong>{row.recentUnits.toLocaleString()}</strong>
-                          {" · "}
+                          {" Â· "}
                           Prior: <strong>{row.priorUnits.toLocaleString()}</strong>
                           {row.deltaPct != null ? (
                             <span style={{ color: "#c2410c", marginLeft: 8 }}>
@@ -10974,7 +11238,7 @@ const handleFinishDealerEnrollment = async () => {
                   >
                     Tote/bulk (recent 14d):{" "}
                     <strong>{klondikeTerritoryInventoryModel.toteRecent.toLocaleString()}</strong>{" "}
-                    units · Prior 14d:{" "}
+                    units Â· Prior 14d:{" "}
                     <strong>{klondikeTerritoryInventoryModel.totePrior.toLocaleString()}</strong>
                   </div>
                 </div>
@@ -11073,13 +11337,13 @@ const handleFinishDealerEnrollment = async () => {
               salesEnablementSendPanelOpen
             )
               guidedStep = 5;
-            /** Phase 5A — 4-step visual progress (preview + send share step 4). */
+            /** Phase 5A â€” 4-step visual progress (preview + send share step 4). */
             const displayGuidedStep = guidedStep >= 4 ? 4 : guidedStep;
             const wizardProfileRow =
               (SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles || []).find(
                 (p) => String(p?.id) === String(seGuidedWizardProfileRefId)
               ) || null;
-            const wizardProfileTitle = String(wizardProfileRow?.title || "").trim() || "—";
+            const wizardProfileTitle = String(wizardProfileRow?.title || "").trim() || "â€”";
             const buildSelectRows =
               seGuidedWizardMessageKind === "customer_profile"
                 ? (SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles || []).map((p) => ({
@@ -11106,7 +11370,7 @@ const handleFinishDealerEnrollment = async () => {
                   ? "Category spotlight"
                   : "Product spotlight";
             const guidedMockProductLabel =
-              SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.find((o) => o.id === seGuidedMockProductImageId)?.label || "—";
+              SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.find((o) => o.id === seGuidedMockProductImageId)?.label || "â€”";
             const guidedPreviewProductLabel =
               (seGuidedKnowledgePreviewMock?.mockProductLabel &&
                 String(seGuidedKnowledgePreviewMock.mockProductLabel).trim()) ||
@@ -11126,9 +11390,9 @@ const handleFinishDealerEnrollment = async () => {
             const kTplStagedProfileId = String(seKnowledgeStagedTemplateSnapshot?.customerProfileId || "").trim();
             const kTplStagedLfbbReasonTrunc = (() => {
               const t = String(kTplSp?.lfbbSelectionReason || "").trim();
-              if (!t) return "—";
+              if (!t) return "â€”";
               const max = 118;
-              return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+              return t.length > max ? `${t.slice(0, max - 1)}â€¦` : t;
             })();
             const tplLfbbFromKnowledge =
               seTplStagedKnowledge && kTplSp.lfbb && typeof kTplSp.lfbb === "object"
@@ -11184,7 +11448,7 @@ const handleFinishDealerEnrollment = async () => {
                       color: "#4338ca",
                     }}
                   >
-                    Knowledge Engine staged · preview only
+                    Knowledge Engine staged Â· preview only
                   </span>
                   <button
                     type="button"
@@ -11229,29 +11493,29 @@ const handleFinishDealerEnrollment = async () => {
                       letterSpacing: "0.06em",
                     }}
                   >
-                    Preview source · not send payload
+                    Preview source Â· not send payload
                   </div>
                   <div>
                     <span style={{ color: "#94a3b8" }}>Type:</span> {kTplStagedSourceLabel}
                     <span style={{ color: "#cbd5e1", margin: "0 5px" }}>|</span>
                     <span style={{ color: "#94a3b8" }}>Overlay:</span>{" "}
-                    <code style={{ fontSize: 9, color: "#334155" }}>{kTplStagedOverlayId || "—"}</code>
+                    <code style={{ fontSize: 9, color: "#334155" }}>{kTplStagedOverlayId || "â€”"}</code>
                   </div>
                   <div>
                     <span style={{ color: "#94a3b8" }}>Profile:</span>{" "}
-                    <code style={{ fontSize: 9, color: "#334155" }}>{kTplStagedProfileId || "—"}</code>
+                    <code style={{ fontSize: 9, color: "#334155" }}>{kTplStagedProfileId || "â€”"}</code>
                     {String(kTplSp?.customerProfileTitle || "").trim() ? (
                       <span style={{ color: "#94a3b8" }}>
                         {" "}
-                        · {String(kTplSp.customerProfileTitle).trim().slice(0, 42)}
-                        {String(kTplSp.customerProfileTitle).trim().length > 42 ? "…" : ""}
+                        Â· {String(kTplSp.customerProfileTitle).trim().slice(0, 42)}
+                        {String(kTplSp.customerProfileTitle).trim().length > 42 ? "â€¦" : ""}
                       </span>
                     ) : null}
                   </div>
                   <div>
                     <span style={{ color: "#94a3b8" }}>LFBB block:</span>{" "}
                     <code style={{ fontSize: 9, color: "#334155" }}>
-                      {String(kTplSp?.lfbbBlockId || "").trim() || "—"}
+                      {String(kTplSp?.lfbbBlockId || "").trim() || "â€”"}
                     </code>
                   </div>
                   <div
@@ -11378,7 +11642,7 @@ const handleFinishDealerEnrollment = async () => {
                       color: active || done ? "#ffffff" : "#64748b",
                     }}
                   >
-                    {done ? "✓" : n}
+                    {done ? "âœ“" : n}
                   </span>
                   <span
                     style={{
@@ -11442,7 +11706,7 @@ const handleFinishDealerEnrollment = async () => {
               setSalesEnablementSelectedId(spotlightId);
               if (syntheticIntro) {
                 setSalesEnablementPreparedIntro(
-                  "Staging synthetic conversion language—please tailor OEM allowances before delivery."
+                  "Staging synthetic conversion languageâ€”please tailor OEM allowances before delivery."
                 );
               }
             };
@@ -11455,17 +11719,17 @@ const handleFinishDealerEnrollment = async () => {
             const seWizardCategoryPicks = (filteredSalesCategorySpotlights || []).slice(0, 8);
             const dryRunDealerDisplay = (() => {
               const id = String(salesEnablementDealerOrgId || "").trim();
-              if (!id) return "— (no dealer organization selected)";
+              if (!id) return "â€” (no dealer organization selected)";
               const row = seWizardDealerRows.find((d) => String(d.organization_id) === id);
               const name = String(row?.name || "").trim();
-              return name ? `${name} · org ${id}` : `Organization ${id}`;
+              return name ? `${name} Â· org ${id}` : `Organization ${id}`;
             })();
             const dryRunSpotlightTitle =
               String(
                 salesEnablementGuidedTemplateLines.spotlightTitle ||
                   spotlightEmailSendPayload?.title ||
                   ""
-              ).trim() || "—";
+              ).trim() || "â€”";
             const dryRunIntroBody = `${String(salesEnablementPreparedIntro || "").trim() ? `${String(salesEnablementPreparedIntro || "").trim()}\n\n` : ""}${guidedPreviewEmailBodyLead}`;
             const dryRunCopyModeLabel = previewSendUsesFlagship ? "Flagship Narrative" : "Standard";
             const guidedFlagshipBulletRows = (items, keyPrefix, dotColor, bodyFontSize = 12) =>
@@ -11608,175 +11872,65 @@ const handleFinishDealerEnrollment = async () => {
                 Boolean(path) && path.startsWith("/enablement-visuals/") && /\.svg$/i.test(path);
               return { path, key: selected.key, source, useImage };
             })();
-            const seGuardrailLines = (() => {
-              if (!seAssemblyPkg) return [];
-              const complianceSec = sePkgPickSection((t) =>
-                /compliance|oem|caution|environmental|trigger|probe|preserve/.test(t)
-              );
-              const complianceBullets = Array.isArray(complianceSec?.bullets)
-                ? complianceSec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean)
-                : [];
-              const gr = [
-                ...(Array.isArray(seAssemblyPkg.guardrails) ? seAssemblyPkg.guardrails : []),
-                ...(Array.isArray(seAssemblyPkg.sourceNotes) ? seAssemblyPkg.sourceNotes : []),
-                ...complianceBullets,
-              ]
-                .map((g) => String(g ?? "").trim())
-                .filter(Boolean);
-              const uniq = [];
-              const seen = new Set();
-              for (const line of gr) {
-                const k = line.toLowerCase().slice(0, 120);
-                if (seen.has(k)) continue;
-                seen.add(k);
-                uniq.push(line);
-                if (uniq.length >= 12) break;
-              }
-              return uniq;
-            })();
-            const seSpecBulletsList = (() => {
-              if (!seAssemblyPkg) return [];
-              const sec = sePkgPickSection((t) => /spec|approval|registration/.test(t));
-              let bullets = Array.isArray(sec?.bullets)
-                ? sec.bullets.map((b) => String(b ?? "").trim()).filter(Boolean)
-                : [];
-              if (!bullets.length && Array.isArray(seAssemblyPkg.productCards) && seAssemblyPkg.productCards[0]) {
-                const row = seAssemblyPkg.productCards[0];
-                const specs = Array.isArray(row?.keySpecs)
-                  ? row.keySpecs.map((x) => String(x ?? "").trim()).filter(Boolean)
-                  : [];
-                const approvals = Array.isArray(row?.approvals)
-                  ? row.approvals.map((x) => String(x ?? "").trim()).filter(Boolean)
-                  : [];
-                bullets = [...specs, ...approvals].filter(Boolean).slice(0, 12);
-              }
-              return bullets;
-            })();
-            const seBenefitTiles = (() => {
-              const tiles = [];
-              const add = (icon, label, sub) => {
-                if (tiles.length >= 4) return;
-                tiles.push({
-                  icon: String(icon || "•"),
-                  label: String(label || "").slice(0, 32),
-                  sub: String(sub || "").slice(0, 120),
-                });
-              };
-              const chips =
-                previewSendUsesFlagship &&
-                Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips)
-                  ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewHeroMetricChips
-                  : [];
-              if (Array.isArray(chips) && chips[0]) {
-                add("🛡️", String(chips[0].label || "Field proof").trim(), String(chips[0].value || "").trim());
-              }
-              if (Array.isArray(chips) && chips[1]) {
-                add("⚙️", String(chips[1].label || "Performance").trim(), String(chips[1].value || "").trim());
-              }
-              const ang = Array.isArray(seAssemblyPkg?.salesAngles)
-                ? seAssemblyPkg.salesAngles.map((x) => String(x ?? "").trim()).filter(Boolean)
-                : [];
-              if (tiles.length < 4 && ang[0]) add("🎯", "Application Fit", ang[0]);
-              if (tiles.length < 4 && ang[1]) add("💬", "Rep Confidence", ang[1]);
-              if (tiles.length < 4) add("🛡️", "Protection", ang[2] || "");
-              if (tiles.length < 4) add("⚙️", "Uptime", ang[3] || "");
-              if (tiles.length < 4) add("🎯", "Application Fit", "");
-              if (tiles.length < 4) add("💬", "Rep Confidence", "");
-              return tiles.slice(0, 4);
-            })();
-            const sePosterIsLowValueLine = (line) => {
-              const t = String(line || "").toLowerCase();
-              return /pdsmapkey|internal reference|generated from|ref:\s|reference only/.test(t);
-            };
-            const sePosterUniqueLines = (items, max = 5) => {
-              const out = [];
-              const seen = new Set();
-              for (const raw of Array.isArray(items) ? items : []) {
-                const line = String(raw ?? "").trim();
-                if (!line || sePosterIsLowValueLine(line)) continue;
-                const key = line.toLowerCase().slice(0, 96);
-                if (seen.has(key)) continue;
-                seen.add(key);
-                out.push(line);
-                if (out.length >= max) break;
-              }
-              return out;
-            };
-            const sePosterCard = (title, body) => (
-              <section
+            const salesSheet = buildSalesSheetContentFromPackage(seAssemblyPkg);
+            const sePosterSpotlightBadge =
+              seTrainingPackageTypeRaw === "category_spotlight"
+                ? "CATEGORY SPOTLIGHT"
+                : seTrainingPackageTypeRaw === "customer_profile"
+                  ? "CUSTOMER PROFILE"
+                  : "PRODUCT SPOTLIGHT";
+            const sePosterNavyHeader = (title) => (
+              <div
                 style={{
-                  minWidth: 0,
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  border: "1px solid rgba(226, 232, 240, 0.95)",
-                  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
-                  background: "#ffffff",
+                  background: "linear-gradient(90deg, #0f172a 0%, #1e3a8a 100%)",
+                  padding: "12px 18px",
+                  marginBottom: 16,
+                  borderLeft: "5px solid #ea580c",
+                  fontSize: 12,
+                  fontWeight: 900,
+                  letterSpacing: "0.12em",
+                  color: "#ffffff",
+                  textTransform: "uppercase",
                 }}
               >
-                <div
-                  style={{
-                    background: "linear-gradient(90deg, #0f172a 0%, #1e3a8a 100%)",
-                    padding: "10px 16px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    borderLeft: "5px solid #ea580c",
-                  }}
-                >
-                  <span style={{ color: "#fb923c", fontWeight: 900, fontSize: 14, lineHeight: 1 }} aria-hidden>
-                    ✓
-                  </span>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 900,
-                      letterSpacing: "0.12em",
-                      color: "#ffffff",
-                      textTransform: "uppercase",
-                    }}
-                  >
-                    {title}
-                  </div>
-                </div>
-                <div style={{ padding: "16px 18px 18px", background: "#ffffff" }}>{body}</div>
+                {title}
+              </div>
+            );
+            const sePosterSection = (title, body) => (
+              <section style={{ minWidth: 0 }}>
+                {sePosterNavyHeader(title)}
+                {body}
               </section>
             );
-            const sePosterSection = sePosterCard;
-            const sePosterBullets = (items, emptyHint, max = 5) => {
-              const list = sePosterUniqueLines(items, max);
-              if (!list.length) {
-                return (
-                  <p style={{ margin: 0, fontSize: 13, color: "#94a3b8", fontWeight: 600, lineHeight: 1.45 }}>
-                    {emptyHint}
-                  </p>
-                );
-              }
+            const sePosterBullets = (items, max = 5) => {
+              const list = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, max);
+              if (!list.length) return null;
               return (
-                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 14 }}>
                   {list.map((line, i) => (
                     <li
                       key={`pb-${i}`}
                       style={{
                         display: "flex",
-                        gap: 10,
+                        gap: 12,
                         alignItems: "flex-start",
-                        fontSize: 13,
-                        lineHeight: 1.45,
+                        fontSize: 15,
+                        lineHeight: 1.5,
                         color: "#334155",
                         fontWeight: 600,
                       }}
                     >
-                      <span style={{ color: "#ea580c", fontWeight: 900, fontSize: 15, flexShrink: 0 }} aria-hidden>
-                        ✓
+                      <span style={{ color: "#ea580c", fontWeight: 900, fontSize: 17, flexShrink: 0 }} aria-hidden>
+                        âœ“
                       </span>
-                      <span>{line.length > 180 ? `${line.slice(0, 177)}…` : line}</span>
+                      <span>{line.length > 140 ? `${line.slice(0, 137)}â€¦` : line}</span>
                     </li>
                   ))}
                 </ul>
               );
             };
-            const sePosterChips = (items, tone = "blue", max = 4) => {
-              const list = sePosterUniqueLines(items, max);
+            const sePosterChips = (items, tone = "blue", max = 6) => {
+              const list = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, max);
               if (!list.length) return null;
               const chipStyle =
                 tone === "amber"
@@ -11790,87 +11944,266 @@ const handleFinishDealerEnrollment = async () => {
                     <span
                       key={`pc-${i}`}
                       style={{
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: 700,
-                        padding: "6px 12px",
+                        padding: "7px 13px",
                         borderRadius: 999,
                         lineHeight: 1.35,
                         ...chipStyle,
                       }}
                     >
-                      {c.length > 56 ? `${c.slice(0, 53)}…` : c}
+                      {c.length > 56 ? `${c.slice(0, 53)}â€¦` : c}
                     </span>
                   ))}
                 </div>
               );
             };
-            const sePosterBenefitTiles = (() => {
-              const labels = ["Protection", "Application Fit", "Uptime", "Rep Confidence"];
-              const icons = ["🛡️", "🎯", "⚙️", "💬"];
-              return labels.map((label, i) => {
-                const g = seBenefitTiles[i];
-                return { icon: g?.icon || icons[i], label, sub: String(g?.sub || "").trim() };
-              });
-            })();
-            const sePosterAppLines = (() => {
-              const sec =
-                sePkgPickSection((t) => /application|use when|fit|deploy|when to/.test(t)) ||
-                sePkgPickSection((t) => /market|segment|fleet/.test(t));
-              const bullets = Array.isArray(sec?.bullets) ? sec.bullets : [];
-              const proof = (tplProofDisplay || []).map((x) => String(x).trim()).filter(Boolean);
-              return sePosterUniqueLines(bullets.length ? bullets : proof, 5);
-            })();
-            const sePosterSpecLines = sePosterUniqueLines(seSpecBulletsList, 4);
-            const sePosterRepTalkLines = (() => {
-              const ang = Array.isArray(seAssemblyPkg?.salesAngles)
-                ? seAssemblyPkg.salesAngles.map((x) => String(x ?? "").trim()).filter(Boolean)
-                : [];
-              const sea = Array.isArray(seAssemblyPkg?.salesEnablementAngles)
-                ? seAssemblyPkg.salesEnablementAngles.map((x) => String(x ?? "").trim()).filter(Boolean)
-                : [];
-              const secKnow = sePkgPickSection((t) => /rep|coach|talk|enable|know/.test(t));
-              const repBullets = Array.isArray(secKnow?.bullets) ? secKnow.bullets : [];
-              const talk =
-                previewSendUsesFlagship &&
-                Array.isArray(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack)
-                  ? salesEnablementGuidedTemplateLines.flagshipGuidedPreviewRepTalkTrack
-                  : [];
-              return sePosterUniqueLines([...ang, ...sea, ...talk, ...repBullets], 4);
-            })();
-            const sePosterDiscoveryQs = sePosterUniqueLines(
-              [
-                ...(Array.isArray(seAssemblyPkg?.repQuestions) ? seAssemblyPkg.repQuestions : []),
-                ...(Array.isArray(seAssemblyPkg?.customerProfileQuestions)
-                  ? seAssemblyPkg.customerProfileQuestions
-                  : []),
-              ],
-              4
+            const seNanoCardHeader = (title) => (
+              <section
+                style={{
+                  background: "linear-gradient(90deg, #0f172a 0%, #1e3a8a 100%)",
+                  padding: "11px 16px",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: "0.14em",
+                  color: "#ffffff",
+                  textTransform: "uppercase",
+                  borderRadius: "10px 10px 0 0",
+                }}
+              >
+                {title}
+              </section>
             );
-            const sePosterCrossSell = (() => {
-              const xs = Array.isArray(seAssemblyPkg?.crossSellOpportunities)
-                ? seAssemblyPkg.crossSellOpportunities
-                : [];
-              const fromCards = Array.isArray(seAssemblyPkg?.productCards) ? seAssemblyPkg.productCards : [];
-              const names = fromCards.map((row) => String(row?.productName || "").trim()).filter(Boolean);
-              return sePosterUniqueLines(xs.length ? xs : names, 4);
-            })();
-            const sePosterGuardrailLines = sePosterUniqueLines(seGuardrailLines, 3);
-            const sePosterHeroSubtitle = String(seAssemblyPkg?.subtitle || "").trim();
-            const sePosterHeroSummary = (() => {
-              const sum = seTrainingSummary;
-              const sub = sePosterHeroSubtitle;
-              if (sum && sum !== sub) return sum;
-              const sec = sePkgPickSection((t) => /summary|overview|intro/.test(t));
-              const bullets = Array.isArray(sec?.bullets) ? sec.bullets : [];
-              return String(bullets[0] || sub || sum || "").trim();
+            const seNanoFlyerCard = (title, body) => (
+              <section
+                style={{
+                  minWidth: 0,
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  border: "1px solid rgba(203, 213, 225, 0.9)",
+                  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.08)",
+                  background: "#ffffff",
+                }}
+              >
+                {seNanoCardHeader(title)}
+                <section style={{ padding: "16px 18px 18px" }}>{body}</section>
+              </section>
+            );
+            const seNanoCheckBullets = (items, max = 5) => {
+              const list = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, max);
+              if (!list.length) return null;
+              return (
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
+                  {list.map((line, i) => (
+                    <li
+                      key={`nano-b-${i}`}
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        alignItems: "flex-start",
+                        fontSize: 14,
+                        lineHeight: 1.45,
+                        color: "#334155",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span style={{ color: "#ea580c", fontWeight: 900, fontSize: 15, flexShrink: 0 }} aria-hidden>
+                        âœ“
+                      </span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              );
+            };
+            const seNanoSpecBullets = (items, max = 6) => {
+              const list = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, max);
+              if (!list.length) return null;
+              return (
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
+                  {list.map((line, i) => (
+                    <li
+                      key={`nano-spec-${i}`}
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        fontSize: 12,
+                        lineHeight: 1.35,
+                        color: "#e2e8f0",
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span style={{ color: "#fb923c", fontWeight: 900, flexShrink: 0 }} aria-hidden>
+                        âœ“
+                      </span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              );
+            };
+            const seNanoAppTiles = (items, max = 6) => {
+              const list = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, max);
+              if (!list.length) return null;
+              const pickIcon = (line) => {
+                const t = String(line).toLowerCase();
+                if (/mining|quarry/.test(t)) return "â›ï¸";
+                if (/agri|farm/.test(t)) return "ðŸšœ";
+                if (/construct/.test(t)) return "ðŸ—ï¸";
+                if (/steel|mill/.test(t)) return "ðŸ­";
+                if (/truck|fleet/.test(t)) return "ðŸš›";
+                return "âš™ï¸";
+              };
+              return (
+                <section
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  {list.map((line, i) => (
+                    <article
+                      key={`nano-app-${i}`}
+                      style={{
+                        padding: "10px",
+                        borderRadius: 8,
+                        background: "#f8fafc",
+                        border: "1px solid rgba(203, 213, 225, 0.85)",
+                        textAlign: "center",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      <span style={{ display: "block", fontSize: 18, marginBottom: 4 }} aria-hidden>
+                        {pickIcon(line)}
+                      </span>
+                      {line.length > 48 ? `${line.slice(0, 45)}â€¦` : line}
+                    </article>
+                  ))}
+                </section>
+              );
+            };
+            const seNanoQuestionList = (items, max = 5) => {
+              const list = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, max);
+              if (!list.length) return null;
+              return (
+                <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
+                  {list.map((line, i) => (
+                    <li
+                      key={`nano-q-${i}`}
+                      style={{
+                        display: "flex",
+                        gap: 10,
+                        fontSize: 13,
+                        lineHeight: 1.45,
+                        color: "#334155",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: 999,
+                          background: "#0f172a",
+                          color: "#fff",
+                          fontSize: 12,
+                          fontWeight: 900,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                        aria-hidden
+                      >
+                        ?
+                      </span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              );
+            };
+            const seNanoCrossSellTiles = (items, max = 4) => {
+              const list = (Array.isArray(items) ? items : []).filter(Boolean).slice(0, max);
+              if (!list.length) return null;
+              return (
+                <section
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: 10,
+                  }}
+                >
+                  {list.map((line, i) => (
+                    <article
+                      key={`nano-xs-${i}`}
+                      style={{
+                        padding: "12px",
+                        borderRadius: 8,
+                        background: "linear-gradient(145deg, #f8fafc 0%, #fff 100%)",
+                        border: "1px solid rgba(30, 58, 138, 0.18)",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: "#0f172a",
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {line}
+                    </article>
+                  ))}
+                </section>
+              );
+            };
+            const sePosterSummaryLines = (() => {
+              const raw = String(salesSheet.summary || "").trim();
+              if (!raw) return [];
+              return raw
+                .split(/(?<=[.!?])\s+/)
+                .map((x) => x.trim())
+                .filter(Boolean)
+                .slice(0, 5);
             })();
             const seStep4RegistryHeroBgActive =
               seHeroEnablementVisualSelection.useImage && !seGuidedStep4RegistryBgFailed;
-            const SE_POSTER_ASSET_LOGO = "/klondike-full-logo.png";
-            const SE_POSTER_ASSET_FAVICON = "/favicon.png";
-            const SE_POSTER_ASSET_PRODUCTS = "/products.png";
-            const guidedSeTrainingInfographicInner = (
-              <>
+            const seUseProductSpotlightSellSheet =
+              Boolean(seAssemblyPkg) &&
+              seGuidedWizardMessageKind === "product" &&
+              (seTrainingPackageTypeRaw === "product_spotlight" || seTrainingPackageTypeRaw === "") &&
+              Boolean(String(salesSheet.title || salesSheet.summary || "").trim());
+            const seSellSheetProductImageUrl = (() => {
+              if (seGuidedUploadedProductImagePreviewFailed) return "";
+              return String(seGuidedUploadedProductImageUrl || "").trim();
+            })();
+            const seSellSheetBackgroundUrl = (() => {
+              const path = String(seHeroEnablementVisualSelection.path || "").trim();
+              if (path && path.startsWith("/enablement-visuals/") && /\.svg$/i.test(path)) {
+                return path;
+              }
+              return "";
+            })();
+            const productSpotlightSellSheetPreview = (
+              <ProductSpotlightSellSheet
+                title={salesSheet.title}
+                subtitle={salesSheet.subtitle}
+                summary={salesSheet.summary}
+                productImageUrl={seSellSheetProductImageUrl}
+                backgroundImageUrl={seSellSheetBackgroundUrl || undefined}
+                keySpecs={salesSheet.keySpecs}
+                benefits={salesSheet.benefitTiles}
+                applications={salesSheet.applications}
+                whyThisProduct={salesSheet.whyThisProduct}
+                repTalkTrack={salesSheet.repTalkTrack}
+                crossSell={salesSheet.crossSell}
+                questions={salesSheet.discoveryQuestions}
+                cautions={salesSheet.cautions}
+                recommendedNextStep={salesSheet.recommendedNextStep}
+              />
+            );
+            const guidedSeTrainingLegacyPosterInner = (
                 <div
                   style={{
                     position: "relative",
@@ -11884,44 +12217,30 @@ const handleFinishDealerEnrollment = async () => {
                     border: "1px solid rgba(203, 213, 225, 0.85)",
                   }}
                 >
-                  <img
-                    src={SE_POSTER_ASSET_FAVICON}
-                    alt=""
-                    aria-hidden
-                    decoding="async"
-                    style={{
-                      position: "absolute",
-                      top: 14,
-                      right: 16,
-                      width: 32,
-                      height: 32,
-                      opacity: 0.14,
-                      pointerEvents: "none",
-                      zIndex: 1,
-                    }}
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
-                  <div style={{ padding: "16px 22px 14px", background: "#ffffff", position: "relative", zIndex: 2 }}>
+                  <div style={{ minHeight: 80,
+                      padding: "18px 40px 14px",
+                      background: "#ffffff",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center" }}>
                     <div
                       style={{
                         display: "flex",
                         flexWrap: "wrap",
                         justifyContent: "space-between",
-                        alignItems: "flex-end",
-                        gap: 12,
+                        alignItems: "center",
+                        gap: 16,
                       }}
                     >
                       <div style={{ minWidth: 0 }}>
                         <img
-                          src={SE_POSTER_ASSET_LOGO}
+                          src="/klondike-full-logo.png"
                           alt="Klondike Performance Lubricants"
                           decoding="async"
                           style={{
-                            height: 58,
+                            height: 72,
                             width: "auto",
-                            maxWidth: 280,
+                            maxWidth: 360,
                             objectFit: "contain",
                             display: "block",
                           }}
@@ -11960,20 +12279,22 @@ const handleFinishDealerEnrollment = async () => {
                       </div>
                       <div
                         style={{
-                          fontSize: 9,
+                          fontSize: 10,
                           fontWeight: 800,
-                          letterSpacing: "0.14em",
+                          letterSpacing: "0.16em",
                           color: "#ea580c",
                           textAlign: "right",
+                          flex: "0 0 auto",
                         }}
                       >
-                        WE GROW INDEPENDENT BUSINESS
+                        <span style={{ display: "block" }}>WE GROW</span>
+                        <span style={{ display: "block" }}>INDEPENDENT BUSINESS</span>
                       </div>
                     </div>
                     <div
                       style={{
-                        marginTop: 12,
-                        height: 4,
+                        marginTop: 16,
+                        height: 5,
                         borderRadius: 2,
                         background: "linear-gradient(90deg, #ea580c 0%, #fb923c 55%, rgba(30,58,138,0.35) 100%)",
                       }}
@@ -11982,18 +12303,26 @@ const handleFinishDealerEnrollment = async () => {
                   </div>
 
                   <div
+                    data-kl-phase5c-hero-image
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "minmax(0, 1.15fr) minmax(0, 1fr)",
-                      gap: 28,
-                      padding: "28px 32px 32px",
-                      minHeight: 380,
-                      alignItems: "stretch",
+                      gridTemplateColumns: "minmax(0, 1.05fr) minmax(0, 1fr) minmax(220px, 0.42fr)",
+                      position: "relative",
+                      minHeight: 360,
+                      overflow: "hidden",
                       borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
-                      background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+                      background: "#0f172a",
                     }}
                   >
-                    <div style={{ display: "grid", gap: 12, minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gap: 14,
+                        alignContent: "center",
+                        padding: "44px 44px 48px",
+                        background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 68%, #1e40af 100%)",
+                      }}
+                    >
                       <span
                         style={{
                           justifySelf: "start",
@@ -12002,101 +12331,68 @@ const handleFinishDealerEnrollment = async () => {
                           letterSpacing: "0.16em",
                           padding: "5px 10px",
                           borderRadius: 999,
-                          background: "#fff7ed",
-                          color: "#c2410c",
-                          border: "1px solid rgba(251, 146, 60, 0.45)",
+                          background: "rgba(234, 88, 12, 0.22)",
+                          color: "#fdba74",
+                          border: "1px solid rgba(251, 146, 60, 0.55)",
                         }}
                       >
-                        {seTrainingPackageEyebrow}
+                        {sePosterSpotlightBadge}
                       </span>
                       <h4
                         style={{
                           margin: 0,
-                          fontSize: 42,
+                          fontSize: 44,
                           fontWeight: 900,
-                          color: "#0f172a",
-                          letterSpacing: "-0.04em",
-                          lineHeight: 1.04,
+                          color: "#ffffff",
+                          letterSpacing: "-0.03em",
+                          lineHeight: 1.06,
                         }}
                       >
-                        {seTrainingHeroTitle}
+                        {salesSheet.title || seTrainingHeroTitle}
                       </h4>
-                      {sePosterHeroSubtitle ? (
+                      {salesSheet.subtitle ? (
                         <p
                           style={{
                             margin: 0,
                             fontSize: 20,
                             fontWeight: 800,
-                            color: "#ea580c",
-                            lineHeight: 1.35,
+                            color: "#fb923c",
+                            lineHeight: 1.32,
                           }}
                         >
-                          {sePosterHeroSubtitle.length > 120
-                            ? `${sePosterHeroSubtitle.slice(0, 117)}…`
-                            : sePosterHeroSubtitle}
+                          {salesSheet.subtitle.length > 100
+                            ? `${salesSheet.subtitle.slice(0, 97)}â€¦`
+                            : salesSheet.subtitle}
                         </p>
                       ) : null}
-                      {sePosterHeroSummary ? (
+                      {salesSheet.summary ? (
                         <p
                           style={{
                             margin: 0,
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: 600,
-                            color: "#475569",
-                            lineHeight: 1.55,
+                            color: "rgba(255,255,255,0.92)",
+                            lineHeight: 1.5,
+                            maxWidth: 480,
                           }}
                         >
-                          {sePosterHeroSummary.length > 320
-                            ? `${sePosterHeroSummary.slice(0, 317)}…`
-                            : sePosterHeroSummary}
+                          {sePosterSummaryLines.length
+                            ? sePosterSummaryLines.map((line, i) => (
+                                <span key={`hero-sum-${i}`} style={{ display: "block" }}>
+                                  {line}
+                                </span>
+                              ))
+                            : null}
                         </p>
                       ) : null}
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {seTrainingHeroBadges.slice(0, 4).map((b) => (
-                          <span
-                            key={b}
-                            style={{
-                              fontSize: 9,
-                              fontWeight: 800,
-                              padding: "4px 9px",
-                              borderRadius: 999,
-                              background: "#f1f5f9",
-                              color: "#1e3a8a",
-                              border: "1px solid rgba(30, 58, 138, 0.2)",
-                            }}
-                          >
-                            {b}
-                          </span>
-                        ))}
-                        {seTrainingCategoryTag ? (
-                          <span
-                            key="cat-tag"
-                            style={{
-                              fontSize: 9,
-                              fontWeight: 800,
-                              padding: "4px 9px",
-                              borderRadius: 999,
-                              background: "#fff7ed",
-                              color: "#c2410c",
-                              border: "1px solid rgba(251, 146, 60, 0.35)",
-                            }}
-                          >
-                            {seTrainingCategoryTag}
-                          </span>
-                        ) : null}
-                      </div>
                     </div>
 
                     <div
-                      data-kl-phase5c-hero-image
                       style={{
-                        position: "relative",
-                        minHeight: 360,
-                        borderRadius: 16,
-                        overflow: "hidden",
-                        border: "1px solid rgba(30, 58, 138, 0.22)",
-                        background: "#e2e8f0",
-                        boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.5)",
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "28px 18px",
+                        background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)",
                       }}
                     >
                       {seStep4RegistryHeroBgActive ? (
@@ -12108,12 +12404,14 @@ const handleFinishDealerEnrollment = async () => {
                           onError={() => setSeGuidedStep4RegistryBgFailed(true)}
                           style={{
                             position: "absolute",
-                            inset: 0,
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            objectPosition: "center",
-                            filter: "brightness(0.88) saturate(1.05)",
+                            right: 0,
+                            bottom: 0,
+                            width: "88%",
+                            height: "72%",
+                            objectFit: "contain",
+                            objectPosition: "right bottom",
+                            opacity: 0.72,
+                            filter: "saturate(1.05)",
                           }}
                         />
                       ) : (
@@ -12132,134 +12430,99 @@ const handleFinishDealerEnrollment = async () => {
                           position: "absolute",
                           inset: 0,
                           background:
-                            "linear-gradient(180deg, rgba(15,23,42,0.12) 0%, rgba(15,23,42,0.28) 100%)",
+                            "linear-gradient(180deg, rgba(248,250,252,0.35) 0%, rgba(226,232,240,0.95) 100%)",
                         }}
                       />
-                      <div
-                        style={{
-                          position: "relative",
-                          zIndex: 2,
-                          height: "100%",
-                          minHeight: 360,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          padding: 20,
-                        }}
-                      >
-                        <input
-                          id="kl-se-guided-hero-product-upload"
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-                          style={{ display: "none" }}
-                          onChange={(ev) => {
-                            const file = ev.target.files && ev.target.files[0];
-                            if (ev.target) ev.target.value = "";
-                            if (!file) return;
-                            const mimeOk = /^image\/(png|jpeg|webp)$/i.test(file.type);
-                            const nameOk = /\.(png|jpe?g|webp)$/i.test(file.name || "");
-                            if (!mimeOk && !nameOk) return;
-                            setSeGuidedUploadedProductImagePreviewFailed(false);
-                            setSeGuidedUploadedProductImageUrl((prev) => {
-                              if (prev) {
-                                try {
-                                  URL.revokeObjectURL(prev);
-                                } catch {
-                                  /* ignore */
-                                }
-                              }
-                              return URL.createObjectURL(file);
-                            });
-                            setSeGuidedUploadedProductImageFile(file);
+                    </div>
+                    <div
+                      style={{
+                        position: "relative",
+                        zIndex: 2,
+                        minHeight: 380,
+                        background: "#e2e8f0",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "32px 28px",
+                      }}
+                    >
+                      {seStep4RegistryHeroBgActive ? (
+                        <img
+                          src={seHeroEnablementVisualSelection.path}
+                          alt=""
+                          decoding="async"
+                          loading="lazy"
+                          onError={() => setSeGuidedStep4RegistryBgFailed(true)}
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            bottom: 0,
+                            width: "88%",
+                            height: "72%",
+                            objectFit: "contain",
+                            objectPosition: "right bottom",
+                            opacity: 0.72,
+                            filter: "saturate(1.05)",
+                            pointerEvents: "none",
                           }}
                         />
-                        {seGuidedUploadedProductImageUrl && !seGuidedUploadedProductImagePreviewFailed ? (
+                      ) : null}
+                      <span
+                        aria-hidden
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          background:
+                            "linear-gradient(180deg, rgba(248,250,252,0.35) 0%, rgba(226,232,240,0.95) 100%)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      {seGuidedUploadedProductImageUrl && !seGuidedUploadedProductImagePreviewFailed ? (
                           <div
                             style={{
-                              width: "min(94%, 380px)",
-                              padding: 12,
-                              borderRadius: 12,
+                              position: "relative",
+                              zIndex: 3,
+                              width: "min(100%, 340px)",
+                              padding: 18,
+                              borderRadius: 16,
                               background: "#ffffff",
-                              boxShadow: "0 20px 48px rgba(15, 23, 42, 0.35)",
+                              border: "1px solid rgba(226, 232, 240, 0.98)",
+                              boxShadow: "0 24px 56px rgba(15, 23, 42, 0.28)",
                             }}
                           >
                             <img
                               src={seGuidedUploadedProductImageUrl}
-                              alt=""
+                              alt={String(seGuidedUploadedProductImageFile?.name || "Uploaded product")}
                               decoding="async"
                               onError={() => setSeGuidedUploadedProductImagePreviewFailed(true)}
                               style={{
                                 width: "100%",
-                                maxHeight: 300,
+                                maxHeight: 320,
                                 objectFit: "contain",
                                 display: "block",
                               }}
                             />
-                            <div style={{ marginTop: 8, textAlign: "center" }}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSeGuidedUploadedProductImageUrl((prev) => {
-                                    if (prev) {
-                                      try {
-                                        URL.revokeObjectURL(prev);
-                                      } catch {
-                                        /* ignore */
-                                      }
-                                    }
-                                    return null;
-                                  });
-                                  setSeGuidedUploadedProductImageFile(null);
-                                  setSeGuidedUploadedProductImagePreviewFailed(false);
-                                }}
-                                style={{
-                                  fontSize: 10,
-                                  fontWeight: 800,
-                                  padding: "5px 10px",
-                                  borderRadius: 999,
-                                  border: "1px solid #e2e8f0",
-                                  background: "#f8fafc",
-                                  cursor: "pointer",
-                                }}
-                              >
-                                Remove photo
-                              </button>
-                            </div>
                           </div>
                         ) : (
-                          <label
-                            htmlFor="kl-se-guided-hero-product-upload"
+                          <div
                             style={{
-                              width: "min(92%, 300px)",
-                              padding: "20px 16px",
-                              borderRadius: 12,
-                              background: "rgba(255,255,255,0.94)",
-                              border: "2px dashed rgba(234, 88, 12, 0.45)",
+                              position: "relative",
+                              zIndex: 3,
+                              width: "min(100%, 280px)",
+                              padding: "36px 20px",
+                              borderRadius: 16,
+                              background: "rgba(255,255,255,0.96)",
+                              border: "2px dashed rgba(148, 163, 184, 0.5)",
                               textAlign: "center",
-                              cursor: "pointer",
-                              boxShadow: "0 16px 40px rgba(15, 23, 42, 0.2)",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: "#64748b",
+                              lineHeight: 1.45,
                             }}
                           >
-                            <div style={{ fontSize: 28, lineHeight: 1 }} aria-hidden>
-                              ⬆
-                            </div>
-                            <div
-                              style={{
-                                marginTop: 8,
-                                fontSize: 11,
-                                fontWeight: 900,
-                                letterSpacing: "0.08em",
-                                color: "#0f172a",
-                              }}
-                            >
-                              PRODUCT IMAGE
-                            </div>
-                            <div style={{ marginTop: 6, fontSize: 10, fontWeight: 600, color: "#64748b" }}>
-                              Upload PNG / JPG / WebP (preview only)
-                            </div>
-                          </label>
+                            Product image â€” upload in Step 3
+                          </div>
                         )}
-                      </div>
                     </div>
                   </div>
 
@@ -12269,28 +12532,44 @@ const handleFinishDealerEnrollment = async () => {
                       gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                       gap: 0,
                       borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
-                      background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+                      background: "#ffffff",
                     }}
                   >
-                    {sePosterBenefitTiles.map((t, i) => (
+                    {salesSheet.benefitTiles.map((t, i) => (
                       <div
                         key={`se-poster-ben-${i}-${t.label}`}
                         style={{
-                          padding: "20px 14px",
+                          padding: "24px 16px",
                           textAlign: "center",
                           borderRight: i < 3 ? "1px solid rgba(226, 232, 240, 0.95)" : undefined,
                         }}
                       >
-                        <div style={{ fontSize: 34, lineHeight: 1 }} aria-hidden>
+                        <div
+                          style={{
+                            width: 56,
+                            height: 56,
+                            margin: "0 auto",
+                            borderRadius: 999,
+                            background: "linear-gradient(145deg, #0f172a 0%, #1e3a8a 100%)",
+                            border: "2px solid rgba(234, 88, 12, 0.45)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 26,
+                            lineHeight: 1,
+                          }}
+                          aria-hidden
+                        >
                           {t.icon}
                         </div>
                         <div
                           style={{
-                            marginTop: 10,
-                            fontSize: 13,
+                            marginTop: 12,
+                            fontSize: 15,
                             fontWeight: 900,
-                            color: "#0f172a",
-                            letterSpacing: "0.05em",
+                            color: "#ea580c",
+                            letterSpacing: "0.06em",
+                            lineHeight: 1.25,
                           }}
                         >
                           {t.label}
@@ -12298,88 +12577,120 @@ const handleFinishDealerEnrollment = async () => {
                         {t.sub ? (
                           <div
                             style={{
-                              marginTop: 6,
-                              fontSize: 12,
+                              marginTop: 8,
+                              fontSize: 13,
                               fontWeight: 600,
                               color: "#64748b",
-                              lineHeight: 1.4,
+                              lineHeight: 1.45,
+                              maxWidth: 220,
+                              marginLeft: "auto",
+                              marginRight: "auto",
                             }}
                           >
-                            {t.sub.length > 64 ? `${t.sub.slice(0, 61)}…` : t.sub}
+                            {t.sub.length > 72 ? `${t.sub.slice(0, 69)}â€¦` : t.sub}
                           </div>
                         ) : null}
                       </div>
                     ))}
                   </div>
 
-                  <div
+                  <section
                     style={{
-                      padding: "24px 28px 8px",
+                      padding: "36px 44px 40px",
                       display: "grid",
-                      gap: 18,
-                      background: "#f8fafc",
+                      gap: 32,
+                      background: "#ffffff",
                     }}
                   >
-                    <div
+                    <section
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
-                        gap: 18,
+                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                        gap: 20,
                         alignItems: "stretch",
                       }}
                     >
-                      {sePosterSection(
-                        "Best-fit applications",
-                        sePosterAppLines.length
-                          ? sePosterBullets(sePosterAppLines, "", 5)
-                          : sePosterBullets([], "Generate a draft for application cues.", 3)
-                      )}
-                      {sePosterSection(
-                        "Key specifications / approvals",
-                        sePosterSpecLines.length
-                          ? sePosterChips(sePosterSpecLines, "blue", 4)
-                          : sePosterBullets([], "Specification detail appears when present in the package.", 3)
-                      )}
-                    </div>
-                    <div
+                      {salesSheet.applications.length
+                        ? seNanoFlyerCard(
+                            "Best-fit applications",
+                            seNanoAppTiles(salesSheet.applications, 6) ||
+                              seNanoCheckBullets(salesSheet.applications, 5)
+                          )
+                        : null}
+                      {salesSheet.whyThisProduct.length
+                        ? seNanoFlyerCard(
+                            "Why this product?",
+                            seNanoCheckBullets(salesSheet.whyThisProduct, 5)
+                          )
+                        : null}
+                      {salesSheet.repTalkTrack.length
+                        ? seNanoFlyerCard(
+                            "Rep talk track",
+                            seNanoCheckBullets(salesSheet.repTalkTrack, 4)
+                          )
+                        : null}
+                    </section>
+                    <section
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))",
-                        gap: 18,
+                        gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                        gap: 20,
                         alignItems: "stretch",
                       }}
                     >
-                      {sePosterSection(
-                        "Rep talk track",
-                        sePosterRepTalkLines.length
-                          ? sePosterBullets(sePosterRepTalkLines, "", 4)
-                          : sePosterBullets([], "Coaching angles appear when present in the package.", 3)
-                      )}
-                      {sePosterSection(
-                        "Questions to ask your customer",
-                        sePosterDiscoveryQs.length
-                          ? sePosterBullets(sePosterDiscoveryQs, "", 4)
-                          : sePosterBullets([], "Discovery prompts appear when present in the package.", 3)
-                      )}
-                    </div>
-                  </div>
-
-                  {(() => {
-                    const rec = String(seAssemblyPkg?.recommendedAction || "").trim();
-                    const cta = String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview || "").trim();
-                    return (
-                      <div
+                      {salesSheet.crossSell.length
+                        ? seNanoFlyerCard(
+                            "Cross-sell & system solutions",
+                            seNanoCrossSellTiles(salesSheet.crossSell, 4)
+                          )
+                        : null}
+                      {salesSheet.discoveryQuestions.length
+                        ? seNanoFlyerCard(
+                            "Questions to ask your customer",
+                            seNanoQuestionList(salesSheet.discoveryQuestions, 5)
+                          )
+                        : null}
+                      {salesSheet.cautions.length
+                        ? seNanoFlyerCard(
+                            "Use / handling / cautions",
+                            seNanoCheckBullets(salesSheet.cautions, 4, true)
+                          )
+                        : null}
+                    </section>
+                    {salesSheet.recommendedNextStep ? (
+                      <section
                         style={{
-                          margin: "0 28px 20px",
                           borderRadius: 12,
                           overflow: "hidden",
                           background: "linear-gradient(98deg, #ea580c 0%, #c2410c 42%, #1e3a8a 100%)",
                           boxShadow: "0 14px 36px rgba(194, 65, 12, 0.28)",
+                          display: "grid",
+                          gridTemplateColumns: "auto 1fr",
+                          gap: 18,
+                          alignItems: "center",
+                          padding: "20px 24px",
+                          color: "#ffffff",
                         }}
                       >
-                        <div style={{ padding: "18px 22px", color: "#ffffff" }}>
-                          <div
+                        <span
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 10,
+                            background: "rgba(255,255,255,0.16)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 22,
+                          }}
+                          aria-hidden
+                        >
+                          â†’
+                        </span>
+                        <section>
+                          <p
                             style={{
+                              margin: 0,
                               fontSize: 10,
                               fontWeight: 900,
                               letterSpacing: "0.14em",
@@ -12387,139 +12698,91 @@ const handleFinishDealerEnrollment = async () => {
                             }}
                           >
                             RECOMMENDED NEXT STEP
-                          </div>
-                          <div
+                          </p>
+                          <p
                             style={{
-                              marginTop: 8,
-                              fontSize: 19,
+                              margin: "8px 0 0",
+                              fontSize: 18,
                               fontWeight: 900,
                               lineHeight: 1.32,
                             }}
                           >
-                            {rec ||
-                              "Open Prepare Send when routing is confirmed — reps get this narrative through the standard workflow."}
-                          </div>
-                          {cta ? (
-                            <div
-                              style={{
-                                marginTop: 12,
-                                display: "inline-block",
-                                padding: "9px 14px",
-                                borderRadius: 8,
-                                background: "#ffffff",
-                                fontSize: 13,
-                                fontWeight: 900,
-                                color: "#c2410c",
-                              }}
-                            >
-                              {cta}
-                            </div>
-                          ) : null}
-                          {sePosterCrossSell.length ? (
-                            <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.28)" }}>
-                              <div
-                                style={{
-                                  fontSize: 9,
-                                  fontWeight: 900,
-                                  letterSpacing: "0.14em",
-                                  marginBottom: 8,
-                                  opacity: 0.9,
-                                }}
-                              >
-                                CROSS-SELL & SYSTEM SOLUTIONS
-                              </div>
-                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                {sePosterCrossSell.map((c, i) => (
-                                  <span
-                                    key={`xs-poster-${i}`}
-                                    style={{
-                                      fontSize: 11,
-                                      fontWeight: 800,
-                                      padding: "6px 11px",
-                                      borderRadius: 999,
-                                      background: "rgba(255,255,255,0.16)",
-                                      border: "1px solid rgba(255,255,255,0.35)",
-                                    }}
-                                  >
-                                    {c.length > 64 ? `${c.slice(0, 61)}…` : c}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })()}
+                            {salesSheet.recommendedNextStep}
+                          </p>
+                        </section>
+                      </section>
+                    ) : null}
+                  </section>
 
-                  {sePosterGuardrailLines.length ? (
-                    <div style={{ padding: "0 28px 16px", background: "#f8fafc" }}>
-                      {sePosterSection(
-                        "Use / handling / compliance cautions",
-                        sePosterBullets(sePosterGuardrailLines, "", 3)
-                      )}
-                    </div>
-                  ) : null}
-
-                  <div
+                  <section
                     style={{
-                      padding: "14px 22px 10px",
-                      background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 100%)",
+                      padding: "24px 44px",
+                      background: "#f8fafc",
                       borderTop: "1px solid rgba(226, 232, 240, 0.95)",
-                      display: "flex",
-                      justifyContent: "center",
+                      textAlign: "center",
                     }}
                   >
                     <img
-                      src={SE_POSTER_ASSET_PRODUCTS}
-                      alt="Klondike product lineup"
+                      src="/products.png"
+                      alt="Klondike lubricants product lineup"
                       decoding="async"
                       style={{
-                        width: "100%",
-                        maxWidth: 440,
+                        maxWidth: "100%",
+                        width: "min(920px, 100%)",
                         height: "auto",
+                        maxHeight: 72,
                         objectFit: "contain",
-                        display: "block",
-                      }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
+                        display: "inline-block",
                       }}
                     />
-                  </div>
+                  </section>
 
-                  <div
+                  <section
                     style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      justifyContent: "space-between",
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto 1fr",
                       alignItems: "center",
-                      gap: 10,
-                      padding: "12px 22px",
+                      gap: 16,
+                      padding: "18px 44px",
                       background: "#0f172a",
                       borderTop: "4px solid #ea580c",
+                      color: "#ffffff",
                     }}
                   >
-                    <div
+                    <section
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 8,
+                        gap: 10,
                         minWidth: 0,
+                        justifySelf: "start",
                       }}
                     >
                       <img
-                        src={SE_POSTER_ASSET_FAVICON}
+                        src="/favicon.png"
                         alt=""
                         decoding="async"
-                        style={{ width: 20, height: 20, flexShrink: 0, display: "block" }}
+                        style={{ width: 22, height: 22, flexShrink: 0, display: "block" }}
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
                         }}
                       />
-                      <div style={{ fontSize: 11, fontWeight: 900, color: "#ffffff", letterSpacing: "0.02em" }}>
-                        KLONDIKE | Dependable Products. Real Solutions.
-                      </div>
-                    </div>
+                      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em" }}>
+                        KLONDIKE PERFORMANCE LUBRICANTS
+                      </span>
+                    </section>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 900,
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        textAlign: "center",
+                        justifySelf: "center",
+                      }}
+                    >
+                      DEPENDABLE PRODUCTS. REAL SOLUTIONS.
+                    </span>
                     <a
                       href="https://klondikelubricants.com"
                       target="_blank"
@@ -12529,12 +12792,16 @@ const handleFinishDealerEnrollment = async () => {
                         fontWeight: 800,
                         color: "#fb923c",
                         textDecoration: "none",
+                        justifySelf: "end",
                       }}
                     >
                       klondikelubricants.com
                     </a>
-                  </div>
+                  </section>
                 </div>
+            );
+            const guidedSeTrainingPreviewExtras = (
+              <>
                 {seGuidedKnowledgePreviewMock ? (
                   <div
                     style={{
@@ -12605,12 +12872,12 @@ const handleFinishDealerEnrollment = async () => {
                   </summary>
                   <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
                     <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
-                      Custom notes prepend in the operational send panel — same behavior as before.
+                      Custom notes prepend in the operational send panel â€” same behavior as before.
                     </p>
                     <textarea
                       value={salesEnablementPreparedIntro}
                       onChange={(e) => setSalesEnablementPreparedIntro(e.target.value)}
-                      placeholder="Optional intro for dealer-facing send…"
+                      placeholder="Optional intro for dealer-facing sendâ€¦"
                       rows={3}
                       style={{
                         width: "100%",
@@ -12724,14 +12991,14 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#1e40af" }}>
-                      {"STEP 1 — AUDIENCE"}
+                      {"STEP 1 â€” AUDIENCE"}
                     </div>
                     <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
                       Who should receive this?
                     </p>
                     <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
                       Choose a dealer organization for routing context (same list as Dealer Enablement Intelligence).{" "}
-                      <strong style={{ color: "#334155" }}>Send to all dealers</strong> is a planning flag only—Prepare
+                      <strong style={{ color: "#334155" }}>Send to all dealers</strong> is a planning flag onlyâ€”Prepare
                       Send still targets one org until broadcast send is approved.
                     </p>
                     <div
@@ -12763,7 +13030,7 @@ const handleFinishDealerEnrollment = async () => {
                             cursor: "pointer",
                           }}
                         >
-                          <option value="">Select dealer…</option>
+                          <option value="">Select dealerâ€¦</option>
                           {seWizardDealerRows.map((d) => (
                             <option key={String(d.organization_id)} value={String(d.organization_id)}>
                               {d.name || "Dealer"}
@@ -12831,7 +13098,7 @@ const handleFinishDealerEnrollment = async () => {
                             </strong>
                           </>
                         ) : (
-                          <>No dealer selected yet—required for quick picks and Prepare Send.</>
+                          <>No dealer selected yetâ€”required for quick picks and Prepare Send.</>
                         )}
                       </div>
                     </div>
@@ -12839,7 +13106,7 @@ const handleFinishDealerEnrollment = async () => {
 
                   <div style={{ display: "grid", gap: 12 }}>
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-                      {"STEP 2 — CONTENT TYPE"}
+                      {"STEP 2 â€” CONTENT TYPE"}
                     </div>
                     <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
                       What do you want to create?
@@ -12925,7 +13192,7 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-                      {"STEP 3 — GENERATE DRAFT"}
+                      {"STEP 3 â€” GENERATE DRAFT"}
                     </div>
                     <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: "#0f172a", lineHeight: 1.35 }}>
                       Choose inputs, generate a first draft, then review.
@@ -12935,7 +13202,7 @@ const handleFinishDealerEnrollment = async () => {
                     </p>
                     {!messageKindReady ? (
                       <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", fontWeight: 700, lineHeight: 1.45 }}>
-                        Pick Step 2 first—then complete the fields below.
+                        Pick Step 2 firstâ€”then complete the fields below.
                       </p>
                     ) : null}
                     {messageKindReady ? (
@@ -12968,7 +13235,7 @@ const handleFinishDealerEnrollment = async () => {
                                     color: "#0f172a",
                                   }}
                                 >
-                                  <option value="">Select…</option>
+                                  <option value="">Selectâ€¦</option>
                                   {SE_GUIDED_STEP3_PROFILE_INDUSTRIES.map((label) => (
                                     <option key={label} value={label}>
                                       {label}
@@ -12992,7 +13259,7 @@ const handleFinishDealerEnrollment = async () => {
                                     color: "#0f172a",
                                   }}
                                 >
-                                  <option value="">— None —</option>
+                                  <option value="">â€” None â€”</option>
                                   {SE_GUIDED_STEP3_PROFILE_FOCUS_OPTIONS.map((label) => (
                                     <option key={label} value={label}>
                                       {label}
@@ -13019,7 +13286,7 @@ const handleFinishDealerEnrollment = async () => {
                                     color: "#0f172a",
                                   }}
                                 >
-                                  <option value="">Select a category…</option>
+                                  <option value="">Select a categoryâ€¦</option>
                                   {seGuidedStep3CategoryDropdownOptions.map((opt) => (
                                     <option key={opt.key} value={opt.key}>
                                       {opt.label}
@@ -13049,7 +13316,7 @@ const handleFinishDealerEnrollment = async () => {
                                     }}
                                   >
                                     <option value="">
-                                      {seGuidedStep3CategoryKey ? "Select a product…" : "Pick a category first…"}
+                                      {seGuidedStep3CategoryKey ? "Select a productâ€¦" : "Pick a category firstâ€¦"}
                                     </option>
                                     {seGuidedStep3ProductsForCategory.map((row) => {
                                       const hint = String(row.canonicalFamily || row.category || row.productFamily || "")
@@ -13057,7 +13324,7 @@ const handleFinishDealerEnrollment = async () => {
                                       return (
                                         <option key={row.id} value={row.id}>
                                           {String(row.productName || "").trim() || row.id}
-                                          {hint ? ` · ${hint}` : ""}
+                                          {hint ? ` Â· ${hint}` : ""}
                                         </option>
                                       );
                                     })}
@@ -13072,7 +13339,7 @@ const handleFinishDealerEnrollment = async () => {
                               type="text"
                               value={seGuidedAssemblyContextNote}
                               onChange={(e) => setSeGuidedAssemblyContextNote(e.target.value)}
-                              placeholder="e.g. Focus on uptime · Spring PM season · Wet brake chatter · Food plant maintenance…"
+                              placeholder="e.g. Focus on uptime Â· Spring PM season Â· Wet brake chatter Â· Food plant maintenanceâ€¦"
                               style={{
                                 borderRadius: 10,
                                 padding: "10px 12px",
@@ -13084,6 +13351,167 @@ const handleFinishDealerEnrollment = async () => {
                               }}
                             />
                           </label>
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: 8,
+                              padding: "12px 12px 14px",
+                              borderRadius: 12,
+                              border: "1px solid rgba(226, 232, 240, 0.98)",
+                              background: "#f8fafc",
+                            }}
+                          >
+                            <input
+                              id="kl-se-guided-product-image-upload"
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                              style={{ display: "none" }}
+                              onChange={handleSeGuidedProductImageFileInput}
+                            />
+                            <div style={{ fontSize: 11, fontWeight: 900, color: "#0f172a", letterSpacing: "0.06em" }}>
+                              Optional Product Image
+                            </div>
+                            <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.45, fontWeight: 600 }}>
+                              Upload a product image to personalize the spotlight preview.
+                            </p>
+                            <div
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSeGuidedProductImageDropActive(true);
+                              }}
+                              onDragLeave={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSeGuidedProductImageDropActive(false);
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSeGuidedProductImageDropActive(false);
+                                const file = e.dataTransfer?.files?.[0];
+                                if (file) applySeGuidedUploadedProductImageFile(file);
+                              }}
+                              style={{
+                                borderRadius: 10,
+                                padding: "14px 12px",
+                                border: seGuidedProductImageDropActive
+                                  ? "2px dashed rgba(234, 88, 12, 0.85)"
+                                  : "2px dashed rgba(148, 163, 184, 0.55)",
+                                background: seGuidedProductImageDropActive ? "#fff7ed" : "#ffffff",
+                                display: "grid",
+                                gap: 10,
+                                justifyItems: "center",
+                                textAlign: "center",
+                              }}
+                            >
+                              {seGuidedUploadedProductImageUrl &&
+                              !seGuidedUploadedProductImagePreviewFailed ? (
+                                <img
+                                  src={seGuidedUploadedProductImageUrl}
+                                  alt=""
+                                  decoding="async"
+                                  style={{
+                                    maxWidth: "100%",
+                                    maxHeight: 120,
+                                    objectFit: "contain",
+                                    borderRadius: 8,
+                                    border: "1px solid rgba(226, 232, 240, 0.98)",
+                                    background: "#ffffff",
+                                  }}
+                                />
+                              ) : (
+                                <label
+                                  htmlFor="kl-se-guided-product-image-upload"
+                                  style={{
+                                    cursor: "pointer",
+                                    display: "grid",
+                                    gap: 6,
+                                    justifyItems: "center",
+                                  }}
+                                >
+                                  <div style={{ fontSize: 24, lineHeight: 1 }} aria-hidden>
+                                    â¬†
+                                  </div>
+                                  <div style={{ fontSize: 11, fontWeight: 800, color: "#1e3a8a" }}>
+                                    Click or drag a product photo here
+                                  </div>
+                                  <div style={{ fontSize: 10, fontWeight: 600, color: "#94a3b8" }}>
+                                    PNG, JPG, or WebP Â· preview only
+                                  </div>
+                                </label>
+                              )}
+                            </div>
+                            {seGuidedUploadedProductImageFile?.name ? (
+                              <div style={{ fontSize: 11, fontWeight: 700, color: "#334155" }}>
+                                Selected:{" "}
+                                <span style={{ color: "#0f172a" }}>
+                                  {String(seGuidedUploadedProductImageFile.name).length > 48
+                                    ? `${String(seGuidedUploadedProductImageFile.name).slice(0, 45)}â€¦`
+                                    : seGuidedUploadedProductImageFile.name}
+                                </span>
+                              </div>
+                            ) : null}
+                            {seGuidedUploadedProductImagePreviewFailed ? (
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: "#b45309",
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                We could not preview that image. Try another PNG, JPG, or WebP file.
+                              </div>
+                            ) : null}
+                            {seGuidedUploadedProductImageError ? (
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  color: "#b91c1c",
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                {seGuidedUploadedProductImageError}
+                              </div>
+                            ) : null}
+                            {seGuidedUploadedProductImageUrl ? (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                <label
+                                  htmlFor="kl-se-guided-product-image-upload"
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    padding: "6px 10px",
+                                    borderRadius: 8,
+                                    border: "1px solid rgba(30, 58, 138, 0.35)",
+                                    background: "#ffffff",
+                                    color: "#1e3a8a",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Replace
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={clearSeGuidedUploadedProductImage}
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    padding: "6px 10px",
+                                    borderRadius: 8,
+                                    border: "1px solid #e2e8f0",
+                                    background: "#ffffff",
+                                    color: "#64748b",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                             <button
                               type="button"
@@ -13134,7 +13562,7 @@ const handleFinishDealerEnrollment = async () => {
                               {seGuidedAssemblyDraftPackage?.ok ? "Refresh Klondike Draft" : "Generate Klondike Draft"}
                             </button>
                             {seGuidedAssemblyDraftBusy ? (
-                              <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Working…</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Workingâ€¦</span>
                             ) : null}
                           </div>
                           {seGuidedAssemblyDraftError ? (
@@ -13222,7 +13650,7 @@ const handleFinishDealerEnrollment = async () => {
                                       RECOMMENDED ACTION
                                     </div>
                                     <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", lineHeight: 1.4 }}>
-                                      {String(seGuidedAssemblyDraftPackage.recommendedAction || "—")}
+                                      {String(seGuidedAssemblyDraftPackage.recommendedAction || "â€”")}
                                     </div>
                                   </div>
                                   <div
@@ -13245,7 +13673,7 @@ const handleFinishDealerEnrollment = async () => {
                                       WHY THIS MATTERS
                                     </div>
                                     <div style={{ fontSize: 12, fontWeight: 700, color: "#334155", lineHeight: 1.4 }}>
-                                      {String(seGuidedAssemblyDraftPackage.summary || "—")}
+                                      {String(seGuidedAssemblyDraftPackage.summary || "â€”")}
                                     </div>
                                   </div>
                                 </div>
@@ -13278,7 +13706,7 @@ const handleFinishDealerEnrollment = async () => {
                                         >
                                           {String(row?.productName || "").trim() || "Product"}{" "}
                                           <span style={{ color: "#64748b", fontWeight: 600 }}>
-                                            · {String(row?.canonicalFamily || "").trim()}
+                                            Â· {String(row?.canonicalFamily || "").trim()}
                                           </span>
                                         </div>
                                       ))}
@@ -13356,7 +13784,7 @@ const handleFinishDealerEnrollment = async () => {
                     {false && messageKindReady && seGuidedWizardMessageKind === "customer_profile" ? (
                       <div style={{ display: "grid", gap: 10 }}>
                         <div style={{ fontSize: 11, fontWeight: 800, color: "#475569" }}>
-                          Reference profile (preview lens · not a new send type)
+                          Reference profile (preview lens Â· not a new send type)
                         </div>
                         <div
                           style={{
@@ -13393,7 +13821,7 @@ const handleFinishDealerEnrollment = async () => {
                           })}
                         </div>
                         <p style={{ margin: 0, fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
-                          Spotlight email send still uses a library product or category row—this profile only sharpens
+                          Spotlight email send still uses a library product or category rowâ€”this profile only sharpens
                           how you read the preview and talk track alongside reps.
                         </p>
                       </div>
@@ -13492,8 +13920,8 @@ const handleFinishDealerEnrollment = async () => {
                         QUICK LIBRARY SCENARIOS
                       </div>
                       <p style={{ margin: "0 0 10px", fontSize: 11, color: "#94a3b8", lineHeight: 1.45, maxWidth: 900 }}>
-                        One-tap applies a spotlight into this Guided Spotlight Wizard preview; “Open in Advanced Library” only switches the
-                        library tab—no automatic send.
+                        One-tap applies a spotlight into this Guided Spotlight Wizard preview; â€œOpen in Advanced Libraryâ€ only switches the
+                        library tabâ€”no automatic send.
                       </p>
                       <div
                         style={{
@@ -13529,7 +13957,7 @@ const handleFinishDealerEnrollment = async () => {
                           },
                           {
                             title: "Stage Synthetic Conversion Message",
-                            blurb: "Premium-tier framing aligned to OEM guidance—not mileage hype.",
+                            blurb: "Premium-tier framing aligned to OEM guidanceâ€”not mileage hype.",
                             onPrimary: () =>
                               guidedPickSpotlight("cs-synthetic-upgrade", "category", { syntheticIntro: true }),
                             onSecondary: () => {
@@ -13542,7 +13970,7 @@ const handleFinishDealerEnrollment = async () => {
                           },
                           {
                             title: "Request Dealer Training",
-                            blurb: "Mock scheduler banner—no invites or outbound automation.",
+                            blurb: "Mock scheduler bannerâ€”no invites or outbound automation.",
                             onPrimary: () => {
                               const dn =
                                 (Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : []).find(
@@ -13551,7 +13979,7 @@ const handleFinishDealerEnrollment = async () => {
                               setSalesEnablementSendNotice({
                                 kind: "info",
                                 text: formatKlAdminTrainingSchedulerMockNotice({
-                                  topic: "Grease · hydraulic · synthetic enablement refresh",
+                                  topic: "Grease Â· hydraulic Â· synthetic enablement refresh",
                                   audience: salesEnablementDealerOrgId ? dn : "Territory managers",
                                   nextSuggestedAction:
                                     "Align with dealer principals on attendees before enabling LMS hooks.",
@@ -13654,7 +14082,7 @@ const handleFinishDealerEnrollment = async () => {
                         <strong style={{ color: "#475569" }}>customer profiles</strong>, and{" "}
                         <strong style={{ color: "#475569" }}>LFBB structure</strong> to generate{" "}
                         <strong style={{ color: "#475569" }}>preview-only</strong> draft lines you can contrast with your
-                        library selection—without changing how you send today.
+                        library selectionâ€”without changing how you send today.
                       </p>
                     </div>
                   </details>
@@ -13670,7 +14098,7 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#1e3a8a" }}>
-                      STEP 4 — PREVIEW & SEND
+                      STEP 4 â€” PREVIEW & SEND
                     </div>
                     <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#475569", lineHeight: 1.5, maxWidth: 860 }}>
                       Review the KLONDIKE-generated material, make edits if needed, then send.
@@ -13706,7 +14134,7 @@ const handleFinishDealerEnrollment = async () => {
                         {seToggleRow(seGuidedAttachPds, setSeGuidedAttachPds, "Attach PDS")}
                         {seToggleRow(seGuidedStageDraft, setSeGuidedStageDraft, "Stage as draft")}
                         <p style={{ margin: "6px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
-                          These toggles only reshape the preview—delivery still flows through Prepare Send / Send Spotlight when you enable it.
+                          These toggles only reshape the previewâ€”delivery still flows through Prepare Send / Send Spotlight when you enable it.
                         </p>
 
                         <div
@@ -13781,13 +14209,43 @@ const handleFinishDealerEnrollment = async () => {
                             </div>
                             <p style={{ margin: 0, fontSize: 10, color: "#64748b", lineHeight: 1.4 }}>
                               Mock picks are preview-only today. Future: per-spotlight uploads with Supabase-backed
-                              storage—not wired yet.
+                              storageâ€”not wired yet.
                             </p>
                           </div>
                         </div>
                       </div>
                     </details>
 
+                    {seUseProductSpotlightSellSheet ? (
+                      <>
+                        <section
+                          style={{
+                            width: "100%",
+                            maxWidth: 1140,
+                            margin: "0 auto",
+                            padding: "24px 12px 8px",
+                            boxSizing: "border-box",
+                            background: "#0f172a",
+                          }}
+                        >
+                          {productSpotlightSellSheetPreview}
+                        </section>
+                        <section
+                          style={{
+                            width: "100%",
+                            maxWidth: 1140,
+                            margin: "0 auto",
+                            minWidth: 0,
+                            display: "grid",
+                            gap: 14,
+                            padding: "0 12px 8px",
+                            boxSizing: "border-box",
+                          }}
+                        >
+                          {guidedSeTrainingPreviewExtras}
+                        </section>
+                      </>
+                    ) : (
                     <div
                       style={{
                         borderRadius: 18,
@@ -13813,12 +14271,12 @@ const handleFinishDealerEnrollment = async () => {
                       >
                         <div style={{ display: "grid", gap: 4, minWidth: 0 }}>
                           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", color: "#1e3a8a" }}>
-                            KLONDIKE · TRAINING SHEET (PREVIEW)
+                            KLONDIKE Â· TRAINING SHEET (PREVIEW)
                           </div>
                           <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", lineHeight: 1.4 }}>
-                            Infographic layout — skim before send
+                            Infographic layout â€” skim before send
                             {seGuidedWizardMessageKind === "customer_profile" ? (
-                              <span style={{ color: "#059669" }}> · Profile lens: {wizardProfileTitle}</span>
+                              <span style={{ color: "#059669" }}> Â· Profile lens: {wizardProfileTitle}</span>
                             ) : null}
                           </div>
                         </div>
@@ -13917,7 +14375,7 @@ const handleFinishDealerEnrollment = async () => {
                                   color: "#64748b",
                                 }}
                               >
-                                Uncheck for the standard message-body preview. Preview-only toggle — outbound flow
+                                Uncheck for the standard message-body preview. Preview-only toggle â€” outbound flow
                                 unchanged.
                               </span>
                             </span>
@@ -13948,10 +14406,12 @@ const handleFinishDealerEnrollment = async () => {
                             padding: "14px 16px 18px",
                             display: "grid",
                             gap: 14,
+                            minWidth: 0,
                             background: "linear-gradient(180deg, #fafbfc 0%, #ffffff 22%)",
                           }}
                         >
-                          {guidedSeTrainingInfographicInner}
+                          {guidedSeTrainingLegacyPosterInner}
+                          {guidedSeTrainingPreviewExtras}
 
                           {false && previewSendUsesFlagship ? (
                             <details
@@ -14016,11 +14476,11 @@ const handleFinishDealerEnrollment = async () => {
                                         color: "#0f766e",
                                       }}
                                     >
-                                      NANO EP 2 · FIELD ANCHORS
+                                      NANO EP 2 Â· FIELD ANCHORS
                                     </div>
                                     <div style={{ fontSize: 13, fontWeight: 800, color: "#134e4a", lineHeight: 1.45 }}>
-                                      <strong>800 kg</strong> 4-ball weld · <strong>{"<1%"}</strong> washout ·{" "}
-                                      <strong>~316 °C</strong> dropping point — crushers, hammers, pins & bushings in wet
+                                      <strong>800 kg</strong> 4-ball weld Â· <strong>{"<1%"}</strong> washout Â·{" "}
+                                      <strong>~316 Â°C</strong> dropping point â€” crushers, hammers, pins & bushings in wet
                                       severe-duty.
                                     </div>
                                   </div>
@@ -14107,7 +14567,7 @@ const handleFinishDealerEnrollment = async () => {
                                         color: "#0e7490",
                                       }}
                                     >
-                                      PDS-BACKED FIELD PROOF · DETAIL
+                                      PDS-BACKED FIELD PROOF Â· DETAIL
                                     </div>
                                     <div
                                       style={{
@@ -14205,7 +14665,7 @@ const handleFinishDealerEnrollment = async () => {
                                       color: "#94a3b8",
                                     }}
                                   >
-                                    SPOTLIGHT STRUCTURE · LFBB (REFERENCE)
+                                    SPOTLIGHT STRUCTURE Â· LFBB (REFERENCE)
                                   </div>
                                   <div
                                     style={{
@@ -14376,8 +14836,8 @@ const handleFinishDealerEnrollment = async () => {
                                       </span>
                                       <span style={{ fontSize: 11, color: "#64748b" }}>
                                         {seGuidedStageDraft
-                                          ? "Preview locked for leadership scan—mock only."
-                                          : "Draft staging off — compose treats preview as fluid."}
+                                          ? "Preview locked for leadership scanâ€”mock only."
+                                          : "Draft staging off â€” compose treats preview as fluid."}
                                       </span>
                                     </div>
                                     <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", alignItems: "baseline" }}>
@@ -14405,7 +14865,7 @@ const handleFinishDealerEnrollment = async () => {
                                           ? "Use Prepare Send / Send Spotlight when routing is confirmed."
                                           : hasSpotlight && hasDealer && seGuidedStageDraft
                                             ? "Clear draft staging or open Prepare Send after review."
-                                            : "Complete selections — operational send stays unchanged below."}
+                                            : "Complete selections â€” operational send stays unchanged below."}
                                       </span>
                                     </div>
                                   </div>
@@ -14416,6 +14876,8 @@ const handleFinishDealerEnrollment = async () => {
                         </div>
                       </div>
                       </div>
+                    </div>
+                    )}
 
                       <details
                         id="kl-se-guided-send-workflow"
@@ -14443,7 +14905,7 @@ const handleFinishDealerEnrollment = async () => {
                           <strong style={{ color: "#c2410c" }}>Mock path:</strong> draft staging and notices stay local
                           to this wizard.{" "}
                           <strong style={{ color: "#1d4ed8" }}>Approved path:</strong> Prepare Send and Send Spotlight
-                          behave exactly as before—the same checks and routing you already use.
+                          behave exactly as beforeâ€”the same checks and routing you already use.
                         </p>
 
                       {guidedStep === 5 ? (
@@ -14479,11 +14941,11 @@ const handleFinishDealerEnrollment = async () => {
                           >
                             <span>Preview what would send (read-only)</span>
                             <span aria-hidden style={{ fontSize: 10, color: "#64748b" }}>
-                              {seGuidedApprovedSendDryRunOpen ? "▼" : "▶"}
+                              {seGuidedApprovedSendDryRunOpen ? "â–¼" : "â–¶"}
                             </span>
                           </button>
                           <div style={{ fontSize: 10, fontWeight: 700, color: "#64748b", lineHeight: 1.45 }}>
-                            Read-only preview — your live send buttons below are unchanged.
+                            Read-only preview â€” your live send buttons below are unchanged.
                           </div>
                           {seGuidedApprovedSendDryRunOpen ? (
                             <div
@@ -14545,19 +15007,19 @@ const handleFinishDealerEnrollment = async () => {
                                 }}
                               >
                                 <div>
-                                  <strong style={{ color: "#c2410c" }}>LINK</strong> {tplLfbbFromKnowledge?.link || "—"}
+                                  <strong style={{ color: "#c2410c" }}>LINK</strong> {tplLfbbFromKnowledge?.link || "â€”"}
                                 </div>
                                 <div>
                                   <strong style={{ color: "#c2410c" }}>FEATURE</strong>{" "}
-                                  {tplLfbbFromKnowledge?.feature || "—"}
+                                  {tplLfbbFromKnowledge?.feature || "â€”"}
                                 </div>
                                 <div>
                                   <strong style={{ color: "#c2410c" }}>BRIDGE</strong>{" "}
-                                  {tplLfbbFromKnowledge?.bridge || "—"}
+                                  {tplLfbbFromKnowledge?.bridge || "â€”"}
                                 </div>
                                 <div>
                                   <strong style={{ color: "#c2410c" }}>BENEFIT</strong>{" "}
-                                  {tplLfbbFromKnowledge?.benefit || "—"}
+                                  {tplLfbbFromKnowledge?.benefit || "â€”"}
                                 </div>
                               </div>
                               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
@@ -14600,14 +15062,14 @@ const handleFinishDealerEnrollment = async () => {
                                     </div>
                                   ))
                                 ) : (
-                                  <span style={{ fontSize: 12, color: "#94a3b8" }}>—</span>
+                                  <span style={{ fontSize: 12, color: "#94a3b8" }}>â€”</span>
                                 )}
                               </div>
                               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
                                 CALL TO ACTION
                               </div>
                               <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", lineHeight: 1.4 }}>
-                                {tplCtaFromKnowledge || "—"}
+                                {tplCtaFromKnowledge || "â€”"}
                               </div>
                               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
                                 PDS URL
@@ -14624,7 +15086,7 @@ const handleFinishDealerEnrollment = async () => {
                                   </a>
                                 </div>
                               ) : (
-                                <div style={{ fontSize: 12, color: "#94a3b8" }}>— (none resolved)</div>
+                                <div style={{ fontSize: 12, color: "#94a3b8" }}>â€” (none resolved)</div>
                               )}
                             </div>
                           ) : null}
@@ -14649,7 +15111,7 @@ const handleFinishDealerEnrollment = async () => {
                         }}
                       >
                         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", color: "#1e3a8a" }}>
-                          NEXT STEPS · SEND
+                          NEXT STEPS Â· SEND
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                         <button
@@ -14658,7 +15120,7 @@ const handleFinishDealerEnrollment = async () => {
                             if (!salesEnablementDealerOrgId || !salesEnablementSelectedId) {
                               setSalesEnablementSendNotice({
                                 kind: "info",
-                                text: "Pick a dealer and spotlight first—the preview above updates as you go.",
+                                text: "Pick a dealer and spotlight firstâ€”the preview above updates as you go.",
                               });
                               return;
                             }
@@ -14777,10 +15239,7 @@ const handleFinishDealerEnrollment = async () => {
                       </div>
                       </div>
                     </div>
-                  </div>
-                  </div>
 
-                </div>
 
                   <div
                     style={{
@@ -14834,7 +15293,7 @@ const handleFinishDealerEnrollment = async () => {
                           border: "1px solid rgba(148, 163, 184, 0.45)",
                         }}
                       >
-                        Read-only · not send payload
+                        Read-only Â· not send payload
                       </span>
                       </div>
                     </div>
@@ -14980,7 +15439,7 @@ const handleFinishDealerEnrollment = async () => {
                               ? String(keSp.title || "").trim()
                               : String(keSp.productName || "").trim();
                             const p2 = String(keSp.categoryTitle || "").trim();
-                            const mockProductLabel = [p1, p2].filter(Boolean).join(" · ").slice(0, 72) || p1 || "—";
+                            const mockProductLabel = [p1, p2].filter(Boolean).join(" Â· ").slice(0, 72) || p1 || "â€”";
                             const spotlightContextLine = (isCat ? p1 || p2 : p1 || p2).slice(0, 52);
                             const pdsFileHint = String(keSp.pdsFileHint || "").trim();
                             setSeGuidedKnowledgePreviewMock({
@@ -15097,7 +15556,7 @@ const handleFinishDealerEnrollment = async () => {
                             ))}
                           </ul>
                         ) : (
-                          <p style={{ margin: "6px 0 0", fontSize: 11, color: "#94a3b8" }}>—</p>
+                          <p style={{ margin: "6px 0 0", fontSize: 11, color: "#94a3b8" }}>â€”</p>
                         );
                       return (
                         <div
@@ -15117,24 +15576,24 @@ const handleFinishDealerEnrollment = async () => {
                             </span>
                             {!ke?.ok && (ke?.errors || []).length ? (
                               <span style={{ fontSize: 11, color: "#b91c1c", fontWeight: 600 }}>
-                                {(ke.errors || []).join(" · ")}
+                                {(ke.errors || []).join(" Â· ")}
                               </span>
                             ) : null}
                           </div>
                           <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", lineHeight: 1.35 }}>
-                            {heading || "—"}
+                            {heading || "â€”"}
                           </div>
                           <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
                             <strong style={{ color: "#64748b" }}>Category:</strong>{" "}
-                            {String(sp.categoryTitle || "").trim() || "—"}
+                            {String(sp.categoryTitle || "").trim() || "â€”"}
                           </div>
                           <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
                             <strong style={{ color: "#64748b" }}>Customer profile:</strong>{" "}
-                            {String(sp.customerProfileTitle || "").trim() || "—"}
+                            {String(sp.customerProfileTitle || "").trim() || "â€”"}
                           </div>
                           <div style={{ fontSize: 11, color: "#475569", lineHeight: 1.45 }}>
                             <strong style={{ color: "#64748b" }}>LFBB block:</strong>{" "}
-                            <code style={{ fontSize: 11, color: "#0f172a" }}>{String(sp.lfbbBlockId || "").trim() || "—"}</code>
+                            <code style={{ fontSize: 11, color: "#0f172a" }}>{String(sp.lfbbBlockId || "").trim() || "â€”"}</code>
                           </div>
                           {String(sp.lfbbSelectionReason || "").trim() ? (
                             <p style={{ margin: 0, fontSize: 10, color: "#94a3b8", lineHeight: 1.45 }}>
@@ -15156,18 +15615,18 @@ const handleFinishDealerEnrollment = async () => {
                               }}
                             >
                               <div>
-                                <span style={{ fontWeight: 800, color: "#64748b" }}>Link:</span> {lfbb.link || "—"}
+                                <span style={{ fontWeight: 800, color: "#64748b" }}>Link:</span> {lfbb.link || "â€”"}
                               </div>
                               <div>
                                 <span style={{ fontWeight: 800, color: "#64748b" }}>Feature:</span>{" "}
-                                {lfbb.feature || "—"}
+                                {lfbb.feature || "â€”"}
                               </div>
                               <div>
-                                <span style={{ fontWeight: 800, color: "#64748b" }}>Bridge:</span> {lfbb.bridge || "—"}
+                                <span style={{ fontWeight: 800, color: "#64748b" }}>Bridge:</span> {lfbb.bridge || "â€”"}
                               </div>
                               <div>
                                 <span style={{ fontWeight: 800, color: "#64748b" }}>Benefit:</span>{" "}
-                                {lfbb.benefit || "—"}
+                                {lfbb.benefit || "â€”"}
                               </div>
                             </div>
                           </div>
@@ -15188,7 +15647,7 @@ const handleFinishDealerEnrollment = async () => {
                               CTA
                             </div>
                             <div style={{ marginTop: 6, fontSize: 13, fontWeight: 700, color: "#0f172a", lineHeight: 1.45 }}>
-                              {String(sp.suggestedCta || "").trim() || "—"}
+                              {String(sp.suggestedCta || "").trim() || "â€”"}
                             </div>
                           </div>
                         </div>
@@ -15214,6 +15673,8 @@ const handleFinishDealerEnrollment = async () => {
                       Open optional knowledge tools (Guided Spotlight Wizard)
                     </button>
                   )}
+                </div>
+                  </div>
                 </div>
               </>
             );
@@ -15243,7 +15704,7 @@ const handleFinishDealerEnrollment = async () => {
                 SALES ENABLEMENT
               </div>
               <p style={{ margin: "8px 0 0", fontSize: 12, color: "#475569", fontWeight: 600, lineHeight: 1.45 }}>
-                Build and send spotlight messaging — start with the Guided Spotlight Wizard above, then expand{" "}
+                Build and send spotlight messaging â€” start with the Guided Spotlight Wizard above, then expand{" "}
                 <strong style={{ color: "#1d4ed8" }}>Browse Available Materials</strong> when you need the full library.
               </p>
               <p
@@ -15256,7 +15717,7 @@ const handleFinishDealerEnrollment = async () => {
                 }}
               >
                 <strong style={{ color: "#0f172a" }}>Capability preserved:</strong> dealer signals, spotlight
-                library, and manual sends remain in this tab—same payloads and routing as before.
+                library, and manual sends remain in this tabâ€”same payloads and routing as before.
               </p>
               <p
                 style={{
@@ -15271,7 +15732,7 @@ const handleFinishDealerEnrollment = async () => {
                 }}
               >
                 Manual delivery only: KL admins send branded spotlight email to dealer admins,
-                managers, and reps—no campaigns or automated schedules.
+                managers, and repsâ€”no campaigns or automated schedules.
               </p>
             </div>
 
@@ -15292,7 +15753,7 @@ const handleFinishDealerEnrollment = async () => {
                   letterSpacing: "0.05em",
                 }}
               >
-                Optional · dealer spotlight shortcuts
+                Optional Â· dealer spotlight shortcuts
               </summary>
               <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
             {salesEnablementDealerOrgId && salesEnablementPrimarySpotlightAction ? (
@@ -15421,7 +15882,7 @@ const handleFinishDealerEnrollment = async () => {
                 DEALER ENABLEMENT INTELLIGENCE
               </div>
               <p style={{ margin: "8px 0 0", fontSize: 12, color: "#475569", fontWeight: 600, lineHeight: 1.45 }}>
-                Dealer gap detection and recommended next actions — rule-based signals you can audit before you message.
+                Dealer gap detection and recommended next actions â€” rule-based signals you can audit before you message.
               </p>
               <p
                 style={{
@@ -15434,7 +15895,7 @@ const handleFinishDealerEnrollment = async () => {
               >
                 Dealer-scoped signals from quotes, proposal responses, approved-demand capture,
                 and OCR counts already loaded for Klondike Admin. Recommendations are rule-based
-                and auditable—no scoring fabrications.
+                and auditableâ€”no scoring fabrications.
               </p>
             </div>
 
@@ -15458,7 +15919,7 @@ const handleFinishDealerEnrollment = async () => {
                 KL Admin Intelligence Assistant
               </summary>
               <p style={{ margin: "10px 0 12px", fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
-                Sample next-best enablement paths (deterministic preview only—no routing or payload changes).
+                Sample next-best enablement paths (deterministic preview onlyâ€”no routing or payload changes).
               </p>
               <div style={{ display: "grid", gap: 10 }}>
                 {(
@@ -15486,7 +15947,7 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: "#94a3b8" }}>
-                      {rec.priority} · {String(rec.recommendedActionType || "").toUpperCase()}
+                      {rec.priority} Â· {String(rec.recommendedActionType || "").toUpperCase()}
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", marginTop: 4 }}>{rec.title}</div>
                     <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.45 }}>{rec.reason}</p>
@@ -15521,7 +15982,7 @@ const handleFinishDealerEnrollment = async () => {
                     cursor: "pointer",
                   }}
                 >
-                  <option value="">Select dealer…</option>
+                  <option value="">Select dealerâ€¦</option>
                   {(Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [])
                     .slice()
                     .sort((a, b) =>
@@ -15600,7 +16061,7 @@ const handleFinishDealerEnrollment = async () => {
 
                 {(salesEnablementDealerIntel.signals || []).length === 0 ? (
                   <div style={{ fontSize: 14, color: "#64748b", lineHeight: 1.5 }}>
-                    No dealer-level gaps matched current thresholds—keep monitoring as quotes and
+                    No dealer-level gaps matched current thresholdsâ€”keep monitoring as quotes and
                     approvals accumulate.
                   </div>
                 ) : (
@@ -16030,7 +16491,7 @@ const handleFinishDealerEnrollment = async () => {
                 </ul>
                 {salesEnablementRecipientPreview?.loading ? (
                   <p style={{ margin: "10px 0 0", fontSize: 13, color: "#64748b" }}>
-                    Loading recipient summary…
+                    Loading recipient summaryâ€¦
                   </p>
                 ) : salesEnablementRecipientPreview?.error ? (
                   <p style={{ margin: "10px 0 0", fontSize: 13, color: "#b45309", fontWeight: 700 }}>
@@ -16056,7 +16517,7 @@ const handleFinishDealerEnrollment = async () => {
                       if (c.dealer_admin) {
                         parts.push(`${c.dealer_admin} dealer admin${c.dealer_admin === 1 ? "" : "s"}`);
                       }
-                      const breakdown = parts.length ? ` — ${parts.join(", ")}` : "";
+                      const breakdown = parts.length ? ` â€” ${parts.join(", ")}` : "";
                       return `Sending to ${p.total} dealer user${p.total === 1 ? "" : "s"}${breakdown}`;
                     })()}
                   </p>
@@ -16070,7 +16531,7 @@ const handleFinishDealerEnrollment = async () => {
                 <textarea
                   value={salesEnablementPreparedIntro}
                   onChange={(e) => setSalesEnablementPreparedIntro(e.target.value)}
-                  placeholder="Optional intro—urgency, pilot scope, meeting follow-up. Shown at the top of the dealer email."
+                  placeholder="Optional introâ€”urgency, pilot scope, meeting follow-up. Shown at the top of the dealer email."
                   rows={3}
                   style={{
                     width: "100%",
@@ -16149,7 +16610,7 @@ const handleFinishDealerEnrollment = async () => {
                     "",
                     "Audience: dealer admins, managers, active reps (same routing as the email).",
                     "",
-                    "— Klondike Sales Enablement",
+                    "â€” Klondike Sales Enablement",
                   ].join("\n");
                 })()}
               </div>
@@ -16190,10 +16651,10 @@ const handleFinishDealerEnrollment = async () => {
                         : "#ffffff",
                   }}
                 >
-                  {salesEnablementSendBusy ? "Sending…" : "Send Spotlight"}
+                  {salesEnablementSendBusy ? "Sendingâ€¦" : "Send Spotlight"}
                 </button>
                 <p style={{ margin: 0, fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
-                  Delivered via Resend from the Klondike platform. Each send is manual—there is no
+                  Delivered via Resend from the Klondike platform. Each send is manualâ€”there is no
                   automation or bulk scheduling.
                 </p>
               </div>
@@ -16244,7 +16705,7 @@ const handleFinishDealerEnrollment = async () => {
                           })
                         : ""}
                       {typeof row.recipientCount === "number"
-                        ? ` · ${row.recipientCount} recipient${row.recipientCount === 1 ? "" : "s"}`
+                        ? ` Â· ${row.recipientCount} recipient${row.recipientCount === 1 ? "" : "s"}`
                         : ""}
                     </span>
                   </div>
@@ -16308,7 +16769,7 @@ const handleFinishDealerEnrollment = async () => {
                 listStyle: "none",
               }}
             >
-              Advanced Library — manual browse (expand)
+              Advanced Library â€” manual browse (expand)
             </summary>
             <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
             <div
@@ -16336,7 +16797,7 @@ const handleFinishDealerEnrollment = async () => {
                   whiteSpace: "nowrap",
                 }}
               >
-                SECONDARY · LIBRARY BROWSE
+                SECONDARY Â· LIBRARY BROWSE
               </span>
               <div
                 style={{
@@ -16378,10 +16839,10 @@ const handleFinishDealerEnrollment = async () => {
                     color: "#94a3b8",
                   }}
                 >
-                  LIBRARY PANEL · ALWAYS OPEN
+                  LIBRARY PANEL Â· ALWAYS OPEN
                 </span>
                 <span style={{ fontSize: 10, fontWeight: 700, color: "#cbd5e1" }} aria-hidden>
-                  ▾
+                  â–¾
                 </span>
               </div>
 
@@ -16411,7 +16872,7 @@ const handleFinishDealerEnrollment = async () => {
                   fontSize: 13,
                 }}
               >
-                Full spotlight taxonomy, customer profiles, and training references live here—secondary to the Guided
+                Full spotlight taxonomy, customer profiles, and training references live hereâ€”secondary to the Guided
                 Spotlight Wizard above, same capabilities as before.
               </p>
             </div>
@@ -16587,7 +17048,7 @@ const handleFinishDealerEnrollment = async () => {
                   const active = row.id === salesEnablementSelectedId;
                   const subtitle =
                     salesEnablementSpotlightMode === "product"
-                      ? `${row.productLine} · ${row.category}`
+                      ? `${row.productLine} Â· ${row.category}`
                       : row.category;
                   return (
                     <button
@@ -16676,7 +17137,7 @@ const handleFinishDealerEnrollment = async () => {
                       {selectedSalesEnablementSpotlight.title}
                     </div>
                     <div style={{ fontSize: 13, color: "#475569", marginTop: 6 }}>
-                      {selectedSalesEnablementSpotlight.productLine} ·{" "}
+                      {selectedSalesEnablementSpotlight.productLine} Â·{" "}
                       {selectedSalesEnablementSpotlight.category}
                     </div>
                   </div>
@@ -16916,7 +17377,7 @@ const handleFinishDealerEnrollment = async () => {
                     {pf.detail}
                   </p>
                   <p style={{ margin: "10px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.4 }}>
-                    Future industry education packs—no outbound delivery in this phase.
+                    Future industry education packsâ€”no outbound delivery in this phase.
                   </p>
                 </div>
               ))}
@@ -17005,7 +17466,7 @@ const handleFinishDealerEnrollment = async () => {
               }}
             >
               Deterministic suggestions from live territory signals (quotes, proposal responses,
-              approved demand rollup, OCR). No automated outreach—review spotlight copy before
+              approved demand rollup, OCR). No automated outreachâ€”review spotlight copy before
               external use.
             </p>
             {salesEnablementSpotlightSuggestions.length === 0 ? (
@@ -17067,8 +17528,8 @@ const handleFinishDealerEnrollment = async () => {
                               marginBottom: 4,
                             }}
                           >
-                            {sug.spotlightType === "product" ? "PRODUCT" : "CATEGORY"} ·{" "}
-                            {sug.category || "—"}
+                            {sug.spotlightType === "product" ? "PRODUCT" : "CATEGORY"} Â·{" "}
+                            {sug.category || "â€”"}
                           </div>
                           <div
                             style={{
@@ -17120,7 +17581,7 @@ const handleFinishDealerEnrollment = async () => {
                         {sug.territoryContext ? (
                           <>
                             {" "}
-                            · <span>{sug.territoryContext}</span>
+                            Â· <span>{sug.territoryContext}</span>
                           </>
                         ) : null}
                       </div>
@@ -17189,7 +17650,7 @@ const handleFinishDealerEnrollment = async () => {
                 color: "#94a3b8",
               }}
             >
-              KL ADMIN · NEXT BEST ACTIONS
+              KL ADMIN Â· NEXT BEST ACTIONS
             </div>
             <h3
               style={{
@@ -17215,7 +17676,7 @@ const handleFinishDealerEnrollment = async () => {
               <span style={{ color: "#f8fafc", fontWeight: 800 }}>
                 Prioritized next-best actions for KL Admin follow-up.
               </span>{" "}
-              Work the queue top-down—full territory intelligence continues below (up to{" "}
+              Work the queue top-downâ€”full territory intelligence continues below (up to{" "}
               {KL_ADMIN_ACTION_CENTER_LIMIT} items).
             </p>
             {klAdminDashboardDemoFallbackActive ? (
@@ -17229,7 +17690,7 @@ const handleFinishDealerEnrollment = async () => {
                   textTransform: "uppercase",
                 }}
               >
-                Demo data active · replace with live territory signals as adoption grows
+                Demo data active Â· replace with live territory signals as adoption grows
               </div>
             ) : null}
           </div>
@@ -17396,7 +17857,7 @@ const handleFinishDealerEnrollment = async () => {
                       {fieldReviewCount}
                     </div>
                     <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
-                      Activation · roster · demand
+                      Activation Â· roster Â· demand
                     </div>
                   </div>
                 </div>
@@ -17428,7 +17889,7 @@ const handleFinishDealerEnrollment = async () => {
                           color: "#64748b",
                         }}
                       >
-                        SESSION PROGRESS · COMPLETION
+                        SESSION PROGRESS Â· COMPLETION
                       </div>
                       <div
                         style={{
@@ -17439,7 +17900,7 @@ const handleFinishDealerEnrollment = async () => {
                           maxWidth: 440,
                         }}
                       >
-                        Clears Prepared/Handled on cards for this browser tab session only—nothing is stored
+                        Clears Prepared/Handled on cards for this browser tab session onlyâ€”nothing is stored
                         remotely.
                       </div>
                     </div>
@@ -17519,7 +17980,7 @@ const handleFinishDealerEnrollment = async () => {
                 lineHeight: 1.5,
               }}
             >
-              All clear — nothing urgent needs your attention right now.
+              All clear â€” nothing urgent needs your attention right now.
             </div>
           ) : (
             <div
@@ -17586,7 +18047,7 @@ const handleFinishDealerEnrollment = async () => {
                 let supportingWhyTail = "";
                 if (acSentences.length === 0) {
                   whatChangedBlock =
-                    [scopeLine, issueLine].filter(Boolean).join(" · ") || "Territory signal surfaced for KL Admin.";
+                    [scopeLine, issueLine].filter(Boolean).join(" Â· ") || "Territory signal surfaced for KL Admin.";
                   const r = String(ac.recommended || "").trim();
                   whyMattersBriefDisplay = r
                     ? (r.split(/(?<=[.!?])\s+/)[0] || r).trim().slice(0, 280)
@@ -17597,7 +18058,7 @@ const handleFinishDealerEnrollment = async () => {
                   whyMattersBriefDisplay = r
                     ? (r.split(/(?<=[.!?])\s+/)[0] || r).trim().slice(0, 280)
                     : acSentences[0].length > 160
-                      ? `${acSentences[0].slice(0, 157)}…`
+                      ? `${acSentences[0].slice(0, 157)}â€¦`
                       : "Connects rule-based intelligence to dealer-facing motion.";
                 } else if (acSentences.length === 2) {
                   whatChangedBlock = acSentences[0];
@@ -17608,10 +18069,10 @@ const handleFinishDealerEnrollment = async () => {
                   supportingWhyTail = acSentences.slice(4).join(" ");
                 }
                 if (whyMattersBriefDisplay.length > 320) {
-                  whyMattersBriefDisplay = `${whyMattersBriefDisplay.slice(0, 317)}…`;
+                  whyMattersBriefDisplay = `${whyMattersBriefDisplay.slice(0, 317)}â€¦`;
                 }
                 if (whatChangedBlock.length > 360) {
-                  whatChangedBlock = `${whatChangedBlock.slice(0, 357)}…`;
+                  whatChangedBlock = `${whatChangedBlock.slice(0, 357)}â€¦`;
                 }
 
                 const oid = String(ac.dealerOrgId || "");
@@ -17633,12 +18094,12 @@ const handleFinishDealerEnrollment = async () => {
                   const st = String(dealerRiskDetailRow.status || "").trim();
                   dealerRiskActivitySignal =
                     q + p + r > 0
-                      ? `${q} quotes · ${p} proposals · ${r} responses${st ? ` · ${st}` : ""}`
-                      : st || "Pipeline quiet — awaiting first logged motion.";
+                      ? `${q} quotes Â· ${p} proposals Â· ${r} responses${st ? ` Â· ${st}` : ""}`
+                      : st || "Pipeline quiet â€” awaiting first logged motion.";
                 } else {
                   dealerRiskActivitySignal =
                     oid || ac.kind === "dealers_select"
-                      ? "Counters pending — open dealer workspace to hydrate."
+                      ? "Counters pending â€” open dealer workspace to hydrate."
                       : "Associate a dealer org to show live signals.";
                 }
                 const dealerRiskName =
@@ -17656,26 +18117,26 @@ const handleFinishDealerEnrollment = async () => {
                 let followPrepared = "";
                 let followClick = "";
                 let followAffects = dealerDisplayName
-                  ? `Dealer · ${dealerDisplayName}`
+                  ? `Dealer Â· ${dealerDisplayName}`
                   : oid
-                    ? `Dealer org · ${oid}`
+                    ? `Dealer org Â· ${oid}`
                     : String(ac.scope || "Territory").trim();
                 if (ac.kind === "workflow_notice") {
                   followStatus = "Next step prepared (mock)";
-                  followPrepared = "Internal banner only — no outbound send.";
+                  followPrepared = "Internal banner only â€” no outbound send.";
                   followClick =
                     "Stores a Kl Admin workflow notice; confirms follow-up is staged (mock).";
-                  followAffects = `${String(ac.scope || "Territory").trim()} · leadership preview`;
+                  followAffects = `${String(ac.scope || "Territory").trim()} Â· leadership preview`;
                 } else if (ac.kind === "spotlight") {
                   const st = ac.spotlightType === "product" ? "product" : "category";
-                  followPrepared = `Ready to send enablement · ${st} · ${String(ac.spotlightId || "library")}`;
+                  followPrepared = `Ready to send enablement Â· ${st} Â· ${String(ac.spotlightId || "library")}`;
                   followClick =
                     "Opens Sales Enablement with spotlight selected and send panel ready.";
                   followAffects = dealerDisplayName
-                    ? `Enablement routing · ${dealerDisplayName}`
+                    ? `Enablement routing Â· ${dealerDisplayName}`
                     : oid
-                      ? `Enablement routing · org ${oid}`
-                      : "Enablement routing · territory context";
+                      ? `Enablement routing Â· org ${oid}`
+                      : "Enablement routing Â· territory context";
                 } else if (ac.kind === "dealer_activation") {
                   followPrepared = "Activation checklist queued for this org.";
                   followClick = "Opens Dealer Activation with this dealer pre-selected.";
@@ -17703,17 +18164,17 @@ const handleFinishDealerEnrollment = async () => {
                       : "Opens Sales Enablement for training follow-up (mock scheduling later).";
                   followAffects = "Territory enablement programs";
                 }
-                const followHeadline = `${followStatus}${followPrepared ? ` · ${followPrepared}` : ""}`;
+                const followHeadline = `${followStatus}${followPrepared ? ` Â· ${followPrepared}` : ""}`;
                 const completion = klAdminActionCenterCompletionById[ac.id];
                 const showSpotlightOpportunityDetail = ac.kind === "spotlight";
                 const spotlightTypeLabel =
                   ac.spotlightType === "product" ? "Product" : "Category";
                 const spotlightFocus = showSpotlightOpportunityDetail
-                  ? `${spotlightTypeLabel} · ${String(ac.spotlightId || "library").trim()}`
+                  ? `${spotlightTypeLabel} Â· ${String(ac.spotlightId || "library").trim()}`
                   : "";
                 const spotlightOpportunitySignal = showSpotlightOpportunityDetail
                   ? whyText ||
-                    "Enablement rule matched this spotlight — validate positioning before dealer sends."
+                    "Enablement rule matched this spotlight â€” validate positioning before dealer sends."
                   : "";
                 const spotlightBdmMove = showSpotlightOpportunityDetail
                   ? String(ac.recommended || "").trim() ||
@@ -17721,8 +18182,8 @@ const handleFinishDealerEnrollment = async () => {
                   : "";
                 const spotlightPreparedContentStatus = showSpotlightOpportunityDetail
                   ? completion === "handled"
-                    ? "Send workspace opened — outbound pipeline mock-only until wired."
-                    : "Library entry staged — draft prepared · not sent · mock routing."
+                    ? "Send workspace opened â€” outbound pipeline mock-only until wired."
+                    : "Library entry staged â€” draft prepared Â· not sent Â· mock routing."
                   : "";
                 const markActionPrepared = () =>
                   setKlAdminActionCenterCompletionById((prev) => ({
@@ -17790,9 +18251,9 @@ const handleFinishDealerEnrollment = async () => {
                               ? "1px solid rgba(251, 146, 60, 0.42)"
                               : "1px solid rgba(226, 232, 240, 0.95)",
                           }}
-                          title="Queue order — displayed sequence only"
+                          title="Queue order â€” displayed sequence only"
                         >
-                          #{queuePriorityRank} · {queueTierLabel.toUpperCase()}
+                          #{queuePriorityRank} Â· {queueTierLabel.toUpperCase()}
                         </span>
                         <span
                           style={{
@@ -18008,19 +18469,19 @@ const handleFinishDealerEnrollment = async () => {
                             <div>
                               <span style={{ color: "#b45309", fontWeight: 800 }}>Focus </span>
                               {spotlightFocus.length > 96
-                                ? `${spotlightFocus.slice(0, 93)}…`
+                                ? `${spotlightFocus.slice(0, 93)}â€¦`
                                 : spotlightFocus}
                             </div>
                             <div style={{ marginTop: 4 }}>
                               <span style={{ color: "#b45309", fontWeight: 800 }}>Signal </span>
                               {spotlightOpportunitySignal.length > 220
-                                ? `${spotlightOpportunitySignal.slice(0, 217)}…`
+                                ? `${spotlightOpportunitySignal.slice(0, 217)}â€¦`
                                 : spotlightOpportunitySignal}
                             </div>
                             <div style={{ marginTop: 4 }}>
                               <span style={{ color: "#b45309", fontWeight: 800 }}>BDM move </span>
                               {spotlightBdmMove.length > 220
-                                ? `${spotlightBdmMove.slice(0, 217)}…`
+                                ? `${spotlightBdmMove.slice(0, 217)}â€¦`
                                 : spotlightBdmMove}
                             </div>
                             <div style={{ marginTop: 4 }}>
@@ -18062,19 +18523,19 @@ const handleFinishDealerEnrollment = async () => {
                             <div style={{ marginTop: 4 }}>
                               <span style={{ color: "#94a3b8", fontWeight: 800 }}>Last signal </span>
                               {dealerRiskActivitySignal.length > 220
-                                ? `${dealerRiskActivitySignal.slice(0, 217)}…`
+                                ? `${dealerRiskActivitySignal.slice(0, 217)}â€¦`
                                 : dealerRiskActivitySignal}
                             </div>
                             <div style={{ marginTop: 4 }}>
                               <span style={{ color: "#94a3b8", fontWeight: 800 }}>Risk </span>
                               {dealerRiskReason.length > 220
-                                ? `${dealerRiskReason.slice(0, 217)}…`
+                                ? `${dealerRiskReason.slice(0, 217)}â€¦`
                                 : dealerRiskReason}
                             </div>
                             <div style={{ marginTop: 4 }}>
                               <span style={{ color: "#94a3b8", fontWeight: 800 }}>BDM move </span>
                               {dealerRiskBdmMove.length > 220
-                                ? `${dealerRiskBdmMove.slice(0, 217)}…`
+                                ? `${dealerRiskBdmMove.slice(0, 217)}â€¦`
                                 : dealerRiskBdmMove}
                             </div>
                           </div>
@@ -18128,18 +18589,18 @@ const handleFinishDealerEnrollment = async () => {
                         if (ac.kind === "workflow_notice") {
                           setProductStrategyWorkflowNotice(
                             formatKlAdminMessageComposerMockNotice({
-                              recipient: `Manager & field leadership · ${String(ac.scope || "Territory").trim()}`,
+                              recipient: `Manager & field leadership Â· ${String(ac.scope || "Territory").trim()}`,
                               subject: String(ac.issue || "BDM coordination").trim(),
                               purpose: String(ac.why || "Outbound visibility without live delivery yet.").trim(),
                               nextSuggestedAction: String(
                                 ac.recommended || "Confirm recipients when email routing is enabled."
                               ).trim(),
                               detail: [
-                                "Notify Manager pathway · mock composer",
+                                "Notify Manager pathway Â· mock composer",
                                 String(ac.noticeText || "").trim(),
                               ]
                                 .filter(Boolean)
-                                .join(" · "),
+                                .join(" Â· "),
                             })
                           );
                           markActionPrepared();
@@ -18187,8 +18648,8 @@ const handleFinishDealerEnrollment = async () => {
                                 nextStep: String(ac.recommended || "").trim(),
                                 detail:
                                   bl.toLowerCase().includes("visit")
-                                    ? "Schedule visit · mock hold · Sales Enablement opens next"
-                                    : "Request Training · mock hold · Sales Enablement opens next",
+                                    ? "Schedule visit Â· mock hold Â· Sales Enablement opens next"
+                                    : "Request Training Â· mock hold Â· Sales Enablement opens next",
                               })
                             );
                             markActionPrepared();
@@ -18263,7 +18724,7 @@ const handleFinishDealerEnrollment = async () => {
               marginBottom: 6,
             }}
           >
-            ACTIVE INCENTIVES · SNAPSHOT
+            ACTIVE INCENTIVES Â· SNAPSHOT
           </div>
           <p
             style={{
@@ -18274,7 +18735,7 @@ const handleFinishDealerEnrollment = async () => {
               maxWidth: 720,
             }}
           >
-            Executive pulse on live Product Strategy incentives—full contest management stays in that tab.
+            Executive pulse on live Product Strategy incentivesâ€”full contest management stays in that tab.
           </p>
           {liveActiveTerritoryContestsKlDashboard.length === 0 ? (
             <div
@@ -18319,21 +18780,21 @@ const handleFinishDealerEnrollment = async () => {
                   let pulse =
                     ld.line === "Qualification pending" && ld.footnote
                       ? String(ld.footnote).trim()
-                      : ld.line !== "—"
+                      : ld.line !== "â€”"
                         ? String(ld.line).trim()
                         : "Standings pending territory signals.";
-                  if (pulse.length > 118) pulse = `${pulse.slice(0, 115)}…`;
+                  if (pulse.length > 118) pulse = `${pulse.slice(0, 115)}â€¦`;
                   let nextAction =
                     "Review pacing and coaching hooks in Product Strategy while the window is open.";
                   if (ld.line === "Qualification pending") {
                     nextAction =
-                      "Unblock qualification gates with reps—adjust targets in Product Strategy if needed.";
-                  } else if (ld.line === "—" && !ld.footnote) {
+                      "Unblock qualification gates with repsâ€”adjust targets in Product Strategy if needed.";
+                  } else if (ld.line === "â€”" && !ld.footnote) {
                     nextAction =
                       "Confirm proposal and inventory signals loaded so standings can populate.";
                   } else if (ld.qualified) {
                     nextAction =
-                      "Protect leaderboard momentum—pair prizes with targeted Sales Enablement sends.";
+                      "Protect leaderboard momentumâ€”pair prizes with targeted Sales Enablement sends.";
                   }
                   return (
                     <div
@@ -18410,7 +18871,7 @@ const handleFinishDealerEnrollment = async () => {
               maxWidth: 720,
             }}
           >
-            Operational coaching snapshot—placeholder category signals until live mix scoring lands.
+            Operational coaching snapshotâ€”placeholder category signals until live mix scoring lands.
           </p>
           <div
             style={{
@@ -18422,7 +18883,7 @@ const handleFinishDealerEnrollment = async () => {
             {adminDashboardProductPerformanceCards.map((card) => {
               const defaultOrg = String((klAdminDashboardDealersForView || [])[0]?.organization_id || "");
               const tr = card.trend;
-              const arrow = tr.dir === "up" ? "↑" : tr.dir === "down" ? "↓" : "→";
+              const arrow = tr.dir === "up" ? "â†‘" : tr.dir === "down" ? "â†“" : "â†’";
               const trendColor =
                 tr.dir === "up" ? "#c2410c" : tr.dir === "down" ? "#b45309" : "#64748b";
               return (
@@ -18560,10 +19021,10 @@ const handleFinishDealerEnrollment = async () => {
                       onClick={() =>
                         setProductStrategyWorkflowNotice(
                           formatKlAdminTrainingSchedulerMockNotice({
-                            topic: `${card.title} · territory coaching`,
-                            audience: `BDM focus · ${card.title} (${String(card.pctCaption || "share mock").trim()})`,
+                            topic: `${card.title} Â· territory coaching`,
+                            audience: `BDM focus Â· ${card.title} (${String(card.pctCaption || "share mock").trim()})`,
                             nextStep: String(card.recommendedAction || "").trim(),
-                            detail: `Product Performance · ${card.title}`,
+                            detail: `Product Performance Â· ${card.title}`,
                           })
                         )
                       }
@@ -18628,7 +19089,7 @@ const handleFinishDealerEnrollment = async () => {
               inv?.hasData &&
               Array.isArray(inv.acceleratingSkus) &&
               inv.acceleratingSkus.length > 0;
-            let invMain = "—";
+            let invMain = "â€”";
             let invSub = "Awaiting approved-demand rollup";
             if (inv?.hasData) {
               invMain = invAccel ? "Watch" : "Steady";
@@ -18637,8 +19098,8 @@ const handleFinishDealerEnrollment = async () => {
                   ? String(inv.insights[0]).trim()
                   : "";
               invSub = insight0
-                ? `${insight0.slice(0, 72)}${insight0.length > 72 ? "…" : ""}`
-                : `${Number(inv.totalApprovedUnits || 0).toLocaleString()} approved units · velocity tracked`;
+                ? `${insight0.slice(0, 72)}${insight0.length > 72 ? "â€¦" : ""}`
+                : `${Number(inv.totalApprovedUnits || 0).toLocaleString()} approved units Â· velocity tracked`;
             }
             const enablementCount = Array.isArray(klondikeDashboardEnablementAlertsKlDashboard)
               ? klondikeDashboardEnablementAlertsKlDashboard.length
@@ -18646,7 +19107,7 @@ const handleFinishDealerEnrollment = async () => {
             const spotlightActionCount = Array.isArray(klondikeActionCenterActionsKlDashboard)
               ? klondikeActionCenterActionsKlDashboard.filter((a) => a.kind === "spotlight").length
               : 0;
-            let seMain = "—";
+            let seMain = "â€”";
             let seSub = "No spotlight signals queued";
             if (enablementCount > 0) {
               seMain = String(enablementCount);
@@ -18660,7 +19121,7 @@ const handleFinishDealerEnrollment = async () => {
               { label: "Active dealers", value: activeDealersTile, sub: "orgs in performance load" },
               {
                 label: "Active reps",
-                value: repActivityCount || "—",
+                value: repActivityCount || "â€”",
                 sub: repActivityCount ? "with logged activity" : "as teams engage",
               },
               {
@@ -18691,10 +19152,10 @@ const handleFinishDealerEnrollment = async () => {
               { label: "Inventory signal", value: invMain, sub: invSub },
               {
                 label: "Activation",
-                value: totalOrg > 0 ? `${quotingOrgs}/${totalOrg}` : "—",
+                value: totalOrg > 0 ? `${quotingOrgs}/${totalOrg}` : "â€”",
                 sub:
                   totalOrg > 0
-                    ? `${profileReadyOrgs} profiles ready · dealers quoting`
+                    ? `${profileReadyOrgs} profiles ready Â· dealers quoting`
                     : "Load dealers to score ramp-up",
               },
               { label: "Sales enablement", value: seMain, sub: seSub },
@@ -18708,7 +19169,7 @@ const handleFinishDealerEnrollment = async () => {
                 tagColor: "#047857",
                 border: "rgba(52, 211, 153, 0.45)",
                 title: String(opBuckets.healthy),
-                body: "Customer responses logged—pipeline outcomes are landing.",
+                body: "Customer responses loggedâ€”pipeline outcomes are landing.",
               },
               {
                 tag: "Growing",
@@ -18724,7 +19185,7 @@ const handleFinishDealerEnrollment = async () => {
                 tagColor: "#c2410c",
                 border: "rgba(251, 146, 60, 0.45)",
                 title: String(opBuckets.needsAttention),
-                body: "Quotes without proposals/responses—clear the next selling step.",
+                body: "Quotes without proposals/responsesâ€”clear the next selling step.",
               },
               {
                 tag: "Inactive",
@@ -18769,7 +19230,7 @@ const handleFinishDealerEnrollment = async () => {
                     How is my territory performing?
                   </h3>
                   <p style={{ margin: "10px 0 0", fontSize: 14, color: "#64748b", lineHeight: 1.5 }}>
-                    Compact recap—pair this with the Action Center list so nothing slips through.
+                    Compact recapâ€”pair this with the Action Center list so nothing slips through.
                   </p>
                   <div
                     style={{
@@ -18837,9 +19298,9 @@ const handleFinishDealerEnrollment = async () => {
                     }}
                   >
                     <strong style={{ color: "#334155" }}>Field team seats:</strong>{" "}
-                    {fieldTeam.toLocaleString()} ·{" "}
+                    {fieldTeam.toLocaleString()} Â·{" "}
                     <strong style={{ color: "#334155" }}>Access queue:</strong>{" "}
-                    {pendingAccessRequests.length} pending ·{" "}
+                    {pendingAccessRequests.length} pending Â·{" "}
                     <strong style={{ color: "#334155" }}>Orgs in view:</strong>{" "}
                     {dealerOrganizations.length}
                   </div>
@@ -18945,7 +19406,7 @@ const handleFinishDealerEnrollment = async () => {
               Who is leading the territory?
             </h3>
             <p style={{ margin: "8px 0 0", fontSize: 13, color: "#64748b", lineHeight: 1.5, maxWidth: 800 }}>
-              Overall rep performance from logged quotes, proposals, responses, and OCR—separate from
+              Overall rep performance from logged quotes, proposals, responses, and OCRâ€”separate from
               Product Strategy contest scoring.
             </p>
             {klAdminDashboardTopRepLeaderboardModel.demoFallback ? (
@@ -18959,7 +19420,7 @@ const handleFinishDealerEnrollment = async () => {
                   textTransform: "uppercase",
                 }}
               >
-                Demo data active · overall rep snapshot (not contest-weighted)
+                Demo data active Â· overall rep snapshot (not contest-weighted)
               </div>
             ) : null}
             <div style={{ marginTop: 16, width: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
@@ -19027,7 +19488,7 @@ const handleFinishDealerEnrollment = async () => {
                           color: "#64748b",
                         }}
                       >
-                        {row.approvalPct ? `${row.approvalPct}%` : "—"}
+                        {row.approvalPct ? `${row.approvalPct}%` : "â€”"}
                       </div>
                       <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.45 }}>{row.coaching}</div>
                     </div>
@@ -19074,7 +19535,7 @@ const handleFinishDealerEnrollment = async () => {
                   color: "#94a3b8",
                 }}
               >
-                COMMAND CENTER · INTELLIGENCE
+                COMMAND CENTER Â· INTELLIGENCE
               </div>
               <div style={{ fontSize: 17, fontWeight: 900, color: "#0f172a", marginTop: 6 }}>
                 Executive summary
@@ -19084,14 +19545,14 @@ const handleFinishDealerEnrollment = async () => {
                   {adminExecutiveSummaryIntelligence.hasData &&
                   adminExecutiveSummaryIntelligence.insights[0]
                     ? `${String(adminExecutiveSummaryIntelligence.insights[0]).slice(0, 140)}${
-                        String(adminExecutiveSummaryIntelligence.insights[0]).length > 140 ? "…" : ""
+                        String(adminExecutiveSummaryIntelligence.insights[0]).length > 140 ? "â€¦" : ""
                       }`
                     : "High-level narrative unlocks as territory activity grows."}
                 </div>
               ) : null}
             </div>
             <span style={{ fontSize: 22, fontWeight: 300, color: "#cbd5e1", lineHeight: 1 }}>
-              {klDashboardIntelPanels.executiveSummary ? "−" : "+"}
+              {klDashboardIntelPanels.executiveSummary ? "âˆ’" : "+"}
             </span>
           </button>
           {klDashboardIntelPanels.executiveSummary ? (
@@ -19183,7 +19644,7 @@ const handleFinishDealerEnrollment = async () => {
                     {dealer.name}
                   </div>
                   <div style={{ ...styles.listMeta, color: "#93c5fd", marginTop: 4 }}>
-                    {dealer.slug || "dealer-account"} • Click for dealer dashboard
+                    {dealer.slug || "dealer-account"} â€¢ Click for dealer dashboard
                   </div>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -19289,7 +19750,7 @@ const handleFinishDealerEnrollment = async () => {
                     color: "#e2e8f0",
                   }}
                 >
-                  Top Product Category: <strong>{dealer.topProductCategory || "—"}</strong>
+                  Top Product Category: <strong>{dealer.topProductCategory || "â€”"}</strong>
                 </div>
                 <div
                   style={{
@@ -19302,7 +19763,7 @@ const handleFinishDealerEnrollment = async () => {
                     color: "#e2e8f0",
                   }}
                 >
-                  Most Active Rep: <strong>{dealer.mostActiveRepName || "—"}</strong>
+                  Most Active Rep: <strong>{dealer.mostActiveRepName || "â€”"}</strong>
                 </div>
               </div>
             </button>
@@ -19408,7 +19869,7 @@ const handleFinishDealerEnrollment = async () => {
                         />
                       </div>
                       <div style={styles.listMeta}>
-                        {rep.quotes} quote(s) • {rep.proposals} proposal(s) •{" "}
+                        {rep.quotes} quote(s) â€¢ {rep.proposals} proposal(s) â€¢{" "}
                         {rep.responses} response(s)
                       </div>
                     </div>
@@ -19505,7 +19966,7 @@ const handleFinishDealerEnrollment = async () => {
                       </div>
 
                       <div style={styles.listMeta}>
-                        {quote.status || "draft"} • {quote.review_status || "open"}
+                        {quote.status || "draft"} â€¢ {quote.review_status || "open"}
                       </div>
                     </div>
 
@@ -19692,7 +20153,7 @@ const handleFinishDealerEnrollment = async () => {
 
               <div style={styles.listMeta}>
                 {(orgNameById[req.organization_id] || "Unknown organization") +
-                  " • " +
+                  " â€¢ " +
                   roleLabel(req.requested_role)}
               </div>
 
@@ -19789,7 +20250,7 @@ const handleFinishDealerEnrollment = async () => {
                     <div style={styles.listMeta}>
                       {(orgNameById[invite.organization_id] ||
                         invite.organization_id) +
-                        " • " +
+                        " â€¢ " +
                         roleLabel(invite.invited_role)}
                     </div>
                   </div>
@@ -19817,7 +20278,7 @@ const handleFinishDealerEnrollment = async () => {
                   <div>
                     <div style={styles.listTitle}>{org.name}</div>
                     <div style={styles.listMeta}>
-                      {org.slug || "No slug"} •{" "}
+                      {org.slug || "No slug"} â€¢{" "}
                       {org.organization_type || "dealer"}
                     </div>
                   </div>
@@ -20241,7 +20702,7 @@ const renderDealerAdminView = () => (
           >
             Congratulations on becoming an official Klondike Lubricants
             distributor. You now have access to the Klondike Dealer Growth
-            Platform — built to help you win more business, streamline product
+            Platform â€” built to help you win more business, streamline product
             selection, and deliver premium lubrication solutions to your
             customers.
           </p>
@@ -20424,7 +20885,7 @@ const renderDealerAdminView = () => (
                       CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label ||
                       c.metricKey;
                     const ld = resolveTerritoryContestLeaderDisplay(c);
-                    const showPh = ld.line === "—" && !ld.footnote;
+                    const showPh = ld.line === "â€”" && !ld.footnote;
                     return (
                       <TerritoryIncentiveReadOnlyCard
                         key={`da-inc-${c.id}`}
@@ -20467,7 +20928,7 @@ const renderDealerAdminView = () => (
                 styles={styles}
                 eyebrow="PROPOSAL ENGAGEMENT"
                 title="Proposal engagement timeline"
-                subtitle="Organization-wide proposal execution events—including tracked proposal link opens—from quotes, responses, demand signals, follow-ups, and label scans already recorded for your dealer."
+                subtitle="Organization-wide proposal execution eventsâ€”including tracked proposal link opensâ€”from quotes, responses, demand signals, follow-ups, and label scans already recorded for your dealer."
                 entries={dealerAdminCrmTimelineEntries}
                 insights={dealerAdminProposalEngagementInsights}
                 emptyStateText={PROPOSAL_ENGAGEMENT_TIMELINE_EMPTY}
@@ -20539,7 +21000,7 @@ const renderDealerAdminView = () => (
                     {dealerPerformance.quotesAwaitingCustomer}
                   </div>
                   <div style={styles.listMeta}>
-                    Status “sent” without submitted review
+                    Status â€œsentâ€ without submitted review
                   </div>
                 </div>
                 <div
@@ -20585,7 +21046,7 @@ const renderDealerAdminView = () => (
                 borderLeft: "6px solid #f6a531",
               }}
             >
-              <div style={styles.eyebrow}>APPROVED DEMAND · INVENTORY CONTEXT</div>
+              <div style={styles.eyebrow}>APPROVED DEMAND Â· INVENTORY CONTEXT</div>
               <h3 style={styles.cardTitle}>What customers already approved</h3>
               <p style={styles.cardBody}>
                 Pulled from proposal response payloads and linked quote items. Open
@@ -20618,7 +21079,7 @@ const renderDealerAdminView = () => (
 
             <div style={{ ...styles.card, ...styles.dashboardCard }}>
               <div style={styles.eyebrow}>DEALER LEADERBOARD</div>
-              <h3 style={styles.cardTitle}>Rep Rankings · Approved Revenue</h3>
+              <h3 style={styles.cardTitle}>Rep Rankings Â· Approved Revenue</h3>
 
               <div style={styles.stack}>
                 {dealerPerformance.leaderboard.length === 0 ? (
@@ -20667,7 +21128,7 @@ const renderDealerAdminView = () => (
                           />
                         </div>
                         <div style={styles.listMeta}>
-                          {rep.quotes} quote(s) • {rep.proposals} proposal(s) •{" "}
+                          {rep.quotes} quote(s) â€¢ {rep.proposals} proposal(s) â€¢{" "}
                           {rep.responses} response(s)
                         </div>
                       </div>
@@ -20729,7 +21190,7 @@ const renderDealerAdminView = () => (
               <h3 style={styles.cardTitle}>How quoted lubricants bucket</h3>
               <p style={styles.cardBody}>
                 Heuristic buckets built from textual product names captured on dealer
-                quote lines—not PDS classifications.
+                quote linesâ€”not PDS classifications.
               </p>
 
               <div style={styles.grid3}>
@@ -21531,7 +21992,7 @@ const renderDealerAdminView = () => (
         <div style={styles.summaryCard}>
           <div style={styles.summaryLabel}>My Organization</div>
           <div style={styles.summaryValue}>
-            {activeMembership?.organization?.name || "—"}
+            {activeMembership?.organization?.name || "â€”"}
           </div>
         </div>
         <div style={styles.summaryCard}>
@@ -22831,14 +23292,14 @@ const getContaminationNote = (pkg) => {
  const normalizeName = (value) =>
   String(value || "")
     .toLowerCase()
-    .replace(/[®™]/g, "")
+    .replace(/[Â®â„¢]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
 const normalize = (str) =>
   String(str || "")
     .toLowerCase()
-    .replace(/[®™]/g, "")
+    .replace(/[Â®â„¢]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 
@@ -22847,12 +23308,12 @@ const findPds = (productName) => {
 
   const normalized = normalize(productName);
 
-  // 🔥 1. Exact key match
+  // ðŸ”¥ 1. Exact key match
   if (PDS_MAP[productName]) {
     return PDS_MAP[productName];
   }
 
-  // 🔥 2. Alias match (THIS IS THE KEY PART)
+  // ðŸ”¥ 2. Alias match (THIS IS THE KEY PART)
   for (const entry of Object.values(PDS_MAP)) {
     if (
       entry.aliases &&
@@ -22862,7 +23323,7 @@ const findPds = (productName) => {
     }
   }
 
-  // 🔥 3. Optional debug
+  // ðŸ”¥ 3. Optional debug
   console.warn("No PDS match for:", productName);
 
   return {};
@@ -23951,7 +24412,7 @@ const handleOpenSavedQuote = async (quote) => {
   status: "draft",
   review_token: crypto.randomUUID(),
 
-  // 🔥 DEALER SNAPSHOT
+  // ðŸ”¥ DEALER SNAPSHOT
   dealer_name:
     dealerProfile?.company_name ||
     activeMembership?.organization?.name ||
@@ -23966,7 +24427,7 @@ const handleOpenSavedQuote = async (quote) => {
   dealer_province_state: dealerProfile?.province_state || null,
   dealer_postal_code: dealerProfile?.postal_code || null,
 
-  // 🔥 PROPOSAL TEXT SNAPSHOT
+  // ðŸ”¥ PROPOSAL TEXT SNAPSHOT
   intro_statement: dealerProfile?.intro_statement || null,
   closing_statement: dealerProfile?.closing_statement || null,
 })
@@ -24444,7 +24905,7 @@ return (
                   onClick={handleExtractLabelText}
                   disabled={scannedLabelOcrLoading}
                 >
-                  {scannedLabelOcrLoading ? "Extracting…" : "Extract Label Text"}
+                  {scannedLabelOcrLoading ? "Extractingâ€¦" : "Extract Label Text"}
                 </button>
               </div>
               {scannedLabelOcrLoading && (
@@ -24619,15 +25080,15 @@ return (
                   )}
                   <div style={{ display: "grid", gap: 5, fontSize: 12, color: "#cbd5e1" }}>
                     {!!scannedLabelDetectedViscosity && (
-                      <div>✓ Viscosity aligned: {scannedLabelDetectedViscosity}</div>
+                      <div>âœ“ Viscosity aligned: {scannedLabelDetectedViscosity}</div>
                     )}
                     {!!scannedLabelDetectedApplication && (
                       <div>
-                        ✓ Application signal detected: {scannedLabelDetectedApplication}
+                        âœ“ Application signal detected: {scannedLabelDetectedApplication}
                       </div>
                     )}
-                    <div>✓ Product text matched through deterministic crossover</div>
-                    <div>✓ Rep confirmation still required before adding to quote</div>
+                    <div>âœ“ Product text matched through deterministic crossover</div>
+                    <div>âœ“ Rep confirmation still required before adding to quote</div>
                   </div>
                   {Array.isArray(scannedLabelMatchedOverlapSignals) &&
                     scannedLabelMatchedOverlapSignals.length > 0 && (
@@ -24637,7 +25098,7 @@ return (
                         </div>
                         <div style={{ display: "grid", gap: 4, fontSize: 12, color: "#bbf7d0" }}>
                           {scannedLabelMatchedOverlapSignals.map((signal) => (
-                            <div key={`matched-signal-${signal}`}>✔ {signal}</div>
+                            <div key={`matched-signal-${signal}`}>âœ” {signal}</div>
                           ))}
                         </div>
                       </div>
@@ -24650,7 +25111,7 @@ return (
                         </div>
                         <div style={{ display: "grid", gap: 4, fontSize: 12, color: "#bbf7d0" }}>
                           {scannedLabelOemApprovalAlignment.map((signal) => (
-                            <div key={`oem-alignment-${signal}`}>✔ {signal}</div>
+                            <div key={`oem-alignment-${signal}`}>âœ” {signal}</div>
                           ))}
                         </div>
                       </div>
@@ -24663,7 +25124,7 @@ return (
                         </div>
                         <div style={{ display: "grid", gap: 4, fontSize: 12, color: "#cbd5e1" }}>
                           {scannedLabelConfidenceFactors.map((factor) => (
-                            <div key={`confidence-factor-${factor}`}>✔ {factor}</div>
+                            <div key={`confidence-factor-${factor}`}>âœ” {factor}</div>
                           ))}
                         </div>
                       </div>
@@ -24691,7 +25152,7 @@ return (
                   className="kd-label-scan-textarea"
                   value={scannedLabelExtractedText}
                   onChange={(e) => setScannedLabelExtractedText(e.target.value)}
-                  placeholder='Run "Extract Label Text" or type here…'
+                  placeholder='Run "Extract Label Text" or type hereâ€¦'
                   rows={4}
                   disabled={scannedLabelOcrLoading}
                   style={{
@@ -24790,7 +25251,7 @@ return (
             const metricLabel =
               CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label || c.metricKey;
             const ld = resolveTerritoryContestLeaderDisplay(c);
-            const showPh = ld.line === "—" && !ld.footnote;
+            const showPh = ld.line === "â€”" && !ld.footnote;
             return (
               <TerritoryIncentiveReadOnlyCard
                 key={`rep-inc-${c.id}`}
@@ -24856,7 +25317,7 @@ return (
             </div>
 
             <div style={styles.listMeta}>
-              {rep.proposals} proposals • {rep.approvalRate}% approval •{" "}
+              {rep.proposals} proposals â€¢ {rep.approvalRate}% approval â€¢{" "}
               {rep.approved} approved / {rep.declined} declined
             </div>
           </div>
@@ -24895,7 +25356,7 @@ return (
           styles={styles}
           eyebrow="PROPOSAL ENGAGEMENT"
           title="Proposal engagement timeline"
-          subtitle="Live progression from proposal creation through sends, customer opens (tracked links), responses, approved demand, follow-ups, and label scans—using timestamps already stored on quotes, proposal responses, and OCR events in your scope."
+          subtitle="Live progression from proposal creation through sends, customer opens (tracked links), responses, approved demand, follow-ups, and label scansâ€”using timestamps already stored on quotes, proposal responses, and OCR events in your scope."
           entries={portalCrmTimelineEntries}
           insights={portalProposalEngagementInsights}
           emptyStateText={PROPOSAL_ENGAGEMENT_TIMELINE_EMPTY}
@@ -25068,11 +25529,11 @@ return (
     : 0;
 
   if (activePipelineStage === "awaiting" && ageDays >= 3) {
-    return <div style={styles.listMeta}>🔥 Hot follow-up: {ageDays} days old</div>;
+    return <div style={styles.listMeta}>ðŸ”¥ Hot follow-up: {ageDays} days old</div>;
   }
 
   if (activePipelineStage === "followUp") {
-    return <div style={styles.listMeta}>⚠ Needs attention</div>;
+    return <div style={styles.listMeta}>âš  Needs attention</div>;
   }
 
   return null;
@@ -25130,7 +25591,7 @@ return (
             .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
             .map((res) => {
               const ageDays = Math.floor((new Date() - new Date(res.created_at)) / (1000 * 60 * 60 * 24));
-              const urgencyLabel = ageDays >= 5 ? "🚨 Critical" : ageDays >= 3 ? "🔥 Hot" : null;
+              const urgencyLabel = ageDays >= 5 ? "ðŸš¨ Critical" : ageDays >= 3 ? "ðŸ”¥ Hot" : null;
 
               return (
                 <div
@@ -25168,7 +25629,7 @@ return (
                         (r) => r.decision === "declined"
                       ).length;
 
-                      return `${approved} Approved • ${declined} Declined`;
+                      return `${approved} Approved â€¢ ${declined} Declined`;
                     })()}
                   </span>
                 </div>
@@ -25193,7 +25654,7 @@ return (
                 <div style={styles.listTitle}>{item.product}</div>
 
                 <div style={styles.listMeta}>
-                  {item.package} • ${Number(item.price || 0).toFixed(2)}
+                  {item.package} â€¢ ${Number(item.price || 0).toFixed(2)}
                 </div>
 
                 {item.feedback && (
@@ -25524,7 +25985,7 @@ return (
       }}
       onClick={() => handleOpenLabelScan("step2")}
     >
-      📷 Scan Product Label
+      ðŸ“· Scan Product Label
     </button>
   </div>
 
@@ -25570,7 +26031,7 @@ return (
           </div>
 
           <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
-            → {row.klondike_product || "No Klondike match listed"}
+            â†’ {row.klondike_product || "No Klondike match listed"}
           </div>
         </button>
       ))}
@@ -25710,7 +26171,7 @@ return (
             <div style={styles.listMeta}>Replaces: {item.competitor}</div>
 
             <div style={styles.listMeta}>
-              {item.tier} • {item.packageSize || "No package"}
+              {item.tier} â€¢ {item.packageSize || "No package"}
             </div>
           </div>
 
@@ -25944,7 +26405,7 @@ return (
                         {companyName || "No company entered"}
                       </div>
                       <div style={styles.listMeta}>
-                        {contactName || "No contact"} •{" "}
+                        {contactName || "No contact"} â€¢{" "}
                         {quoteContactEmail || "No email"}
                       </div>
                     </div>
@@ -25955,7 +26416,7 @@ return (
                         {industry || "No industry"}
                       </div>
                       <div style={styles.listMeta}>
-                        {subIndustry || "No sub-industry"} •{" "}
+                        {subIndustry || "No sub-industry"} â€¢{" "}
                         {segment || "No segment"}
                       </div>
                     </div>
@@ -26025,7 +26486,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                               </div>
 
                               <div style={styles.listMeta}>
-                                Tier: {item.tier} • Package:{" "}
+                                Tier: {item.tier} â€¢ Package:{" "}
                                 {item.packageSize || "No package selected"}
                               </div>
                               {item.tier !== "Best" && (
@@ -26096,7 +26557,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                                       textDecoration: "none",
                                     }}
                                   >
-                                    View Product Data Sheet →
+                                    View Product Data Sheet â†’
                                   </a>
                                 </div>
                               )}
@@ -26270,7 +26731,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
     >
       <div style={{ fontSize: 14, color: "#334155", lineHeight: 1.45, minWidth: 0 }}>
         <span style={{ fontWeight: 900, color: "#0a2540" }}>Proposal</span>
-        {" · "}
+        {" Â· "}
         <span>{companyName || contactName || "Customer"}</span>
         {quoteContactEmail ? (
           <span
@@ -26546,7 +27007,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
               color: "#334155",
             }}
           >
-            Submitted customer responses — read-only
+            Submitted customer responses â€” read-only
           </div>
         )}
       </div>
@@ -26801,7 +27262,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
   <div>
     <div style={{ color: "#64748b" }}>Package</div>
     <div style={{ fontWeight: 900, color: "#0a2540", marginTop: 4 }}>
-      {item.packageSize || item.package || item.pack_size || "—"}
+      {item.packageSize || item.package || item.pack_size || "â€”"}
     </div>
   </div>
 
@@ -26822,7 +27283,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
         item.product_code ||
         item.item_number ||
         item.catalogProductName ||
-        "—"}
+        "â€”"}
     </div>
   </div>
 
@@ -26874,7 +27335,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
               <div style={{ marginTop: 12 }}>
                 <strong style={{ fontSize: 13, color: "#0f172a" }}>Specs:</strong>
                 <div style={{ fontSize: 12, color: "#64748b", marginTop: 6, lineHeight: 1.6 }}>
-                  {pds.specs.slice(0, 4).join(" • ")}
+                  {pds.specs.slice(0, 4).join(" â€¢ ")}
                 </div>
               </div>
             )}
@@ -27046,7 +27507,7 @@ const price = useFloorPrice ? basePrice * 0.9 : basePrice;
                     textDecoration: "none",
                   }}
                 >
-                  View Product Data Sheet →
+                  View Product Data Sheet â†’
                 </a>
               </div>
             )}
@@ -27625,7 +28086,7 @@ We look forward to partnering with you on implementation and delivering measurab
         }}
         onClick={() => handleOpenLabelScan("cross")}
       >
-        📷 Scan Label
+        ðŸ“· Scan Label
       </button>
     </div>
 
@@ -27818,7 +28279,7 @@ const packages = crossCatalogMap[rec.product] || [];
                   <div style={{ flex: "1 1 240px", minWidth: 0 }}>
                     <div style={styles.listTitle}>{quote.customer_name}</div>
                     <div style={styles.listMeta}>
-                      {quote.competitor_product} → {quote.klondike_product}
+                      {quote.competitor_product} â†’ {quote.klondike_product}
                     </div>
                     <div style={{ ...styles.listMeta, marginTop: 6 }}>
                       {quote.customer_email || "No customer email"}
@@ -28039,7 +28500,7 @@ const packages = crossCatalogMap[rec.product] || [];
                 <div style={styles.eyebrow}>ACTIVE INCENTIVES</div>
                 <h3 style={styles.cardTitle}>Territory contests</h3>
                 <p style={styles.cardBody}>
-                  Live contests that apply to your dealer or team scope. Read-only — Klondike admins
+                  Live contests that apply to your dealer or team scope. Read-only â€” Klondike admins
                   publish definitions from Product Strategy.
                 </p>
                 <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
@@ -28048,7 +28509,7 @@ const packages = crossCatalogMap[rec.product] || [];
                       CONTEST_METRIC_OPTIONS.find((m) => m.value === c.metricKey)?.label ||
                       c.metricKey;
                     const ld = resolveTerritoryContestLeaderDisplay(c);
-                    const showPh = ld.line === "—" && !ld.footnote;
+                    const showPh = ld.line === "â€”" && !ld.footnote;
                     return (
                       <TerritoryIncentiveReadOnlyCard
                         key={`mgr-inc-${c.id}`}
@@ -28091,7 +28552,7 @@ const packages = crossCatalogMap[rec.product] || [];
                 styles={styles}
                 eyebrow="PROPOSAL ENGAGEMENT"
                 title="Proposal engagement timeline"
-                subtitle="Team-scoped proposal execution activity across assigned reps—quotes, sends, tracked opens, customer responses, approved demand, follow-ups, and label scans from data already loaded for your team."
+                subtitle="Team-scoped proposal execution activity across assigned repsâ€”quotes, sends, tracked opens, customer responses, approved demand, follow-ups, and label scans from data already loaded for your team."
                 entries={portalCrmTimelineEntries}
                 insights={portalProposalEngagementInsights}
                 emptyStateText={PROPOSAL_ENGAGEMENT_TIMELINE_EMPTY}
@@ -28103,7 +28564,7 @@ const packages = crossCatalogMap[rec.product] || [];
               <h3 style={styles.cardTitle}>Team intelligence</h3>
               <p style={styles.cardBody}>
                 Quote and proposal activity, customer responses, approved demand, and
-                ranked performance for representatives assigned to you—scoped from
+                ranked performance for representatives assigned to youâ€”scoped from
                 data already loaded for this session.
               </p>
 
@@ -28367,7 +28828,7 @@ const packages = crossCatalogMap[rec.product] || [];
                         </div>
 
                         <div style={styles.listMeta}>
-                          {rep.proposals} proposal(s) • {rep.approvalRate}% approval •{" "}
+                          {rep.proposals} proposal(s) â€¢ {rep.approvalRate}% approval â€¢{" "}
                           {rep.approved} approved / {rep.declined} declined
                         </div>
                       </div>
@@ -28531,7 +28992,7 @@ const packages = crossCatalogMap[rec.product] || [];
         <div style={styles.summaryCard}>
           <div style={styles.summaryLabel}>My Organization</div>
           <div style={styles.summaryValue}>
-            {activeMembership?.organization?.name || "—"}
+            {activeMembership?.organization?.name || "â€”"}
           </div>
         </div>
         <div style={styles.summaryCard}>
@@ -28593,6 +29054,7 @@ case "rep":
       </div>
     );
   }
+
   if (publicReviewToken) {
   return <PublicProposalPage token={publicReviewToken} />;
 }
@@ -28844,7 +29306,7 @@ setEquipment(equipmentData || []);
   const normalize = (value) =>
     String(value || "")
       .toLowerCase()
-      .replace(/[®™]/g, "")
+      .replace(/[Â®â„¢]/g, "")
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
 
@@ -29008,7 +29470,7 @@ const closingStatement =
           boxShadow: "0 10px 30px rgba(15, 23, 42, 0.08)",
         }}
       >
-        <div style={{ fontSize: 42, marginBottom: 12 }}>✅</div>
+        <div style={{ fontSize: 42, marginBottom: 12 }}>âœ…</div>
 
         <h1 style={{ margin: "0 0 12px", color: "#0a2540" }}>
           Response Submitted
@@ -29122,17 +29584,17 @@ const closingStatement =
           <div className="kd-public-proposal-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 18 }}>
             <div>
               <div style={{ color: "#64748b", fontSize: 13, fontWeight: 800 }}>Company</div>
-              <div style={{ color: "#0a2540", fontWeight: 900 }}>{quote.customer_name || "—"}</div>
+              <div style={{ color: "#0a2540", fontWeight: 900 }}>{quote.customer_name || "â€”"}</div>
             </div>
 
             <div>
               <div style={{ color: "#64748b", fontSize: 13, fontWeight: 800 }}>Email</div>
-              <div style={{ color: "#0a2540", fontWeight: 900 }}>{quote.customer_email || "—"}</div>
+              <div style={{ color: "#0a2540", fontWeight: 900 }}>{quote.customer_email || "â€”"}</div>
             </div>
 
             <div>
               <div style={{ color: "#64748b", fontSize: 13, fontWeight: 800 }}>Industry</div>
-              <div style={{ color: "#0a2540", fontWeight: 900 }}>{quote.industry || "—"}</div>
+              <div style={{ color: "#0a2540", fontWeight: 900 }}>{quote.industry || "â€”"}</div>
             </div>
           </div>
         </div>
@@ -29223,7 +29685,7 @@ const closingStatement =
                   >
                     <div>
                       <div style={{ color: "#64748b", fontSize: 12 }}>Package</div>
-                      <div style={{ fontWeight: 900, color: "#0a2540" }}>{item.package || "—"}</div>
+                      <div style={{ fontWeight: 900, color: "#0a2540" }}>{item.package || "â€”"}</div>
                     </div>
 
                     <div>
@@ -29240,7 +29702,7 @@ const closingStatement =
 
                     <div>
                       <div style={{ color: "#64748b", fontSize: 12 }}>Part #</div>
-                      <div style={{ fontWeight: 900, color: "#0a2540" }}>{item.part_number || "—"}</div>
+                      <div style={{ fontWeight: 900, color: "#0a2540" }}>{item.part_number || "â€”"}</div>
                     </div>
                   </div>
 
@@ -29255,16 +29717,16 @@ const closingStatement =
   </div>
 </div>
 <div style={{ fontSize: 12, color: "#64748b", marginTop: 8 }}>
-  ✔ Proven performance in demanding applications  
-  ✔ Designed to support equipment longevity  
-  ✔ Backed by Klondike technical standards
+  âœ” Proven performance in demanding applications  
+  âœ” Designed to support equipment longevity  
+  âœ” Backed by Klondike technical standards
 </div>
 
                   {Array.isArray(pds?.specs) && pds.specs.length > 0 && (
                     <div style={{ marginTop: 8 }}>
                       <strong style={{ fontSize: 13 }}>Specs:</strong>
                       <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-                        {pds.specs.slice(0, 4).join(" • ")}
+                        {pds.specs.slice(0, 4).join(" â€¢ ")}
                       </div>
                     </div>
                   )}
@@ -29282,7 +29744,7 @@ const closingStatement =
                           textDecoration: "none",
                         }}
                       >
-                        View Product Data Sheet →
+                        View Product Data Sheet â†’
                       </a>
                     </div>
                   )}
