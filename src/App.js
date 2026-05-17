@@ -11873,8 +11873,73 @@ const handleFinishDealerEnrollment = async () => {
             const SE_POSTER_ASSET_LOGO = "/klondike-full-logo.png";
             const SE_POSTER_ASSET_FAVICON = "/favicon.png";
             const SE_POSTER_ASSET_PRODUCTS = "/products.png";
-            const guidedSeTrainingInfographicInner = (
-              <>
+            const seSellSheetWhyThisProduct = (() => {
+              const sec = sePkgPickSection((t) => /why|different|value|proof|benefit/.test(t));
+              const fromSec = Array.isArray(sec?.bullets) ? sec.bullets : [];
+              const ang = Array.isArray(seAssemblyPkg?.salesAngles)
+                ? seAssemblyPkg.salesAngles.map((x) => String(x ?? "").trim()).filter(Boolean)
+                : [];
+              const flagshipBits = [];
+              if (previewSendUsesFlagship && salesEnablementGuidedTemplateLines.flagshipGuidedPreviewWhyItWins) {
+                flagshipBits.push(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewWhyItWins);
+              }
+              if (previewSendUsesFlagship) {
+                flagshipBits.push(
+                  ...(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewCustomerPainSignals || [])
+                );
+                flagshipBits.push(
+                  ...(salesEnablementGuidedTemplateLines.flagshipGuidedPreviewOperationalConsequences || [])
+                );
+              }
+              return sePosterUniqueLines([...fromSec, ...ang, ...flagshipBits], 5);
+            })();
+            const seSellSheetBenefits = (() => {
+              const fromTiles = seBenefitTiles.filter(
+                (t) => String(t.label || "").trim() && String(t.sub || "").trim()
+              );
+              if (fromTiles.length >= 2) return fromTiles.slice(0, 4);
+              return sePosterBenefitTiles.filter((t) => String(t.label || "").trim()).slice(0, 4);
+            })();
+            const seSellSheetRecommendedNextStep = (() => {
+              const rec = String(seAssemblyPkg?.recommendedAction || "").trim();
+              const cta = String(seAssemblyPkg?.primaryCTA || guidedCtaForPreview || "").trim();
+              return rec || cta || "";
+            })();
+            const seUseProductSpotlightSellSheet =
+              Boolean(seAssemblyPkg) &&
+              seGuidedWizardMessageKind === "product" &&
+              (seTrainingPackageTypeRaw === "product_spotlight" || seTrainingPackageTypeRaw === "") &&
+              Boolean(String(seTrainingHeroTitle || sePosterHeroSummary || "").trim());
+            const seSellSheetProductImageUrl = (() => {
+              if (seGuidedUploadedProductImagePreviewFailed) return "";
+              return String(seGuidedUploadedProductImageUrl || "").trim();
+            })();
+            const seSellSheetBackgroundUrl = (() => {
+              const path = String(seHeroEnablementVisualSelection.path || "").trim();
+              if (path && path.startsWith("/enablement-visuals/") && /\.svg$/i.test(path)) {
+                return path;
+              }
+              return "";
+            })();
+            const productSpotlightSellSheetPreview = (
+              <ProductSpotlightSellSheet
+                title={seTrainingHeroTitle}
+                subtitle={sePosterHeroSubtitle}
+                summary={sePosterHeroSummary}
+                productImageUrl={seSellSheetProductImageUrl || undefined}
+                backgroundImageUrl={seSellSheetBackgroundUrl || undefined}
+                keySpecs={sePosterUniqueLines(seSpecBulletsList, 7)}
+                benefits={seSellSheetBenefits}
+                applications={sePosterAppLines}
+                whyThisProduct={seSellSheetWhyThisProduct}
+                repTalkTrack={sePosterRepTalkLines}
+                crossSell={sePosterCrossSell}
+                questions={sePosterDiscoveryQs}
+                cautions={sePosterGuardrailLines}
+                recommendedNextStep={seSellSheetRecommendedNextStep}
+              />
+            );
+            const guidedSeTrainingLegacyPosterInner = (
                 <div
                   style={{
                     position: "relative",
@@ -12539,6 +12604,9 @@ const handleFinishDealerEnrollment = async () => {
                     </a>
                   </div>
                 </div>
+            );
+            const guidedSeTrainingPreviewExtras = (
+              <>
                 {seGuidedKnowledgePreviewMock ? (
                   <div
                     style={{
@@ -12670,6 +12738,12 @@ const handleFinishDealerEnrollment = async () => {
                     </div>
                   </div>
                 </details>
+              </>
+            );
+            const guidedSeTrainingInfographicInner = (
+              <>
+                {guidedSeTrainingLegacyPosterInner}
+                {guidedSeTrainingPreviewExtras}
               </>
             );
             return (
@@ -13793,17 +13867,61 @@ const handleFinishDealerEnrollment = async () => {
                     </details>
 
                     <div
-                      style={{
-                        borderRadius: 18,
-                        padding: "18px 20px 20px",
-                        background: "#ffffff",
-                        border: "1px solid rgba(30, 58, 138, 0.12)",
-                        boxShadow: "0 12px 36px rgba(15, 23, 42, 0.08)",
-                        display: "grid",
-                        gap: 14,
-                        minWidth: 0,
-                      }}
+                      style={
+                        seUseProductSpotlightSellSheet
+                          ? {
+                              padding: 0,
+                              background: "transparent",
+                              border: "none",
+                              boxShadow: "none",
+                              display: "grid",
+                              gap: 14,
+                              minWidth: 0,
+                            }
+                          : {
+                              borderRadius: 18,
+                              padding: "18px 20px 20px",
+                              background: "#ffffff",
+                              border: "1px solid rgba(30, 58, 138, 0.12)",
+                              boxShadow: "0 12px 36px rgba(15, 23, 42, 0.08)",
+                              display: "grid",
+                              gap: 14,
+                              minWidth: 0,
+                            }
+                      }
                     >
+                      {seUseProductSpotlightSellSheet ? (
+                        <>
+                          <section
+                            style={{
+                              width: "100%",
+                              maxWidth: 1140,
+                              margin: "0 auto",
+                              padding: "12px 0 8px",
+                              boxSizing: "border-box",
+                              background: "#0f172a",
+                              borderRadius: 12,
+                            }}
+                          >
+                            {productSpotlightSellSheetPreview}
+                          </section>
+                          <section
+                            style={{
+                              width: "100%",
+                              maxWidth: 1140,
+                              margin: "0 auto",
+                              minWidth: 0,
+                              display: "grid",
+                              gap: 14,
+                              padding: "4px 0 0",
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            {guidedSeTrainingPreviewExtras}
+                          </section>
+                        </>
+                      ) : (
+                        <>
                       <div
                         style={{
                           display: "flex",
@@ -14420,6 +14538,8 @@ const handleFinishDealerEnrollment = async () => {
                         </div>
                       </div>
                       </div>
+                        </>
+                      )}
 
                       <details
                         id="kl-se-guided-send-workflow"
