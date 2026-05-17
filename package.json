@@ -50,6 +50,7 @@
     "test:agri-oem-canonical": "node src/data/salesEnablement/runAgriOemCanonicalSmokeTests.js",
     "test:compliance-specialty-canonical": "node src/data/salesEnablement/runComplianceSpecialtyCanonicalSmokeTests.js",
     "test:spotlight-assembly": "node src/data/salesEnablement/runSpotlightAssemblyEngineSmokeTests.js",
+    "test:ai-sales-copy-generator": "node src/server/aiSalesCopyGenerator/runSmokeTest.js",
     "test:advisor-routing": "node src/data/salesEnablement/runAdvisorRoutingPrecedenceSmokeTests.js"
   },
   "browserslist": [
