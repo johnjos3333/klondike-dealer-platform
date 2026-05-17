@@ -4655,6 +4655,27 @@ useEffect(() => {
   /** Phase 5E — decode/load failure for uploaded hero preview only. */
   const [seGuidedUploadedProductImagePreviewFailed, setSeGuidedUploadedProductImagePreviewFailed] =
     useState(false);
+  const seGuidedProductImageUploadRef = React.useRef(null);
+  const handleSeGuidedProductImageUploadChange = useCallback((ev) => {
+    const file = ev.target.files && ev.target.files[0];
+    if (ev.target) ev.target.value = "";
+    if (!file) return;
+    const mimeOk = /^image\/(png|jpeg|webp)$/i.test(file.type);
+    const nameOk = /\.(png|jpe?g|webp)$/i.test(file.name || "");
+    if (!mimeOk && !nameOk) return;
+    setSeGuidedUploadedProductImagePreviewFailed(false);
+    setSeGuidedUploadedProductImageUrl((prev) => {
+      if (prev) {
+        try {
+          URL.revokeObjectURL(prev);
+        } catch {
+          /* ignore */
+        }
+      }
+      return URL.createObjectURL(file);
+    });
+    setSeGuidedUploadedProductImageFile(file);
+  }, []);
   /** Phase 76.5 — Step 5 dry-run panel (read-only; does not alter invoke payload). */
   const [seGuidedApprovedSendDryRunOpen, setSeGuidedApprovedSendDryRunOpen] = useState(false);
   /** Phase 73.22 — Guided audience wizard (UI/local labels; send payloads unchanged). */
@@ -12101,10 +12122,11 @@ const handleFinishDealerEnrollment = async () => {
               seAiSalesSheet?.recommendedNextStep,
               seSellSheetRecommendedNextStep
             );
-            const seUseProductSpotlightSellSheet =
-              Boolean(seAssemblyPkg) &&
-              seGuidedWizardMessageKind === "product" &&
-              (seTrainingPackageTypeRaw === "product_spotlight" || seTrainingPackageTypeRaw === "");
+            const seIsProductSpotlightWizard =
+              seGuidedWizardMessageKind === "product" ||
+              (seGuidedWizardMessageKind == null && salesEnablementSpotlightMode === "product");
+            const seRenderProductSpotlightSellSheet =
+              seIsProductSpotlightWizard && Boolean(seGuidedAssemblyDraftPackage?.ok);
             const seSellSheetProductImageUrl = (() => {
               if (seGuidedUploadedProductImagePreviewFailed) return "";
               return String(seGuidedUploadedProductImageUrl || "").trim();
@@ -12132,23 +12154,37 @@ const handleFinishDealerEnrollment = async () => {
                 aiReady: seAiSalesSheetReady,
               });
             }
+            const seSellSheetPdsUrl = String(guidedWizardPdsUrl || "").trim() || undefined;
             const productSpotlightSellSheetPreview = (
-              <ProductSpotlightSellSheet
-                key={`se-sell-sheet-${seFinalSellSheetTitle}-${seAiSalesSheetReady ? "ai" : "pkg"}`}
-                title={seFinalSellSheetTitle}
-                subtitle={seFinalSellSheetSubtitle}
-                summary={seFinalSellSheetSummary}
-                productImageUrl={seSellSheetProductImageUrl || undefined}
-                keySpecs={seFinalSellSheetKeySpecs}
-                benefits={seFinalSellSheetBenefits}
-                applications={seFinalSellSheetApplications}
-                whyThisProduct={seFinalSellSheetWhyThisProduct}
-                repTalkTrack={seFinalSellSheetRepTalk}
-                crossSell={seFinalSellSheetCrossSell}
-                questions={seFinalSellSheetQuestions}
-                cautions={seFinalSellSheetCautions}
-                recommendedNextStep={seFinalSellSheetNextStep}
-              />
+              <>
+                <input
+                  ref={seGuidedProductImageUploadRef}
+                  id="kl-se-guided-sell-sheet-product-upload"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                  style={{ display: "none" }}
+                  onChange={handleSeGuidedProductImageUploadChange}
+                />
+                <ProductSpotlightSellSheet
+                  key={`se-sell-sheet-${seFinalSellSheetTitle}-${seAiSalesSheetReady ? "ai" : "pkg"}`}
+                  title={seFinalSellSheetTitle}
+                  subtitle={seFinalSellSheetSubtitle}
+                  summary={seFinalSellSheetSummary}
+                  benefits={seFinalSellSheetBenefits}
+                  applications={seFinalSellSheetApplications}
+                  keySpecs={seFinalSellSheetKeySpecs}
+                  whyThisProduct={seFinalSellSheetWhyThisProduct}
+                  repTalkTrack={seFinalSellSheetRepTalk}
+                  questions={seFinalSellSheetQuestions}
+                  crossSell={seFinalSellSheetCrossSell}
+                  cautions={seFinalSellSheetCautions}
+                  recommendedNextStep={seFinalSellSheetNextStep}
+                  productImageUrl={seSellSheetProductImageUrl || undefined}
+                  pdsUrl={seSellSheetPdsUrl}
+                  onProductImageClick={() => seGuidedProductImageUploadRef.current?.click()}
+                  productImageUploadLabel="Click to upload or replace product image"
+                />
+              </>
             );
             const guidedSeTrainingLegacyPosterInner = (
                 <div
@@ -12428,30 +12464,12 @@ const handleFinishDealerEnrollment = async () => {
                         }}
                       >
                         <input
+                          ref={seGuidedProductImageUploadRef}
                           id="kl-se-guided-hero-product-upload"
                           type="file"
                           accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
                           style={{ display: "none" }}
-                          onChange={(ev) => {
-                            const file = ev.target.files && ev.target.files[0];
-                            if (ev.target) ev.target.value = "";
-                            if (!file) return;
-                            const mimeOk = /^image\/(png|jpeg|webp)$/i.test(file.type);
-                            const nameOk = /\.(png|jpe?g|webp)$/i.test(file.name || "");
-                            if (!mimeOk && !nameOk) return;
-                            setSeGuidedUploadedProductImagePreviewFailed(false);
-                            setSeGuidedUploadedProductImageUrl((prev) => {
-                              if (prev) {
-                                try {
-                                  URL.revokeObjectURL(prev);
-                                } catch {
-                                  /* ignore */
-                                }
-                              }
-                              return URL.createObjectURL(file);
-                            });
-                            setSeGuidedUploadedProductImageFile(file);
-                          }}
+                          onChange={handleSeGuidedProductImageUploadChange}
                         />
                         {seGuidedUploadedProductImageUrl && !seGuidedUploadedProductImagePreviewFailed ? (
                           <div
@@ -14104,7 +14122,7 @@ const handleFinishDealerEnrollment = async () => {
 
                     <div
                       style={
-                        seUseProductSpotlightSellSheet
+                        seRenderProductSpotlightSellSheet || seIsProductSpotlightWizard
                           ? {
                               padding: 0,
                               background: "transparent",
@@ -14126,8 +14144,28 @@ const handleFinishDealerEnrollment = async () => {
                             }
                       }
                     >
-                      {seUseProductSpotlightSellSheet ? (
+                      {seIsProductSpotlightWizard ? (
+                        seRenderProductSpotlightSellSheet ? (
                         <>
+                          <div
+                            role="status"
+                            style={{
+                              width: "100%",
+                              maxWidth: 1140,
+                              margin: "0 auto",
+                              padding: "8px 14px",
+                              borderRadius: 8,
+                              background: "#dcfce7",
+                              border: "2px solid #16a34a",
+                              fontSize: 13,
+                              fontWeight: 900,
+                              letterSpacing: "0.06em",
+                              color: "#14532d",
+                              textAlign: "center",
+                            }}
+                          >
+                            USING PRODUCT SPOTLIGHT SELL SHEET COMPONENT
+                          </div>
                           {seAiSalesSheetLoading ? (
                             <div
                               style={{
@@ -14185,29 +14223,30 @@ const handleFinishDealerEnrollment = async () => {
                               width: "100%",
                               maxWidth: 1140,
                               margin: "0 auto",
-                              padding: "12px 0 8px",
+                              padding: "8px 0 0",
                               boxSizing: "border-box",
-                              background: "#0f172a",
-                              borderRadius: 12,
+                              minWidth: 0,
                             }}
                           >
                             {productSpotlightSellSheetPreview}
                           </section>
-                          <section
+                        </>
+                        ) : (
+                          <div
                             style={{
-                              width: "100%",
-                              maxWidth: 1140,
-                              margin: "0 auto",
-                              minWidth: 0,
-                              display: "grid",
-                              gap: 14,
-                              padding: "4px 0 0",
-                              boxSizing: "border-box",
+                              padding: "16px 18px",
+                              borderRadius: 12,
+                              background: "#f8fafc",
+                              border: "1px dashed rgba(148, 163, 184, 0.65)",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              color: "#475569",
+                              lineHeight: 1.5,
                             }}
                           >
-                            {guidedSeTrainingPreviewExtras}
-                          </section>
-                        </>
+                            Generate a Klondike draft in Step 3 to preview the Product Spotlight sell sheet here.
+                          </div>
+                        )
                       ) : (
                         <>
                       <div

@@ -1,11 +1,13 @@
 /**
  * ProductSpotlightSellSheet — locked manufacturer-style one-page sell sheet.
- * Layout id: product-spotlight-sell-sheet-v5k1 (BRAVING header, no hero vehicle backdrop).
+ * Layout id: product-spotlight-sell-sheet-v5k4 (SVG value icons, click-to-upload, PDS CTA).
  */
 
 import React from "react";
 
-export const PRODUCT_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "product-spotlight-sell-sheet-v5k1";
+export const PRODUCT_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "product-spotlight-sell-sheet-v5k4";
+
+const KLONDIKE_HEADER_LOGO_SRC = "/klondike-horizontal-logo.png";
 
 const BRAND = {
   navy: "#0f172a",
@@ -19,6 +21,36 @@ const BRAND = {
   slateLight: "#e2e8f0",
   white: "#ffffff",
 };
+
+const DEFAULT_VALUE_CARDS = [
+  {
+    iconKey: "protection",
+    label: "Protection",
+    sub: "Supports severe-duty loads and helps protect metal surfaces under pressure.",
+  },
+  {
+    iconKey: "water",
+    label: "Water Resistance",
+    sub: "Formulation chemistry helps resist washout in wet and outdoor duty.",
+  },
+  {
+    iconKey: "thermal",
+    label: "Thermal Stability",
+    sub: "Match grade and temperature range to OEM and field conditions.",
+  },
+  {
+    iconKey: "uptime",
+    label: "Uptime",
+    sub: "Target longer maintenance intervals and fewer unplanned stops.",
+  },
+];
+
+const DEFAULT_CROSS_SELL = [
+  "Hydraulic Fluids",
+  "Gear Oils",
+  "Heavy Duty Engine Oils",
+  "Industrial Lubricants",
+];
 
 const NANO_DIFFERENTIATOR_CALLOUT = {
   heading: "What makes Nano different?",
@@ -44,34 +76,32 @@ const NANO_DEMO_DEFAULTS = {
   ],
   benefits: [
     {
-      icon: "EP",
+      iconKey: "protection",
       label: "Extreme Pressure Protection",
       sub: "800 kg 4-ball weld load supports heavily loaded pins, bushings, and slow-speed bearings.",
     },
     {
-      icon: "WS₂",
+      iconKey: "nano",
       label: "Nano Friction Control",
       sub: "Tungsten disulfide nanotechnology helps reduce friction and protect metal under load.",
     },
     {
-      icon: "SD",
-      label: "Shock-Load Ready",
-      sub: "Mechanical stability for vibration, impact, and severe-duty cycles.",
+      iconKey: "water",
+      label: "Water & Washout Resistance",
+      sub: "CaS complex chemistry and low spray-off help resist washout in wet duty.",
     },
     {
-      icon: "H₂O",
-      label: "Water & Uptime",
-      sub: "CaS complex chemistry and low spray-off help resist washout in wet duty.",
+      iconKey: "uptime",
+      label: "Uptime",
+      sub: "Built to extend maintenance intervals and reduce unplanned stops in severe service.",
     },
   ],
   applications: [
-    "Trucking & Fleet",
     "Mining",
     "Agriculture",
     "Construction",
     "Industrial Equipment",
     "Pins & Bushings",
-    "Steel & Paper Mills",
     "Material Handling",
   ],
   whyThisProduct: [
@@ -137,7 +167,7 @@ function normalizeBenefitTiles(value, fallback) {
       const sub = String(item.sub ?? "").trim();
       if (!label && !sub) continue;
       tiles.push({
-        icon: String(item.icon || "•").trim() || "•",
+        iconKey: String(item.iconKey || item.icon || "").trim(),
         label: label || sub.slice(0, 32),
         sub: sub || label,
       });
@@ -154,6 +184,66 @@ function normalizeBenefitTiles(value, fallback) {
     if (tiles.length >= 4) break;
   }
   return tiles.length ? tiles : fallback;
+}
+
+function resolveBenefitIconKey(tile, index) {
+  const preset = String(tile?.iconKey || "").trim().toLowerCase();
+  if (preset && ["protection", "water", "thermal", "uptime", "nano", "shock"].includes(preset)) {
+    return preset;
+  }
+  const label = `${tile?.label || ""} ${tile?.sub || ""}`.toLowerCase();
+  if (/nano|tungsten|friction|wear|surface/.test(label)) return "nano";
+  if (/shock|impact|vibrat/.test(label)) return "shock";
+  if (/water|wash|wet|spray|h2o|h₂o/.test(label)) return "water";
+  if (/temp|therm|heat|cold|stabil|grade|nlgi|fit|spec/.test(label)) return "thermal";
+  if (/uptime|interval|stop|maintain|downtime|service|life/.test(label)) return "uptime";
+  if (/protect|shield|ep|pressure|metal/.test(label)) return "protection";
+  return ["protection", "water", "thermal", "uptime"][index % 4];
+}
+
+function ensureFourValueCards(value, fallback) {
+  const base = normalizeBenefitTiles(value, fallback);
+  const out = base.map((t, i) => ({
+    ...t,
+    iconKey: resolveBenefitIconKey(t, i),
+  }));
+  for (let i = out.length; i < 4; i++) {
+    out.push({ ...DEFAULT_VALUE_CARDS[i] });
+  }
+  return out.slice(0, 4);
+}
+
+function sanitizeCrossSellLabel(item) {
+  if (item == null) return "";
+  let s = "";
+  if (typeof item === "object") {
+    s = String(item.label ?? item.name ?? item.title ?? item.category ?? "").trim();
+  } else {
+    s = String(item).trim();
+  }
+  if (!s) return "";
+  if (/^(overlay-|product-|canonical-|pds-|se-|pkg-)/i.test(s)) return "";
+  if (/^[a-z0-9_-]{14,}$/i.test(s) && !/\s/.test(s)) return "";
+  return s.replace(/_/g, " ");
+}
+
+function resolveCrossSellItems(items) {
+  const cleaned = [];
+  const raw = Array.isArray(items) ? items : [];
+  for (const item of raw) {
+    const s = sanitizeCrossSellLabel(item);
+    if (s && !cleaned.some((x) => x.toLowerCase() === s.toLowerCase())) cleaned.push(s);
+    if (cleaned.length >= 4) break;
+  }
+  if (cleaned.length >= 2) return cleaned.slice(0, 4);
+  return [...DEFAULT_CROSS_SELL];
+}
+
+function pickPdsUrl(value) {
+  const u = String(value ?? "").trim();
+  if (!u) return "";
+  if (/^https?:\/\//i.test(u) || u.startsWith("/")) return u;
+  return "";
 }
 
 function summaryLines(summary, max = 3) {
@@ -290,14 +380,15 @@ function SpecBullets({ items, max = 6, large = false }) {
   );
 }
 
-function AppTiles({ items, max = 8 }) {
+function AppTiles({ items, max = 6 }) {
   const list = pickList(items, []).slice(0, max);
   if (!list.length) return null;
+  const cols = list.length <= 4 ? 2 : 3;
   return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
         gap: 10,
       }}
     >
@@ -305,18 +396,32 @@ function AppTiles({ items, max = 8 }) {
         <article
           key={`app-${i}`}
           style={{
-            padding: "10px 8px",
-            borderRadius: 8,
-            background: "#f8fafc",
-            border: "1px solid rgba(203, 213, 225, 0.85)",
+            padding: "12px 10px",
+            borderRadius: 10,
+            background: "linear-gradient(160deg, #f8fafc 0%, #ffffff 100%)",
+            border: "1px solid rgba(30, 58, 138, 0.14)",
             textAlign: "center",
-            fontSize: 11,
-            fontWeight: 700,
+            fontSize: 12,
+            fontWeight: 800,
             color: BRAND.navy,
             lineHeight: 1.35,
+            boxShadow: "0 4px 12px rgba(15, 23, 42, 0.05)",
           }}
         >
-          <span style={{ display: "block", fontSize: 18, marginBottom: 4 }} aria-hidden>
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              margin: "0 auto 8px",
+              borderRadius: 999,
+              background: `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
+              fontSize: 20,
+            }}
+            aria-hidden
+          >
             {appIcon(line)}
           </span>
           {line}
@@ -368,9 +473,18 @@ function QuestionList({ items, max = 5 }) {
   );
 }
 
+function crossSellIcon(label) {
+  const t = String(label).toLowerCase();
+  if (/hydraulic/.test(t)) return "🔩";
+  if (/gear/.test(t)) return "⚙️";
+  if (/engine|diesel|hd/.test(t)) return "🚛";
+  if (/industrial|plant/.test(t)) return "🏭";
+  if (/grease/.test(t)) return "🧴";
+  return "🛢️";
+}
+
 function CrossSellTiles({ items, max = 4 }) {
-  const list = pickList(items, []).slice(0, max);
-  if (!list.length) return null;
+  const list = resolveCrossSellItems(items).slice(0, max);
   return (
     <div
       style={{
@@ -381,21 +495,41 @@ function CrossSellTiles({ items, max = 4 }) {
     >
       {list.map((line, i) => (
         <article
-          key={`xs-${i}`}
+          key={`xs-${i}-${line}`}
           style={{
-            padding: "14px 12px",
-            borderRadius: 8,
-            background: "linear-gradient(145deg, #f8fafc 0%, #fff 100%)",
-            border: "1px solid rgba(30, 58, 138, 0.18)",
+            padding: "16px 12px",
+            borderRadius: 10,
+            background: `linear-gradient(155deg, #ffffff 0%, #f1f5f9 100%)`,
+            border: `1px solid rgba(30, 58, 138, 0.22)`,
+            borderTop: `3px solid ${BRAND.orange}`,
             fontSize: 13,
-            fontWeight: 700,
+            fontWeight: 800,
             color: BRAND.navy,
             lineHeight: 1.35,
             textAlign: "center",
+            boxShadow: "0 6px 16px rgba(15, 23, 42, 0.06)",
+            minHeight: 88,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
           }}
         >
-          <span style={{ display: "block", fontSize: 22, marginBottom: 6 }} aria-hidden>
-            🛢️
+          <span
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 44,
+              height: 44,
+              marginBottom: 8,
+              borderRadius: 999,
+              background: `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
+              fontSize: 22,
+            }}
+            aria-hidden
+          >
+            {crossSellIcon(line)}
           </span>
           {line}
         </article>
@@ -483,14 +617,89 @@ function NanoDifferentiatorCallout() {
   );
 }
 
-function BenefitIcon({ icon }) {
-  const label = String(icon || "✓").trim();
-  const isShort = label.length <= 3;
+function ValueStoryIconSvg({ iconKey }) {
+  const stroke = BRAND.orangeLight;
+  const fill = "rgba(251, 146, 60, 0.22)";
+  const key = String(iconKey || "protection").toLowerCase();
+
+  if (key === "water") {
+    return (
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
+        <path
+          d="M22 6c-6 8-10 13-10 18a10 10 0 1 0 20 0c0-5-4-10-10-18z"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="2"
+        />
+        <path d="M10 32c3 2 7 3 12 3s9-1 12-3" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (key === "thermal") {
+    return (
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
+        <rect x="18" y="8" width="8" height="24" rx="4" fill={fill} stroke={stroke} strokeWidth="2" />
+        <circle cx="22" cy="34" r="5" fill={fill} stroke={stroke} strokeWidth="2" />
+        <path d="M22 14v12" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+        <path d="M20 18h4M20 22h4M20 26h4" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (key === "uptime") {
+    return (
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
+        <circle cx="22" cy="22" r="14" fill={fill} stroke={stroke} strokeWidth="2" />
+        <path d="M22 12v10l7 5" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="32" cy="32" r="6" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <path d="M30 32h4M32 30v4" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (key === "nano") {
+    return (
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
+        <circle cx="14" cy="22" r="4" fill={fill} stroke={stroke} strokeWidth="1.6" />
+        <circle cx="30" cy="14" r="3" fill={fill} stroke={stroke} strokeWidth="1.6" />
+        <circle cx="30" cy="30" r="3" fill={fill} stroke={stroke} strokeWidth="1.6" />
+        <path d="M17 20l10-4M17 24l10 4" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M8 34h28" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" opacity="0.7" />
+      </svg>
+    );
+  }
+  if (key === "shock") {
+    return (
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
+        <path
+          d="M10 28h8l-2 8 18-20h-9l3-10-8 22z"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
+      <path
+        d="M22 6l10 4v10c0 8-5 14-10 16-5-2-10-8-10-16V10l10-4z"
+        fill={fill}
+        stroke={stroke}
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M16 22l4 4 8-9" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 30h20" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" opacity="0.65" />
+    </svg>
+  );
+}
+
+function ValueStoryIcon({ iconKey }) {
   return (
     <div
       style={{
-        width: 76,
-        height: 76,
+        width: 84,
+        height: 84,
         margin: "0 auto",
         borderRadius: 999,
         background: `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
@@ -498,16 +707,153 @@ function BenefitIcon({ icon }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: isShort ? 15 : 28,
-        fontWeight: isShort ? 900 : 400,
-        letterSpacing: isShort ? "0.04em" : 0,
-        color: isShort ? BRAND.orangeLight : undefined,
         boxShadow: "0 10px 28px rgba(15, 23, 42, 0.28)",
       }}
       aria-hidden
     >
-      {label}
+      <ValueStoryIconSvg iconKey={iconKey} />
     </div>
+  );
+}
+
+function ProductImageCard({
+  title,
+  productImageUrl,
+  onProductImageClick,
+  productImageUploadLabel,
+}) {
+  const clickable = typeof onProductImageClick === "function";
+  const uploadHint =
+    String(productImageUploadLabel || "").trim() ||
+    (productImageUrl ? "Click to replace product image" : "Click to upload product image");
+
+  const cardStyle = {
+    position: "relative",
+    width: productImageUrl ? "min(100%, 460px)" : "min(100%, 420px)",
+    marginLeft: "auto",
+    borderRadius: 18,
+    background: BRAND.white,
+    border: clickable
+      ? `2px dashed rgba(234, 88, 12, 0.55)`
+      : "1px solid rgba(226, 232, 240, 0.98)",
+    boxShadow: productImageUrl
+      ? "0 28px 64px rgba(15, 23, 42, 0.42), 0 0 0 1px rgba(255,255,255,0.12)"
+      : "0 24px 56px rgba(15, 23, 42, 0.32)",
+    cursor: clickable ? "pointer" : "default",
+    transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+  };
+
+  const inner = productImageUrl ? (
+    <>
+      <img
+        src={productImageUrl}
+        alt={title}
+        decoding="async"
+        style={{
+          width: "100%",
+          minHeight: 280,
+          maxHeight: 420,
+          objectFit: "contain",
+          display: "block",
+          margin: "0 auto",
+          pointerEvents: "none",
+        }}
+      />
+      {clickable ? (
+        <p
+          style={{
+            margin: "10px 0 0",
+            fontSize: 11,
+            fontWeight: 800,
+            color: BRAND.orange,
+            textAlign: "center",
+            letterSpacing: "0.06em",
+          }}
+        >
+          {uploadHint}
+        </p>
+      ) : null}
+    </>
+  ) : (
+    <div
+      style={{
+        minHeight: 300,
+        padding: "48px 32px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+      }}
+    >
+      <div
+        style={{
+          width: 96,
+          height: 96,
+          margin: "0 auto 18px",
+          borderRadius: 16,
+          background: "linear-gradient(145deg, #f1f5f9 0%, #e2e8f0 100%)",
+          border: "2px dashed rgba(148, 163, 184, 0.55)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+        aria-hidden
+      >
+        <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+          <rect x="6" y="10" width="28" height="22" rx="4" stroke={BRAND.slate} strokeWidth="2" />
+          <circle cx="14" cy="18" r="3" fill={BRAND.orangeMuted} stroke={BRAND.orange} strokeWidth="1.5" />
+          <path d="M6 28l8-7 6 5 8-9 6 6" stroke={BRAND.navyMid} strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </div>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 14,
+          fontWeight: 900,
+          color: BRAND.headerNavy,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+        }}
+      >
+        Product photo
+      </p>
+      <p
+        style={{
+          margin: "10px 0 0",
+          fontSize: 13,
+          fontWeight: 600,
+          color: "#64748b",
+          lineHeight: 1.45,
+          maxWidth: 280,
+        }}
+      >
+        {uploadHint}
+      </p>
+    </div>
+  );
+
+  if (!clickable) {
+    return (
+      <div style={{ ...cardStyle, padding: productImageUrl ? "26px 28px" : 0 }}>{inner}</div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onProductImageClick}
+      style={{
+        ...cardStyle,
+        padding: productImageUrl ? "26px 28px" : 0,
+        display: "block",
+        textAlign: "inherit",
+        font: "inherit",
+      }}
+      aria-label={uploadHint}
+    >
+      {inner}
+    </button>
   );
 }
 
@@ -517,17 +863,21 @@ export default function ProductSpotlightSellSheet(props) {
   const summary = pickText(props.summary, NANO_DEMO_DEFAULTS.summary);
   const productImageUrl = pickText(props.productImageUrl, NANO_DEMO_DEFAULTS.productImageUrl);
   const keySpecs = pickList(props.keySpecs, NANO_DEMO_DEFAULTS.keySpecs);
-  const benefits = normalizeBenefitTiles(props.benefits, NANO_DEMO_DEFAULTS.benefits);
+  const benefits = ensureFourValueCards(props.benefits, NANO_DEMO_DEFAULTS.benefits);
   const applications = pickList(props.applications, NANO_DEMO_DEFAULTS.applications);
   const whyThisProduct = pickList(props.whyThisProduct, NANO_DEMO_DEFAULTS.whyThisProduct);
   const repTalkTrack = pickList(props.repTalkTrack, NANO_DEMO_DEFAULTS.repTalkTrack);
-  const crossSell = pickList(props.crossSell, NANO_DEMO_DEFAULTS.crossSell);
+  const crossSell = resolveCrossSellItems(props.crossSell);
   const questions = pickList(props.questions, NANO_DEMO_DEFAULTS.questions);
   const cautions = pickList(props.cautions, NANO_DEMO_DEFAULTS.cautions);
   const recommendedNextStep = pickText(
     props.recommendedNextStep,
     NANO_DEMO_DEFAULTS.recommendedNextStep
   );
+  const pdsUrl = pickPdsUrl(props.pdsUrl);
+  const onProductImageClick =
+    typeof props.onProductImageClick === "function" ? props.onProductImageClick : null;
+  const productImageUploadLabel = String(props.productImageUploadLabel || "").trim();
 
   const showNanoDifferentiator =
     !Array.isArray(props.whyThisProduct) || props.whyThisProduct.filter(Boolean).length === 0;
@@ -555,55 +905,59 @@ export default function ProductSpotlightSellSheet(props) {
     >
       <header
         style={{
-          padding: "18px 36px 14px",
+          padding: "26px 40px 20px",
           background: BRAND.white,
+          minHeight: 118,
         }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(140px, 1.15fr) minmax(200px, 1.5fr) minmax(140px, 1fr)",
+            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr)",
             alignItems: "center",
-            gap: 20,
+            gap: 24,
           }}
         >
-          <img
-            src="/klondike-full-logo.png"
-            alt="Klondike Performance Lubricants"
-            decoding="async"
-            style={{
-              height: 80,
-              width: "auto",
-              maxWidth: 340,
-              objectFit: "contain",
-              display: "block",
-              justifySelf: "start",
-            }}
-          />
+          <div style={{ justifySelf: "start", minWidth: 0 }}>
+            <img
+              src={KLONDIKE_HEADER_LOGO_SRC}
+              alt="Klondike Performance Lubricants"
+              decoding="async"
+              style={{
+                height: 96,
+                width: "auto",
+                maxWidth: "min(100%, 380px)",
+                objectFit: "contain",
+                objectPosition: "left center",
+                display: "block",
+              }}
+            />
+          </div>
           <p
             data-braving-tagline="true"
             style={{
               margin: 0,
-              fontSize: "clamp(14px, 1.5vw, 18px)",
+              fontSize: "clamp(13px, 1.35vw, 17px)",
               fontWeight: 900,
-              letterSpacing: "0.14em",
-              lineHeight: 1.2,
+              letterSpacing: "0.12em",
+              lineHeight: 1.25,
               color: BRAND.headerNavy,
               textTransform: "uppercase",
               textAlign: "center",
               justifySelf: "center",
+              padding: "0 8px",
             }}
           >
             BRAVING THE FORCE OF MOVEMENT
           </p>
-          <div style={{ justifySelf: "end", textAlign: "right" }}>
+          <div style={{ justifySelf: "end", textAlign: "right", minWidth: 0, paddingLeft: 8 }}>
             <p
               style={{
                 margin: 0,
-                fontSize: "clamp(22px, 2.4vw, 30px)",
+                fontSize: "clamp(20px, 2.1vw, 26px)",
                 fontWeight: 900,
-                letterSpacing: "0.08em",
-                lineHeight: 1.1,
+                letterSpacing: "0.07em",
+                lineHeight: 1.12,
                 color: BRAND.orange,
                 textTransform: "uppercase",
               }}
@@ -612,11 +966,11 @@ export default function ProductSpotlightSellSheet(props) {
             </p>
             <p
               style={{
-                margin: "6px 0 0",
-                fontSize: "clamp(16px, 1.8vw, 22px)",
+                margin: "5px 0 0",
+                fontSize: "clamp(13px, 1.4vw, 17px)",
                 fontWeight: 900,
-                letterSpacing: "0.1em",
-                lineHeight: 1.15,
+                letterSpacing: "0.09em",
+                lineHeight: 1.2,
                 color: BRAND.headerNavy,
                 textTransform: "uppercase",
               }}
@@ -627,7 +981,7 @@ export default function ProductSpotlightSellSheet(props) {
         </div>
         <div
           style={{
-            marginTop: 18,
+            marginTop: 20,
             height: 5,
             borderRadius: 2,
             background: `linear-gradient(90deg, ${BRAND.orange} 0%, ${BRAND.orangeLight} 58%, rgba(30,58,138,0.4) 100%)`,
@@ -751,97 +1105,12 @@ export default function ProductSpotlightSellSheet(props) {
               flex: 1,
             }}
           >
-          {productImageUrl ? (
-            <div
-              style={{
-                position: "relative",
-                width: "min(100%, 460px)",
-                padding: "26px 28px",
-                borderRadius: 18,
-                marginLeft: "auto",
-                background: BRAND.white,
-                border: "1px solid rgba(226, 232, 240, 0.98)",
-                boxShadow:
-                  "0 28px 64px rgba(15, 23, 42, 0.42), 0 0 0 1px rgba(255,255,255,0.12)",
-              }}
-            >
-              <img
-                src={productImageUrl}
-                alt={title}
-                decoding="async"
-                style={{
-                  width: "100%",
-                  minHeight: 280,
-                  maxHeight: 420,
-                  objectFit: "contain",
-                  display: "block",
-                  margin: "0 auto",
-                }}
-              />
-            </div>
-          ) : (
-            <div
-              style={{
-                position: "relative",
-                width: "min(100%, 420px)",
-                minHeight: 300,
-                padding: "48px 32px",
-                borderRadius: 18,
-                background: "rgba(255,255,255,0.98)",
-                border: "1px solid rgba(226, 232, 240, 0.95)",
-                textAlign: "center",
-                boxShadow: "0 24px 56px rgba(15, 23, 42, 0.32)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                marginLeft: "auto",
-              }}
-            >
-              <div
-                style={{
-                  width: 96,
-                  height: 96,
-                  margin: "0 auto 18px",
-                  borderRadius: 16,
-                  background: "linear-gradient(145deg, #f1f5f9 0%, #e2e8f0 100%)",
-                  border: "2px dashed rgba(148, 163, 184, 0.55)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 42,
-                  color: BRAND.slate,
-                }}
-                aria-hidden
-              >
-                🛢️
-              </div>
-              <p
-                style={{
-                  margin: 0,
-                  fontSize: 14,
-                  fontWeight: 900,
-                  color: BRAND.headerNavy,
-                  letterSpacing: "0.08em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Product photo
-              </p>
-              <p
-                style={{
-                  margin: "10px 0 0",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "#64748b",
-                  lineHeight: 1.45,
-                  maxWidth: 280,
-                }}
-              >
-                Upload or supply an image for this spotlight
-              </p>
-            </div>
-          )}
+          <ProductImageCard
+            title={title}
+            productImageUrl={productImageUrl}
+            onProductImageClick={onProductImageClick}
+            productImageUploadLabel={productImageUploadLabel}
+          />
           </div>
           {keySpecs.length ? (
             <article
@@ -876,29 +1145,28 @@ export default function ProductSpotlightSellSheet(props) {
         </div>
       </section>
 
-      {benefits.length ? (
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-            borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
-            background: BRAND.white,
-          }}
-        >
-          {benefits.slice(0, 4).map((t, i) => (
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          borderBottom: "1px solid rgba(226, 232, 240, 0.95)",
+          background: BRAND.white,
+        }}
+      >
+        {benefits.map((t, i) => (
             <article
               key={`ben-${i}-${t.label || i}`}
               style={{
-                padding: "38px 22px 42px",
+                padding: "34px 20px 38px",
                 textAlign: "center",
                 borderRight: i < 3 ? "1px solid rgba(226, 232, 240, 0.95)" : undefined,
               }}
             >
-              <BenefitIcon icon={t.icon} />
+              <ValueStoryIcon iconKey={t.iconKey} />
               <p
                 style={{
-                  margin: "18px 0 0",
-                  fontSize: 14,
+                  margin: "16px 0 0",
+                  fontSize: 13,
                   fontWeight: 900,
                   color: BRAND.orange,
                   letterSpacing: "0.06em",
@@ -911,12 +1179,12 @@ export default function ProductSpotlightSellSheet(props) {
               {t.sub ? (
                 <p
                   style={{
-                    margin: "12px 0 0",
-                    fontSize: 14,
+                    margin: "10px 0 0",
+                    fontSize: 13,
                     fontWeight: 600,
                     color: "#475569",
-                    lineHeight: 1.5,
-                    maxWidth: 260,
+                    lineHeight: 1.45,
+                    maxWidth: 240,
                     marginLeft: "auto",
                     marginRight: "auto",
                   }}
@@ -926,10 +1194,9 @@ export default function ProductSpotlightSellSheet(props) {
               ) : null}
             </article>
           ))}
-        </section>
-      ) : null}
+      </section>
 
-      <section style={{ padding: "40px 48px 36px", display: "grid", gap: 32, background: BRAND.white }}>
+      <section style={{ padding: "32px 44px 32px", display: "grid", gap: 24, background: BRAND.white }}>
         <section
           style={{
             display: "grid",
@@ -940,7 +1207,7 @@ export default function ProductSpotlightSellSheet(props) {
         >
           {applications.length ? (
             <FlyerCard title="Best-fit applications">
-              <AppTiles items={applications} max={8} />
+              <AppTiles items={applications} max={6} />
             </FlyerCard>
           ) : null}
           {whyThisProduct.length ? (
@@ -964,11 +1231,9 @@ export default function ProductSpotlightSellSheet(props) {
             alignItems: "stretch",
           }}
         >
-          {crossSell.length ? (
-            <FlyerCard title="Cross-sell & system solutions">
-              <CrossSellTiles items={crossSell} max={4} />
-            </FlyerCard>
-          ) : null}
+          <FlyerCard title="Cross-sell & system solutions">
+            <CrossSellTiles items={crossSell} max={4} />
+          </FlyerCard>
           {questions.length ? (
             <FlyerCard title="Questions to ask your customer">
               <QuestionList items={questions} max={5} />
@@ -988,45 +1253,75 @@ export default function ProductSpotlightSellSheet(props) {
               overflow: "hidden",
               background: `linear-gradient(98deg, ${BRAND.orange} 0%, #c2410c 42%, ${BRAND.navyMid} 100%)`,
               boxShadow: "0 14px 36px rgba(194, 65, 12, 0.28)",
-              display: "grid",
-              gridTemplateColumns: "auto 1fr",
+              display: "flex",
+              flexWrap: "wrap",
               gap: 18,
               alignItems: "center",
+              justifyContent: "space-between",
               padding: "20px 24px",
               color: BRAND.white,
             }}
           >
-            <span
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 10,
-                background: "rgba(255,255,255,0.16)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 22,
-              }}
-              aria-hidden
-            >
-              →
-            </span>
-            <div>
-              <p
+            <div style={{ display: "flex", gap: 18, alignItems: "center", flex: "1 1 280px", minWidth: 0 }}>
+              <span
                 style={{
-                  margin: 0,
-                  fontSize: 10,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.16)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 22,
+                  flexShrink: 0,
+                }}
+                aria-hidden
+              >
+                →
+              </span>
+              <div style={{ minWidth: 0 }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 10,
+                    fontWeight: 900,
+                    letterSpacing: "0.14em",
+                    opacity: 0.92,
+                  }}
+                >
+                  RECOMMENDED NEXT STEP
+                </p>
+                <p style={{ margin: "8px 0 0", fontSize: 17, fontWeight: 900, lineHeight: 1.32 }}>
+                  {recommendedNextStep}
+                </p>
+              </div>
+            </div>
+            {pdsUrl ? (
+              <a
+                href={pdsUrl}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  flexShrink: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "12px 22px",
+                  borderRadius: 10,
+                  background: BRAND.white,
+                  color: BRAND.navy,
+                  fontSize: 13,
                   fontWeight: 900,
-                  letterSpacing: "0.14em",
-                  opacity: 0.92,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  textDecoration: "none",
+                  boxShadow: "0 8px 20px rgba(15, 23, 42, 0.2)",
+                  border: `2px solid ${BRAND.orangeLight}`,
                 }}
               >
-                RECOMMENDED NEXT STEP
-              </p>
-              <p style={{ margin: "8px 0 0", fontSize: 17, fontWeight: 900, lineHeight: 1.32 }}>
-                {recommendedNextStep}
-              </p>
-            </div>
+                Open PDS
+              </a>
+            ) : null}
           </section>
         ) : null}
       </section>
