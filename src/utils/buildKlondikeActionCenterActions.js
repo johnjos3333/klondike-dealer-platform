@@ -4,6 +4,11 @@
  */
 
 import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "../data/salesEnablement/spotlightSuggestionRules";
+import {
+  buildDealerMixGapCandidates,
+  buildDealerPipelineCoachingCandidates,
+  pickDealersForCoachingIntelligence,
+} from "./klAdminActionCenterIntelligence";
 
 /**
  * Static coaching archetypes when live signals are sparse.
@@ -51,7 +56,7 @@ export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
       buttonLabel: "Notify Manager",
       accent: "blue",
       noticeText:
-        "Follow-up prepared (mock): manager reminder staged as banner only — no email sent yet.",
+        "Coaching reminder ready (mock): manager banner only — no email sent yet.",
       severityRank: 2,
     },
     {
@@ -59,7 +64,7 @@ export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
       kind: "spotlight",
       issue: "Room to coach premium synthetic lines.",
       scope: "Category · Synthetic",
-      whatChanged: "Synthetic products are still a modest part of approved demand.",
+      whatChanged: "Synthetic products are still a modest part of what customers are saying yes to.",
       why: "Reps sell upgrades when they have simple tag-and-PDS language—not a price sheet first.",
       recommended: "Walk the synthetic spotlight with the manager before the next fleet pitch.",
       buttonLabel: "Open Sales Enablement",
@@ -136,7 +141,7 @@ function activationGapForDealer(dealer) {
       test: () => !a.firstProposalSent,
       whatChanged: "Quotes exist but no proposal has gone to a customer yet.",
       why: "Customers cannot say yes until a proposal leaves the shop.",
-      recommended: "Send one proposal while you are on site and log it together.",
+      recommended: "Send one proposal while you are on site and walk through it with the manager.",
     },
     {
       stepId: "viewed",
@@ -157,16 +162,16 @@ function activationGapForDealer(dealer) {
     {
       stepId: "demand",
       test: () => Boolean(a.customerResponseReceived) && !a.approvedDemandGenerated,
-      whatChanged: "Customer said yes but approved lines are not logged yet.",
-      why: "Stocking conversations need approved lines on file.",
-      recommended: "Walk approvals with the manager so inventory reflects reality.",
+      whatChanged: "Customer said yes but stocking lines are not captured yet.",
+      why: "The counter needs those yes lines to plan stocking and the next PM conversation.",
+      recommended: "Walk the customer yes with the manager so stocking reflects what was approved.",
     },
     {
       stepId: "inventory",
       test: () => Boolean(a.approvedDemandGenerated) && !a.inventoryAlertsActive,
-      whatChanged: "Approved demand is not showing up for inventory follow-up yet.",
-      why: "The counter needs approved lines to plan stocking and reorders.",
-      recommended: "Confirm approved lines flow into inventory alerts with the manager.",
+      whatChanged: "Customer yes lines are not showing up for inventory follow-up yet.",
+      why: "The counter needs what the customer approved to plan stocking and reorders.",
+      recommended: "Confirm customer yes lines reach inventory alerts with the manager.",
     },
     {
       stepId: "ocr",
@@ -211,28 +216,24 @@ export function buildKlondikeActionCenterActions({
     return true;
   };
 
-  const alertDealerIds = new Set();
-
-  (Array.isArray(enablementAlerts) ? enablementAlerts : []).slice(0, 2).forEach((al) => {
-    alertDealerIds.add(String(al.dealerOrgId || ""));
-    push({
-      id: `alert-${al.alertKey}`,
-      kind: "spotlight",
-      issue: `Review spotlight materials for ${String(al.dealerName || "this dealer").trim()}.`,
-      scope: String(al.dealerName || "Dealer").trim(),
-      whatChanged: `${String(al.dealerName || "This dealer").trim()} needs a coaching touch on ${String(al.spotlightTitle || "enablement").trim()}.`,
-      why: String(al.whyItMatters || "A simple pattern in quotes or stocking needs a manager conversation."),
-      recommended: `Open Sales Enablement and walk “${al.spotlightTitle || "library"}” with the rep before any customer send.`,
-      buttonLabel: "Open Sales Enablement",
-      accent: "blue",
-      dealerOrgId: String(al.dealerOrgId || ""),
-      spotlightId: al.spotlightId,
-      spotlightType: al.spotlightType,
-      enablementSignalKind: al.signalKind,
-    });
-  });
+  const alertDealerIds = new Set(
+    (Array.isArray(enablementAlerts) ? enablementAlerts : []).map((al) =>
+      String(al.dealerOrgId || "")
+    )
+  );
 
   const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+
+  pickDealersForCoachingIntelligence(dealers, 4).forEach((dealer) => {
+    const pipeline = buildDealerPipelineCoachingCandidates(dealer);
+    if (pipeline.length > 0) {
+      pipeline.slice(0, 1).forEach((row) => push(row));
+      return;
+    }
+    buildDealerMixGapCandidates(dealer)
+      .slice(0, 2)
+      .forEach((row) => push(row));
+  });
 
   for (const d of dealers) {
     const gap = activationGapForDealer(d);
@@ -250,6 +251,8 @@ export function buildKlondikeActionCenterActions({
       buttonLabel: "Open Dealer Snapshot",
       accent: "orange",
       dealerOrgId: oid,
+      severityRank: 0,
+      confidence: 88,
     });
     break;
   }
@@ -269,11 +272,15 @@ export function buildKlondikeActionCenterActions({
         kind: "dealers_tab",
         issue: "Customers are not responding to proposals yet.",
         scope: "Territory",
-        whatChanged: `${proposalsSent} proposals are out with no customer replies logged.`,
+        whatChanged: `${proposalsSent} proposals are out with no customer replies yet.`,
         why: "Managers may need a follow-up plan—not more product sheets.",
         recommended: "See which dealers have open proposals and who owns the next call.",
         buttonLabel: "Open Dealer Snapshot",
         accent: "blue",
+        severityRank: 1,
+        confidence: 75,
+        intelligenceTheme: "business_review",
+        dedupeKey: "territory:proposal_stall",
       })
     ) {
       territoryStallAdded = true;
@@ -292,13 +299,17 @@ export function buildKlondikeActionCenterActions({
           kind: "dealers_select",
           issue: "Quotes are moving—customers have not replied yet.",
           scope: String(d.name || "Dealer").trim(),
-          whatChanged: `${qs} quotes and ${ps} proposals with no customer decision logged.`,
+          whatChanged: `${qs} quotes and ${ps} proposals with no customer decision yet.`,
           why: "The rep may need help closing the loop while the quote is still warm.",
           recommended: "Open this dealer and agree on the next customer call or visit.",
           buttonLabel: "Open Dealer Snapshot",
           accent: "green",
           dealerOrgId: oid,
           dealerRow: d,
+          severityRank: 0,
+          confidence: 90,
+          intelligenceTheme: "quote_followup",
+          dedupeKey: `${oid}:quote_followup`,
         });
         break;
       }
