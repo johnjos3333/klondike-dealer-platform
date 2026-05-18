@@ -9,10 +9,10 @@
  * Not wired to App.js, sell sheets, or send behavior yet.
  */
 
-export const EQUIPMENT_OPPORTUNITY_PROFILE_VERSION = 1;
+export const EQUIPMENT_OPPORTUNITY_PROFILE_VERSION = 2;
 
 export const EQUIPMENT_OPPORTUNITY_PROFILE_DISCLAIMER =
-  "Opportunity profile for field enablement only—not an OEM endorsement. Verify OEM requirements using equipment tags, manuals, and current PDS before recommending chemistry.";
+  "OEM opportunity profile for rep enablement only—not an OEM endorsement, partnership, or approval. Verify all requirements using equipment tags, operator manuals, and the current PDS before any spec conversation or recommendation.";
 
 /**
  * @typedef {{
@@ -53,78 +53,114 @@ const EQUIPMENT_OPPORTUNITY_PROFILE_LIST = [
   {
     key: "cat",
     label: "CAT Equipment",
-    profileTitle: "CAT Equipment — Opportunity Profile",
-    profileSubtitle: "Common lubrication conversations for excavators, loaders, and haul trucks.",
+    profileTitle: "CAT Earthmoving Fleet — Lubrication Opportunity Playbook",
+    profileSubtitle:
+      "Production-hour spec conversations for excavators, loaders, haul trucks, and site support iron",
     opportunitySummary:
-      "Earthmoving fleets running Caterpillar-badged iron often center on hydraulic reliability, final drives, severe-duty grease, and mixed-fleet HD engine programs. Use common lubrication conversations tied to compartment tags and current PDS—do not imply Caterpillar partnership, endorsement, or approval.",
+      "Rep playbook for Caterpillar-badged earthmoving fleets: lead with lost production hours, compartment-by-compartment spec discipline, and KLONDIKE category depth where equipment tags, manuals, and the current PDS support the duty. This is a spec conversation guide—not a Caterpillar endorsement.",
     commonLubricationConversations: [
-      "Hydraulic heat, foam, and slow response on large excavator and loader circuits under load and contamination.",
-      "Final drive, pin, and bushing wear when regrease discipline or thickener choice drifts on wet shifts.",
-      "Production-hour loss when bulk ISO VG labeling and compartment separation slip on busy sites.",
-      "Mixed-fleet CK-4 and coolant programs on haul trucks and support diesels adjacent to yellow iron.",
+      "Hydraulic circuits: heat, foam, and slow response when ISO VG drifts or bulk top-off crosses mobile AW tanks",
+      "Undercarriage & implements: pin, bushing, and final-drive wear when grease thickener or regrease intervals slip on wet shifts",
+      "Bulk discipline: unlabeled ISO VG drums and shared hoses between hydraulic, swing, and travel compartments",
+      "Mixed iron: haul-truck and support-diesel CK-4 and HD coolant programs running beside yellow machines on one yard",
+      "Sensitive sites: ENVIRO / EAL hydraulic conversations only where tags, manuals, and PDS list the application",
     ],
     equipmentTypes: [
-      "Hydraulic excavators",
-      "Wheel loaders",
-      "Off-highway haul trucks",
-      "Dozers and motor graders",
-      "Support equipment",
+      "Large hydraulic excavators — main, travel, and swing pump circuits",
+      "Wheel loaders — lift and steering hydraulics; axle and final drives",
+      "Off-highway haul trucks — engine, differential, and hoist hydraulics",
+      "Dozers & motor graders — undercarriage pins, circle drives, and blade hydraulics",
+      "Motor scrapers & compactors — shared-yard bulk and seasonal viscosity swings",
+      "Site support — pickups, water trucks, and lube service units on the same card",
     ],
     typicalFluidCategories: [
-      { category: "AW / MV hydraulic fluids", role: "ISO VG-matched pump protection and seasonal coverage per tag" },
-      { category: "Severe-duty grease", role: "Pins, bushings, and final drives—moly and nano tiers only where PDS supports" },
-      { category: "Final drive and gear oils", role: "Drivetrain fills per compartment tag" },
-      { category: "CK-4 HD engine oils", role: "Mixed-fleet diesel programs on support and haul assets" },
-      { category: "HD coolant programs", role: "NOAT / nitrite-free discipline separate from automotive bays" },
+      {
+        category: "Hydraulic fluids (AW / MV / XVI Synthetic)",
+        role: "ISO VG-matched pump protection; ladder Professional → Advanced → MV → XVI per tag and analysis",
+      },
+      {
+        category: "Grease (MOLY TAC, ULTRA TAC, nano Calcium Sulfonate EP)",
+        role: "Pins, bushings, and slow-speed joints—spec conversation only where PDS lists severe earthmoving duty",
+      },
+      {
+        category: "Gear oils (Commercial & Full Synthetic EP)",
+        role: "Final drives, reducers, and axles—one compartment tag at a time",
+      },
+      {
+        category: "HD engine oils (CK-4 synthetic blend & full synthetic)",
+        role: "Haul trucks and support diesels—API category and viscosity from tag, not bulk habit",
+      },
+      {
+        category: "HD coolant (NOAT ELC & nitrite-free programs)",
+        role: "Separate HD cooling chemistry from automotive bays; verify inhibitor family on PDS",
+      },
+      {
+        category: "ENVIRO / BIO / EAL hydraulics",
+        role: "Forestry, marine-adjacent, and sensitive-site circuits when application charts allow",
+      },
     ],
     opportunitySignals: [
-      "Hydraulic slow response or foam at shift start on excavators",
-      "Repeat pin and bushing regreases after wet shifts",
-      "Final drive complaints or metal in drain samples",
-      "Mixed bulk tanks without ISO VG labeling discipline",
+      "Excavator hydraulics slow or foamy at first shift after overnight cold",
+      "Loader pins regreased twice a week with no improvement after rain events",
+      "Metal or varnish trending on final-drive drain samples",
+      "Two bulk AW drums on site with no ISO VG labels",
+      "Customer asking for “the yellow-fluid equivalent” without a tag review",
     ],
     recommendedRepTalkingPoints: [
-      "Open with production hours and worst circuits—hydraulics, final drives, or pins—not brand habit.",
-      "Use common lubrication conversations tied to tags and PDS; do not imply Caterpillar partnership or approval.",
-      "Position Klondike as a system program across hydraulics, grease, gear, engine, and coolant only where documented.",
+      "Start with production hours lost last month—which machine class paid the biggest penalty?",
+      "Walk compartments before SKUs: main hydraulic, travel, swing, final drive, grease points, engine, coolant—verify each on tags and manuals.",
+      "Frame hydraulics as an ISO VG spec conversation backed by analysis, not drum color or fleet habit.",
+      "Position grease upgrades only where washout, shock load, or repeat pin failure is documented on the job.",
+      "Bundle KLONDIKE hydraulics, grease, gear, engine, and coolant as a system program only where the current PDS supports each fill.",
+      "Close every recommendation with: verify requirements on equipment tags, manuals, and current PDS—no implied Caterpillar partnership or approval.",
     ],
     discoveryFocus: [
-      "Which machine classes drive worst downtime—excavators, loaders, or haul trucks?",
-      "What ISO VG and compartment tags are on the hydraulics needed this week?",
-      "Where are pins, final drives, or bushings failing after wash-down or shock load?",
-      "How are bulk hydraulics, grease, and engine oil separated on site?",
+      "Which three machine classes drive 80% of unplanned downtime this quarter—excavator, loader, or haul truck?",
+      "What ISO VG, pump, and compartment tags are on the worst hydraulic circuit right now?",
+      "Where did pins, bushings, or final drives fail last—after wash-down, shock load, or wrong grease thickener?",
+      "How are bulk hydraulics, grease, gear, engine, and coolant tanks labeled and hose-separated on site?",
+      "Is fluid analysis running on hydraulics and final drives—or only engine oil?",
+      "Who approves chemistry changes when a new viscosity or grease family is proposed for auto-lube or bulk?",
     ],
     crossSellFocus: [
-      "Filtration and breathers",
-      "Coolant programs",
-      "Industrial gear and open gear",
-      "ENVIRO / EAL on sensitive sites",
+      "Hydraulic fluids — ISO VG ladder and XVI synthetic step-up",
+      "Grease — severe-duty and nano sulfonate programs for pins and final drives",
+      "Gear oils — final drive and reducer protection under load",
+      "HD engine oils — CK-4 programs on haul and support diesels",
+      "Coolants — HD NOAT ELC discipline separate from automotive",
+      "ENVIRO / EAL — sensitive-site hydraulic companions",
     ],
     cautions: [
       EQUIPMENT_OPPORTUNITY_PROFILE_DISCLAIMER,
-      "Do not claim Caterpillar approval unless the exact wording appears on the PDS for that SKU.",
-      "Separate hydraulic, final drive, grease, and engine compartments—confirm each fill on tags.",
+      "Do not state Caterpillar approval unless the exact wording appears on the current PDS for that SKU.",
+      "Never assume one hydraulic grade fits main, travel, swing, and auxiliary circuits—verify each compartment tag.",
+      "Do not mix incompatible greases or flush chemistry without consultation and tag review.",
     ],
     recommendedProductAnchors: [
       {
         name: "XVI Synthetic Hydraulic Fluids",
-        positioning: "Premium hydraulic conversation where analysis and duty support synthetic per PDS.",
+        positioning:
+          "Premium hydraulic spec conversation when analysis, pump tags, and current PDS support synthetic AW duty.",
       },
       {
-        name: "MOLY TAC / ULTRA TAC grease programs",
-        positioning: "Shock-loaded pins and implements on severe earthmoving duty where PDS lists the application.",
+        name: "Multi-Viscosity AW & Advanced Formula Hydraulic Fluids",
+        positioning: "Seasonal and bulk-fleet ISO VG discipline before synthetic step-up.",
+      },
+      {
+        name: "MOLY TAC / ULTRA TAC / nano Calcium Sulfonate EP Grease",
+        positioning: "Shock-loaded pins, bushings, and implements where PDS lists severe mobile duty.",
       },
       {
         name: "Full Synthetic Gear Lubricants",
-        positioning: "Final drive and reducer protection under sustained load when tags allow.",
+        positioning: "Final drive and reducer spec conversation when tags and PDS support synthetic EP.",
       },
       {
-        name: "CK-4 Full Synthetic Heavy Duty Engine Oils",
-        positioning: "Haul truck and support diesel programs with documented API category on PDS.",
+        name: "CK-4 Full Synthetic & Synthetic Blend Heavy Duty Engine Oils",
+        positioning: "Documented API CK-4 category for haul trucks and support diesels per tag and PDS.",
       },
     ],
     recommendedNextStep:
-      "Map excavator, loader, and haul-truck reservoirs; align ISO VG, grease points, and CK-4 programs to current PDS.",
+      "Build a compartment map for excavators, loaders, and haul trucks; run a spec conversation on ISO VG, grease points, gear fills, CK-4, and coolant—verify every line against equipment tags, manuals, and current PDS.",
   },
   {
     key: "kubota",
@@ -190,58 +226,114 @@ const EQUIPMENT_OPPORTUNITY_PROFILE_LIST = [
   {
     key: "john_deere_ag",
     label: "John Deere Ag",
-    profileTitle: "John Deere Ag — Opportunity Profile",
-    profileSubtitle: "Wet brake, trans-drive, harvest PM, and AGRIMAX program opportunities.",
+    profileTitle: "John Deere Ag Fleet — Seasonal Lubrication Playbook",
+    profileSubtitle:
+      "Harvest-ready spec conversations: wet brake, trans-drive, engine, grease, and coolant",
     opportunitySummary:
-      "Brand-loyal ag customers running John Deere equipment often need wet-brake, trans-drive, and harvest PM discipline. Use spec-aligned AGRIMAX conversations only where PDS and tags support the duty—never imply Deere partnership, endorsement, or approval.",
+      "Rep playbook for John Deere ag customers: win on reservoir discipline, seasonal PM bundles, and AGRIMAX program depth—always as a spec conversation verified on equipment tags, operator manuals, and the current PDS. Not a Deere endorsement or approval sheet.",
     commonLubricationConversations: [
-      "Wet brake chatter that may trace to fluid compatibility—not brake hardware alone.",
-      "Harvest uptime on combines and tractors during peak-hour reliability windows.",
-      "Premium OEM-fluid habits without documented spec match on the tag or PDS.",
+      "Wet brake chatter: often fluid compatibility in the common sump—not brake hardware alone",
+      "Trans-drive confusion: one green or red drum quoted for transmission, hydraulic, and wet-brake compartments",
+      "Harvest uptime: combine and tractor reliability when peak-hour fluid PO slips before season",
+      "Engine & DEF era: CK-4 category and viscosity discipline on high-hour seasonal diesel",
+      "Field grease neglect: PTO, implement, and loader pins still on commodity NLGI habits",
     ],
-    equipmentTypes: ["Tractors", "Combines", "Sprayers", "Planters", "Grain carts", "Support trucks"],
+    equipmentTypes: [
+      "Row-crop & utility tractors — trans/hydraulic, wet brake, engine, front axle",
+      "Combines & headers — engine, hydrostatic/trans, grain handling auxiliaries",
+      "Sprayers & planters — seasonal PM and tank-support hydraulics",
+      "Grain carts & wagons — axle, PTO, and support grease points",
+      "Skid steers & telehandlers on the farm — standalone AW hydraulic circuits",
+      "Support trucks & service pickups — CK-4 and coolant on the same account card",
+    ],
     typicalFluidCategories: [
-      { category: "AGRIMAX trans-drive / zinc-free", role: "UTHF programs where PDS lists relevant ag duty" },
-      { category: "CK-4 engine oils", role: "Seasonal diesel engine protection" },
-      { category: "Grease programs", role: "Field and chassis PM beyond a single grease habit" },
-      { category: "Coolant", role: "ELC discipline on ag fleets" },
+      {
+        category: "AGRIMAX trans-drive & zinc-free UTHF",
+        role: "Spec conversation for wet-brake and trans-hydraulic sumps—verify tag and PDS before quoting",
+      },
+      {
+        category: "Universal Red Tractor Fluid",
+        role: "Baseline UTHF entry where equipment tags and current PDS list compatible duty",
+      },
+      {
+        category: "CK-4 HD engine oils (AGRIMAX synthetic blend & full synthetic)",
+        role: "Seasonal diesel protection—API category from tag, not shelf habit",
+      },
+      {
+        category: "Grease (AGRIMAX Poly Tac, RED TAC, MOLY TAC)",
+        role: "Chassis, PTO, and implement PM beyond a single dealer grease SKU",
+      },
+      {
+        category: "Coolant (AGRIMAX ELC premix programs)",
+        role: "Cooling system discipline bundled with spring and harvest PM",
+      },
+      {
+        category: "AW hydraulic fluids",
+        role: "Loaders, telehandlers, and standalone circuits—not assumed for every tractor sump",
+      },
     ],
     opportunitySignals: [
-      "Wet brake noise after fluid service",
-      "Dealer quoting one OEM fluid for every reservoir",
-      "Harvest prep fluid bundles incomplete",
+      "Wet brake noise or chatter within 50 hours of a fluid change",
+      "Dealer PM kit sells filters and engine oil but not trans-drive or grease",
+      "Customer paying OEM-fluid premium without tag proof of required spec",
+      "Harvest prep starts in two weeks and coolant has not been tested",
+      "Grain-cart and wagon bearings failing on the same grease used for chassis",
     ],
     recommendedRepTalkingPoints: [
-      "Talk wet brake chatter, trans-drive compatibility, and harvest PM—not OEM branding.",
-      "AGRIMAX is a spec conversation category: verify John Deere fluid guidance on tags and PDS only.",
-      "Never imply Deere partnership, endorsement, or approval beyond documented PDS language.",
+      "Open with harvest or planting uptime—which reservoir cost them hours last season?",
+      "Map every sump before AGRIMAX: transmission, hydraulic, wet brake, engine, axle, coolant—verify on tags and manuals.",
+      "Treat wet brake chatter as a spec conversation: fluid category and compatibility, not a brake-bleed default.",
+      "Position AGRIMAX as program depth across trans-drive, engine, grease, and coolant—not a single SKU swap.",
+      "Bundle seasonal PM with documented PDS lines for each compartment; never imply Deere partnership or approval.",
+      "Close with: verify John Deere fluid requirements on equipment tags, manuals, and current PDS for every fill discussed.",
     ],
     discoveryFocus: [
-      "Which reservoirs are being standardized this season?",
-      "Where is wet brake chatter showing up after fluid changes?",
-      "What does the harvest PM bundle include beyond engine oil?",
+      "Which John Deere models drive your seasonal PM volume—tractor, combine, or sprayer?",
+      "What fluid types do tags call for in transmission, hydraulic, and wet-brake compartments on your worst chatter unit?",
+      "Where did wet brake noise show up—after dealer service, customer top-off, or bulk change?",
+      "What is in today’s harvest PM bundle beyond engine oil and filters?",
+      "Are zinc-free and standard trans-drive SKUs separated on the shelf and work orders?",
+      "Who signs off when chemistry changes on a brand-loyal account still buying OEM jugs?",
     ],
-    crossSellFocus: ["Coolant ELC", "Hydraulic AW on supporting assets", "Grease upgrades on high-load pins"],
+    crossSellFocus: [
+      "AGRIMAX trans-drive — UTHF and zinc-free spec conversations",
+      "AGRIMAX engine oils — CK-4 seasonal diesel programs",
+      "AGRIMAX grease — field, PTO, and chassis PM completion",
+      "AGRIMAX coolant — ELC premix with harvest and planting bundles",
+      "Hydraulic AW — loaders, telehandlers, and support iron",
+      "Universal Red Tractor Fluid — entry UTHF where tags and PDS allow",
+    ],
     cautions: [
       EQUIPMENT_OPPORTUNITY_PROFILE_DISCLAIMER,
-      "JD/CNH positioning only where PDS and equipment tags support—no implied OEM endorsement.",
+      "Do not claim John Deere or CNH approval unless the current PDS states it for that exact product.",
+      "UTHF, wet-brake, and standalone hydraulic circuits are not interchangeable—verify each tag.",
+      "Do not promise OEM-equivalent performance—run a spec conversation against tags, manuals, and PDS only.",
     ],
     recommendedProductAnchors: [
       {
         name: "AGRIMAX Zinc Free Trans Drive Hydraulic Fluid",
-        positioning: "Zinc-free trans-drive where equipment tags and PDS require it.",
+        positioning:
+          "Zinc-free trans-drive spec conversation when tags, manuals, and current PDS require zinc-free chemistry.",
+      },
+      {
+        name: "AGRIMAX Trans Drive Hydraulic Fluid",
+        positioning: "Program anchor for trans-hydraulic sumps where PDS lists compatible ag duty.",
       },
       {
         name: "AGRIMAX SAE 15W-40 CK-4 Synthetic Blend",
-        positioning: "Engine program on high-hour seasonal diesel per PDS.",
+        positioning: "High-hour seasonal diesel engine program with documented API CK-4 on PDS.",
       },
       {
-        name: "AGRIMAX Poly Tac / RED TAC companions",
-        positioning: "Seasonal PM story elements where PDS lists the application.",
+        name: "AGRIMAX Poly Tac / RED TAC / MOLY TAC",
+        positioning: "Seasonal grease PM for chassis, PTO, and implements per PDS application lists.",
+      },
+      {
+        name: "AGRIMAX Extended Life Coolant (premix programs)",
+        positioning: "Cooling companion on planting and harvest bundles where PDS supports ELC duty.",
       },
     ],
     recommendedNextStep:
-      "Map AGRIMAX line by reservoir; bundle engine, trans-drive, grease, and coolant on seasonal PM.",
+      "Draw a reservoir map for tractors and combines; run AGRIMAX spec conversations compartment by compartment—verify every recommendation on equipment tags, manuals, and current PDS before harvest.",
   },
   {
     key: "volvo_ce",
@@ -303,62 +395,114 @@ const EQUIPMENT_OPPORTUNITY_PROFILE_LIST = [
   {
     key: "international",
     label: "International Truck",
-    profileTitle: "International Truck — Opportunity Profile",
-    profileSubtitle: "CK-4 / FA-4, coolant programs, driveline, and service bay opportunities.",
+    profileTitle: "International Truck Fleet — Service Bay Playbook",
+    profileSubtitle:
+      "CK-4 / FA-4, HD coolant, driveline, and vocational spec conversations for highway and fleet bays",
     opportunitySummary:
-      "Highway and vocational International fleets need API category discipline, coolant program separation, and driveline conversations in the service bay. Verify Navistar/International requirements on tags and PDS—no implied OEM partnership or approval.",
+      "Rep playbook for International and Navistar-badged highway and vocational fleets: lead with API category discipline, HD coolant separation, and driveline spec conversations in the service lane—verified on VIN tags, operator manuals, and the current PDS. Not an International endorsement or approval sheet.",
     commonLubricationConversations: [
-      "Over-the-road uptime tied to drain intervals and emissions-hardware-compatible engine oils.",
-      "Coolant top-off chaos when OAT/NOAT habits mix in shared bays.",
-      "Driveline wear when trans, differential, and PTO fills are treated as interchangeable.",
+      "Engine programs: CK-4 vs FA-4 confusion on newer tractors and emissions-sensitive drain intervals",
+      "Coolant chaos: HD NOAT ELC, OAT, and universal green top-offs sharing hoses in the same bay",
+      "Driveline: transmission, differential, and PTO reservoirs treated as interchangeable 80W-90 habits",
+      "Vocational hydraulics: PTO and hoist circuits filled from the main AW bulk tank",
+      "Chassis & fifth wheel: grease programs skipped when the lane sells engine oil only",
     ],
     equipmentTypes: [
-      "Class 8 highway tractors",
-      "Vocational trucks",
-      "Medium-duty delivery",
-      "Fleet service bays",
+      "Class 8 LT / RH highway tractors — engine, aftertreatment, coolant, trans, drives",
+      "HV / HX vocational — dump, mixer, and municipal chassis with PTO hydraulics",
+      "MV medium-duty — delivery and service routes with shared shop bulk",
+      "Fleet service bays — bulk CK-4, coolant, ATF, and gear drums on one lane card",
+      "Trailers & dollies on the account — hub oil and fifth-wheel grease discipline",
+      "Owner-operator pickups tied to the fleet — avoid light-duty chemistry in HD bulk",
     ],
     typicalFluidCategories: [
-      { category: "CK-4 / FA-4 engine oils", role: "API category matched to OEM and emissions generation" },
-      { category: "HD NOAT / nitrite-free coolant", role: "Cooling program standardization" },
-      { category: "Transmission and driveline fluids", role: "Spec-correct ATF and gear programs" },
-      { category: "Chassis grease", role: "Fifth wheel and vocational chassis" },
+      {
+        category: "CK-4 & FA-4 HD engine oils (synthetic blend & full synthetic)",
+        role: "API category and viscosity from VIN/tag—spec conversation before premium upgrade",
+      },
+      {
+        category: "HD coolant (Red Heavy Duty NOAT ELC, Gold OAT ELC, Commercial HD NOAT)",
+        role: "Inhibitor family matched to wet-sleeve diesel—never light-duty Gold shorthand for HD Gold",
+      },
+      {
+        category: "Transmission & driveline (ATF, Commercial Gear Lubricants)",
+        role: "Spec-correct trans and axle fills—verify builder tag per compartment",
+      },
+      {
+        category: "Chassis grease (MOLY TAC, Fifth Wheel Grease, HD TAC)",
+        role: "Fifth wheel, kingpin, and vocational joint PM in the lane bundle",
+      },
+      {
+        category: "Hydraulic AW fluids",
+        role: "PTO, hoist, and vocational aux circuits—not assumed from engine bulk",
+      },
+      {
+        category: "Power steering, brake & shop fluids",
+        role: "Complete lane chemistry where PDS lists DOT and steering applications",
+      },
     ],
     opportunitySignals: [
-      "CK-4 vs FA-4 confusion on newer tractors",
-      "Coolant compatibility failures after roadside top-off",
-      "Incomplete service lane chemical bundles",
+      "Fleet manager unsure whether 2022+ tractors should be FA-4 or CK-4",
+      "Coolant gel or inhibitor fallout after roadside universal green top-off",
+      "Transmission comeback after “standard gear oil” in an automated box",
+      "PTO hoist slow after AW from the wrong bulk drum",
+      "Service lane sells CK-4 but not HD coolant or chassis grease on the work order",
     ],
     recommendedRepTalkingPoints: [
-      "Open with API category, coolant inhibitor family, and driveline spec—not brand default.",
-      "International common lubrication conversations; verify requirements on tags and PDS.",
+      "Start with fleet card and worst comeback—engine, coolant, trans, or PTO—not brand default fluid.",
+      "Run CK-4 / FA-4 as an API spec conversation: model year, emissions hardware, and tag language first.",
+      "Separate HD coolant inhibitor families on the bulk chart—verify on tags, manuals, and current PDS.",
+      "Walk driveline compartments individually: transmission, inter-axle, differential, PTO—no interchangeable fills.",
+      "Bundle KLONDIKE engine, coolant, driveline, grease, and vocational hydraulics as a lane program where PDS supports each line.",
+      "Close every recommendation with: verify International / Navistar requirements on equipment tags, manuals, and current PDS—no implied OEM approval.",
     ],
     discoveryFocus: [
-      "What engine families and model years are on the fleet card?",
-      "How are coolant bulk tanks labeled for HD vs automotive?",
-      "Which transmissions and differentials need spec verification this quarter?",
+      "What International model years and engine families are on the fleet card today?",
+      "Which units are FA-4 candidates vs CK-4—and who made the last bulk decision?",
+      "How are HD coolant bulk tanks labeled versus automotive OAT in the same building?",
+      "What transmission and axle tags are on the unit that failed last month?",
+      "Where do PTO and hoist circuits get fluid today—the AW bulk or a tagged auxiliary fill?",
+      "What is missing from the standard service lane bundle—coolant, grease, ATF, or brake fluid?",
     ],
-    crossSellFocus: ["Power steering and brake fluids", "Shop chemicals", "Grease programs"],
+    crossSellFocus: [
+      "HD engine oils — CK-4 / FA-4 synthetic blend and full synthetic programs",
+      "HD coolant — NOAT ELC and OAT programs by inhibitor family",
+      "Transmission & gear — Commercial Gear and spec ATF conversations",
+      "Grease — fifth wheel, chassis, and vocational joint PM",
+      "Hydraulic AW — PTO and hoist circuits on vocational units",
+      "Brake & steering fluids — DOT and power steering completion in the lane",
+    ],
     cautions: [
       EQUIPMENT_OPPORTUNITY_PROFILE_DISCLAIMER,
-      "Do not imply Navistar/International OEM approval without PDS proof.",
+      "Do not state Navistar or International approval unless the current PDS uses that exact language for the SKU.",
+      "FA-4 is not a blanket upgrade—verify engine tag, emissions generation, and PDS before recommending.",
+      "Never use automotive coolant shorthand for HD NOAT programs—match inhibitor family to tag and PDS.",
     ],
     recommendedProductAnchors: [
       {
-        name: "Synthetic Blend / Full Synthetic CK-4",
-        positioning: "Fleet engine upgrade path with analysis discipline per PDS.",
+        name: "SAE 5W-40 & 15W-40 Full Synthetic CK-4",
+        positioning:
+          "Premium fleet engine spec conversation when analysis, drain interval, and PDS support synthetic CK-4.",
       },
       {
-        name: "Red Heavy Duty NOAT ELC / Gold OAT ELC",
-        positioning: "Coolant programs by fleet type—match inhibitor family to PDS and tag.",
+        name: "Synthetic Blend CK-4 Heavy Duty Engine Oils",
+        positioning: "Lane baseline and upgrade path with documented API category on PDS.",
       },
       {
-        name: "Commercial Gear Lubricants",
-        positioning: "Driveline and differential baselines where PDS lists the application.",
+        name: "Red Heavy Duty NOAT ELC & Gold OAT ELC",
+        positioning: "HD coolant spec conversation—match inhibitor family to wet-sleeve tag and current PDS.",
+      },
+      {
+        name: "Commercial Gear Lubricants & Transmission Fluids",
+        positioning: "Driveline fills per axle and trans builder tag where PDS lists the application.",
+      },
+      {
+        name: "MOLY TAC / Fifth Wheel Grease",
+        positioning: "Chassis and fifth-wheel PM bundled with engine and coolant lane programs.",
       },
     ],
     recommendedNextStep:
-      "Segment CK-4/FA-4, coolant chemistry, and driveline SKUs on the International fleet card.",
+      "Build an International fleet lane map: engine API category, coolant inhibitor family, transmission, differentials, PTO hydraulics, and chassis grease—verify each line on equipment tags, manuals, and current PDS before the next PM wave.",
   },
   {
     key: "western_star",

@@ -6,7 +6,13 @@
 
 import React from "react";
 
-export const CUSTOMER_PROFILE_SELL_SHEET_LAYOUT_ID = "customer-profile-sell-sheet-v6b1";
+export const CUSTOMER_PROFILE_SELL_SHEET_LAYOUT_ID = "customer-profile-sell-sheet-v6f12";
+export const OEM_OPPORTUNITY_PROFILE_VERSION = 1;
+
+const OEM_PROFILE_DISCLAIMER =
+  "OEM opportunity profile for rep enablement only—not an OEM endorsement, partnership, or approval. Verify all requirements using equipment tags, operator manuals, and the current PDS before any spec conversation or recommendation.";
+
+const OEM_SELL_SHEET_BADGE = "OEM OPPORTUNITY PROFILE";
 
 const KLONDIKE_HEADER_LOGO_SRC = "/klondike-horizontal-logo.png";
 
@@ -105,6 +111,407 @@ const DEMO_DEFAULTS = {
   recommendedNextStep:
     "Build a field conversation around downtime, washout, hydraulic reliability, and component protection.",
 };
+
+/** Temporary OEM/equipment opportunity profile presets (preview / enablement; not OEM endorsement). */
+export const OEM_OPPORTUNITY_PROFILE_PRESETS = {
+  cat: {
+    key: "cat",
+    label: "CAT Equipment",
+    profileTitle: "CAT Equipment — Opportunity Profile",
+    profileSubtitle: "Common lubrication conversations for excavators, loaders, and haul trucks.",
+    profileSummary: `${OEM_PROFILE_DISCLAIMER} Focus on hydraulic reliability, final drives, severe-duty grease, and mixed-fleet HD engine programs where PDS supports the duty.`,
+    customerPainPoints: [
+      { iconKey: "hydraulic", label: "Hydraulic heat & slow response", sub: "Large excavator and loader circuits under load and contamination pressure." },
+      { iconKey: "shock", label: "Final drive & pin wear", sub: "High-load undercarriage and implement joints need disciplined grease programs." },
+      { iconKey: "downtime", label: "Production hour loss", sub: "Unplanned stops on loaders and haul trucks drive premium fluid conversations." },
+      { iconKey: "contamination", label: "Dust and fines", sub: "Bulk and packaged top-off discipline on busy earthmoving sites." },
+    ],
+    equipmentTypes: ["Hydraulic excavators", "Wheel loaders", "Off-highway haul trucks", "Dozers", "Motor graders", "Support equipment"],
+    likelyLubricantNeeds: [
+      { category: "AW / MV hydraulic fluids", role: "ISO VG-matched pump protection and seasonal coverage" },
+      { category: "Severe-duty grease", role: "Pins, bushings, and final drives—moly and nano tiers where PDS supports" },
+      { category: "Final drive & gear oils", role: "Drivetrain fills per tag and compartment" },
+      { category: "CK-4 HD engine oils", role: "Mixed-fleet diesel programs on support and haul assets" },
+      { category: "Coolants", role: "HD NOAT / nitrite-free programs separate from automotive bays" },
+    ],
+    recommendedProducts: [
+      { name: "XVI Synthetic Hydraulic Fluids", why: "Premium hydraulic upgrade where analysis and duty support synthetic." },
+      { name: "MOLY TAC / ULTRA TAC grease programs", why: "Shock-loaded pins and implements on severe earthmoving duty." },
+      { name: "Full Synthetic Gear Lubricants", why: "Final drive and reducer protection under sustained load." },
+      { name: "CK-4 Full Synthetic Heavy Duty Engine Oils", why: "Haul truck and support diesel programs with documented API category." },
+    ],
+    opportunitySignals: [
+      "Hydraulic slow response or foam at shift start on excavators",
+      "Repeat pin and bushing regreases after wet shifts",
+      "Final drive complaints or metal in drain samples",
+      "Mixed bulk tanks without ISO VG labeling discipline",
+    ],
+    repTalkTrack: [
+      "Open with production hours and worst circuits—hydraulics, final drives, or pins—not brand habit.",
+      "Use common lubrication conversations tied to tags and PDS; do not imply Caterpillar partnership or approval.",
+      "Position Klondike as a system program across hydraulics, grease, gear, engine, and coolant where documented.",
+    ],
+    discoveryQuestions: [
+      "Which machine classes drive your worst downtime—excavators, loaders, or haul trucks?",
+      "What ISO VG and compartment tags are on the hydraulics you need running this week?",
+      "Where are pins, final drives, or bushings failing after wash-down or shock load?",
+      "How are bulk hydraulics, grease, and engine oil separated on site?",
+    ],
+    crossSell: ["Filtration & breathers", "Coolant programs", "Industrial gear & open gear", "ENVIRO / EAL on sensitive sites"],
+    cautions: [
+      OEM_PROFILE_DISCLAIMER,
+      "Do not claim Caterpillar approval unless the exact wording appears on the PDS for that SKU.",
+      "Separate hydraulic, final drive, grease, and engine compartments—confirm each fill on tags.",
+    ],
+    recommendedNextStep:
+      "Map excavator, loader, and haul-truck reservoirs; align ISO VG, grease points, and CK-4 programs to current PDS.",
+  },
+  kubota: {
+    key: "kubota",
+    label: "Kubota Equipment",
+    profileTitle: "Kubota Equipment — Opportunity Profile",
+    profileSubtitle: "Compact tractors, utility equipment, and seasonal PM conversations.",
+    profileSummary: `${OEM_PROFILE_DISCLAIMER} Anchor trans/hydraulic and tractor fluid discipline on compact and utility equipment—PM kits and seasonal maintenance drive category depth.`,
+    customerPainPoints: [
+      { iconKey: "hydraulic", label: "Trans/hydraulic confusion", sub: "One-fluid habits across transmission, hydraulic, and wet-brake reservoirs." },
+      { iconKey: "downtime", label: "Seasonal uptime", sub: "Dealers and owners need reliable programs before planting and harvest windows." },
+      { iconKey: "bearing", label: "Implement grease neglect", sub: "Small equipment still sees shock load and outdoor exposure." },
+    ],
+    equipmentTypes: ["Compact tractors", "Utility vehicles", "Ride-on mowers", "Compact excavators", "Generators"],
+    likelyLubricantNeeds: [
+      { category: "Universal Red Tractor Fluid", role: "Tractor hydraulic/transmission baseline where tags allow" },
+      { category: "AGRIMAX trans-drive programs", role: "Ag-adjacent trans-hydraulic and zinc-free options per PDS" },
+      { category: "AW hydraulic fluids", role: "Standalone hydraulic circuits on utility equipment" },
+      { category: "Multipurpose grease", role: "Chassis and implement points on compact fleets" },
+    ],
+    recommendedProducts: [
+      { name: "Universal Red Tractor Fluid", why: "Entry trans/hydraulic conversation—verify wet-brake compatibility on tag." },
+      { name: "AGRIMAX Trans Drive Hydraulic Fluid", why: "Program depth for ag-adjacent Kubota accounts." },
+      { name: "RED TAC / MOLY TAC grease", why: "Seasonal PM and chassis protection on compact fleets." },
+    ],
+    opportunitySignals: ["Wet brake chatter on compact tractors", "Seasonal fluid changes bundled with filters", "Dealer PM kit standardization opportunities"],
+    repTalkTrack: [
+      "Lead with reservoir map and seasonal PM—trans-drive, hydraulic, engine, and grease—not a single red fluid drum.",
+      "Common lubrication conversations for compact duty; verify Kubota fluid guidance on tags and PDS only.",
+    ],
+    discoveryQuestions: [
+      "Which models are on the lot this season—tractors, mowers, or compact excavators?",
+      "Are transmission, hydraulic, and wet-brake fills documented separately?",
+      "What PM kits do you sell today—and where is fluid still an afterthought?",
+    ],
+    crossSell: ["Coolant", "Small engine oils", "Hydraulic AW for standalone circuits", "Filter PM bundles"],
+    cautions: [OEM_PROFILE_DISCLAIMER, "Do not imply Kubota OEM approval beyond PDS application statements."],
+    recommendedNextStep: "Standardize seasonal PM: trans/hydraulic, grease, coolant, and engine companions per equipment tag.",
+  },
+  john_deere_ag: {
+    key: "john_deere_ag",
+    label: "John Deere Ag",
+    profileTitle: "John Deere Ag — Opportunity Profile",
+    profileSubtitle: "Wet brake, trans-drive, harvest PM, and AGRIMAX program opportunities.",
+    profileSummary: `${OEM_PROFILE_DISCLAIMER} Use spec-aligned AGRIMAX and trans-drive conversations for brand-loyal ag customers—wet brake chatter, seasonal uptime, and harvest PM are the opening hooks.`,
+    customerPainPoints: [
+      { iconKey: "shock", label: "Wet brake chatter", sub: "Often fluid compatibility—not brake hardware alone." },
+      { iconKey: "downtime", label: "Harvest uptime", sub: "Peak-hour reliability on combines and tractors." },
+      { iconKey: "retention", label: "Brand loyalty premium", sub: "Customers paying OEM fluid prices without spec proof." },
+    ],
+    equipmentTypes: ["Tractors", "Combines", "Sprayers", "Planters", "Grain carts", "Support trucks"],
+    likelyLubricantNeeds: [
+      { category: "AGRIMAX trans-drive / zinc-free", role: "UTHF programs where PDS lists Deere-relevant duty" },
+      { category: "CK-4 engine oils", role: "Seasonal diesel engine protection" },
+      { category: "Grease programs", role: "Field and chassis PM beyond a single Poly Tac habit" },
+      { category: "Coolant", role: "ELC discipline on ag fleets" },
+    ],
+    recommendedProducts: [
+      { name: "AGRIMAX Zinc Free Trans Drive Hydraulic Fluid", why: "Zinc-free trans-drive where equipment tags require it." },
+      { name: "AGRIMAX SAE 15W-40 CK-4 Synthetic Blend", why: "Engine program on high-hour seasonal diesel." },
+      { name: "AGRIMAX Poly Tac / RED TAC companions", why: "Complete seasonal PM story." },
+    ],
+    opportunitySignals: ["Wet brake noise after fluid service", "Dealer still quoting one OEM green fluid for every reservoir", "Harvest prep fluid bundles incomplete"],
+    repTalkTrack: [
+      "Talk wet brake chatter, trans-drive compatibility, and harvest PM—not OEM branding.",
+      "AGRIMAX is a spec conversation category: verify John Deere fluid guidance on tags and PDS only.",
+      "Never imply Deere partnership, endorsement, or approval beyond documented PDS language.",
+    ],
+    discoveryQuestions: [
+      "Which reservoirs are you standardizing this season?",
+      "Where is wet brake chatter showing up after fluid changes?",
+      "What does your harvest PM bundle include beyond engine oil?",
+    ],
+    crossSell: ["Coolant ELC", "Hydraulic AW on supporting assets", "Grease upgrades on high-load pins"],
+    cautions: [OEM_PROFILE_DISCLAIMER, "JD/CNH positioning only where PDS and equipment tags support—no implied OEM endorsement."],
+    recommendedNextStep: "Map AGRIMAX line by reservoir; bundle engine, trans-drive, grease, and coolant on seasonal PM.",
+  },
+  volvo_ce: {
+    key: "volvo_ce",
+    label: "Volvo CE",
+    profileTitle: "Volvo CE — Opportunity Profile",
+    profileSubtitle: "Wheel loaders, excavators, and severe-duty service programs.",
+    profileSummary: `${OEM_PROFILE_DISCLAIMER} Position hydraulic reliability, severe-duty grease, and drivetrain programs for construction equipment yards—common lubrication conversations tied to tags, not color habits.`,
+    customerPainPoints: [
+      { iconKey: "hydraulic", label: "Hydraulic reliability", sub: "Load-sensing systems sensitive to viscosity and contamination." },
+      { iconKey: "shock", label: "Pin and bushing wear", sub: "Loaders and excavators under shock and outdoor exposure." },
+      { iconKey: "downtime", label: "Fleet availability", sub: "Municipal and contractor fleets need predictable PM." },
+    ],
+    equipmentTypes: ["Wheel loaders", "Excavators", "Articulated haulers", "Compaction equipment"],
+    likelyLubricantNeeds: [
+      { category: "AW / MV hydraulics", role: "ISO VG discipline on mobile circuits" },
+      { category: "Severe-duty grease", role: "Loader pins and implement joints" },
+      { category: "Gear oils", role: "Drivetrain and axle programs" },
+      { category: "CK-4 engine oils", role: "Highway and off-road support diesels" },
+    ],
+    recommendedProducts: [
+      { name: "Multi-Viscosity AW Hydraulic Fluids", why: "Seasonal and temperature swing on mixed construction fleets." },
+      { name: "MOLY TAC HD 5% / ULTRA TAC", why: "Severe-duty grease on pins and loaders." },
+      { name: "Full Synthetic Gear Lubricants", why: "Drivetrain step-up where tags support synthetic." },
+    ],
+    opportunitySignals: ["Hydraulic varnishing or heat on loaders", "Grease washout on wet municipal routes", "Mixed Volvo and mixed-brand fleets on one yard"],
+    repTalkTrack: [
+      "Lead with hydraulic reliability and pin life on loaders and excavators.",
+      "Do not imply Volvo CE approval—verify requirements on tags and PDS.",
+    ],
+    discoveryQuestions: [
+      "Which Volvo classes dominate hours—loaders, excavators, or haulers?",
+      "What hydraulic ISO VG tags are on the worst-performing circuits?",
+      "Where is grease failure showing up after wash-down?",
+    ],
+    crossSell: ["Coolant", "Coolant flush chemicals", "Industrial specialty for plant yards"],
+    cautions: [OEM_PROFILE_DISCLAIMER],
+    recommendedNextStep: "Document ISO VG, grease map, and drivetrain fills per Volvo class; align to PDS.",
+  },
+  international: {
+    key: "international",
+    label: "International Truck",
+    profileTitle: "International Truck — Opportunity Profile",
+    profileSubtitle: "CK-4 / FA-4, coolant programs, driveline, and service bay opportunities.",
+    profileSummary: `${OEM_PROFILE_DISCLAIMER} Highway and vocational International fleets need API category discipline, coolant program separation, and driveline conversations—service bay bundling drives share.`,
+    customerPainPoints: [
+      { iconKey: "downtime", label: "Over-the-road uptime", sub: "Drain intervals and emissions hardware compatibility." },
+      { iconKey: "contamination", label: "Coolant top-off chaos", sub: "Mixed OAT/NOAT habits in shared bays." },
+      { iconKey: "bearing", label: "Driveline wear", sub: "Trans, differential, and PTO fills treated as interchangeable." },
+    ],
+    equipmentTypes: ["Class 8 highway tractors", "Vocational trucks", "Medium-duty delivery", "Fleet service bays"],
+    likelyLubricantNeeds: [
+      { category: "CK-4 / FA-4 engine oils", role: "API category matched to OEM and emissions generation" },
+      { category: "HD NOAT / nitrite-free coolant", role: "Cooling program standardization" },
+      { category: "Transmission & driveline fluids", role: "Spec-correct ATF and gear programs" },
+      { category: "Chassis grease", role: "Fifth wheel and vocational chassis" },
+    ],
+    recommendedProducts: [
+      { name: "Synthetic Blend / Full Synthetic CK-4", why: "Fleet engine upgrade path with analysis discipline." },
+      { name: "Red Heavy Duty NOAT ELC / Gold OAT ELC", why: "Coolant programs by fleet type—never light-duty shorthand for Gold." },
+      { name: "Commercial Gear Lubricants", why: "Driveline and differential baselines." },
+    ],
+    opportunitySignals: ["CK-4 vs FA-4 confusion on newer tractors", "Coolant compatibility failures after roadside top-off", "Incomplete service lane chemical bundles"],
+    repTalkTrack: [
+      "Open with API category, coolant inhibitor family, and driveline spec—not brand default.",
+      "International common lubrication conversations; verify requirements on tags and PDS.",
+    ],
+    discoveryQuestions: [
+      "What engine families and model years are on the fleet card?",
+      "How are coolant bulk tanks labeled for HD vs automotive?",
+      "Which transmissions and differentials need spec verification this quarter?",
+    ],
+    crossSell: ["Power steering & brake fluids", "DEF-adjacent shop chemicals", "Grease programs"],
+    cautions: [OEM_PROFILE_DISCLAIMER, "Do not imply Navistar/International OEM approval without PDS proof."],
+    recommendedNextStep: "Segment CK-4/FA-4, coolant chemistry, and driveline SKUs on the International fleet card.",
+  },
+  western_star: {
+    key: "western_star",
+    label: "Western Star",
+    profileTitle: "Western Star — Opportunity Profile",
+    profileSubtitle: "Severe-duty vocational highway programs and service bay depth.",
+    profileSummary: `${OEM_PROFILE_DISCLAIMER} Western Star vocational and logging fleets mirror Class 8 discipline: CK-4 programs, HD coolant, driveline, and chassis grease bundled in the service bay.`,
+    customerPainPoints: [
+      { iconKey: "shock", label: "Severe vocational duty", sub: "Logging, dump, and heavy haul stress engines and drivetrains." },
+      { iconKey: "hydraulic", label: "Pto & hoist circuits", sub: "Auxiliary hydraulics treated as main-tank AW." },
+      { iconKey: "downtime", label: "Roadside reliability", sub: "Coolant and engine PO discipline before winter and harvest haul." },
+    ],
+    equipmentTypes: ["Western Star tractors", "Logging trucks", "Dump and vocational chassis"],
+    likelyLubricantNeeds: [
+      { category: "CK-4 full synthetic", role: "Severe-duty drain and soot management" },
+      { category: "HD coolant programs", role: "NOAT ELC for diesel wet sleeve where specified" },
+      { category: "Gear & trans fluids", role: "Driveline spec correctness" },
+      { category: "HD chassis grease", role: "Fifth wheel and vocational joints" },
+    ],
+    recommendedProducts: [
+      { name: "SAE 5W-40 Full Synthetic CK-4", why: "Premium severe-duty engine positioning." },
+      { name: "Commercial HD NOAT ELC Coolant", why: "HD cooling baseline for diesel programs." },
+      { name: "MOLY TAC / HD TAC grease", why: "Vocational chassis and fifth wheel." },
+    ],
+    opportunitySignals: ["Short drain intervals on logging haul", "Coolant top-off with universal green", "Pto hydraulic using wrong AW grade"],
+    repTalkTrack: [
+      "Position severe-duty CK-4 and HD coolant as a vocational system—not single-SKU price plays.",
+      "Verify Western Star fluid guidance on tags; no implied OEM partnership.",
+    ],
+    discoveryQuestions: [
+      "What vocational applications dominate—logging, dump, or long haul?",
+      "Where are coolant and engine bulk tanks shared with light-duty?",
+      "Which Pto and hoist circuits need ISO VG review?",
+    ],
+    crossSell: ["Brake & steering fluids", "Hydraulic AW for Pto", "Gear oil depth"],
+    cautions: [OEM_PROFILE_DISCLAIMER],
+    recommendedNextStep: "Build vocational bay map: engine, coolant, trans/driveline, Pto hydraulics, chassis grease.",
+  },
+  case_ih_ag: {
+    key: "case_ih_ag",
+    label: "Case IH Ag",
+    profileTitle: "Case IH Ag — Opportunity Profile",
+    profileSubtitle: "Trans-drive, seasonal PM, and full-line AGRIMAX opportunities.",
+    profileSummary: `${OEM_PROFILE_DISCLAIMER} Case IH ag accounts benefit from trans-drive discipline, zinc-free options where required, and dealer PM bundling—spec conversations only where PDS supports CNH/Case IH duty.`,
+    customerPainPoints: [
+      { iconKey: "hydraulic", label: "Multi-reservoir confusion", sub: "Transmission, hydraulic, and brake packs share shelf space." },
+      { iconKey: "retention", label: "OEM fluid premium", sub: "Brand-loyal customers without documented spec match." },
+      { iconKey: "downtime", label: "Seasonal peaks", sub: "Planting and harvest windows compress service capacity." },
+    ],
+    equipmentTypes: ["Case IH tractors", "Combines", "Sprayers", "Magnum / Maxxum lines"],
+    likelyLubricantNeeds: [
+      { category: "AGRIMAX trans-drive", role: "UTHF programs per PDS application lists" },
+      { category: "Zinc-free trans-drive", role: "Where tags require zinc-free chemistry" },
+      { category: "CK-4 engine", role: "Seasonal diesel protection" },
+      { category: "Grease & coolant", role: "PM bundle completion" },
+    ],
+    recommendedProducts: [
+      { name: "AGRIMAX Trans Drive Hydraulic Fluid", why: "Anchor trans-hydraulic program conversation." },
+      { name: "AGRIMAX Zinc Free Trans Drive", why: "Spec upgrade where tags require zinc-free." },
+      { name: "AGRIMAX Extended Life Coolant programs", why: "Cooling companion on seasonal PM." },
+    ],
+    opportunitySignals: ["One red tractor fluid for every compartment", "Incomplete dealer PM SKUs", "Wet brake issues after generic UTHF"],
+    repTalkTrack: [
+      "Map Case IH reservoirs before quoting; use AGRIMAX as program depth, not a single SKU.",
+      "CNH/Case IH spec language only where PDS documents support—no OEM endorsement implied.",
+    ],
+    discoveryQuestions: [
+      "Which Case IH models drive your seasonal PM volume?",
+      "Are zinc-free and standard trans-drive SKUs separated on the shelf?",
+      "What is missing from your harvest and planting fluid bundles?",
+    ],
+    crossSell: ["Grease upgrades", "HD engine on support trucks", "Hydraulic AW on grain carts"],
+    cautions: [OEM_PROFILE_DISCLAIMER, "Do not claim Case IH/CNH approval unless on the PDS for that product."],
+    recommendedNextStep: "Standardize AGRIMAX by reservoir on Case IH dealer PM visits.",
+  },
+  new_holland_ag: {
+    key: "new_holland_ag",
+    label: "New Holland Ag",
+    profileTitle: "New Holland Ag — Opportunity Profile",
+    profileSubtitle: "Utility tractors, hay & forage, and trans-fluid program opportunities.",
+    profileSummary: `${OEM_PROFILE_DISCLAIMER} New Holland ag and hay operations need trans/hydraulic clarity, seasonal grease PM, and engine/coolant companions—verify CNH/New Holland duty on tags and PDS.`,
+    customerPainPoints: [
+      { iconKey: "hydraulic", label: "Trans-hydraulic habits", sub: "Utility and hay fleets mixing fluids across compartments." },
+      { iconKey: "bearing", label: "Balers & forage wear", sub: "Grease neglect on high-hour hay equipment." },
+      { iconKey: "downtime", label: "Short seasonal windows", sub: "Hay and forage downtime is costly in peak weather." },
+    ],
+    equipmentTypes: ["Utility tractors", "Balers", "Forage harvesters", "Telehandlers", "Skid steers"],
+    likelyLubricantNeeds: [
+      { category: "Tractor / UTHF fluids", role: "Wet brake and trans-hydraulic discipline" },
+      { category: "AW hydraulics", role: "Loader and telehandler circuits" },
+      { category: "Multipurpose grease", role: "Field and baler PM" },
+      { category: "CK-4 diesel", role: "Supporting diesel assets" },
+    ],
+    recommendedProducts: [
+      { name: "Universal Red Tractor Fluid", why: "Baseline tractor conversation with tag verification." },
+      { name: "AGRIMAX Trans Drive Hydraulic Fluid", why: "Program depth on New Holland ag accounts." },
+      { name: "RED TAC / MOLY TAC", why: "Field grease and implement PM." },
+    ],
+    opportunitySignals: ["Telehandler hydraulics on wrong AW grade", "Baler bearing failures after marginal grease", "Seasonal PM not bundled across fluids"],
+    repTalkTrack: [
+      "Lead with hay season PM and trans-fluid map—common lubrication conversations, not OEM branding.",
+      "Verify New Holland fluid types on equipment tags; PDS governs every recommendation.",
+    ],
+    discoveryQuestions: [
+      "What mix of tractors, balers, and telehandlers is on the account?",
+      "Where are wet brake or hydraulic complaints showing up?",
+      "How complete is your spring and hay-season PM bundle?",
+    ],
+    crossSell: ["Coolant", "Skid-steer hydraulic AW", "Gear oil on telehandlers"],
+    cautions: [OEM_PROFILE_DISCLAIMER],
+    recommendedNextStep: "Bundle trans-drive, grease, engine, and coolant for New Holland seasonal PM.",
+  },
+};
+
+export const OEM_OPPORTUNITY_PROFILE_MAP = Object.freeze(
+  Object.fromEntries(Object.values(OEM_OPPORTUNITY_PROFILE_PRESETS).map((p) => [p.key, p]))
+);
+
+export function getOemOpportunityProfile(key) {
+  const raw = String(key || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return OEM_OPPORTUNITY_PROFILE_MAP[raw] || null;
+}
+
+export function listOemOpportunityProfiles() {
+  return Object.values(OEM_OPPORTUNITY_PROFILE_PRESETS);
+}
+
+function mergeProfileList(primary, supplement, max = 8) {
+  const out = [];
+  const seen = new Set();
+  const push = (item) => {
+    const text = typeof item === "object" ? JSON.stringify(item) : String(item || "").trim();
+    if (!text) return;
+    const key = text.toLowerCase().slice(0, 80);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(item);
+  };
+  for (const item of Array.isArray(primary) ? primary : []) {
+    push(item);
+    if (out.length >= max) return out;
+  }
+  for (const item of Array.isArray(supplement) ? supplement : []) {
+    push(item);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+function resolveCustomerProfileFields(props) {
+  const oemKey = props.oemProfileKey || props.oemOpportunityProfileKey;
+  const preset = getOemOpportunityProfile(oemKey);
+  const isOem = Boolean(preset) || props.profileKind === "oem" || props.profileType === "oem";
+  const base = preset || {};
+  const fallback = DEMO_DEFAULTS;
+  const textPrimary = (propVal, baseVal, fbVal) =>
+    preset ? pickText(baseVal, pickText(propVal, fbVal)) : pickText(propVal, pickText(baseVal, fbVal));
+  return {
+    isOem,
+    profileBadge: isOem ? OEM_SELL_SHEET_BADGE : "CUSTOMER PROFILE",
+    profileTitle: textPrimary(props.profileTitle, base.profileTitle, fallback.profileTitle),
+    profileSubtitle: textPrimary(props.profileSubtitle, base.profileSubtitle, fallback.profileSubtitle),
+    profileSummary: textPrimary(props.profileSummary, base.profileSummary, fallback.profileSummary),
+    industryImageUrl: pickText(props.industryImageUrl, fallback.industryImageUrl),
+    customerPainPoints: normalizePainTiles(
+      mergeProfileList(base.customerPainPoints, props.customerPainPoints || fallback.customerPainPoints, 6),
+      fallback.customerPainPoints
+    ),
+    equipmentTypes: mergeProfileList(base.equipmentTypes, props.equipmentTypes || fallback.equipmentTypes, 8).map(
+      (item) => (typeof item === "string" ? item : String(item))
+    ),
+    likelyLubricantNeeds: normalizeLubricantNeeds(
+      mergeProfileList(base.likelyLubricantNeeds, props.likelyLubricantNeeds || fallback.likelyLubricantNeeds, 8),
+      fallback.likelyLubricantNeeds
+    ),
+    recommendedProducts: normalizeRecommendedProducts(
+      mergeProfileList(base.recommendedProducts, props.recommendedProducts || fallback.recommendedProducts, 6),
+      fallback.recommendedProducts
+    ),
+    opportunitySignals: normalizeSignals(
+      mergeProfileList(base.opportunitySignals, props.opportunitySignals || fallback.opportunitySignals, 6),
+      fallback.opportunitySignals
+    ),
+    repTalkTrack: mergeProfileList(base.repTalkTrack, props.repTalkTrack, 6).length
+      ? mergeProfileList(base.repTalkTrack, props.repTalkTrack, 6)
+      : fallback.repTalkTrack,
+    discoveryQuestions: mergeProfileList(base.discoveryQuestions, props.discoveryQuestions, 6).length
+      ? mergeProfileList(base.discoveryQuestions, props.discoveryQuestions, 6)
+      : fallback.discoveryQuestions,
+    crossSell: mergeProfileList(base.crossSell, props.crossSell, 6).length
+      ? mergeProfileList(base.crossSell, props.crossSell, 6)
+      : fallback.crossSell,
+    cautions: mergeProfileList(base.cautions, props.cautions, 6).length
+      ? mergeProfileList(base.cautions, props.cautions, 6)
+      : fallback.cautions,
+    recommendedNextStep: textPrimary(props.recommendedNextStep, base.recommendedNextStep, fallback.recommendedNextStep),
+  };
+}
 
 function pickList(value, fallback) {
   if (!Array.isArray(value)) return fallback;
@@ -422,6 +829,121 @@ function CheckBullets({ items, max = 5, cautionStyle = false }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function OemHeroDisclaimer({ text }) {
+  const copy = String(text || OEM_PROFILE_DISCLAIMER).trim();
+  if (!copy) return null;
+  return (
+    <div
+      role="note"
+      style={{
+        marginTop: 4,
+        padding: "14px 16px",
+        borderRadius: 10,
+        background: "rgba(15, 23, 42, 0.42)",
+        border: "1px solid rgba(251, 146, 60, 0.55)",
+        boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.06)",
+      }}
+    >
+      <p
+        style={{
+          margin: "0 0 6px",
+          fontSize: 10,
+          fontWeight: 900,
+          letterSpacing: "0.16em",
+          color: BRAND.orangeLight,
+          textTransform: "uppercase",
+        }}
+      >
+        Verify before you recommend
+      </p>
+      <p style={{ margin: 0, fontSize: 13, fontWeight: 700, lineHeight: 1.55, color: "rgba(255,255,255,0.94)" }}>
+        {copy}
+      </p>
+    </div>
+  );
+}
+
+function OemCompliancePanel({ items }) {
+  const list = pickList(items, []).slice(0, 6);
+  if (!list.length) return null;
+  return (
+    <section
+      role="note"
+      aria-label="OEM opportunity profile compliance"
+      style={{
+        borderRadius: 12,
+        padding: "20px 22px",
+        background: "linear-gradient(180deg, #fff7ed 0%, #ffffff 100%)",
+        border: `2px solid ${BRAND.orange}`,
+        boxShadow: "0 12px 32px rgba(234, 88, 12, 0.12)",
+      }}
+    >
+      <p
+        style={{
+          margin: "0 0 4px",
+          fontSize: 10,
+          fontWeight: 900,
+          letterSpacing: "0.16em",
+          color: BRAND.orange,
+          textTransform: "uppercase",
+        }}
+      >
+        Spec conversation guardrails
+      </p>
+      <p
+        style={{
+          margin: "0 0 14px",
+          fontSize: 15,
+          fontWeight: 900,
+          color: BRAND.headerNavy,
+          lineHeight: 1.35,
+        }}
+      >
+        Not an OEM endorsement — verify on tags, manuals, and current PDS
+      </p>
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
+        {list.map((line, i) => (
+          <li
+            key={`oem-caution-${i}`}
+            style={{
+              display: "flex",
+              gap: 12,
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: i === 0 ? BRAND.headerNavy : "#475569",
+              fontWeight: i === 0 ? 800 : 600,
+              padding: i === 0 ? "12px 14px" : "0 2px",
+              borderRadius: i === 0 ? 8 : 0,
+              background: i === 0 ? "rgba(234, 88, 12, 0.08)" : "transparent",
+              border: i === 0 ? "1px solid rgba(234, 88, 12, 0.25)" : "none",
+            }}
+          >
+            <span
+              style={{
+                flexShrink: 0,
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 12,
+                fontWeight: 900,
+                color: BRAND.white,
+                background: i === 0 ? BRAND.orange : BRAND.navyMid,
+              }}
+              aria-hidden
+            >
+              {i === 0 ? "!" : "\u2713"}
+            </span>
+            <span>{line}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -805,32 +1327,29 @@ function IndustryHeroVisual({ industryImageUrl }) {
 }
 
 export default function CustomerProfileSellSheet(props) {
-  const profileTitle = pickText(props.profileTitle, DEMO_DEFAULTS.profileTitle);
-  const profileSubtitle = pickText(props.profileSubtitle, DEMO_DEFAULTS.profileSubtitle);
-  const profileSummary = pickText(props.profileSummary, DEMO_DEFAULTS.profileSummary);
-  const industryImageUrl = pickText(props.industryImageUrl, DEMO_DEFAULTS.industryImageUrl);
-  const painTiles = normalizePainTiles(props.customerPainPoints, DEMO_DEFAULTS.customerPainPoints).map(
-    (tile, i) => ({ ...tile, iconKey: painIconKey(tile, i) })
-  );
-  const equipmentTypes = normalizeEquipmentList(props.equipmentTypes, DEMO_DEFAULTS.equipmentTypes);
-  const lubricantNeeds = normalizeLubricantNeeds(props.likelyLubricantNeeds, DEMO_DEFAULTS.likelyLubricantNeeds);
-  const recommendedProducts = normalizeRecommendedProducts(
-    props.recommendedProducts,
-    DEMO_DEFAULTS.recommendedProducts
-  );
-  const opportunitySignals = normalizeSignals(
-    props.opportunitySignals,
-    DEMO_DEFAULTS.opportunitySignals
-  );
+  const profile = resolveCustomerProfileFields(props);
+  const isOemProfile = profile.isOem;
+  const profileTitle = profile.profileTitle;
+  const profileSubtitle = profile.profileSubtitle;
+  const profileSummary = profile.profileSummary;
+  const industryImageUrl = profile.industryImageUrl;
+  const profileBadge = profile.profileBadge;
+  const oemHeroDisclaimer =
+    (Array.isArray(profile.cautions) && profile.cautions[0]) || OEM_PROFILE_DISCLAIMER;
+  const painTiles = profile.customerPainPoints.map((tile, i) => ({ ...tile, iconKey: painIconKey(tile, i) }));
+  const equipmentTypes = normalizeEquipmentList(profile.equipmentTypes, DEMO_DEFAULTS.equipmentTypes);
+  const lubricantNeeds = profile.likelyLubricantNeeds;
+  const recommendedProducts = profile.recommendedProducts;
+  const opportunitySignals = profile.opportunitySignals;
   const { repTalkTrack, discoveryQuestions } = resolveRepTalkAndQuestions(
-    props.repTalkTrack,
-    props.discoveryQuestions,
+    profile.repTalkTrack,
+    profile.discoveryQuestions,
     DEMO_DEFAULTS.repTalkTrack,
     DEMO_DEFAULTS.discoveryQuestions
   );
-  const crossSell = pickList(props.crossSell, DEMO_DEFAULTS.crossSell);
-  const cautions = pickList(props.cautions, DEMO_DEFAULTS.cautions);
-  const recommendedNextStep = pickText(props.recommendedNextStep, DEMO_DEFAULTS.recommendedNextStep);
+  const crossSell = pickList(profile.crossSell, DEMO_DEFAULTS.crossSell);
+  const cautions = pickList(profile.cautions, DEMO_DEFAULTS.cautions);
+  const recommendedNextStep = profile.recommendedNextStep;
 
   const painCount = Math.min(Math.max(painTiles.length, 4), 6);
   const painGrid = painTiles.slice(0, painCount);
@@ -900,11 +1419,11 @@ export default function CustomerProfileSellSheet(props) {
               padding: "6px 12px",
               borderRadius: 999,
               color: "#fff",
-              background: "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.3)",
+              background: isOemProfile ? "rgba(234, 88, 12, 0.35)" : "rgba(255,255,255,0.12)",
+              border: isOemProfile ? "1px solid rgba(251, 146, 60, 0.75)" : "1px solid rgba(255,255,255,0.3)",
             }}
           >
-            CUSTOMER PROFILE
+            {profileBadge}
           </span>
           <h1
             style={{
@@ -945,6 +1464,7 @@ export default function CustomerProfileSellSheet(props) {
               {profileSummary}
             </p>
           ) : null}
+          {isOemProfile ? <OemHeroDisclaimer text={oemHeroDisclaimer} /> : null}
         </div>
         <div style={{ padding: "36px 28px 40px 20px", display: "flex", alignItems: "center" }}>
           <IndustryHeroVisual industryImageUrl={industryImageUrl} />
@@ -963,7 +1483,7 @@ export default function CustomerProfileSellSheet(props) {
               textTransform: "uppercase",
             }}
           >
-            Customer reality and pain points
+            {isOemProfile ? "Field signals and lubrication pressure points" : "Customer reality and pain points"}
           </p>
           <div
             style={{
@@ -999,12 +1519,26 @@ export default function CustomerProfileSellSheet(props) {
       <section style={{ padding: "28px 44px 36px", display: "grid", gap: 22, background: BRAND.white }}>
         <section style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
           {equipmentTypes.length ? (
-            <FlyerCard title="Equipment and application map" subtitle="What runs on this site">
+            <FlyerCard
+              title={isOemProfile ? "Equipment and compartment map" : "Equipment and application map"}
+              subtitle={
+                isOemProfile
+                  ? "Assets and reservoirs to verify before the spec conversation"
+                  : "What runs on this site"
+              }
+            >
               <EquipmentGrid items={equipmentTypes} />
             </FlyerCard>
           ) : null}
           {lubricantNeeds.length ? (
-            <FlyerCard title="Likely lubricant needs" subtitle="Category priorities for this profile">
+            <FlyerCard
+              title={isOemProfile ? "KLONDIKE category opportunities" : "Likely lubricant needs"}
+              subtitle={
+                isOemProfile
+                  ? "Spec conversations by fluid category — verify on tags, manuals, and PDS"
+                  : "Category priorities for this profile"
+              }
+            >
               <div style={{ display: "grid", gap: 10 }}>
                 {lubricantNeeds.slice(0, 6).map((item) => (
                   <LubricantNeedCard key={item.category} item={item} />
@@ -1026,7 +1560,7 @@ export default function CustomerProfileSellSheet(props) {
                 textTransform: "uppercase",
               }}
             >
-              Recommended product opportunities
+              {isOemProfile ? "Recommended KLONDIKE product anchors" : "Recommended product opportunities"}
             </p>
             <div
               style={{
@@ -1044,27 +1578,42 @@ export default function CustomerProfileSellSheet(props) {
 
         <section style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
           {repTalkTrack.length ? (
-            <FlyerCard title="Rep talk track" subtitle="What the rep can say">
+            <FlyerCard
+              title={isOemProfile ? "Rep playbook — talk track" : "Rep talk track"}
+              subtitle={isOemProfile ? "Spec conversation openers" : "What the rep can say"}
+            >
               <CheckBullets items={repTalkTrack} max={4} />
             </FlyerCard>
           ) : null}
           {discoveryQuestions.length ? (
-            <FlyerCard title="Discovery questions" subtitle="What the rep should ask">
+            <FlyerCard
+              title="Discovery questions"
+              subtitle={isOemProfile ? "Verify requirements before recommending" : "What the rep should ask"}
+            >
               <QuestionList items={discoveryQuestions} max={5} />
             </FlyerCard>
           ) : null}
         </section>
 
         {crossSell.length >= 2 ? (
-          <FlyerCard title="Cross-sell and system strategy" subtitle="Grow the full lubrication program">
+          <FlyerCard
+            title={isOemProfile ? "KLONDIKE program cross-sell" : "Cross-sell and system strategy"}
+            subtitle={
+              isOemProfile ? "Category depth for the full spec conversation" : "Grow the full lubrication program"
+            }
+          >
             <CrossSellGrid items={crossSell} max={5} />
           </FlyerCard>
         ) : null}
 
         {cautions.length ? (
-          <FlyerCard title="Cautions and watchouts">
-            <CheckBullets items={cautions} max={4} cautionStyle />
-          </FlyerCard>
+          isOemProfile ? (
+            <OemCompliancePanel items={cautions} />
+          ) : (
+            <FlyerCard title="Cautions and watchouts">
+              <CheckBullets items={cautions} max={4} cautionStyle />
+            </FlyerCard>
+          )
         ) : null}
 
         {recommendedNextStep ? (
