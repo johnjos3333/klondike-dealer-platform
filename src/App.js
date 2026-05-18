@@ -4682,6 +4682,39 @@ useEffect(() => {
     });
     setSeGuidedUploadedProductImageFile(file);
   }, []);
+  /** Phase 6F.4 — Category ladder tier photos (preview only; session; not sent). */
+  const seGuidedCategoryLadderUploadRef = React.useRef(null);
+  const [seGuidedCategoryLadderUploadTier, setSeGuidedCategoryLadderUploadTier] = useState("good");
+  const [seGuidedCategoryLadderUploads, setSeGuidedCategoryLadderUploads] = useState(() => ({
+    good: [],
+    better: [],
+    best: [],
+    ultimate: [],
+  }));
+  const handleSeGuidedCategoryLadderImageUploadChange = useCallback((ev) => {
+    const files = ev.target.files ? Array.from(ev.target.files) : [];
+    if (ev.target) ev.target.value = "";
+    if (!files.length) return;
+    const tier = String(seGuidedCategoryLadderUploadTier || "good").toLowerCase();
+    const tierKey = ["good", "better", "best", "ultimate"].includes(tier) ? tier : "good";
+    setSeGuidedCategoryLadderUploads((prev) => {
+      const slot = Array.isArray(prev[tierKey]) ? [...prev[tierKey]] : [];
+      for (const file of files) {
+        if (slot.length >= 3) break;
+        const mimeOk = /^image\/(png|jpeg|webp)$/i.test(file.type);
+        const nameOk = /\.(png|jpe?g|webp)$/i.test(file.name || "");
+        if (!mimeOk && !nameOk) continue;
+        const label = String(file.name || "")
+          .replace(/\.[^.]+$/, "")
+          .trim();
+        slot.push({
+          imageUrl: URL.createObjectURL(file),
+          label: label || `Product ${slot.length + 1}`,
+        });
+      }
+      return { ...prev, [tierKey]: slot };
+    });
+  }, [seGuidedCategoryLadderUploadTier]);
   /** Phase 76.5 — Step 5 dry-run panel (read-only; does not alter invoke payload). */
   const [seGuidedApprovedSendDryRunOpen, setSeGuidedApprovedSendDryRunOpen] = useState(false);
   /** Phase 73.22 — Guided audience wizard (UI/local labels; send payloads unchanged). */
@@ -4732,6 +4765,19 @@ useEffect(() => {
       return null;
     });
     setSeGuidedUploadedProductImagePreviewFailed(false);
+    setSeGuidedCategoryLadderUploads((prev) => {
+      for (const tier of ["good", "better", "best", "ultimate"]) {
+        for (const row of prev[tier] || []) {
+          try {
+            if (row?.imageUrl) URL.revokeObjectURL(row.imageUrl);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      return { good: [], better: [], best: [], ultimate: [] };
+    });
+    setSeGuidedCategoryLadderUploadTier("good");
   }, [seGuidedWizardMessageKind]);
   useEffect(() => {
     setSeGuidedStep4RegistryBgFailed(false);
@@ -4748,7 +4794,36 @@ useEffect(() => {
       }
     };
   }, [seGuidedUploadedProductImageUrl]);
+  const seGuidedCategoryLadderUploadsRef = React.useRef(seGuidedCategoryLadderUploads);
+  seGuidedCategoryLadderUploadsRef.current = seGuidedCategoryLadderUploads;
   useEffect(() => {
+    return () => {
+      const snapshot = seGuidedCategoryLadderUploadsRef.current;
+      for (const tier of ["good", "better", "best", "ultimate"]) {
+        for (const row of snapshot[tier] || []) {
+          try {
+            if (row?.imageUrl) URL.revokeObjectURL(row.imageUrl);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    };
+  }, []);
+  useEffect(() => {
+    setSeGuidedCategoryLadderUploads((prev) => {
+      for (const tier of ["good", "better", "best", "ultimate"]) {
+        for (const row of prev[tier] || []) {
+          try {
+            if (row?.imageUrl) URL.revokeObjectURL(row.imageUrl);
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      return { good: [], better: [], best: [], ultimate: [] };
+    });
+    setSeGuidedCategoryLadderUploadTier("good");
     setSeGuidedStep3ProductId("");
   }, [seGuidedStep3CategoryKey]);
   useEffect(() => {
@@ -12365,18 +12440,120 @@ const handleFinishDealerEnrollment = async () => {
               return [{ href, label: `${catLabel} — reference PDS` }];
             })();
             const categorySpotlightSellSheetPreview = (
-              <CategorySpotlightSellSheet
-                key={`se-category-sell-sheet-${seGuidedStep3CategoryKey || "category"}-${seAiSalesSheetReady ? "ai" : "pkg"}`}
-                categoryLadderKey={seGuidedStep3CategoryKey || undefined}
-                featuredProductsSupplement={seCategoryFeaturedProductsSupplement}
-                productImages={seCategoryProductImages}
-                idealCustomers={seCategoryIdealCustomersSupplement}
-                applications={seCategoryApplicationsSupplement}
-                repTalkTrack={seCategoryRepTalkSupplement}
-                discoveryQuestions={seCategoryQuestionsSupplement}
-                cautions={seCategoryCautionsSupplement}
-                pdsLinks={seCategoryPdsLinks}
-              />
+              <>
+                <input
+                  ref={seGuidedCategoryLadderUploadRef}
+                  id="kl-se-guided-category-ladder-upload"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                  multiple
+                  style={{ display: "none" }}
+                  onChange={handleSeGuidedCategoryLadderImageUploadChange}
+                />
+                <div
+                  style={{
+                    width: "100%",
+                    maxWidth: 1140,
+                    margin: "0 auto 10px",
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    background: "#f8fafc",
+                    border: "1px solid rgba(203, 213, 225, 0.9)",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#1e3a8a" }}>
+                    LADDER PRODUCT PHOTOS (PREVIEW)
+                  </span>
+                  {["good", "better", "best", "ultimate"].map((tierId) => (
+                    <button
+                      key={tierId}
+                      type="button"
+                      onClick={() => setSeGuidedCategoryLadderUploadTier(tierId)}
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 800,
+                        padding: "5px 10px",
+                        borderRadius: 999,
+                        border:
+                          seGuidedCategoryLadderUploadTier === tierId
+                            ? "2px solid #ea580c"
+                            : "1px solid #cbd5e1",
+                        background:
+                          seGuidedCategoryLadderUploadTier === tierId ? "#fff7ed" : "#ffffff",
+                        color: "#1e3a8a",
+                        cursor: "pointer",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {tierId}
+                      {(seGuidedCategoryLadderUploads[tierId] || []).length
+                        ? ` (${seGuidedCategoryLadderUploads[tierId].length})`
+                        : ""}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => seGuidedCategoryLadderUploadRef.current?.click()}
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      padding: "5px 12px",
+                      borderRadius: 999,
+                      border: "1px solid rgba(234, 88, 12, 0.45)",
+                      background: "#ffffff",
+                      color: "#c2410c",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Add to {seGuidedCategoryLadderUploadTier}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const tier = seGuidedCategoryLadderUploadTier;
+                      setSeGuidedCategoryLadderUploads((prev) => {
+                        for (const row of prev[tier] || []) {
+                          try {
+                            if (row?.imageUrl) URL.revokeObjectURL(row.imageUrl);
+                          } catch {
+                            /* ignore */
+                          }
+                        }
+                        return { ...prev, [tier]: [] };
+                      });
+                    }}
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: "5px 10px",
+                      borderRadius: 999,
+                      border: "1px solid #e2e8f0",
+                      background: "#ffffff",
+                      color: "#64748b",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Clear tier
+                  </button>
+                </div>
+                <CategorySpotlightSellSheet
+                  key={`se-category-sell-sheet-${seGuidedStep3CategoryKey || "category"}-${seAiSalesSheetReady ? "ai" : "pkg"}`}
+                  categoryLadderKey={seGuidedStep3CategoryKey || undefined}
+                  featuredProductsSupplement={seCategoryFeaturedProductsSupplement}
+                  productImages={seCategoryProductImages}
+                  idealCustomers={seCategoryIdealCustomersSupplement}
+                  applications={seCategoryApplicationsSupplement}
+                  repTalkTrack={seCategoryRepTalkSupplement}
+                  discoveryQuestions={seCategoryQuestionsSupplement}
+                  cautions={seCategoryCautionsSupplement}
+                  pdsLinks={seCategoryPdsLinks}
+                  uploadedCategoryProductImages={seGuidedCategoryLadderUploads}
+                />
+              </>
             );
             const productSpotlightSellSheetPreview = (
               <>

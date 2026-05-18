@@ -6,7 +6,7 @@
 
 import React from "react";
 
-export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6f3";
+export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6f4";
 
 const KLONDIKE_HEADER_LOGO_SRC = "/klondike-horizontal-logo.png";
 
@@ -1211,11 +1211,73 @@ function inferCategoryLadderKey(categoryTitle, categorySubtitle, applications, e
   return "hydraulic";
 }
 
-function ladderSectionHeading(ladder) {
+function ladderHeadlineTitle(ladder) {
   if (ladder?.ladderStyle === "program") {
-    return "CORE ? SPECIALTY ? SEVERE DUTY ? COMPLIANCE";
+    return "PERFORMANCE PROGRESSION";
   }
-  return "GOOD ? BETTER ? BEST ? ULTIMATE";
+  return "PRODUCT LINE DEPTH";
+}
+
+function ladderTierLabelLine(ladder) {
+  if (ladder?.ladderStyle === "program") {
+    return "CORE \u00b7 SPECIALTY \u00b7 SEVERE DUTY \u00b7 COMPLIANCE";
+  }
+  return "GOOD \u00b7 BETTER \u00b7 BEST \u00b7 ULTIMATE";
+}
+
+function normalizeUploadedCategoryProductImages(value) {
+  const empty = { good: [], better: [], best: [], ultimate: [] };
+  if (!value || typeof value !== "object") return empty;
+  const out = { ...empty };
+  for (const tierId of LADDER_TIER_ORDER) {
+    const raw = value[tierId];
+    if (!Array.isArray(raw)) continue;
+    out[tierId] = raw
+      .map((item) => {
+        const imageUrl = String(item?.imageUrl ?? item?.url ?? item?.src ?? "").trim();
+        const label = String(item?.label ?? item?.name ?? "").trim();
+        if (!imageUrl) return null;
+        return { imageUrl, label };
+      })
+      .filter(Boolean)
+      .slice(0, 3);
+  }
+  return out;
+}
+
+function mergeUploadIntoTierProductImages(tierImages, uploads, tierId) {
+  const uploaded = Array.isArray(uploads?.[tierId]) ? uploads[tierId] : [];
+  if (!uploaded.length) return tierImages;
+  const preset = Array.isArray(tierImages) ? tierImages : [];
+  const out = uploaded.map((u, i) => ({
+    name: u.label || preset[i]?.name || `Line item ${i + 1}`,
+    label: u.label || "",
+    imageUrl: u.imageUrl,
+    imageFocus: preset[i]?.imageFocus || "50% 42%",
+    variant: preset[i]?.variant || inferLadderProductVariant(u.label || preset[i]?.name),
+  }));
+  for (let i = out.length; i < preset.length && out.length < 3; i++) {
+    const slot = preset[i];
+    if (slot && !out.some((x) => x.name === slot.name)) out.push(slot);
+  }
+  return out.slice(0, 3);
+}
+
+function applyUploadedCategoryProductImages(ladder, uploadedRaw) {
+  if (!ladder?.tiers?.length) return ladder;
+  const uploads = normalizeUploadedCategoryProductImages(uploadedRaw);
+  const hasAny = LADDER_TIER_ORDER.some((id) => uploads[id]?.length > 0);
+  if (!hasAny) return ladder;
+  return {
+    ...ladder,
+    tiers: ladder.tiers.map((tier) => {
+      const tierId = String(tier.tier || "").toLowerCase();
+      return {
+        ...tier,
+        productImages: mergeUploadIntoTierProductImages(tier.productImages, uploads, tierId),
+      };
+    }),
+  };
 }
 
 function mergeUniqueStrings(primary, secondary, max = 12) {
@@ -1805,9 +1867,9 @@ function ladderTierVisual(tierIndex) {
       bg: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
       border: "rgba(148, 163, 184, 0.45)",
       accent: BRAND.slate,
-      imageMaxH: 56,
+      imageMaxH: 52,
       imageScale: 0.88,
-      columnMinH: 300,
+      columnMinH: 280,
       boxShadow: "0 4px 14px rgba(15, 23, 42, 0.05)",
       slotBg: "rgba(255,255,255,0.95)",
     },
@@ -1815,9 +1877,9 @@ function ladderTierVisual(tierIndex) {
       bg: "linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%)",
       border: "rgba(234, 88, 12, 0.42)",
       accent: BRAND.orange,
-      imageMaxH: 68,
+      imageMaxH: 62,
       imageScale: 0.94,
-      columnMinH: 320,
+      columnMinH: 296,
       boxShadow: "0 8px 22px rgba(234, 88, 12, 0.12)",
       slotBg: "rgba(255,255,255,0.92)",
     },
@@ -1825,9 +1887,9 @@ function ladderTierVisual(tierIndex) {
       bg: "linear-gradient(165deg, #eff6ff 0%, #ffffff 55%)",
       border: "rgba(30, 64, 175, 0.45)",
       accent: BRAND.navyMid,
-      imageMaxH: 80,
+      imageMaxH: 74,
       imageScale: 1,
-      columnMinH: 340,
+      columnMinH: 312,
       boxShadow: "0 12px 28px rgba(30, 58, 138, 0.14)",
       slotBg: "rgba(255,255,255,0.94)",
     },
@@ -1836,9 +1898,9 @@ function ladderTierVisual(tierIndex) {
       border: BRAND.orange,
       accent: BRAND.orangeLight,
       lightText: true,
-      imageMaxH: 104,
-      imageScale: 1.06,
-      columnMinH: 380,
+      imageMaxH: 96,
+      imageScale: 1.05,
+      columnMinH: 352,
       boxShadow: "0 22px 48px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(251, 146, 60, 0.35)",
       slotBg: "rgba(255,255,255,0.08)",
     },
@@ -2072,18 +2134,18 @@ function CategoryPerformanceLadderSection({ ladder }) {
     <section
       data-category-ladder-visual="true"
       style={{
-        padding: "44px 44px 48px",
-        background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 28%)",
+        padding: "32px 40px 36px",
+        background: `linear-gradient(180deg, #f1f5f9 0%, ${BRAND.white} 42%)`,
         borderBottom: "1px solid rgba(226,232,240,0.95)",
       }}
     >
-      <div style={{ marginBottom: 28, textAlign: "center", maxWidth: 820, marginLeft: "auto", marginRight: "auto" }}>
+      <div style={{ marginBottom: 20, textAlign: "center", maxWidth: 760, marginLeft: "auto", marginRight: "auto" }}>
         <p
           style={{
             margin: 0,
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: 900,
-            letterSpacing: "0.16em",
+            letterSpacing: "0.2em",
             color: BRAND.orange,
             textTransform: "uppercase",
           }}
@@ -2092,56 +2154,45 @@ function CategoryPerformanceLadderSection({ ladder }) {
         </p>
         <p
           style={{
-            margin: "10px 0 0",
-            fontSize: "clamp(26px, 3.2vw, 34px)",
+            margin: "8px 0 0",
+            fontSize: "clamp(22px, 2.8vw, 30px)",
             fontWeight: 900,
             color: BRAND.headerNavy,
             lineHeight: 1.12,
           }}
         >
-          {ladderSectionHeading(ladder)}
+          {ladderHeadlineTitle(ladder)}
         </p>
         <p
           style={{
-            margin: "12px auto 0",
-            fontSize: 15,
-            fontWeight: 600,
-            color: "#64748b",
-            lineHeight: 1.55,
-            maxWidth: 640,
+            margin: "6px 0 0",
+            fontSize: "clamp(14px, 1.8vw, 18px)",
+            fontWeight: 900,
+            letterSpacing: "0.12em",
+            color: BRAND.navyMid,
           }}
         >
-          Visual upsell path for the full program?each tier shows product depth, not a single SKU story.
+          {ladderTierLabelLine(ladder)}
+        </p>
+        <p
+          style={{
+            margin: "10px auto 0",
+            fontSize: 14,
+            fontWeight: 600,
+            color: "#475569",
+            lineHeight: 1.5,
+            maxWidth: 580,
+          }}
+        >
+          Use the ladder to guide upgrade conversations, product consolidation, and premium conversion opportunities.
         </p>
       </div>
-      {ladder.emphasis?.length ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24, justifyContent: "center" }}>
-          {ladder.emphasis.slice(0, 6).map((line) => (
-            <span
-              key={line}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 999,
-                fontSize: 11,
-                fontWeight: 800,
-                color: BRAND.navy,
-                background: BRAND.white,
-                border: "1px solid rgba(30, 58, 138, 0.14)",
-                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
-              }}
-            >
-              {line}
-            </span>
-          ))}
-        </div>
-      ) : null}
       <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-          gap: 16,
+          gap: 12,
           alignItems: "end",
-          paddingTop: 8,
         }}
       >
         {ladder.tiers.slice(0, 4).map((tier, i) => (
@@ -2814,9 +2865,9 @@ export default function CategorySpotlightSellSheet(props) {
   const stripCount = Math.min(Math.max(valueCards.length, 4), 6);
   const stripCards = valueCards.slice(0, stripCount);
   const ladderPresetKey = programFields.presetKey;
-  const productLadder = normalizeProductLadder(
-    props.productLadder ?? DEMO_DEFAULTS.productLadder,
-    ladderPresetKey
+  const productLadder = applyUploadedCategoryProductImages(
+    normalizeProductLadder(props.productLadder ?? DEMO_DEFAULTS.productLadder, ladderPresetKey),
+    props.uploadedCategoryProductImages
   );
   const programProductCount = Math.max(
     featuredProducts.length,
