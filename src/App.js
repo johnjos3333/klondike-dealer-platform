@@ -12301,84 +12301,81 @@ const handleFinishDealerEnrollment = async () => {
             }
             const seFinalSellSheetPdsUrl = normalizePublicPdsPdfHref(guidedWizardPdsUrl);
             console.log("[SE-PDS-FINAL]", seFinalSellSheetPdsUrl);
-            const seCategoryFeaturedProducts = (() => {
-              if (seAiSalesSheetReady) {
-                const fromAi = seAiSalesListFromField(seAiSalesSheet?.featuredProducts, 8);
-                if (fromAi.length) {
-                  return fromAi.map((line) => {
-                    const dash = String(line).match(/^([^:—–-]{1,80})\s*[:—–-]\s*(.+)$/);
-                    return {
-                      name: String(dash ? dash[1] : line).trim(),
-                      role: String(dash ? dash[2] : "").trim(),
-                    };
-                  });
-                }
-              }
+            const seCategoryFeaturedProductsSupplement = (() => {
+              const catKey = String(seGuidedStep3CategoryKey || "").trim();
+              if (!catKey) return [];
               const cards = Array.isArray(seAssemblyPkg?.productCards) ? seAssemblyPkg.productCards : [];
               const out = [];
               for (const row of cards) {
+                const canon = seGuidedStep3CanonicalRows.find(
+                  (r) => String(r?.id || "") === String(row?.id || "")
+                );
+                const rowKey = canon
+                  ? mapCanonicalRowToSeGuidedStep3CategoryKey(canon)
+                  : mapCanonicalRowToSeGuidedStep3CategoryKey({
+                      productName: row?.productName,
+                      category: row?.category,
+                      canonicalFamily: row?.canonicalFamily,
+                      productFamily: row?.productFamily,
+                    });
+                if (rowKey !== catKey) continue;
                 const name = String(row?.productName || row?.name || "").trim();
                 if (!name) continue;
                 out.push({
                   name,
-                  role: String(row?.headline || row?.gradeLabel || row?.productFamily || "").trim(),
+                  role: String(row?.gradeLabel || row?.productFamily || "").trim(),
                   imageUrl: String(row?.productImageUrl || row?.imageUrl || "").trim(),
                 });
-                if (out.length >= 8) break;
+                if (out.length >= 4) break;
               }
               return out;
             })();
-            const seCategoryProductImages = seCategoryFeaturedProducts
+            const seCategoryProductImages = seCategoryFeaturedProductsSupplement
               .map((p) => String(p?.imageUrl || "").trim())
               .filter(Boolean);
-            const seCategoryIdealCustomers = (() => {
-              const fromAi = seAiPickList(seAiSalesSheet?.idealCustomers, [], 8);
-              if (fromAi.length) return fromAi;
+            const seCategoryIdealCustomersSupplement = (() => {
               const signals = Array.isArray(seAssemblyPkg?.customerProfileSignals)
                 ? seAssemblyPkg.customerProfileSignals.map((x) => String(x ?? "").trim()).filter(Boolean)
                 : [];
               const sec = sePkgPickSection((t) => /market|segment|customer|fleet|ideal|profile/.test(t));
               const bullets = Array.isArray(sec?.bullets) ? sec.bullets : [];
-              return sePosterUniqueLines([...signals, ...bullets], 8);
+              return sePosterUniqueLines([...signals, ...bullets], 6);
             })();
-            const seCategoryKeyBenefits = (() => {
-              if (seAiSalesSheetReady && Array.isArray(seAiSalesSheet?.keyBenefits) && seAiSalesSheet.keyBenefits.length) {
-                return seAiSalesSheet.keyBenefits;
-              }
-              return seFinalSellSheetBenefits.map((t) => ({
-                label: String(t.label || "").trim(),
-                sub: String(t.sub || "").trim(),
-                iconKey: "",
-              }));
-            })();
-            const seCategoryOpportunitySummary = seAiPickText(
-              seAiSalesSheet?.opportunitySummary ?? seAiSalesSheet?.heroSummary,
-              sePosterHeroSummary || seFinalSellSheetSummary
+            const seCategoryApplicationsSupplement = seAiPickList(
+              seAiSalesSheet?.applications,
+              sePosterAppLines,
+              6
             );
+            const seCategoryRepTalkSupplement = seAiPickList(
+              seAiSalesSheet?.repTalkTrack,
+              seFinalSellSheetRepTalk,
+              4
+            );
+            const seCategoryQuestionsSupplement = seAiPickList(
+              seAiSalesSheet?.discoveryQuestions,
+              seFinalSellSheetQuestions,
+              5
+            );
+            const seCategoryCautionsSupplement = seAiPickList(seAiSalesSheet?.cautions, seFinalSellSheetCautions, 4);
             const seCategoryPdsLinks = (() => {
               const href = seFinalSellSheetPdsUrl;
               if (!href) return [];
-              const label = seFinalSellSheetTitle ? `${seFinalSellSheetTitle} — PDS` : "Open PDS";
-              return [{ href, label }];
+              const catLabel =
+                SE_GUIDED_STEP3_CATEGORY_LABELS[seGuidedStep3CategoryKey] || "Category";
+              return [{ href, label: `${catLabel} — reference PDS` }];
             })();
             const categorySpotlightSellSheetPreview = (
               <CategorySpotlightSellSheet
-                key={`se-category-sell-sheet-${seFinalSellSheetTitle}-${seAiSalesSheetReady ? "ai" : "pkg"}`}
-                categoryTitle={seFinalSellSheetTitle}
-                categorySubtitle={seFinalSellSheetSubtitle}
-                opportunitySummary={seCategoryOpportunitySummary}
-                productImages={seCategoryProductImages}
-                keyBenefits={seCategoryKeyBenefits}
-                idealCustomers={seCategoryIdealCustomers}
-                applications={seFinalSellSheetApplications}
-                featuredProducts={seCategoryFeaturedProducts}
-                crossSell={seFinalSellSheetCrossSell}
-                repTalkTrack={seFinalSellSheetRepTalk}
-                discoveryQuestions={seFinalSellSheetQuestions}
-                cautions={seFinalSellSheetCautions}
-                recommendedNextStep={seFinalSellSheetNextStep}
-                pdsLinks={seCategoryPdsLinks}
+                key={`se-category-sell-sheet-${seGuidedStep3CategoryKey || "category"}-${seAiSalesSheetReady ? "ai" : "pkg"}`}
                 categoryLadderKey={seGuidedStep3CategoryKey || undefined}
+                featuredProductsSupplement={seCategoryFeaturedProductsSupplement}
+                productImages={seCategoryProductImages}
+                idealCustomers={seCategoryIdealCustomersSupplement}
+                applications={seCategoryApplicationsSupplement}
+                repTalkTrack={seCategoryRepTalkSupplement}
+                discoveryQuestions={seCategoryQuestionsSupplement}
+                cautions={seCategoryCautionsSupplement}
+                pdsLinks={seCategoryPdsLinks}
               />
             );
             const productSpotlightSellSheetPreview = (

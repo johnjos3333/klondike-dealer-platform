@@ -6,7 +6,7 @@
 
 import React from "react";
 
-export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6f1";
+export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6f2";
 
 const KLONDIKE_HEADER_LOGO_SRC = "/klondike-horizontal-logo.png";
 
@@ -381,6 +381,446 @@ const CATEGORY_LADDER_PRESETS = {
   },
 };
 
+/** Category-first program copy — headline and depth never come from a single resolved product. */
+const CATEGORY_PROGRAM_COPY = {
+  hydraulic: {
+    categoryTitle: "KLONDIKE Hydraulic Fluids",
+    categorySubtitle: "Full-line hydraulic programs for mixed fleets, plants, and mobile equipment.",
+    opportunitySummary:
+      "Lead with ISO VG discipline, contamination control, and bulk vs packaged behavior—then walk the GOOD · BETTER · BEST · ULTIMATE ladder. Position Klondike as the hydraulic system partner, not a one-SKU swap.",
+    keyBenefits: [
+      { iconKey: "consolidation", label: "Program consolidation", sub: "One hydraulic story from AW through turbine, tractor, and circulating oils." },
+      { iconKey: "uptime", label: "Circuit reliability", sub: "Fewer heat, foam, and slow-response events on first-shift startups." },
+      { iconKey: "mix", label: "Line depth & margin", sub: "Professional through XVI synthetic and specialty wet-brake fills." },
+      { iconKey: "expansion", label: "Account expansion", sub: "Grow share on construction, ag-adjacent, and industrial hydraulic hours." },
+    ],
+    idealCustomers: [
+      "Construction & rental fleets",
+      "Industrial plants & presses",
+      "Municipal / mobile equipment yards",
+      "Mixed-fleet distributors",
+      "Bulk tank programs",
+    ],
+    applications: [
+      "Skid-steer & excavator hydraulics",
+      "Press, lift & power units",
+      "Turbine & circulating systems",
+      "Tractor & mobile hydraulics",
+      "Wet brake reservoirs (confirm PDS)",
+      "Seasonal multi-viscosity yards",
+    ],
+    crossSell: [
+      { title: "Grease", desc: "Pins, bushings, and chassis points on the same fleet", iconKey: "grease" },
+      { title: "Gear oils", desc: "Drivetrain and reducer programs adjacent to hydraulics", iconKey: "gear" },
+      { title: "Heavy duty engine oils", desc: "Engine programs for on- and off-highway mixed fleets", iconKey: "engine" },
+      { title: "Coolants", desc: "Cooling discipline bundled with fluid power accounts", iconKey: "coolant" },
+    ],
+    repTalkTrack: [
+      "Start with pump tags, ISO VG, and how the yard tops off before recommending a tier move.",
+      "Position filtration and breathers ahead of chemistry changes on repeat-failure circuits.",
+      "Use the ladder to structure margin—AW and professional programs first, synthetic and specialty where duty proves it.",
+      "Separate hydraulic, wet-brake, and circulating conversations—confirm each fill point on PDS.",
+    ],
+    discoveryQuestions: [
+      "Which circuits show foam, heat, or slow response on cold starts?",
+      "What ISO VG and component tags are on the pumps you need running this week?",
+      "Are bulk tanks and packaged top-offs on the same program ladder?",
+      "Where do wet-brake or circulating systems pull from a different SKU habit?",
+    ],
+    cautions: [
+      "Confirm component and viscosity guidance on each PDS before changing grade or chemistry.",
+      "Do not mix incompatible fluids without flush and consultation.",
+      "Wet-brake and hydraulic fills are separate conversations—verify reservoir labels.",
+    ],
+    recommendedNextStep:
+      "Standardize the yard on one hydraulic ladder: document ISO VG by asset group, align bulk and packaged behavior, and bundle filtration with tier upgrades.",
+    sellingStrategy: {
+      positioning: [
+        "Sell the hydraulic system program—ladder depth, not a single drum swap.",
+        "Anchor every recommendation to pump tags, temperature band, and contamination history.",
+        "Use Professional and Advanced as the volume base; grow MV, XVI synthetic, and turbine as proof points mature.",
+      ],
+      problemsSolved: [
+        "Fragmented SKUs across AW, MV, and specialty fills",
+        "Repeat heat, foam, and slow-response failures",
+        "Bulk vs packaged misalignment",
+        "Missed margin on synthetic and turbine opportunities",
+      ],
+      opportunitySignals: [
+        "Mixed fleets adding hours or new equipment groups",
+        "Plants with turbine or circulating assets outside the AW contract",
+        "Dealers still quoting competitor AW only on price",
+        "Yards with wet-brake or tractor-fluid confusion",
+      ],
+      crossSellPath: [
+        "Grease → chassis and pin programs on the same equipment",
+        "Gear & circulating oils → plant and drivetrain depth",
+        "HD engine oils → mixed highway / off-highway fleets",
+        "Environmental / food-grade → only where site rules require (separate programs)",
+      ],
+    },
+  },
+  agrimax: {
+    categoryTitle: "AGRIMAX Full Line",
+    categorySubtitle: "Farm and ag-dealer program depth across trans-hydraulics, engines, grease, and coolant.",
+    opportunitySummary:
+      "Position AGRIMAX as the full-line ag account strategy—CORE through COMPLIANCE tiers for trans-drive, zinc-free options, CK-4 engine oil, grease, and coolant companions. Confirm equipment tags on every PDS; do not lead with a single companion SKU.",
+    keyBenefits: [
+      { iconKey: "retention", label: "Dealer stickiness", sub: "Keep the ag account on one Klondike program story across reservoirs." },
+      { iconKey: "consolidation", label: "Full-line consolidation", sub: "Fluids, grease, and coolant under one seasonal conversation." },
+      { iconKey: "uptime", label: "Seasonal uptime", sub: "Right trans-hydraulic and engine tier before peak field hours." },
+      { iconKey: "expansion", label: "Program expansion", sub: "Grow from trans-drive anchor into engine, grease, and coolant depth." },
+    ],
+    idealCustomers: [
+      "Agriculture dealers & farm stores",
+      "Mixed ag / construction yards",
+      "Seasonal bulk and packaged ag accounts",
+      "Equipment dealers supporting field service",
+    ],
+    applications: [
+      "Tractor trans-hydraulic systems",
+      "Wet brake & multi-reservoir ag equipment",
+      "Seasonal CK-4 engine programs",
+      "Field grease and fifth-wheel points",
+      "Coolant maintenance on ag fleets",
+    ],
+    crossSell: [
+      { title: "HD engine oils", desc: "Non-ag highway fleets on the same dealer card", iconKey: "engine" },
+      { title: "Hydraulic fluids", desc: "Non-ag industrial hydraulics where AGRIMAX is not the fit", iconKey: "hydraulic" },
+      { title: "Grease program", desc: "RED TAC and severe-duty upgrades beyond Poly Tac", iconKey: "grease" },
+      { title: "Coolants", desc: "OAT / NOAT discipline outside ag line where applicable", iconKey: "coolant" },
+    ],
+    repTalkTrack: [
+      "Open with equipment tags and reservoir labels—trans-drive vs engine vs wet brake—before any product name.",
+      "Walk the AGRIMAX CORE → COMPLIANCE ladder so the dealer sees program depth, not one green or red SKU.",
+      "Pair seasonal bulk strategy with packaged top-off behavior on the busiest farm accounts.",
+      "Use PDS equipment guidance for line-specific options—do not imply OEM approval beyond what PDS states.",
+    ],
+    discoveryQuestions: [
+      "Which reservoirs are you standardizing this season—trans-hydraulic, engine, wet brake, coolant?",
+      "Are green-line and zinc-free programs split by equipment type or mixed on the shelf?",
+      "What CK-4 and grease companions are already on the farm account?",
+      "Where is a single companion SKU (coolant or grease) carrying the whole story incorrectly?",
+    ],
+    cautions: [
+      "Confirm equipment and fluid-type guidance on each AGRIMAX PDS before recommending a line color or chemistry.",
+      "Do not imply OEM or specification approval beyond what the PDS documents.",
+      "Trans-hydraulic, engine, wet-brake, and coolant fills require separate confirmation.",
+    ],
+    recommendedNextStep:
+      "Build the AGRIMAX full-line plan: anchor trans-drive and zinc-free tiers, add CK-4 and grease companions, and align coolant with seasonal bulk—documented by equipment tag on PDS.",
+    sellingStrategy: {
+      positioning: [
+        "Sell AGRIMAX as the ag dealer’s full program—not a coolant, grease, or trans-drive SKU in isolation.",
+        "Lead with reservoir discipline and seasonal strategy, then place ladder tiers.",
+        "Keep John Deere / CNH / wet-brake language tied to PDS equipment guidance only.",
+      ],
+      problemsSolved: [
+        "Single-SKU ag stories (coolant-only or grease-only) shrinking margin",
+        "Line-color confusion on the shelf",
+        "Missed CK-4 and trans-drive consolidation",
+        "Seasonal stock-outs on the wrong tier",
+      ],
+      opportunitySignals: [
+        "Dealers leading with 50/50 coolant or Poly Tac instead of the program",
+        "Farms with multiple reservoir types on one invoice",
+        "Ag accounts still split across competitors by fill type",
+      ],
+      crossSellPath: [
+        "Trans-drive anchor → zinc-free specialty where tags support it",
+        "CK-4 engine oil → high-hour seasonal engine program",
+        "Poly Tac / RED TAC → grease depth on the same dealer",
+        "ELC coolant → compliance tier when cooling is part of the ag plan",
+      ],
+    },
+  },
+  environmental: {
+    categoryTitle: "KLONDIKE Environmental / EAL Lubricants",
+    categorySubtitle: "Enviro, BIO, and EAL programs for sensitive sites—claims always tied to PDS.",
+    opportunitySummary:
+      "Structure sensitive-site conversations around CORE → COMPLIANCE tiers: ENVIRO AW entry, BIO and HEES depth, BIO-Synthetic EAL, and HFDU / specialty options. Pair chemistry with spill response and containment—never overstate environmental claims.",
+    keyBenefits: [
+      { iconKey: "consolidation", label: "Site-ready programs", sub: "One environmentally acceptable story from entry AW through HFDU." },
+      { iconKey: "uptime", label: "Duty-appropriate tiers", sub: "Match biodegradability and fluid type to equipment and regulations." },
+      { iconKey: "retention", label: "Specification trust", sub: "Keep sensitive accounts on documented PDS language, not marketing shorthand." },
+      { iconKey: "expansion", label: "Category growth", sub: "Expand from hydraulic EAL into rock drill and specialty plant needs." },
+    ],
+    idealCustomers: [
+      "Forestry & sensitive land operations",
+      "Municipal / park / water-adjacent sites",
+      "Construction near waterways",
+      "Quarries and regulated industrial sites",
+    ],
+    applications: [
+      "Mobile hydraulic systems on sensitive sites",
+      "Rock drill and outdoor equipment",
+      "Plant hydraulics where EAL is specified",
+      "Spill-sensitive bulk programs",
+    ],
+    crossSell: [
+      { title: "Standard hydraulics", desc: "Non-regulated assets on the same fleet", iconKey: "hydraulic" },
+      { title: "Food-grade", desc: "Food plants where H1 is required instead of EAL", iconKey: "food" },
+      { title: "Grease", desc: "Chassis programs—confirm environmental claims on PDS", iconKey: "grease" },
+      { title: "Gear oils", desc: "Drivetrain fills where site rules allow", iconKey: "gear" },
+    ],
+    repTalkTrack: [
+      "Confirm site rules, spill plans, and equipment tags before recommending any EAL tier.",
+      "Use ENVIRO and BIO labels exactly as PDS describes—no stronger environmental claims.",
+      "Walk CORE → COMPLIANCE so the account sees depth beyond one biodegradable AW drum.",
+      "Separate mobile hydraulic, rock drill, and HFDU conversations by application.",
+    ],
+    discoveryQuestions: [
+      "What environmental standard or customer spec drives fluid selection on this site?",
+      "Which equipment groups are already on ENVIRO, BIO, or EAL—and which are not?",
+      "When did spill response or containment last change on the account?",
+      "Are rock drill, hydraulic, and HFDU needs bundled or quoted separately?",
+    ],
+    cautions: [
+      "Use only biodegradability and environmental language documented on each PDS.",
+      "Do not substitute EAL for food-grade H1 where NSF registration is required.",
+      "Confirm compatibility and flush requirements before changing chemistry.",
+    ],
+    recommendedNextStep:
+      "Map sensitive-site equipment to the environmental ladder, document PDS claims per asset group, and bundle containment discipline with tier upgrades.",
+    sellingStrategy: {
+      positioning: [
+        "Sell regulated-site readiness—a tiered EAL program, not a single BIO SKU.",
+        "Lead with site rules and PDS claims, then place CORE → COMPLIANCE depth.",
+      ],
+      problemsSolved: [
+        "Over-claiming environmental performance vs PDS",
+        "One-SKU EAL quotes on multi-equipment sites",
+        "Mixing food-grade and EAL incorrectly",
+      ],
+      opportunitySignals: [
+        "New municipal or forestry contracts with fluid specs",
+        "Accounts quoted only ENVIRO AW without HEES or EAL depth",
+        "Spill incidents driving fluid reviews",
+      ],
+      crossSellPath: [
+        "ENVIRO AW → BIO / HEES upgrade where duty increases",
+        "BIO-Synthetic EAL → severe mobile hydraulic programs",
+        "HFDU / rock drill → compliance tier on specialty assets",
+      ],
+    },
+  },
+  foodGrade: {
+    categoryTitle: "KLONDIKE Food Grade Lubricants",
+    categorySubtitle: "NSF H1 food-plant programs—hydraulic, grease, gear, and specialty fills confirmed on PDS.",
+    opportunitySummary:
+      "Position food-grade as a plant-wide H1 strategy: CORE hydraulics through COMPLIANCE compressor and chain programs. Every registration and application claim must match the PDS—no implied NSF or OEM approval beyond documentation.",
+    keyBenefits: [
+      { iconKey: "consolidation", label: "Plant program", sub: "One H1 story across hydraulics, grease, gear, and specialty lines." },
+      { iconKey: "uptime", label: "Audit readiness", sub: "Inventory and labeling discipline that survives customer audits." },
+      { iconKey: "retention", label: "Account protection", sub: "Keep food plants from fragmenting across non-H1 habits." },
+      { iconKey: "mix", label: "Line depth", sub: "Grow from hydraulic base into EP-2, gear, and compressor H1." },
+    ],
+    idealCustomers: [
+      "Food & beverage processors",
+      "Bottling & packaging plants",
+      "Meat, dairy, and bakery operations",
+      "Pharma-adjacent manufacturing with H1 requirements",
+    ],
+    applications: [
+      "Hydraulic units in processing areas",
+      "Bearings, chains, and conveyors",
+      "Food-grade gear and reducer fills",
+      "Compressor and circulating H1 (confirm PDS)",
+    ],
+    crossSell: [
+      { title: "Environmental / EAL", desc: "Outdoor or sensitive sites—not food plants", iconKey: "eal" },
+      { title: "Industrial hydraulics", desc: "Non-H1 plant areas only where allowed", iconKey: "hydraulic" },
+      { title: "Grease (standard)", desc: "Non-processing equipment outside H1 scope", iconKey: "grease" },
+      { title: "Coolants", desc: "Cooling systems—confirm food-plant suitability on PDS", iconKey: "coolant" },
+    ],
+    repTalkTrack: [
+      "Confirm NSF H1 registration on the PDS for every fill point discussed.",
+      "Separate processing vs non-processing equipment before recommending any SKU.",
+      "Walk CORE → COMPLIANCE so the plant sees breadth beyond one hydraulic drum.",
+      "Never imply registration or OEM approval beyond what the PDS states.",
+    ],
+    discoveryQuestions: [
+      "Which zones require H1 vs general industrial fluids?",
+      "When is the next customer audit—and what fill points are in scope?",
+      "Are grease, hydraulic, and compressor lines on one supplier program today?",
+      "Where are non-H1 SKUs still on the shelf in processing areas?",
+    ],
+    cautions: [
+      "Confirm NSF H1 status and application scope on each PDS before quoting.",
+      "Do not use environmental/EAL fluids where H1 registration is required.",
+      "Keep food-grade inventory segregated and labeled per plant rules.",
+    ],
+    recommendedNextStep:
+      "Document every processing fill point, align CORE → COMPLIANCE H1 tiers on PDS, and consolidate grease, gear, and compressor lines under one plant program.",
+    sellingStrategy: {
+      positioning: [
+        "Sell audit-ready plant programs—not a single food-grade hydraulic SKU.",
+        "Lead with zone mapping and PDS registrations, then expand the H1 ladder.",
+      ],
+      problemsSolved: [
+        "H1 gaps in grease or compressor fills",
+        "Audit failures from mislabeled inventory",
+        "Single-product food-grade quotes",
+      ],
+      opportunitySignals: [
+        "Plants quoting only food-grade hydraulic",
+        "Upcoming customer or third-party audits",
+        "New processing lines without H1 plan",
+      ],
+      crossSellPath: [
+        "FOOD-GRADE hydraulic → EP-2 grease on processing lines",
+        "Gear H1 → reducers and mixers",
+        "Compressor / chain H1 → compliance tier specialties",
+      ],
+    },
+  },
+  grease: {
+    categoryTitle: "KLONDIKE Grease Program",
+    categorySubtitle: "Full grease ladder from multipurpose EP through flagship nano programs.",
+    opportunitySummary:
+      "Lead with the GOOD · BETTER · BEST · ULTIMATE grease ladder—RED TAC and HD TAC through MOLY TAC, ULTRA TAC, and nano sulfonate / lithium complex synthetics. Sell relube strategy and application severity, not one Poly Tac drum.",
+    keyBenefits: [
+      { iconKey: "uptime", label: "Bearing protection", sub: "Match NLGI and EP chemistry to load, water, and relube intervals." },
+      { iconKey: "mix", label: "Ladder margin", sub: "Grow from multipurpose into moly, synthetic-blend, and nano tiers." },
+      { iconKey: "consolidation", label: "Point consolidation", sub: "One grease story across pins, bushings, and centralized systems." },
+      { iconKey: "downtime", label: "Fewer relubes", sub: "Upgrade tiers where washout and shock load justify it." },
+    ],
+    idealCustomers: [
+      "Construction & mining fleets",
+      "Forestry & logging",
+      "Agriculture & equipment dealers",
+      "Municipal fleets",
+      "Industrial plants with centralized lube",
+    ],
+    applications: [
+      "Pins, bushings, and chassis points",
+      "Centralized lube systems",
+      "Wet, dirty outdoor environments",
+      "High-load and shock-load joints",
+      "Extended relube intervals",
+    ],
+    crossSell: [
+      { title: "Hydraulic fluids", desc: "Fluid power on the same mobile equipment", iconKey: "hydraulic" },
+      { title: "HD engine oils", desc: "Engine programs on mixed fleets", iconKey: "engine" },
+      { title: "Gear oils", desc: "Drivetrain fills adjacent to chassis grease", iconKey: "gear" },
+      { title: "AGRIMAX", desc: "Ag grease companions where farm program applies", iconKey: "program" },
+    ],
+    repTalkTrack: [
+      "Qualify load, water, temperature, and relube interval before naming a grease tier.",
+      "Use the ladder—RED TAC / HD TAC base, MOLY TAC and ULTRA TAC upgrades, nano where severe duty proves it.",
+      "Do not let one multipurpose SKU (e.g. Poly Tac alone) stand in for the whole grease program.",
+      "Pair centralized system discipline with the right NLGI and EP chemistry.",
+    ],
+    discoveryQuestions: [
+      "Which joints fail first—washout, pound-out, or heat?",
+      "What relube interval are you actually achieving vs planning?",
+      "Are moly and synthetic-blend tiers specified on severe assets only?",
+      "Where is one grease SKU doing work that should be split by severity?",
+    ],
+    cautions: [
+      "Confirm NLGI, EP, and compatibility with prior grease on PDS before switching.",
+      "Do not mix incompatible thickeners without flush guidance.",
+      "Centralized systems require product and viscosity discipline—verify on PDS.",
+    ],
+    recommendedNextStep:
+      "Map grease points by severity, standardize the ladder on the fleet chart, and upgrade moly and nano tiers only where inspection data supports it.",
+    sellingStrategy: {
+      positioning: [
+        "Sell the grease ladder and relube strategy—not a single multipurpose product.",
+        "Anchor upgrades to joint severity, water, and interval evidence.",
+      ],
+      problemsSolved: [
+        "One-SKU grease habits (Poly Tac–only stories)",
+        "Premature pin and bushing wear",
+        "Missed nano and synthetic-blend margin",
+      ],
+      opportunitySignals: [
+        "Fleets on one RED TAC or Poly Tac for every point",
+        "Mining / forestry / construction with shock load",
+        "Centralized systems without tier discipline",
+      ],
+      crossSellPath: [
+        "RED TAC / HD TAC → MOLY TAC on loaded outdoor joints",
+        "ULTRA TAC → longer intervals and heat",
+        "nano programs → flagship severe-duty conversions",
+        "Hydraulics & engines → same account system sell",
+      ],
+    },
+  },
+  hdEngine: {
+    categoryTitle: "KLONDIKE Heavy Duty Engine Oils",
+    categorySubtitle: "CK-4 / FA-4 and synthetic tier progression for on- and off-highway fleets.",
+    opportunitySummary:
+      "Walk the GOOD · BETTER · BEST · ULTIMATE HD engine ladder—conventional and professional formulas through synthetic blend, full synthetic CK-4, and specialty natural gas / severe service. Align API category and drain strategy to PDS; do not imply OEM approval beyond documentation.",
+    keyBenefits: [
+      { iconKey: "consolidation", label: "Fleet program", sub: "One HD story from conventional through full synthetic CK-4." },
+      { iconKey: "uptime", label: "Protection & drains", sub: "Match tier to duty cycle and emissions hardware—per PDS." },
+      { iconKey: "mix", label: "Synthetic growth", sub: "Expand synthetic blend and full synthetic penetration." },
+      { iconKey: "expansion", label: "Account depth", sub: "Add natural gas and severe-service where specifications support." },
+    ],
+    idealCustomers: [
+      "Class 8 and regional haul fleets",
+      "Mixed on- / off-highway operations",
+      "Construction & vocational diesel",
+      "Natural gas and specialty engine users",
+    ],
+    applications: [
+      "Class 8 linehaul and regional haul",
+      "Vocational and vocational diesel",
+      "Off-highway construction fleets",
+      "Natural gas engines (confirm PDS)",
+      "Railroad & severe service (confirm PDS)",
+    ],
+    crossSell: [
+      { title: "Coolants", desc: "Cooling program aligned to engine account", iconKey: "coolant" },
+      { title: "Hydraulic fluids", desc: "Off-highway hydraulics on the same yard", iconKey: "hydraulic" },
+      { title: "Grease", desc: "Chassis and U-joint programs", iconKey: "grease" },
+      { title: "Transmission fluids", desc: "Driveline fills where spec supports", iconKey: "program" },
+    ],
+    repTalkTrack: [
+      "Confirm API category (CK-4 / FA-4 where applicable), viscosity, and drain interval from tags and PDS.",
+      "Use the ladder to place conventional and professional formulas before synthetic upgrades.",
+      "Tie full synthetic CK-4 to measurable duty and emissions hardware needs—not habit alone.",
+      "Reference PDS for natural gas and specialty lines—no implied OEM approvals.",
+    ],
+    discoveryQuestions: [
+      "What API category and viscosity are on the bulk tank vs over-the-road units?",
+      "Which units are candidates for synthetic blend vs full synthetic CK-4?",
+      "How are drain intervals set today—hours, fuel, or calendar?",
+      "Are natural gas or specialty engines on a separate program today?",
+    ],
+    cautions: [
+      "Confirm API category, viscosity, and compatibility on each PDS before changing engine oil.",
+      "Do not imply OEM approval unless the PDS documents it.",
+      "FA-4 and CK-4 apply to different hardware—verify fleet eligibility.",
+    ],
+    recommendedNextStep:
+      "Chart fleet units by duty and API need, standardize the HD ladder on bulk and packaged tanks, and phase synthetic upgrades with documented drain strategy.",
+    sellingStrategy: {
+      positioning: [
+        "Sell fleet engine programs and the HD ladder—not a single CK-4 SKU.",
+        "Lead with API category, viscosity, and drain strategy from PDS.",
+      ],
+      problemsSolved: [
+        "Price-only conventional quotes",
+        "Synthetic under-penetration",
+        "Mixed API categories on one bulk tank",
+      ],
+      opportunitySignals: [
+        "Fleets due for CK-4 education or FA-4 eligibility review",
+        "Accounts on one commercial formula for every duty",
+        "Natural gas or severe-service units off-program",
+      ],
+      crossSellPath: [
+        "Commercial / professional → synthetic blend upgrade path",
+        "Full synthetic CK-4 → premium highway and severe duty",
+        "Coolants & greases → same fleet card",
+        "AGRIMAX CK-4 → ag accounts only (separate program)",
+      ],
+    },
+  },
+};
+
 function pickList(value, fallback) {
   if (!Array.isArray(value)) return fallback;
   const list = value.filter((item) => {
@@ -665,6 +1105,127 @@ function ladderSectionHeading(ladder) {
     return "CORE · SPECIALTY · SEVERE DUTY · COMPLIANCE";
   }
   return "GOOD · BETTER · BEST · ULTIMATE";
+}
+
+function mergeUniqueStrings(primary, secondary, max = 12) {
+  const out = [];
+  const seen = new Set();
+  const push = (raw) => {
+    const t = String(raw ?? "").trim();
+    if (!t) return;
+    const key = t.toLowerCase().slice(0, 96);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(t);
+  };
+  for (const line of Array.isArray(primary) ? primary : []) push(line);
+  for (const line of Array.isArray(secondary) ? secondary : []) {
+    if (out.length >= max) break;
+    push(line);
+  }
+  return out.length ? out : Array.isArray(primary) ? primary.slice(0, max) : [];
+}
+
+function featuredProductsFromLadderPreset(presetKey) {
+  const preset = CATEGORY_LADDER_PRESETS[presetKey];
+  if (!preset) return [];
+  const out = [];
+  const seen = new Set();
+  for (const tier of preset.tiers || []) {
+    const role = String(tier.positioning || tier.label || "").trim();
+    for (const name of tier.products || []) {
+      const n = String(name).trim();
+      if (!n) continue;
+      const key = n.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ name: n, role });
+    }
+  }
+  return out;
+}
+
+function mergeFeaturedProductsSupplement(presetList, supplement, max = 12) {
+  const out = [];
+  const seen = new Set();
+  const push = (item) => {
+    const name = String(item?.name ?? item ?? "").trim();
+    if (!name) return;
+    const key = name.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({
+      name,
+      role: String(item?.role ?? item?.sub ?? "").trim(),
+      imageUrl: String(item?.imageUrl ?? "").trim(),
+    });
+  };
+  for (const item of presetList) push(item);
+  for (const item of Array.isArray(supplement) ? supplement : []) {
+    if (out.length >= max) break;
+    push(item);
+  }
+  return out;
+}
+
+function resolveCategoryProgramContent(props) {
+  const wizardKey = String(props.categoryLadderKey || "").trim();
+  const categoryFirst = Boolean(wizardKey);
+  const presetKey = inferCategoryLadderKey(
+    props.categoryTitle,
+    props.categorySubtitle,
+    props.applications,
+    wizardKey
+  );
+  const program = CATEGORY_PROGRAM_COPY[presetKey] || CATEGORY_PROGRAM_COPY.hydraulic;
+  const ladderFeatured = featuredProductsFromLadderPreset(presetKey);
+
+  if (!categoryFirst) {
+    return {
+      categoryTitle: pickText(props.categoryTitle, program.categoryTitle),
+      categorySubtitle: pickText(props.categorySubtitle, program.categorySubtitle),
+      opportunitySummary: pickText(props.opportunitySummary, program.opportunitySummary),
+      keyBenefits: normalizeValueCards(props.keyBenefits, program.keyBenefits),
+      idealCustomers: pickList(props.idealCustomers, program.idealCustomers),
+      applications: pickList(props.applications, program.applications),
+      featuredProducts: normalizeFeaturedProducts(
+        props.featuredProducts,
+        props.productImages ?? []
+      ).length
+        ? normalizeFeaturedProducts(props.featuredProducts, props.productImages ?? [])
+        : mergeFeaturedProductsSupplement(ladderFeatured, props.featuredProductsSupplement),
+      crossSell: normalizeCrossSellItems(props.crossSell, program.crossSell),
+      repTalkTrack: pickList(props.repTalkTrack, program.repTalkTrack),
+      discoveryQuestions: pickList(props.discoveryQuestions, program.discoveryQuestions),
+      cautions: pickList(props.cautions, program.cautions),
+      recommendedNextStep: pickText(props.recommendedNextStep, program.recommendedNextStep),
+      sellingStrategy: props.sellingStrategy || program.sellingStrategy,
+      presetKey,
+    };
+  }
+
+  const featuredProducts = mergeFeaturedProductsSupplement(
+    ladderFeatured,
+    props.featuredProductsSupplement,
+    14
+  );
+
+  return {
+    categoryTitle: program.categoryTitle,
+    categorySubtitle: program.categorySubtitle,
+    opportunitySummary: program.opportunitySummary,
+    keyBenefits: program.keyBenefits,
+    idealCustomers: mergeUniqueStrings(program.idealCustomers, props.idealCustomers, 8),
+    applications: mergeUniqueStrings(program.applications, props.applications, 8),
+    featuredProducts,
+    crossSell: normalizeCrossSellItems(program.crossSell, program.crossSell),
+    repTalkTrack: mergeUniqueStrings(program.repTalkTrack, props.repTalkTrack, 6),
+    discoveryQuestions: mergeUniqueStrings(program.discoveryQuestions, props.discoveryQuestions, 6),
+    cautions: mergeUniqueStrings(program.cautions, props.cautions, 6),
+    recommendedNextStep: program.recommendedNextStep,
+    sellingStrategy: program.sellingStrategy,
+    presetKey,
+  };
 }
 
 function normalizeLadderTier(item, fallbackLabel) {
@@ -1732,6 +2293,84 @@ function SystemSolutionHub({ items, max = 6 }) {
   );
 }
 
+function CategorySellingStrategySection({ strategy }) {
+  if (!strategy || typeof strategy !== "object") return null;
+  const blocks = [
+    { title: "How reps position the category", items: strategy.positioning, color: BRAND.navyMid },
+    { title: "Customer problems this solves", items: strategy.problemsSolved, color: "#047857" },
+    { title: "Where to look for opportunity", items: strategy.opportunitySignals, color: "#c2410c" },
+    { title: "Cross-sell path", items: strategy.crossSellPath, color: "#5b21b6" },
+  ].filter((b) => Array.isArray(b.items) && b.items.length > 0);
+  if (!blocks.length) return null;
+  return (
+    <section
+      style={{
+        padding: "28px 44px 32px",
+        background: "#f8fafc",
+        borderBottom: "1px solid rgba(226,232,240,0.95)",
+        display: "grid",
+        gap: 18,
+      }}
+    >
+      <div>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 11,
+            fontWeight: 900,
+            letterSpacing: "0.16em",
+            color: BRAND.orange,
+            textTransform: "uppercase",
+          }}
+        >
+          Category selling strategy
+        </p>
+        <p style={{ margin: "8px 0 0", fontSize: 22, fontWeight: 900, color: BRAND.headerNavy, lineHeight: 1.2 }}>
+          Grow the program—not a single SKU
+        </p>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 }}>
+        {blocks.map((block) => (
+          <article
+            key={block.title}
+            style={{
+              padding: "16px 18px",
+              borderRadius: 12,
+              background: BRAND.white,
+              border: "1px solid rgba(30, 58, 138, 0.14)",
+              borderLeft: `4px solid ${block.color}`,
+            }}
+          >
+            <p style={{ margin: "0 0 10px", fontSize: 12, fontWeight: 900, color: BRAND.headerNavy }}>{block.title}</p>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
+              {block.items.slice(0, 4).map((line) => (
+                <li
+                  key={line}
+                  style={{ fontSize: 12, fontWeight: 600, color: "#475569", lineHeight: 1.45, paddingLeft: 12, position: "relative" }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 8,
+                      width: 5,
+                      height: 5,
+                      borderRadius: 999,
+                      background: block.color,
+                    }}
+                    aria-hidden
+                  />
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function CrossSellGrid({ items, max = 4 }) {
   const list = [];
   for (const item of Array.isArray(items) ? items : []) {
@@ -1765,36 +2404,33 @@ function CrossSellGrid({ items, max = 4 }) {
 }
 
 export default function CategorySpotlightSellSheet(props) {
-  const categoryTitle = pickText(props.categoryTitle, DEMO_DEFAULTS.categoryTitle);
-  const categorySubtitle = pickText(props.categorySubtitle, DEMO_DEFAULTS.categorySubtitle);
-  const opportunitySummary = pickText(props.opportunitySummary, DEMO_DEFAULTS.opportunitySummary);
+  const programFields = resolveCategoryProgramContent(props);
+  const categoryTitle = programFields.categoryTitle;
+  const categorySubtitle = programFields.categorySubtitle;
+  const opportunitySummary = programFields.opportunitySummary;
   const categoryImageUrl = pickText(props.categoryImageUrl, DEMO_DEFAULTS.categoryImageUrl);
-  const valueCards = normalizeValueCards(props.keyBenefits, DEMO_DEFAULTS.keyBenefits);
-  const idealCustomers = pickList(props.idealCustomers, DEMO_DEFAULTS.idealCustomers);
-  const applications = pickList(props.applications, DEMO_DEFAULTS.applications);
+  const valueCards = normalizeValueCards(programFields.keyBenefits, DEMO_DEFAULTS.keyBenefits);
+  const idealCustomers = pickList(programFields.idealCustomers, DEMO_DEFAULTS.idealCustomers);
+  const applications = pickList(programFields.applications, DEMO_DEFAULTS.applications);
   const featuredProducts = normalizeFeaturedProducts(
-    props.featuredProducts,
+    programFields.featuredProducts,
     props.productImages ?? DEMO_DEFAULTS.productImages
   );
   const { repTalkTrack, discoveryQuestions } = resolveRepTalkAndQuestions(
-    props.repTalkTrack,
-    props.discoveryQuestions,
+    programFields.repTalkTrack,
+    programFields.discoveryQuestions,
     DEMO_DEFAULTS.repTalkTrack,
     DEMO_DEFAULTS.discoveryQuestions
   );
-  const systemSolutionItems = normalizeCrossSellItems(props.crossSell, DEMO_DEFAULTS.crossSell);
-  const cautions = pickList(props.cautions, DEMO_DEFAULTS.cautions);
-  const recommendedNextStep = pickText(props.recommendedNextStep, DEMO_DEFAULTS.recommendedNextStep);
+  const systemSolutionItems = normalizeCrossSellItems(programFields.crossSell, DEMO_DEFAULTS.crossSell);
+  const cautions = pickList(programFields.cautions, DEMO_DEFAULTS.cautions);
+  const recommendedNextStep = pickText(programFields.recommendedNextStep, DEMO_DEFAULTS.recommendedNextStep);
+  const sellingStrategy = programFields.sellingStrategy;
   const pdsLinks = normalizePdsLinks(props.pdsLinks ?? DEMO_DEFAULTS.pdsLinks);
 
   const stripCount = Math.min(Math.max(valueCards.length, 4), 6);
   const stripCards = valueCards.slice(0, stripCount);
-  const ladderPresetKey = inferCategoryLadderKey(
-    categoryTitle,
-    categorySubtitle,
-    applications,
-    props.categoryLadderKey
-  );
+  const ladderPresetKey = programFields.presetKey;
   const productLadder = normalizeProductLadder(
     props.productLadder ?? DEMO_DEFAULTS.productLadder,
     ladderPresetKey
@@ -1963,6 +2599,8 @@ export default function CategorySpotlightSellSheet(props) {
       </section>
 
       <CategoryPerformanceLadderSection ladder={productLadder} />
+
+      <CategorySellingStrategySection strategy={sellingStrategy} />
 
       <ProductLineupSection products={featuredProducts} />
 
