@@ -92,11 +92,31 @@ const CROSS_SELL_CATALOG = [
   },
 ];
 
-const NANO_DIFFERENTIATOR_CALLOUT = {
-  heading: "What makes Nano different?",
-  body:
-    "Proprietary tungsten disulfide nanotechnology helps reduce friction, cushion shock load, and protect metal surfaces under extreme pressure.",
-};
+const DIFFERENTIATOR_HEADING = "What makes it different?";
+
+const EMPHASIS_PHRASES = [
+  "ENVIRONMENTALLY ACCEPTABLE",
+  "CALCIUM SULFONATE",
+  "NITRITE FREE",
+  "NITRITE-FREE",
+  "EXTENDED LIFE",
+  "FOOD GRADE",
+  "FOOD-GRADE",
+  "FULL SYNTHETIC",
+  "HEAVY DUTY",
+  "HEAVY-DUTY",
+  "WET BRAKE",
+  "ZINC FREE",
+  "ZINC-FREE",
+  "NSF H1",
+  "NSF H-1",
+  "CK-4",
+  "CK4",
+  "FA-4",
+  "AGRIMAX",
+  "BIODEGRADABLE",
+  "SYNTHETIC BLEND",
+];
 
 const NANO_DEMO_DEFAULTS = {
   title: "KLONDIKE nano Calcium Sulfonate EP Grease",
@@ -317,6 +337,191 @@ function summaryLines(summary, max = 3) {
     .map((x) => x.trim())
     .filter(Boolean)
     .slice(0, max);
+}
+
+function phrasePatternForEmphasis(phrase) {
+  return String(phrase || "")
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/\s+/g, "\\s+")
+    .replace(/-/g, "[-\\s]?");
+}
+
+function splitByEmphasisPhrases(text) {
+  const raw = String(text ?? "");
+  if (!raw.trim()) return [{ text: raw, emphasized: false }];
+  const pattern = EMPHASIS_PHRASES.map(phrasePatternForEmphasis)
+    .sort((a, b) => b.length - a.length)
+    .join("|");
+  if (!pattern) return [{ text: raw, emphasized: false }];
+  const re = new RegExp(`(${pattern})`, "gi");
+  const parts = [];
+  let last = 0;
+  let match = re.exec(raw);
+  while (match) {
+    if (match.index > last) {
+      parts.push({ text: raw.slice(last, match.index), emphasized: false });
+    }
+    parts.push({ text: match[0], emphasized: true });
+    last = match.index + match[0].length;
+    match = re.exec(raw);
+  }
+  if (last < raw.length) parts.push({ text: raw.slice(last), emphasized: false });
+  return parts.length ? parts : [{ text: raw, emphasized: false }];
+}
+
+function EmphasizedText({ text, as: Tag = "span", style, emphasisStyle }) {
+  const parts = splitByEmphasisPhrases(text);
+  const baseStyle = style || {};
+  const emphStyle = {
+    fontWeight: 900,
+    letterSpacing: "0.05em",
+    whiteSpace: "nowrap",
+    ...(emphasisStyle || {}),
+  };
+  return (
+    <Tag style={baseStyle}>
+      {parts.map((part, i) =>
+        part.emphasized ? (
+          <span key={`em-${i}`} style={emphStyle}>
+            {part.text}
+          </span>
+        ) : (
+          <React.Fragment key={`tx-${i}`}>{part.text}</React.Fragment>
+        )
+      )}
+    </Tag>
+  );
+}
+
+function normalizeDifferentiator(value) {
+  if (value == null) return null;
+  if (typeof value === "string") {
+    const body = String(value).trim();
+    if (!body) return null;
+    return { heading: DIFFERENTIATOR_HEADING, body };
+  }
+  if (typeof value === "object") {
+    const body = String(value.body ?? value.text ?? value.summary ?? "").trim();
+    if (!body) return null;
+    const heading = String(value.heading ?? value.title ?? DIFFERENTIATOR_HEADING).trim();
+    return { heading: heading || DIFFERENTIATOR_HEADING, body };
+  }
+  return null;
+}
+
+function deriveProductDifferentiator({
+  title,
+  subtitle,
+  summary,
+  keySpecs,
+  applications,
+  whyThisProduct,
+}) {
+  const blob = [
+    title,
+    subtitle,
+    summary,
+    ...(Array.isArray(keySpecs) ? keySpecs : []),
+    ...(Array.isArray(applications) ? applications : []),
+    ...(Array.isArray(whyThisProduct) ? whyThisProduct : []),
+  ]
+    .map((x) => String(x ?? "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (/nano|tungsten|ws[\s₂2]|calcium sulfonate/.test(blob)) {
+    return {
+      heading: DIFFERENTIATOR_HEADING,
+      body:
+        "Proprietary tungsten disulfide nanotechnology helps reduce friction, cushion shock load, and protect metal surfaces under extreme pressure.",
+    };
+  }
+  if (/nitrite[- ]?free|noat|oat elc|extended[- ]life coolant|gold (hd|automotive)|yellow automotive oat/.test(blob)) {
+    return {
+      heading: DIFFERENTIATOR_HEADING,
+      body:
+        "Nitrite-free extended-life coolant chemistry for modern heavy-duty and mixed-metal cooling systems.",
+    };
+  }
+  if (/food[- ]?grade|nsf\s*h[- ]?1|h1 registration|incidental food/.test(blob)) {
+    return {
+      heading: DIFFERENTIATOR_HEADING,
+      body: "NSF H1 food-safe lubrication for equipment where incidental food contact is possible.",
+    };
+  }
+  if (/\beal\b|biodegradable|enviro|vgp|hees|environmentally acceptable/.test(blob)) {
+    return {
+      heading: DIFFERENTIATOR_HEADING,
+      body:
+        "Environmentally acceptable, biodegradable lubrication for sensitive sites and regulatory-sensitive duty.",
+    };
+  }
+  if (/agrimax|wet brake|universal tractor|j20|jdm|cnh fluid/.test(blob)) {
+    return {
+      heading: DIFFERENTIATOR_HEADING,
+      body:
+        "Wet brake and transmission compatibility for agriculture and mixed tractor-hydraulic duty.",
+    };
+  }
+  if (/ck-4|ck4|fa-4|heavy[- ]duty engine|15w-40|10w-30/.test(blob)) {
+    return {
+      heading: DIFFERENTIATOR_HEADING,
+      body:
+        "Heavy-duty engine oil chemistry aligned to OEM drain intervals, soot control, and fleet severe-duty programs.",
+    };
+  }
+  if (/aw hydraulic|anti[- ]wear hydraulic|hydraulic fluid/.test(blob)) {
+    return {
+      heading: DIFFERENTIATOR_HEADING,
+      body:
+        "Anti-wear hydraulic protection for pumps, cylinders, and mobile equipment operating under load and heat.",
+    };
+  }
+  if (/gear oil|hypoid|gl-5|drivetrain|industrial ep gear/.test(blob)) {
+    return {
+      heading: DIFFERENTIATOR_HEADING,
+      body: "Gear and drivetrain protection for loaded axles, differentials, and industrial gearboxes.",
+    };
+  }
+  if (/moly tac|ep[- ]?2|ep grease|grease/.test(blob)) {
+    return {
+      heading: DIFFERENTIATOR_HEADING,
+      body: "EP grease chemistry for pins, bushings, and severe-duty joints where load and contamination meet.",
+    };
+  }
+
+  const firstWhy = Array.isArray(whyThisProduct)
+    ? String(whyThisProduct.find(Boolean) ?? "").trim()
+    : "";
+  if (firstWhy) return { heading: DIFFERENTIATOR_HEADING, body: firstWhy };
+
+  const summaryLine = summaryLines(summary, 1)[0];
+  if (summaryLine) return { heading: DIFFERENTIATOR_HEADING, body: summaryLine };
+
+  const firstSpec = Array.isArray(keySpecs) ? String(keySpecs[0] ?? "").trim() : "";
+  if (firstSpec) {
+    return {
+      heading: DIFFERENTIATOR_HEADING,
+      body: `Built around ${firstSpec} for the applications you service most.`,
+    };
+  }
+
+  return null;
+}
+
+function resolveProductDifferentiator(props) {
+  const fromProp = normalizeDifferentiator(props.whatMakesItDifferent);
+  if (fromProp) return fromProp;
+  return deriveProductDifferentiator({
+    title: props.title,
+    subtitle: props.subtitle,
+    summary: props.summary,
+    keySpecs: props.keySpecs,
+    applications: props.applications,
+    whyThisProduct: props.whyThisProduct,
+  });
 }
 
 function appIcon(label) {
@@ -686,80 +891,70 @@ function CrossSellTiles({ items, max = 4 }) {
   );
 }
 
-function HeroNanoCallout() {
+function BravingTagline() {
   return (
-    <article
+    <p
+      data-braving-tagline="true"
       style={{
-        marginTop: 4,
-        padding: "18px 20px",
-        borderRadius: 12,
-        background: "rgba(255, 255, 255, 0.07)",
-        border: "1px solid rgba(251, 146, 60, 0.45)",
-        borderLeft: `5px solid ${BRAND.orange}`,
-        boxShadow: "0 12px 32px rgba(0, 0, 0, 0.22)",
+        margin: 0,
+        width: "100%",
+        fontSize: "clamp(18px, 2.35vw, 30px)",
+        fontWeight: 900,
+        letterSpacing: "0.14em",
+        lineHeight: 1.18,
+        textTransform: "uppercase",
+        textAlign: "center",
+        background: `linear-gradient(92deg, ${BRAND.headerNavy} 0%, ${BRAND.navyMid} 38%, ${BRAND.orange} 78%, #c2410c 100%)`,
+        WebkitBackgroundClip: "text",
+        WebkitTextFillColor: "transparent",
+        backgroundClip: "text",
       }}
     >
-      <p
-        style={{
-          margin: 0,
-          fontSize: 12,
-          fontWeight: 900,
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          color: BRAND.orangeLight,
-        }}
-      >
-        {NANO_DIFFERENTIATOR_CALLOUT.heading}
-      </p>
-      <p
-        style={{
-          margin: "10px 0 0",
-          fontSize: 16,
-          lineHeight: 1.55,
-          color: "rgba(255, 255, 255, 0.94)",
-          fontWeight: 600,
-        }}
-      >
-        {NANO_DIFFERENTIATOR_CALLOUT.body}
-      </p>
-    </article>
+      BRAVING THE FORCE OF MOVEMENT
+    </p>
   );
 }
 
-function NanoDifferentiatorCallout() {
+function ProductDifferentiatorCallout({ differentiator, variant = "hero" }) {
+  if (!differentiator?.body) return null;
+  const isHero = variant === "hero";
   return (
     <article
       style={{
-        marginBottom: 16,
-        padding: "14px 16px",
-        borderRadius: 10,
-        background: "#f8fafc",
-        border: "1px solid rgba(203, 213, 225, 0.85)",
-        borderLeft: `4px solid ${BRAND.orange}`,
+        marginTop: isHero ? 4 : 0,
+        marginBottom: isHero ? 0 : 16,
+        padding: isHero ? "18px 20px" : "14px 16px",
+        borderRadius: isHero ? 12 : 10,
+        background: isHero ? "rgba(255, 255, 255, 0.07)" : "#f8fafc",
+        border: isHero
+          ? "1px solid rgba(251, 146, 60, 0.45)"
+          : "1px solid rgba(203, 213, 225, 0.85)",
+        borderLeft: `${isHero ? 5 : 4}px solid ${BRAND.orange}`,
+        boxShadow: isHero ? "0 12px 32px rgba(0, 0, 0, 0.22)" : undefined,
       }}
     >
       <p
         style={{
           margin: 0,
-          fontSize: 11,
+          fontSize: isHero ? 12 : 11,
           fontWeight: 900,
-          letterSpacing: "0.1em",
+          letterSpacing: "0.12em",
           textTransform: "uppercase",
-          color: BRAND.headerNavy,
+          color: isHero ? BRAND.orangeLight : BRAND.headerNavy,
         }}
       >
-        {NANO_DIFFERENTIATOR_CALLOUT.heading}
+        {differentiator.heading || DIFFERENTIATOR_HEADING}
       </p>
       <p
         style={{
           margin: "10px 0 0",
-          fontSize: 14,
-          lineHeight: 1.5,
-          color: "#334155",
+          fontSize: isHero ? 16 : 14,
+          lineHeight: 1.55,
+          color: isHero ? "rgba(255, 255, 255, 0.94)" : "#334155",
           fontWeight: 600,
         }}
       >
-        {NANO_DIFFERENTIATOR_CALLOUT.body}
+        <EmphasizedText text={differentiator.body} />
       </p>
     </article>
   );
@@ -1040,8 +1235,15 @@ export default function ProductSpotlightSellSheet(props) {
     typeof props.onProductImageClick === "function" ? props.onProductImageClick : null;
   const productImageUploadLabel = String(props.productImageUploadLabel || "").trim();
 
-  const showNanoDifferentiator =
-    !Array.isArray(props.whyThisProduct) || props.whyThisProduct.filter(Boolean).length === 0;
+  const productDifferentiator = resolveProductDifferentiator({
+    whatMakesItDifferent: props.whatMakesItDifferent,
+    title,
+    subtitle,
+    summary,
+    keySpecs,
+    applications,
+    whyThisProduct,
+  });
 
   const heroSummaryLines = summaryLines(summary, 4);
 
@@ -1074,9 +1276,9 @@ export default function ProductSpotlightSellSheet(props) {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1.35fr) minmax(0, 1fr)",
+            gridTemplateColumns: "minmax(160px, 0.9fr) minmax(0, 2.4fr)",
             alignItems: "center",
-            gap: 24,
+            gap: 28,
           }}
         >
           <div style={{ justifySelf: "start", minWidth: 0 }}>
@@ -1085,60 +1287,16 @@ export default function ProductSpotlightSellSheet(props) {
               alt="Klondike Performance Lubricants"
               decoding="async"
               style={{
-                height: 96,
+                height: 88,
                 width: "auto",
-                maxWidth: "min(100%, 380px)",
+                maxWidth: "min(100%, 340px)",
                 objectFit: "contain",
                 objectPosition: "left center",
                 display: "block",
               }}
             />
           </div>
-          <p
-            data-braving-tagline="true"
-            style={{
-              margin: 0,
-              fontSize: "clamp(13px, 1.35vw, 17px)",
-              fontWeight: 900,
-              letterSpacing: "0.12em",
-              lineHeight: 1.25,
-              color: BRAND.headerNavy,
-              textTransform: "uppercase",
-              textAlign: "center",
-              justifySelf: "center",
-              padding: "0 8px",
-            }}
-          >
-            BRAVING THE FORCE OF MOVEMENT
-          </p>
-          <div style={{ justifySelf: "end", textAlign: "right", minWidth: 0, paddingLeft: 8 }}>
-            <p
-              style={{
-                margin: 0,
-                fontSize: "clamp(20px, 2.1vw, 26px)",
-                fontWeight: 900,
-                letterSpacing: "0.07em",
-                lineHeight: 1.12,
-                color: BRAND.orange,
-                textTransform: "uppercase",
-              }}
-            >
-              WE GROW
-            </p>
-            <p
-              style={{
-                margin: "5px 0 0",
-                fontSize: "clamp(13px, 1.4vw, 17px)",
-                fontWeight: 900,
-                letterSpacing: "0.09em",
-                lineHeight: 1.2,
-                color: BRAND.headerNavy,
-                textTransform: "uppercase",
-              }}
-            >
-              INDEPENDENT BUSINESS
-            </p>
-          </div>
+          <BravingTagline />
         </div>
         <div
           style={{
@@ -1196,7 +1354,7 @@ export default function ProductSpotlightSellSheet(props) {
               textShadow: "0 4px 24px rgba(0,0,0,0.25)",
             }}
           >
-            {title}
+            <EmphasizedText text={title} />
           </h1>
           {subtitle ? (
             <p
@@ -1209,7 +1367,7 @@ export default function ProductSpotlightSellSheet(props) {
                 letterSpacing: "-0.01em",
               }}
             >
-              {subtitle}
+              <EmphasizedText text={subtitle} />
             </p>
           ) : null}
           {heroSummaryLines.length ? (
@@ -1226,7 +1384,7 @@ export default function ProductSpotlightSellSheet(props) {
               {heroSummaryLines.join(" ")}
             </p>
           ) : null}
-          <HeroNanoCallout />
+          <ProductDifferentiatorCallout differentiator={productDifferentiator} variant="hero" />
         </div>
 
         <div
@@ -1335,7 +1493,7 @@ export default function ProductSpotlightSellSheet(props) {
                   textTransform: "uppercase",
                 }}
               >
-                {t.label || t}
+                <EmphasizedText text={t.label || t} />
               </p>
               {t.sub ? (
                 <p
@@ -1373,7 +1531,6 @@ export default function ProductSpotlightSellSheet(props) {
           ) : null}
           {whyThisProduct.length ? (
             <FlyerCard title="Why this product?">
-              {showNanoDifferentiator ? <NanoDifferentiatorCallout /> : null}
               <CheckBullets items={whyThisProduct} max={5} />
             </FlyerCard>
           ) : null}

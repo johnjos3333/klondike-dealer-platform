@@ -12171,6 +12171,37 @@ const handleFinishDealerEnrollment = async () => {
               seAiSalesSheet?.recommendedNextStep,
               seSellSheetRecommendedNextStep
             );
+            const seFinalSellSheetDifferentiator = (() => {
+              if (seAiSalesSheetReady) {
+                const aiWhy = String(seAiSalesSheet?.whyThisProduct || "").trim();
+                if (
+                  aiWhy &&
+                  !Array.isArray(seAiSalesSheet?.whyThisProduct) &&
+                  aiWhy.length >= 48 &&
+                  aiWhy.length <= 420
+                ) {
+                  return { heading: "What makes it different?", body: aiWhy };
+                }
+              }
+              const firstAngle = Array.isArray(seAssemblyPkg?.salesAngles)
+                ? String(seAssemblyPkg.salesAngles[0] || "").trim()
+                : "";
+              if (firstAngle.length >= 24) {
+                return { heading: "What makes it different?", body: firstAngle };
+              }
+              const flagshipHit = getSalesEnablementFlagshipNarrativeByProductName(seFinalSellSheetTitle);
+              if (flagshipHit) {
+                const wm = Array.isArray(flagshipHit.whatMakesThisDifferent)
+                  ? String(flagshipHit.whatMakesThisDifferent[0] || "").trim()
+                  : "";
+                if (wm) return { heading: "What makes it different?", body: wm };
+                const whyWins = String(flagshipHit.whyItWins || "").trim();
+                if (whyWins && whyWins.length <= 360) {
+                  return { heading: "What makes it different?", body: whyWins };
+                }
+              }
+              return undefined;
+            })();
             const seIsProductSpotlightWizard =
               seGuidedWizardMessageKind === "product" ||
               (seGuidedWizardMessageKind == null && salesEnablementSpotlightMode === "product");
@@ -12229,6 +12260,7 @@ const handleFinishDealerEnrollment = async () => {
                   crossSell={seFinalSellSheetCrossSell}
                   cautions={seFinalSellSheetCautions}
                   recommendedNextStep={seFinalSellSheetNextStep}
+                  whatMakesItDifferent={seFinalSellSheetDifferentiator}
                   productImageUrl={seSellSheetProductImageUrl || undefined}
                   pdsUrl={seFinalSellSheetPdsUrl || undefined}
                   onProductImageClick={() => seGuidedProductImageUploadRef.current?.click()}
