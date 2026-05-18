@@ -12113,15 +12113,63 @@ const handleFinishDealerEnrollment = async () => {
               if (!kb.length) return null;
               const icons = ["EP", "WS₂", "SD", "H₂O"];
               return kb.map((line, i) => {
-                const dash = line.match(/^([^:—–-]{1,42})\s*[:—–-]\s*(.+)$/);
-                const label = String(dash ? dash[1] : line).slice(0, 32).trim();
-                const sub = String(dash ? dash[2] : line).slice(0, 120).trim();
+                const dash = line.match(/^([^:—–-]{1,80})\s*[:—–-]\s*(.+)$/);
+                const label = String(dash ? dash[1] : line).trim();
+                const sub = String(dash ? dash[2] : "").trim();
                 return {
                   icon: icons[i] || "•",
-                  label: label || line.slice(0, 32),
-                  sub: sub || label || line.slice(0, 120),
+                  label: label || line.slice(0, 48).trim(),
+                  sub: sub || label || line.slice(0, 120).trim(),
                 };
               });
+            };
+            const seNormalizeRepLineKey = (line) =>
+              String(line || "")
+                .trim()
+                .toLowerCase()
+                .replace(/[?.,!;:]+$/g, "")
+                .replace(/\s+/g, " ");
+            const seLooksLikeRepQuestion = (line) => {
+              const t = String(line || "").trim();
+              if (!t) return false;
+              if (/\?\s*$/.test(t)) return true;
+              return /^(where|what|which|who|when|why|how|are you|do you|does your|is your|can you|could you|would you|have you)\b/i.test(
+                t
+              );
+            };
+            const sePartitionRepTalkAndQuestions = (repRaw, qRaw) => {
+              const repPool = [];
+              const qPool = [];
+              for (const line of Array.isArray(repRaw) ? repRaw : []) {
+                const t = String(line ?? "").trim();
+                if (!t) continue;
+                if (seLooksLikeRepQuestion(t)) qPool.push(t);
+                else repPool.push(t);
+              }
+              for (const line of Array.isArray(qRaw) ? qRaw : []) {
+                const t = String(line ?? "").trim();
+                if (!t) continue;
+                if (seLooksLikeRepQuestion(t)) qPool.push(t);
+                else if (t.length >= 12 && !/\?\s*$/.test(t)) repPool.push(t);
+              }
+              const repSeen = new Set();
+              const qSeen = new Set();
+              const repOut = [];
+              const qOut = [];
+              for (const line of repPool) {
+                const key = seNormalizeRepLineKey(line);
+                if (!key || repSeen.has(key) || qSeen.has(key)) continue;
+                repSeen.add(key);
+                repOut.push(line);
+              }
+              for (const line of qPool) {
+                const q = /\?\s*$/.test(line) ? line : `${line.replace(/[.!]+$/, "")}?`;
+                const key = seNormalizeRepLineKey(q);
+                if (!key || qSeen.has(key) || repSeen.has(key)) continue;
+                qSeen.add(key);
+                qOut.push(q);
+              }
+              return { repTalk: repOut, questions: qOut };
             };
             const seFinalSellSheetTitle = seAiPickText(seAiSalesSheet?.title, seTrainingHeroTitle);
             const seFinalSellSheetSubtitle = seAiPickText(seAiSalesSheet?.subtitle, sePosterHeroSubtitle);
@@ -12147,20 +12195,26 @@ const handleFinishDealerEnrollment = async () => {
               seSellSheetWhyThisProduct,
               6
             );
-            const seFinalSellSheetRepTalk = seAiPickList(
+            const seFinalSellSheetRepTalkRaw = seAiPickList(
               seAiSalesSheet?.repTalkTrack,
               sePosterRepTalkLines,
-              6
+              8
             );
+            const seFinalSellSheetQuestionsRaw = seAiPickList(
+              seAiSalesSheet?.discoveryQuestions,
+              sePosterDiscoveryQs,
+              10
+            );
+            const seRepTalkQuestionSplit = sePartitionRepTalkAndQuestions(
+              seFinalSellSheetRepTalkRaw,
+              seFinalSellSheetQuestionsRaw
+            );
+            const seFinalSellSheetRepTalk = seRepTalkQuestionSplit.repTalk;
+            const seFinalSellSheetQuestions = seRepTalkQuestionSplit.questions;
             const seFinalSellSheetCrossSell = seAiPickList(
               seAiSalesSheet?.crossSell,
               sePosterCrossSell,
               6
-            );
-            const seFinalSellSheetQuestions = seAiPickList(
-              seAiSalesSheet?.discoveryQuestions,
-              sePosterDiscoveryQs,
-              8
             );
             const seFinalSellSheetCautions = seAiPickList(
               seAiSalesSheet?.cautions,

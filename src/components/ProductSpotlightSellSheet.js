@@ -172,10 +172,10 @@ const NANO_DEMO_DEFAULTS = {
     "Helps target reduced wear, longer intervals, and fewer unplanned stops.",
   ],
   repTalkTrack: [
-    "Lead with Nano: calcium sulfonate complex plus proprietary tungsten disulfide nanotechnology.",
-    "Position for wet duty, shock load, and the worst pins on the equipment map.",
-    "Pilot on high-load, water-exposed, or high-vibration assets—not every fitting.",
-    "Use weld load, Timken OK, and spray-off values to compare against shelf greases.",
+    "Lead with severe-duty protection in wet, high-load, shock-loaded applications.",
+    "Position Nano as an upgrade when commodity EP grease washes out or breaks down.",
+    "Confirm current grease type, application points, and relube interval before recommending.",
+    "Use the PDS to validate compatibility before converting centralized systems.",
   ],
   crossSell: [
     "Commercial Gear Oils",
@@ -184,11 +184,10 @@ const NANO_DEMO_DEFAULTS = {
     "Industrial EP Gear Lubricants",
   ],
   questions: [
-    "Where do shock load and vibration beat up pins, bushings, or slow-speed bearings?",
-    "Is water or wash-down exposure stripping grease from your current EP program?",
-    "Can your team cite 4-ball weld, Timken OK, and spray-off on the grease in service?",
-    "Are you comparing commodity EP greases without a nano severe-duty story?",
-    "What would reduced wear and fewer unplanned stops be worth on your costliest lines?",
+    "Where are you seeing grease washout, vibration, or bearing failure?",
+    "Which pins, bushings, bearings, or joints are exposed to water or shock load?",
+    "What grease are you currently using, and how often are you relubing?",
+    "Are any centralized lube systems or thickener compatibility concerns involved?",
   ],
   cautions: [
     "For professional / industrial use. Follow OEM and equipment builder recommendations.",
@@ -218,32 +217,109 @@ function pickText(value, fallback) {
   return t || fallback;
 }
 
+const BENEFIT_HEADING_PHRASES = [
+  "EXTREME PRESSURE PROTECTION",
+  "EXTREME PRESSURE",
+  "WATER & WASHOUT RESISTANCE",
+  "WATER RESISTANCE",
+  "THERMAL STABILITY",
+  "APPLICATION FIT",
+  "NANO FRICTION CONTROL",
+  "NITRITE FREE",
+  "NITRITE-FREE",
+  "SEVERE DUTY",
+  "HEAVY DUTY",
+  "EXTENDED LIFE",
+  "FOOD GRADE",
+  "FULL SYNTHETIC",
+  "SYNTHETIC BLEND",
+  "UPTIME",
+];
+
+function repairBenefitTileHeading(tile) {
+  let label = String(tile?.label ?? "").trim();
+  let sub = String(tile?.sub ?? "").trim();
+  if (!label && !sub) return tile;
+
+  const full = `${label} ${sub}`.replace(/\s+/g, " ").trim();
+  const upperFull = full.toUpperCase();
+
+  for (const phrase of [...BENEFIT_HEADING_PHRASES].sort((a, b) => b.length - a.length)) {
+    const upperPhrase = phrase.toUpperCase();
+    if (upperFull.startsWith(upperPhrase)) {
+      const rest = full
+        .slice(phrase.length)
+        .replace(/^[\s:;,.\-]+/, "")
+        .replace(/^[–—-]+/, "")
+        .trim();
+      return {
+        ...tile,
+        label: phrase,
+        sub: rest || sub,
+      };
+    }
+    const words = phrase.split(/\s+/);
+    if (words.length < 2) continue;
+    if (label.toUpperCase() !== words[0].toUpperCase()) continue;
+    const tailFromSecond = words.slice(1).join(" ");
+    const subUpper = sub.toUpperCase();
+    if (
+      subUpper.startsWith(tailFromSecond.toUpperCase()) ||
+      subUpper.startsWith(words[1].toUpperCase())
+    ) {
+      let newSub = sub;
+      if (subUpper.startsWith(tailFromSecond.toUpperCase())) {
+        newSub = sub
+          .slice(tailFromSecond.length)
+          .replace(/^[\s,;:.\-]+/, "")
+          .replace(/^[–—-]+/, "")
+          .trim();
+      } else {
+        newSub = sub
+          .slice(words[1].length)
+          .replace(/^[\s,;:.\-]+/, "")
+          .replace(/^[–—-]+/, "")
+          .trim();
+      }
+      return {
+        ...tile,
+        label: phrase,
+        sub: newSub || sub,
+      };
+    }
+  }
+
+  return { ...tile, label, sub };
+}
+
 function normalizeBenefitTiles(value, fallback) {
   if (!Array.isArray(value)) return fallback;
   const tiles = [];
   for (const item of value) {
+    let tile = null;
     if (item && typeof item === "object") {
       const label = String(item.label ?? "").trim();
       const sub = String(item.sub ?? "").trim();
       if (!label && !sub) continue;
-      tiles.push({
+      tile = {
         iconKey: String(item.iconKey || item.icon || "").trim(),
-        label: label || sub.slice(0, 32),
+        label: label || sub.slice(0, 48),
         sub: sub || label,
-      });
+      };
     } else {
       const line = String(item ?? "").trim();
       if (!line) continue;
-      const dash = line.match(/^([^:—–-]{1,42})\s*[:—–-]\s*(.+)$/);
-      tiles.push({
+      const dash = line.match(/^([^:—–-]{1,80})\s*[:—–-]\s*(.+)$/);
+      tile = {
         icon: "•",
-        label: String(dash ? dash[1] : line).slice(0, 32).trim(),
-        sub: String(dash ? dash[2] : line).slice(0, 120).trim(),
-      });
+        label: String(dash ? dash[1] : line).trim(),
+        sub: String(dash ? dash[2] : "").trim() || String(dash ? dash[1] : line).trim(),
+      };
     }
+    tiles.push(repairBenefitTileHeading(tile));
     if (tiles.length >= 4) break;
   }
-  return tiles.length ? tiles : fallback;
+  return tiles.length ? tiles : fallback.map((t) => repairBenefitTileHeading({ ...t }));
 }
 
 function resolveBenefitIconKey(tile, index) {
@@ -261,12 +337,102 @@ function resolveBenefitIconKey(tile, index) {
   return ["protection", "water", "thermal", "uptime"][index % 4];
 }
 
+function normalizeRepLineKey(line) {
+  return String(line || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[?.,!;:]+$/g, "")
+    .replace(/\s+/g, " ");
+}
+
+function looksLikeQuestion(line) {
+  const t = String(line || "").trim();
+  if (!t) return false;
+  if (/\?\s*$/.test(t)) return true;
+  return /^(where|what|which|who|when|why|how|are you|do you|does your|is your|can you|could you|would you|have you)\b/i.test(
+    t
+  );
+}
+
+function looksLikeRepStatement(line) {
+  const t = String(line || "").trim();
+  if (!t || looksLikeQuestion(t)) return false;
+  return t.length >= 12;
+}
+
+function coerceQuestion(line) {
+  const t = String(line || "").trim();
+  if (!t) return "";
+  if (/\?\s*$/.test(t)) return t;
+  return `${t.replace(/[.!]+$/, "")}?`;
+}
+
+function resolveRepTalkAndQuestions(repTalkRaw, questionsRaw, repFallback, questionsFallback) {
+  const repCandidates = [];
+  const questionCandidates = [];
+
+  for (const item of Array.isArray(repTalkRaw) ? repTalkRaw : []) {
+    const line = String(item ?? "").trim();
+    if (!line) continue;
+    if (looksLikeQuestion(line)) questionCandidates.push(line);
+    else repCandidates.push(line);
+  }
+  for (const item of Array.isArray(questionsRaw) ? questionsRaw : []) {
+    const line = String(item ?? "").trim();
+    if (!line) continue;
+    if (looksLikeQuestion(line)) questionCandidates.push(line);
+    else if (looksLikeRepStatement(line)) repCandidates.push(line);
+  }
+
+  const repSeen = new Set();
+  const qSeen = new Set();
+  const repOut = [];
+  const qOut = [];
+
+  const pushRep = (line) => {
+    const text = String(line || "").trim();
+    if (!looksLikeRepStatement(text)) return;
+    const key = normalizeRepLineKey(text);
+    if (!key || repSeen.has(key) || qSeen.has(key)) return;
+    repSeen.add(key);
+    repOut.push(text);
+  };
+
+  const pushQuestion = (line) => {
+    const text = coerceQuestion(line);
+    if (!text) return;
+    const key = normalizeRepLineKey(text);
+    if (!key || qSeen.has(key) || repSeen.has(key)) return;
+    qSeen.add(key);
+    qOut.push(text);
+  };
+
+  repCandidates.forEach(pushRep);
+  questionCandidates.forEach(pushQuestion);
+
+  for (const line of repFallback) {
+    if (repOut.length >= 4) break;
+    pushRep(line);
+  }
+  for (const line of questionsFallback) {
+    if (qOut.length >= 5) break;
+    pushQuestion(line);
+  }
+
+  return {
+    repTalkTrack: repOut.slice(0, 4),
+    questions: qOut.slice(0, 5),
+  };
+}
+
 function ensureFourValueCards(value, fallback) {
   const base = normalizeBenefitTiles(value, fallback);
-  const out = base.map((t, i) => ({
-    ...t,
-    iconKey: resolveBenefitIconKey(t, i),
-  }));
+  const out = base.map((t, i) =>
+    repairBenefitTileHeading({
+      ...t,
+      iconKey: resolveBenefitIconKey(t, i),
+    })
+  );
   for (let i = out.length; i < 4; i++) {
     out.push({ ...DEFAULT_VALUE_CARDS[i] });
   }
@@ -536,26 +702,46 @@ function appIcon(label) {
   return "🔧";
 }
 
-function CardHeader({ title }) {
+function CardHeader({ title, subtitle }) {
   return (
     <div
       style={{
         background: `linear-gradient(90deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
-        padding: "14px 18px",
-        fontSize: 12,
-        fontWeight: 900,
-        letterSpacing: "0.14em",
-        color: BRAND.white,
-        textTransform: "uppercase",
+        padding: subtitle ? "12px 18px 14px" : "14px 18px",
         borderRadius: "10px 10px 0 0",
       }}
     >
-      {title}
+      <p
+        style={{
+          margin: 0,
+          fontSize: 12,
+          fontWeight: 900,
+          letterSpacing: "0.14em",
+          color: BRAND.white,
+          textTransform: "uppercase",
+        }}
+      >
+        {title}
+      </p>
+      {subtitle ? (
+        <p
+          style={{
+            margin: "6px 0 0",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.02em",
+            color: "rgba(255, 255, 255, 0.88)",
+            textTransform: "none",
+          }}
+        >
+          {subtitle}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function FlyerCard({ title, children }) {
+function FlyerCard({ title, subtitle, children }) {
   return (
     <section
       style={{
@@ -570,7 +756,7 @@ function FlyerCard({ title, children }) {
         flexDirection: "column",
       }}
     >
-      <CardHeader title={title} />
+      <CardHeader title={title} subtitle={subtitle} />
       <div style={{ padding: "20px 20px 22px", flex: 1 }}>{children}</div>
     </section>
   );
@@ -1222,9 +1408,13 @@ export default function ProductSpotlightSellSheet(props) {
   const benefits = ensureFourValueCards(props.benefits, NANO_DEMO_DEFAULTS.benefits);
   const applications = pickList(props.applications, NANO_DEMO_DEFAULTS.applications);
   const whyThisProduct = pickList(props.whyThisProduct, NANO_DEMO_DEFAULTS.whyThisProduct);
-  const repTalkTrack = pickList(props.repTalkTrack, NANO_DEMO_DEFAULTS.repTalkTrack);
   const crossSell = resolveCrossSellItems(props.crossSell);
-  const questions = pickList(props.questions, NANO_DEMO_DEFAULTS.questions);
+  const { repTalkTrack, questions } = resolveRepTalkAndQuestions(
+    props.repTalkTrack,
+    props.questions,
+    NANO_DEMO_DEFAULTS.repTalkTrack,
+    NANO_DEMO_DEFAULTS.questions
+  );
   const cautions = pickList(props.cautions, NANO_DEMO_DEFAULTS.cautions);
   const recommendedNextStep = pickText(
     props.recommendedNextStep,
@@ -1535,7 +1725,7 @@ export default function ProductSpotlightSellSheet(props) {
             </FlyerCard>
           ) : null}
           {repTalkTrack.length ? (
-            <FlyerCard title="Rep talk track">
+            <FlyerCard title="Rep talk track" subtitle="What the rep can say">
               <CheckBullets items={repTalkTrack} max={4} />
             </FlyerCard>
           ) : null}
@@ -1553,7 +1743,7 @@ export default function ProductSpotlightSellSheet(props) {
             <CrossSellTiles items={crossSell} max={4} />
           </FlyerCard>
           {questions.length ? (
-            <FlyerCard title="Questions to ask your customer">
+            <FlyerCard title="Questions to ask your customer" subtitle="What the rep should ask">
               <QuestionList items={questions} max={5} />
             </FlyerCard>
           ) : null}
