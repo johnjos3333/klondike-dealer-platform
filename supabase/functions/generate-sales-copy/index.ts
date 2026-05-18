@@ -5,22 +5,22 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+function jsonResponse(body: unknown, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return new Response("ok", { headers: corsHeaders });
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), {
-      status: 405,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
   try {
@@ -31,12 +31,9 @@ serve(async (req) => {
     const context = String(body?.context || body?.audienceContext || "").trim();
 
     if (!productId) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "missing_product_id", message: "productId is required" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json", ...corsHeaders },
-        }
+      return jsonResponse(
+        { ok: false, error: "missing_product_id", message: "productId is required" },
+        400
       );
     }
 
@@ -53,21 +50,15 @@ serve(async (req) => {
 
     const status = result.ok ? 200 : result.error === "missing_openai_api_key" ? 503 : 422;
 
-    return new Response(JSON.stringify(result), {
-      status,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
-    });
+    return jsonResponse(result, status);
   } catch (err) {
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         ok: false,
         error: "server_error",
         message: err instanceof Error ? err.message : "Unexpected error",
-      }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      },
+      500
     );
   }
 });

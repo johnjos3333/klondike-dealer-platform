@@ -46,10 +46,50 @@ const DEFAULT_VALUE_CARDS = [
 ];
 
 const DEFAULT_CROSS_SELL = [
-  "Hydraulic Fluids",
-  "Gear Oils",
-  "Heavy Duty Engine Oils",
-  "Industrial Lubricants",
+  {
+    title: "Hydraulic Fluids",
+    desc: "Pump, cylinder, and mobile-hydraulic reliability for mixed fleets.",
+    iconKey: "hydraulic",
+  },
+  {
+    title: "Gear Oils",
+    desc: "Drivetrain protection for axles, differentials, and gearboxes.",
+    iconKey: "gear",
+  },
+  {
+    title: "Heavy Duty Engine Oils",
+    desc: "CK-4 and severe-duty engine programs for on- and off-highway.",
+    iconKey: "engine",
+  },
+  {
+    title: "Industrial Lubricants",
+    desc: "Plant-wide oils, circulating, and specialty industrial programs.",
+    iconKey: "industrial",
+  },
+];
+
+const CROSS_SELL_CATALOG = [
+  ...DEFAULT_CROSS_SELL,
+  {
+    title: "Commercial Gear Oils",
+    desc: "Fleet and industrial gear protection across viscosity grades.",
+    iconKey: "gear",
+  },
+  {
+    title: "AW Hydraulic Fluids",
+    desc: "Anti-wear hydraulic programs for construction and agriculture.",
+    iconKey: "hydraulic",
+  },
+  {
+    title: "Industrial EP Gear Lubricants",
+    desc: "High-load industrial gearbox and reducer protection.",
+    iconKey: "gear",
+  },
+  {
+    title: "Greases",
+    desc: "EP, synthetic, and specialty grease programs for pins and bearings.",
+    iconKey: "grease",
+  },
 ];
 
 const NANO_DIFFERENTIATOR_CALLOUT = {
@@ -227,6 +267,29 @@ function sanitizeCrossSellLabel(item) {
   return s.replace(/_/g, " ");
 }
 
+function crossSellIconKeyForTitle(title) {
+  const t = String(title || "").toLowerCase();
+  if (/hydraulic|aw fluid|tractor fluid/.test(t)) return "hydraulic";
+  if (/gear|drivetrain|transmission/.test(t)) return "gear";
+  if (/engine|diesel|hd oil|ck-4|ck4|motor oil/.test(t)) return "engine";
+  if (/grease|tac|sulfonate/.test(t)) return "grease";
+  if (/industrial|plant|compressor|turbine/.test(t)) return "industrial";
+  if (/coolant|antifreeze|brake|chemical/.test(t)) return "chemical";
+  return "industrial";
+}
+
+function lookupCrossSellMeta(title) {
+  const label = String(title || "").trim();
+  if (!label) return null;
+  const hit = CROSS_SELL_CATALOG.find((x) => x.title.toLowerCase() === label.toLowerCase());
+  if (hit) return { ...hit };
+  return {
+    title: label,
+    desc: "Expand the lubrication program with a matched KLONDIKE category.",
+    iconKey: crossSellIconKeyForTitle(label),
+  };
+}
+
 function resolveCrossSellItems(items) {
   const cleaned = [];
   const raw = Array.isArray(items) ? items : [];
@@ -235,23 +298,15 @@ function resolveCrossSellItems(items) {
     if (s && !cleaned.some((x) => x.toLowerCase() === s.toLowerCase())) cleaned.push(s);
     if (cleaned.length >= 4) break;
   }
-  if (cleaned.length >= 2) return cleaned.slice(0, 4);
-  return [...DEFAULT_CROSS_SELL];
+  if (cleaned.length >= 2) return cleaned.map((title) => lookupCrossSellMeta(title)).slice(0, 4);
+  return DEFAULT_CROSS_SELL.map((x) => ({ ...x }));
 }
 
-function pickPdsUrl(value) {
-  const u = String(value ?? "").trim();
-  if (!u) return "";
-  if (u.startsWith("/pds/")) return u;
-  if (/^https?:\/\//i.test(u)) {
-    try {
-      const path = new URL(u).pathname;
-      return path.startsWith("/pds/") ? path : "";
-    } catch {
-      return "";
-    }
-  }
-  return "";
+function isPublicPdsPdfHref(value) {
+  const href = String(value ?? "").trim();
+  if (!href) return false;
+  if (/^https?:\/\//i.test(href) || /localhost/i.test(href)) return false;
+  return href.startsWith("/pds/") && /\.pdf$/i.test(href);
 }
 
 function summaryLines(summary, max = 3) {
@@ -481,14 +536,77 @@ function QuestionList({ items, max = 5 }) {
   );
 }
 
-function crossSellIcon(label) {
-  const t = String(label).toLowerCase();
-  if (/hydraulic/.test(t)) return "🔩";
-  if (/gear/.test(t)) return "⚙️";
-  if (/engine|diesel|hd/.test(t)) return "🚛";
-  if (/industrial|plant/.test(t)) return "🏭";
-  if (/grease/.test(t)) return "🧴";
-  return "🛢️";
+function CrossSellIconSvg({ iconKey }) {
+  const stroke = BRAND.orangeLight;
+  const fill = "rgba(251, 146, 60, 0.28)";
+  const key = String(iconKey || "industrial").toLowerCase();
+
+  if (key === "hydraulic") {
+    return (
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+        <rect x="5" y="11" width="24" height="12" rx="3" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <path d="M9 17h6M19 17h6" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+        <circle cx="9" cy="17" r="2.5" fill={fill} stroke={stroke} strokeWidth="1.4" />
+        <circle cx="25" cy="17" r="2.5" fill={fill} stroke={stroke} strokeWidth="1.4" />
+        <path d="M17 5v6M14 8h6" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (key === "gear") {
+    return (
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+        <circle cx="17" cy="17" r="9" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <path
+          d="M17 8v3M17 23v3M8 17h3M23 17h3M11.5 11.5l2 2M20.5 20.5l2 2M22.5 11.5l-2 2M13.5 20.5l-2 2"
+          stroke={stroke}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        <circle cx="17" cy="17" r="3.5" fill={fill} stroke={stroke} strokeWidth="1.4" />
+      </svg>
+    );
+  }
+  if (key === "engine") {
+    return (
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+        <rect x="6" y="12" width="22" height="12" rx="2.5" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <path d="M10 16h14M10 20h10" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M6 17H4M30 17h-2" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M12 8v4M22 8v4" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (key === "grease") {
+    return (
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+        <path
+          d="M12 8h10l3 5v13H9V13l3-5z"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path d="M12 16h10M12 21h7" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="24" cy="10" r="2" fill={fill} stroke={stroke} strokeWidth="1.3" />
+      </svg>
+    );
+  }
+  if (key === "chemical") {
+    return (
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+        <path d="M11 10h12v16H11V10z" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <path d="M13 14h8M13 18h8M13 22h5" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
+        <path d="M14 10V7h6v3" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+      <rect x="7" y="9" width="20" height="16" rx="2" fill={fill} stroke={stroke} strokeWidth="1.8" />
+      <path d="M11 14h12M11 18h8M11 22h10" stroke={stroke} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M7 26h20" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" opacity="0.75" />
+    </svg>
+  );
 }
 
 function CrossSellTiles({ items, max = 4 }) {
@@ -498,29 +616,25 @@ function CrossSellTiles({ items, max = 4 }) {
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-        gap: 10,
+        gap: 12,
       }}
     >
-      {list.map((line, i) => (
+      {list.map((item, i) => (
         <article
-          key={`xs-${i}-${line}`}
+          key={`xs-${i}-${item.title}`}
           style={{
-            padding: "16px 12px",
-            borderRadius: 10,
+            padding: "14px 12px 16px",
+            borderRadius: 12,
             background: `linear-gradient(155deg, #ffffff 0%, #f1f5f9 100%)`,
             border: `1px solid rgba(30, 58, 138, 0.22)`,
             borderTop: `3px solid ${BRAND.orange}`,
-            fontSize: 13,
-            fontWeight: 800,
-            color: BRAND.navy,
-            lineHeight: 1.35,
-            textAlign: "center",
-            boxShadow: "0 6px 16px rgba(15, 23, 42, 0.06)",
-            minHeight: 88,
+            boxShadow: "0 8px 20px rgba(15, 23, 42, 0.07)",
+            minHeight: 112,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "flex-start",
+            textAlign: "center",
           }}
         >
           <span
@@ -528,18 +642,44 @@ function CrossSellTiles({ items, max = 4 }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: 44,
-              height: 44,
-              marginBottom: 8,
+              width: 52,
+              height: 52,
+              marginBottom: 10,
               borderRadius: 999,
               background: `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
-              fontSize: 22,
+              border: "2px solid rgba(234, 88, 12, 0.45)",
+              boxShadow: "0 6px 14px rgba(15, 23, 42, 0.2)",
             }}
             aria-hidden
           >
-            {crossSellIcon(line)}
+            <CrossSellIconSvg iconKey={item.iconKey} />
           </span>
-          {line}
+          <p
+            style={{
+              margin: 0,
+              fontSize: 13,
+              fontWeight: 900,
+              color: BRAND.navy,
+              lineHeight: 1.3,
+              letterSpacing: "0.02em",
+            }}
+          >
+            {item.title}
+          </p>
+          {item.desc ? (
+            <p
+              style={{
+                margin: "8px 0 0",
+                fontSize: 11,
+                fontWeight: 600,
+                color: "#64748b",
+                lineHeight: 1.4,
+                maxWidth: 200,
+              }}
+            >
+              {item.desc}
+            </p>
+          ) : null}
         </article>
       ))}
     </div>
@@ -627,77 +767,104 @@ function NanoDifferentiatorCallout() {
 
 function ValueStoryIconSvg({ iconKey }) {
   const stroke = BRAND.orangeLight;
-  const fill = "rgba(251, 146, 60, 0.22)";
+  const fill = "rgba(251, 146, 60, 0.28)";
+  const accent = BRAND.orangeMuted;
   const key = String(iconKey || "protection").toLowerCase();
+  const size = 52;
 
   if (key === "water") {
     return (
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
+      <svg width={size} height={size} viewBox="0 0 56 56" fill="none" aria-hidden>
         <path
-          d="M22 6c-6 8-10 13-10 18a10 10 0 1 0 20 0c0-5-4-10-10-18z"
+          d="M28 8c-8 10-13 16-13 22a13 13 0 1 0 26 0c0-6-5-12-13-22z"
           fill={fill}
           stroke={stroke}
-          strokeWidth="2"
+          strokeWidth="2.2"
         />
-        <path d="M10 32c3 2 7 3 12 3s9-1 12-3" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+        <path
+          d="M10 38c4 3 9 4 18 4s14-1 18-4M14 42c3 2 7 3 14 3s11-1 14-3"
+          stroke={stroke}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+        <circle cx="38" cy="20" r="2.5" fill={accent} opacity="0.9" />
       </svg>
     );
   }
   if (key === "thermal") {
     return (
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
-        <rect x="18" y="8" width="8" height="24" rx="4" fill={fill} stroke={stroke} strokeWidth="2" />
-        <circle cx="22" cy="34" r="5" fill={fill} stroke={stroke} strokeWidth="2" />
-        <path d="M22 14v12" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
-        <path d="M20 18h4M20 22h4M20 26h4" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
+      <svg width={size} height={size} viewBox="0 0 56 56" fill="none" aria-hidden>
+        <rect x="23" y="10" width="10" height="28" rx="5" fill={fill} stroke={stroke} strokeWidth="2.2" />
+        <circle cx="28" cy="42" r="6" fill={fill} stroke={stroke} strokeWidth="2.2" />
+        <path d="M28 16v18" stroke={stroke} strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M25 20h6M25 26h6M25 32h6" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+        <path
+          d="M40 14c2 3 3 6 3 9M16 18c-2 3-3 6-3 9"
+          stroke={accent}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          opacity="0.85"
+        />
       </svg>
     );
   }
   if (key === "uptime") {
     return (
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
-        <circle cx="22" cy="22" r="14" fill={fill} stroke={stroke} strokeWidth="2" />
-        <path d="M22 12v10l7 5" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="32" cy="32" r="6" fill={fill} stroke={stroke} strokeWidth="1.8" />
-        <path d="M30 32h4M32 30v4" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" />
+      <svg width={size} height={size} viewBox="0 0 56 56" fill="none" aria-hidden>
+        <circle cx="26" cy="28" r="14" fill={fill} stroke={stroke} strokeWidth="2.2" />
+        <path d="M26 18v10l8 6" stroke={stroke} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="40" cy="40" r="9" fill={fill} stroke={stroke} strokeWidth="2" />
+        <path
+          d="M36 12l4 4-4 4M40 16h-8"
+          stroke={stroke}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="40" cy="40" r="2.5" fill={accent} />
       </svg>
     );
   }
   if (key === "nano") {
     return (
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
-        <circle cx="14" cy="22" r="4" fill={fill} stroke={stroke} strokeWidth="1.6" />
-        <circle cx="30" cy="14" r="3" fill={fill} stroke={stroke} strokeWidth="1.6" />
-        <circle cx="30" cy="30" r="3" fill={fill} stroke={stroke} strokeWidth="1.6" />
-        <path d="M17 20l10-4M17 24l10 4" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
-        <path d="M8 34h28" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" opacity="0.7" />
+      <svg width={size} height={size} viewBox="0 0 56 56" fill="none" aria-hidden>
+        <path d="M10 40h36" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" opacity="0.65" />
+        <circle cx="16" cy="28" r="5" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <circle cx="30" cy="18" r="4" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <circle cx="40" cy="30" r="4" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <circle cx="24" cy="36" r="3" fill={accent} stroke={stroke} strokeWidth="1.4" />
+        <path d="M20 26l8-6M21 30l16 2" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M14 22c6-4 12-4 18 0" stroke={accent} strokeWidth="1.5" strokeLinecap="round" opacity="0.8" />
       </svg>
     );
   }
   if (key === "shock") {
     return (
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
+      <svg width={size} height={size} viewBox="0 0 56 56" fill="none" aria-hidden>
         <path
-          d="M10 28h8l-2 8 18-20h-9l3-10-8 22z"
+          d="M12 34h10l-3 10 22-24h-11l4-12-12 26z"
           fill={fill}
           stroke={stroke}
-          strokeWidth="2"
+          strokeWidth="2.2"
           strokeLinejoin="round"
         />
+        <path d="M8 44h40" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" opacity="0.55" />
       </svg>
     );
   }
   return (
-    <svg width="44" height="44" viewBox="0 0 44 44" fill="none" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 56 56" fill="none" aria-hidden>
       <path
-        d="M22 6l10 4v10c0 8-5 14-10 16-5-2-10-8-10-16V10l10-4z"
+        d="M28 7l12 5v12c0 10-6 17-12 19-6-2-12-9-12-19V12l12-5z"
         fill={fill}
         stroke={stroke}
-        strokeWidth="2"
+        strokeWidth="2.2"
         strokeLinejoin="round"
       />
-      <path d="M16 22l4 4 8-9" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M12 30h20" stroke={stroke} strokeWidth="1.4" strokeLinecap="round" opacity="0.65" />
+      <path d="M20 28h16" stroke={stroke} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M28 20v16" stroke={stroke} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M18 38h20" stroke={accent} strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+      <path d="M22 24l4 4 8-10" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -706,16 +873,16 @@ function ValueStoryIcon({ iconKey }) {
   return (
     <div
       style={{
-        width: 84,
-        height: 84,
+        width: 96,
+        height: 96,
         margin: "0 auto",
         borderRadius: 999,
         background: `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
-        border: "3px solid rgba(234, 88, 12, 0.55)",
+        border: "3px solid rgba(234, 88, 12, 0.6)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        boxShadow: "0 10px 28px rgba(15, 23, 42, 0.28)",
+        boxShadow: "0 12px 32px rgba(15, 23, 42, 0.3)",
       }}
       aria-hidden
     >
@@ -868,7 +1035,7 @@ export default function ProductSpotlightSellSheet(props) {
     props.recommendedNextStep,
     NANO_DEMO_DEFAULTS.recommendedNextStep
   );
-  const pdsUrl = pickPdsUrl(props.pdsUrl);
+  const pdsUrl = isPublicPdsPdfHref(props.pdsUrl) ? String(props.pdsUrl).trim() : "";
   const onProductImageClick =
     typeof props.onProductImageClick === "function" ? props.onProductImageClick : null;
   const productImageUploadLabel = String(props.productImageUploadLabel || "").trim();
@@ -1151,7 +1318,7 @@ export default function ProductSpotlightSellSheet(props) {
             <article
               key={`ben-${i}-${t.label || i}`}
               style={{
-                padding: "34px 20px 38px",
+                padding: "30px 18px 34px",
                 textAlign: "center",
                 borderRight: i < 3 ? "1px solid rgba(226, 232, 240, 0.95)" : undefined,
               }}
@@ -1297,20 +1464,16 @@ export default function ProductSpotlightSellSheet(props) {
                 rel="noreferrer"
                 style={{
                   flexShrink: 0,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
                   padding: "12px 22px",
-                  borderRadius: 10,
+                  borderRadius: 8,
                   background: BRAND.white,
-                  color: BRAND.navy,
+                  color: BRAND.headerNavy,
                   fontSize: 13,
                   fontWeight: 900,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
                   textDecoration: "none",
-                  boxShadow: "0 8px 20px rgba(15, 23, 42, 0.2)",
-                  border: `2px solid ${BRAND.orangeLight}`,
+                  boxShadow: "0 8px 20px rgba(15, 23, 42, 0.18)",
                 }}
               >
                 Open PDS

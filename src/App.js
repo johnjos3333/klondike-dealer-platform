@@ -11521,27 +11521,48 @@ const handleFinishDealerEnrollment = async () => {
             const stagedWizardPdsHint =
               seTplStagedKnowledge && kTplSp ? String(kTplSp.pdsFileHint || "").trim() : "";
             const mockWizardPdsHint = String(seGuidedKnowledgePreviewMock?.pdsFileHint || "").trim();
-            const normalizePublicPdsAssetUrl = (raw) => {
+            const isPublicPdsPdfHref = (href) => {
+              const s = String(href ?? "").trim();
+              if (!s) return false;
+              if (/^https?:\/\//i.test(s) || /localhost/i.test(s)) return false;
+              return s.startsWith("/pds/") && /\.pdf$/i.test(s);
+            };
+            const coercePublicPdsPdfHref = (raw) => {
               const s = String(raw ?? "").trim();
               if (!s) return "";
-              if (s.startsWith("/pds/")) return s;
-              if (/^https?:\/\//i.test(s)) {
-                try {
-                  const path = new URL(s).pathname;
-                  return path.startsWith("/pds/") ? path : "";
-                } catch {
-                  return "";
-                }
+              if (isPublicPdsPdfHref(s)) return s;
+              if (/localhost/i.test(s)) {
+                const match = s.match(/(\/pds\/[^?#]+\.pdf)/i);
+                return match && isPublicPdsPdfHref(match[1]) ? match[1] : "";
               }
               return "";
             };
-            const resolvePublicPdsUrlFromHintOrKey = (hintOrKey) => {
+            const normalizePublicPdsPdfHref = (href) => {
+              let s = coercePublicPdsPdfHref(href);
+              if (!s) {
+                const built = getSalesEnablementPdsUrl(href);
+                s = coercePublicPdsPdfHref(built);
+              }
+              if (!s) return "";
+              const folderAliases = [
+                ["/pds/Grease PDS/", "/pds/Greases PDS/"],
+                ["/pds/Gear Oils PDS/", "/pds/Gear Lubricants PDS/"],
+                ["/pds/Coolant PDS/", "/pds/Chemicals/"],
+              ];
+              for (const [from, to] of folderAliases) {
+                if (s.startsWith(from)) {
+                  s = `${to}${s.slice(from.length)}`;
+                  break;
+                }
+              }
+              return isPublicPdsPdfHref(s) ? s : "";
+            };
+            const resolvePublicPdsPdfHrefFromHintOrKey = (hintOrKey) => {
               const key = String(hintOrKey ?? "").trim();
               if (!key) return "";
-              const mapUrl = PDS_MAP[key]?.url;
-              const fromMap = normalizePublicPdsAssetUrl(mapUrl);
-              if (fromMap) return fromMap;
-              return normalizePublicPdsAssetUrl(getSalesEnablementPdsUrl(key));
+              const mapUrl = normalizePublicPdsPdfHref(PDS_MAP[key]?.url);
+              if (mapUrl) return mapUrl;
+              return normalizePublicPdsPdfHref(getSalesEnablementPdsUrl(key));
             };
             const assemblyPrimaryPdsKey = String(
               (Array.isArray(seGuidedAssemblyDraftPackage?.productCards)
@@ -11549,9 +11570,9 @@ const handleFinishDealerEnrollment = async () => {
                 : "") || ""
             ).trim();
             const guidedWizardPdsUrl =
-              resolvePublicPdsUrlFromHintOrKey(assemblyPrimaryPdsKey) ||
-              resolvePublicPdsUrlFromHintOrKey(stagedWizardPdsHint || mockWizardPdsHint) ||
-              normalizePublicPdsAssetUrl(salesEnablementGuidedTemplateLines.pdsPreviewUrl);
+              resolvePublicPdsPdfHrefFromHintOrKey(assemblyPrimaryPdsKey) ||
+              resolvePublicPdsPdfHrefFromHintOrKey(stagedWizardPdsHint || mockWizardPdsHint) ||
+              normalizePublicPdsPdfHref(salesEnablementGuidedTemplateLines.pdsPreviewUrl);
             const seProductImageHint = getSalesEnablementProductImageHint({
               spotlightId: salesEnablementSelectedId,
               spotlightMode: salesEnablementSpotlightMode,
@@ -12182,7 +12203,8 @@ const handleFinishDealerEnrollment = async () => {
                 aiReady: seAiSalesSheetReady,
               });
             }
-            const seSellSheetPdsUrl = String(guidedWizardPdsUrl || "").trim() || undefined;
+            const seFinalSellSheetPdsUrl = normalizePublicPdsPdfHref(guidedWizardPdsUrl);
+            console.log("[SE-PDS-FINAL]", seFinalSellSheetPdsUrl);
             const productSpotlightSellSheetPreview = (
               <>
                 <input
@@ -12208,7 +12230,7 @@ const handleFinishDealerEnrollment = async () => {
                   cautions={seFinalSellSheetCautions}
                   recommendedNextStep={seFinalSellSheetNextStep}
                   productImageUrl={seSellSheetProductImageUrl || undefined}
-                  pdsUrl={seSellSheetPdsUrl}
+                  pdsUrl={seFinalSellSheetPdsUrl || undefined}
                   onProductImageClick={() => seGuidedProductImageUploadRef.current?.click()}
                   productImageUploadLabel="Click to upload product image"
                 />
