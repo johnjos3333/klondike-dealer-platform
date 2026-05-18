@@ -12267,6 +12267,11 @@ const handleFinishDealerEnrollment = async () => {
               (seGuidedWizardMessageKind == null && salesEnablementSpotlightMode === "product");
             const seRenderProductSpotlightSellSheet =
               seIsProductSpotlightWizard && Boolean(seGuidedAssemblyDraftPackage?.ok);
+            const seIsCategorySpotlightWizard =
+              seGuidedWizardMessageKind === "category" ||
+              (seGuidedWizardMessageKind == null && salesEnablementSpotlightMode === "category");
+            const seRenderCategorySpotlightSellSheet =
+              seIsCategorySpotlightWizard && Boolean(seGuidedAssemblyDraftPackage?.ok);
             const seSellSheetProductImageUrl = (() => {
               if (seGuidedUploadedProductImagePreviewFailed) return "";
               return String(seGuidedUploadedProductImageUrl || "").trim();
@@ -12296,6 +12301,85 @@ const handleFinishDealerEnrollment = async () => {
             }
             const seFinalSellSheetPdsUrl = normalizePublicPdsPdfHref(guidedWizardPdsUrl);
             console.log("[SE-PDS-FINAL]", seFinalSellSheetPdsUrl);
+            const seCategoryFeaturedProducts = (() => {
+              if (seAiSalesSheetReady) {
+                const fromAi = seAiSalesListFromField(seAiSalesSheet?.featuredProducts, 8);
+                if (fromAi.length) {
+                  return fromAi.map((line) => {
+                    const dash = String(line).match(/^([^:—–-]{1,80})\s*[:—–-]\s*(.+)$/);
+                    return {
+                      name: String(dash ? dash[1] : line).trim(),
+                      role: String(dash ? dash[2] : "").trim(),
+                    };
+                  });
+                }
+              }
+              const cards = Array.isArray(seAssemblyPkg?.productCards) ? seAssemblyPkg.productCards : [];
+              const out = [];
+              for (const row of cards) {
+                const name = String(row?.productName || row?.name || "").trim();
+                if (!name) continue;
+                out.push({
+                  name,
+                  role: String(row?.headline || row?.gradeLabel || row?.productFamily || "").trim(),
+                  imageUrl: String(row?.productImageUrl || row?.imageUrl || "").trim(),
+                });
+                if (out.length >= 8) break;
+              }
+              return out;
+            })();
+            const seCategoryProductImages = seCategoryFeaturedProducts
+              .map((p) => String(p?.imageUrl || "").trim())
+              .filter(Boolean);
+            const seCategoryIdealCustomers = (() => {
+              const fromAi = seAiPickList(seAiSalesSheet?.idealCustomers, [], 8);
+              if (fromAi.length) return fromAi;
+              const signals = Array.isArray(seAssemblyPkg?.customerProfileSignals)
+                ? seAssemblyPkg.customerProfileSignals.map((x) => String(x ?? "").trim()).filter(Boolean)
+                : [];
+              const sec = sePkgPickSection((t) => /market|segment|customer|fleet|ideal|profile/.test(t));
+              const bullets = Array.isArray(sec?.bullets) ? sec.bullets : [];
+              return sePosterUniqueLines([...signals, ...bullets], 8);
+            })();
+            const seCategoryKeyBenefits = (() => {
+              if (seAiSalesSheetReady && Array.isArray(seAiSalesSheet?.keyBenefits) && seAiSalesSheet.keyBenefits.length) {
+                return seAiSalesSheet.keyBenefits;
+              }
+              return seFinalSellSheetBenefits.map((t) => ({
+                label: String(t.label || "").trim(),
+                sub: String(t.sub || "").trim(),
+                iconKey: "",
+              }));
+            })();
+            const seCategoryOpportunitySummary = seAiPickText(
+              seAiSalesSheet?.opportunitySummary ?? seAiSalesSheet?.heroSummary,
+              sePosterHeroSummary || seFinalSellSheetSummary
+            );
+            const seCategoryPdsLinks = (() => {
+              const href = seFinalSellSheetPdsUrl;
+              if (!href) return [];
+              const label = seFinalSellSheetTitle ? `${seFinalSellSheetTitle} — PDS` : "Open PDS";
+              return [{ href, label }];
+            })();
+            const categorySpotlightSellSheetPreview = (
+              <CategorySpotlightSellSheet
+                key={`se-category-sell-sheet-${seFinalSellSheetTitle}-${seAiSalesSheetReady ? "ai" : "pkg"}`}
+                categoryTitle={seFinalSellSheetTitle}
+                categorySubtitle={seFinalSellSheetSubtitle}
+                opportunitySummary={seCategoryOpportunitySummary}
+                productImages={seCategoryProductImages}
+                keyBenefits={seCategoryKeyBenefits}
+                idealCustomers={seCategoryIdealCustomers}
+                applications={seFinalSellSheetApplications}
+                featuredProducts={seCategoryFeaturedProducts}
+                crossSell={seFinalSellSheetCrossSell}
+                repTalkTrack={seFinalSellSheetRepTalk}
+                discoveryQuestions={seFinalSellSheetQuestions}
+                cautions={seFinalSellSheetCautions}
+                recommendedNextStep={seFinalSellSheetNextStep}
+                pdsLinks={seCategoryPdsLinks}
+              />
+            );
             const productSpotlightSellSheetPreview = (
               <>
                 <input
@@ -14264,7 +14348,10 @@ const handleFinishDealerEnrollment = async () => {
 
                     <div
                       style={
-                        seRenderProductSpotlightSellSheet || seIsProductSpotlightWizard
+                        seRenderProductSpotlightSellSheet ||
+                        seIsProductSpotlightWizard ||
+                        seRenderCategorySpotlightSellSheet ||
+                        seIsCategorySpotlightWizard
                           ? {
                               padding: 0,
                               background: "transparent",
@@ -14387,6 +14474,109 @@ const handleFinishDealerEnrollment = async () => {
                             }}
                           >
                             Generate a Klondike draft in Step 3 to preview the Product Spotlight sell sheet here.
+                          </div>
+                        )
+                      ) : seIsCategorySpotlightWizard ? (
+                        seRenderCategorySpotlightSellSheet ? (
+                        <>
+                          <div
+                            role="status"
+                            style={{
+                              width: "100%",
+                              maxWidth: 1140,
+                              margin: "0 auto",
+                              padding: "8px 14px",
+                              borderRadius: 8,
+                              background: "#dcfce7",
+                              border: "2px solid #16a34a",
+                              fontSize: 13,
+                              fontWeight: 900,
+                              letterSpacing: "0.06em",
+                              color: "#14532d",
+                              textAlign: "center",
+                            }}
+                          >
+                            USING CATEGORY SPOTLIGHT SELL SHEET COMPONENT
+                          </div>
+                          {seAiSalesSheetLoading ? (
+                            <div
+                              style={{
+                                width: "100%",
+                                maxWidth: 1140,
+                                margin: "0 auto",
+                                padding: "12px 16px",
+                                borderRadius: 10,
+                                background: "rgba(30, 58, 138, 0.08)",
+                                border: "1px solid rgba(30, 58, 138, 0.18)",
+                                fontSize: 12,
+                                fontWeight: 800,
+                                color: "#1e3a8a",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                              }}
+                            >
+                              <span
+                                aria-hidden
+                                style={{
+                                  width: 16,
+                                  height: 16,
+                                  borderRadius: "50%",
+                                  border: "2px solid rgba(30, 58, 138, 0.25)",
+                                  borderTopColor: "#ea580c",
+                                  animation: "seAiSpin 0.75s linear infinite",
+                                  flexShrink: 0,
+                                }}
+                              />
+                              Generating KLONDIKE sales material…
+                            </div>
+                          ) : null}
+                          {seAiSalesSheetError ? (
+                            <div
+                              style={{
+                                width: "100%",
+                                maxWidth: 1140,
+                                margin: "0 auto",
+                                padding: "10px 14px",
+                                borderRadius: 10,
+                                background: "#fff7ed",
+                                border: "1px solid rgba(251, 146, 60, 0.45)",
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: "#9a3412",
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              {seAiSalesSheetError}
+                            </div>
+                          ) : null}
+                          <section
+                            style={{
+                              width: "100%",
+                              maxWidth: 1140,
+                              margin: "0 auto",
+                              padding: "8px 0 0",
+                              boxSizing: "border-box",
+                              minWidth: 0,
+                            }}
+                          >
+                            {categorySpotlightSellSheetPreview}
+                          </section>
+                        </>
+                        ) : (
+                          <div
+                            style={{
+                              padding: "16px 18px",
+                              borderRadius: 12,
+                              background: "#f8fafc",
+                              border: "1px dashed rgba(148, 163, 184, 0.65)",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              color: "#475569",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            Generate a Klondike draft in Step 3 to preview the Category Spotlight sell sheet here.
                           </div>
                         )
                       ) : (
