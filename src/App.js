@@ -56,9 +56,84 @@ import { LubricationConceptAdvisorPanel } from "./components/LubricationConceptA
 import ProductSpotlightSellSheet from "./components/ProductSpotlightSellSheet";
 import CategorySpotlightSellSheet from "./components/CategorySpotlightSellSheet";
 import CustomerProfileSellSheet from "./components/CustomerProfileSellSheet";
+import {
+  EQUIPMENT_OPPORTUNITY_PROFILE_DISCLAIMER,
+  getEquipmentOpportunityProfile,
+  listEquipmentOpportunityProfiles,
+} from "./data/salesEnablement/equipmentOpportunityProfiles";
 
 /** Dev-only full-page sell sheet preview — keep false for normal Sales Enablement wizard flow. */
 const SHOW_SELL_SHEET_TEST = false;
+
+const OEM_OPPORTUNITY_PREVIEW_DISCLAIMER =
+  "OEM Opportunity Profile — not an endorsement or approval. Verify OEM requirements using equipment tags, manuals, and current PDS.";
+
+const OEM_OPPORTUNITY_PREVIEW_DEFAULT_NEXT_STEP =
+  "Use this opportunity profile to guide discovery, verify OEM requirements, and build the right KLONDIKE product conversation.";
+
+const OEM_OPPORTUNITY_PAIN_ICON_KEYS = [
+  "hydraulic",
+  "shock",
+  "downtime",
+  "contamination",
+  "bearing",
+  "retention",
+];
+
+/**
+ * Maps equipmentOpportunityProfiles registry entries into CustomerProfileSellSheet props (preview only).
+ * @param {import("./data/salesEnablement/equipmentOpportunityProfiles").EquipmentOpportunityProfile | null | undefined} profile
+ */
+function mapEquipmentOpportunityProfileToSellSheetProps(profile) {
+  if (!profile) return { profileKind: "oem" };
+
+  const customerPainPoints = (profile.commonLubricationConversations || [])
+    .slice(0, 6)
+    .map((line, index) => {
+      const text = String(line || "").trim();
+      const dash = text.match(/^([^:—–-]{1,80})\s*[:—–-]\s*(.+)$/);
+      return {
+        iconKey: OEM_OPPORTUNITY_PAIN_ICON_KEYS[index % OEM_OPPORTUNITY_PAIN_ICON_KEYS.length],
+        label: dash ? dash[1].trim() : text.slice(0, 80),
+        sub: dash ? dash[2].trim() : "",
+      };
+    });
+
+  const likelyLubricantNeeds = (profile.typicalFluidCategories || []).map((entry) => ({
+    category: String(entry?.category || "").trim(),
+    role: String(entry?.role || "").trim(),
+  }));
+
+  const recommendedProducts = (profile.recommendedProductAnchors || []).map((entry) => ({
+    name: String(entry?.name || "").trim(),
+    why: String(entry?.positioning || "").trim(),
+  }));
+
+  const repTalkTrack =
+    Array.isArray(profile.recommendedRepTalkingPoints) && profile.recommendedRepTalkingPoints.length
+      ? profile.recommendedRepTalkingPoints
+      : profile.commonLubricationConversations || profile.opportunitySignals || [];
+
+  const crossSell = (profile.crossSellFocus || []).map((item) => String(item || "").trim()).filter(Boolean);
+
+  return {
+    profileKind: "oem",
+    profileTitle: profile.profileTitle || profile.label,
+    profileSubtitle: profile.profileSubtitle || "",
+    profileSummary:
+      profile.opportunitySummary || EQUIPMENT_OPPORTUNITY_PROFILE_DISCLAIMER || OEM_OPPORTUNITY_PREVIEW_DISCLAIMER,
+    customerPainPoints,
+    equipmentTypes: profile.equipmentTypes || [],
+    likelyLubricantNeeds,
+    recommendedProducts,
+    opportunitySignals: profile.opportunitySignals || [],
+    repTalkTrack,
+    discoveryQuestions: profile.discoveryFocus || [],
+    crossSell,
+    cautions: profile.cautions || [],
+    recommendedNextStep: profile.recommendedNextStep || OEM_OPPORTUNITY_PREVIEW_DEFAULT_NEXT_STEP,
+  };
+}
 
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
@@ -149,18 +224,39 @@ function mapCanonicalRowToSeGuidedStep3CategoryKey(row) {
   }
   if (/\bgrease\b/.test(blob) || fam.includes("grease")) return "grease";
   if (/\bgear\b/.test(blob) || fam.includes("gear")) return "gear_oil";
-  if (/\bhydraulic\b/.test(blob) || fam.includes("hydraulic")) return "hydraulic";
-  if (/\bcoolant\b/.test(blob) || /\bcool gard\b/.test(blob) || fam.includes("coolant")) return "coolant";
-  if (/\btransmission\b/.test(blob) || fam.includes("transmission") || /\bcvt\b/.test(blob)) {
+  if (
+    /\bcoolant\b/.test(blob) ||
+    /\bantifreeze\b/.test(blob) ||
+    /\bcool gard\b/.test(blob) ||
+    (/\belc\b/.test(blob) && /\bcool|antifreeze|freeze\b/.test(blob)) ||
+    fam.includes("coolant")
+  ) {
+    return "coolant";
+  }
+  if (
+    /\btransmission\b/.test(blob) ||
+    fam.includes("transmission") ||
+    /\bcvt\b/.test(blob) ||
+    /\btractor fluid\b/.test(blob) ||
+    /\butto\b/.test(blob) ||
+    /\btrans[- ]drive\b/.test(blob)
+  ) {
     return "transmission";
   }
   if (
     fam.includes("industrial_specialty") ||
     cat.includes("industrial_specialty") ||
-    pf.includes("industrial_specialty")
+    pf.includes("industrial_specialty") ||
+    /\bturbine\b/.test(blob) ||
+    /\bcirculating\b/.test(blob) ||
+    /\bway oil\b/.test(blob) ||
+    /\bheat transfer\b/.test(blob) ||
+    /\bcompressor oil\b/.test(blob) ||
+    /\brock drill\b/.test(blob)
   ) {
     return "industrial_specialty";
   }
+  if (/\bhydraulic\b/.test(blob) || fam.includes("hydraulic")) return "hydraulic";
   if (
     /\bengine\b/.test(blob) ||
     /\bmotor oil\b/.test(blob) ||
@@ -4490,6 +4586,18 @@ export default function App() {
   /** Isolated sell-sheet template preview (SHOW_SELL_SHEET_TEST only). */
   const [sellSheetPreviewType, setSellSheetPreviewType] = useState("product");
   const [sellSheetTestProductImageUrl, setSellSheetTestProductImageUrl] = useState("");
+  const [sellSheetOemPresetKey, setSellSheetOemPresetKey] = useState("cat");
+  const sellSheetCategoryUploadRef = React.useRef(null);
+  const [sellSheetCategoryUploadBucket, setSellSheetCategoryUploadBucket] = useState("good");
+  const [sellSheetCategoryUploadSlot, setSellSheetCategoryUploadSlot] = useState(0);
+  const [sellSheetCategoryUploads, setSellSheetCategoryUploads] = useState(() => ({
+    good: [],
+    better: [],
+    best: [],
+    ultimate: [],
+    featured: [],
+    ecosystem: [],
+  }));
 
   const [appLoading, setAppLoading] = useState(true);
   const [session, setSession] = useState(null);
@@ -4685,36 +4793,60 @@ useEffect(() => {
   /** Phase 6F.4 — Category ladder tier photos (preview only; session; not sent). */
   const seGuidedCategoryLadderUploadRef = React.useRef(null);
   const [seGuidedCategoryLadderUploadTier, setSeGuidedCategoryLadderUploadTier] = useState("good");
+  const [seGuidedCategoryLadderUploadSlot, setSeGuidedCategoryLadderUploadSlot] = useState(0);
   const [seGuidedCategoryLadderUploads, setSeGuidedCategoryLadderUploads] = useState(() => ({
     good: [],
     better: [],
     best: [],
     ultimate: [],
+    featured: [],
+    ecosystem: [],
   }));
+  const requestSeGuidedCategoryLadderProductImageUpload = useCallback((bucketId, slotIndex) => {
+    const bucket = String(bucketId || "good").toLowerCase();
+    const bucketKey = ["good", "better", "best", "ultimate", "featured", "ecosystem"].includes(bucket)
+      ? bucket
+      : "good";
+    const maxSlot = bucketKey === "featured" || bucketKey === "ecosystem" ? 5 : 2;
+    const slot = Number.isFinite(slotIndex) ? Math.max(0, Math.min(maxSlot, Math.floor(slotIndex))) : 0;
+    setSeGuidedCategoryLadderUploadTier(bucketKey);
+    setSeGuidedCategoryLadderUploadSlot(slot);
+    seGuidedCategoryLadderUploadRef.current?.click();
+  }, []);
   const handleSeGuidedCategoryLadderImageUploadChange = useCallback((ev) => {
-    const files = ev.target.files ? Array.from(ev.target.files) : [];
+    const file = ev.target.files && ev.target.files[0];
     if (ev.target) ev.target.value = "";
-    if (!files.length) return;
+    if (!file) return;
+    const mimeOk = /^image\/(png|jpeg|webp)$/i.test(file.type);
+    const nameOk = /\.(png|jpe?g|webp)$/i.test(file.name || "");
+    if (!mimeOk && !nameOk) return;
     const tier = String(seGuidedCategoryLadderUploadTier || "good").toLowerCase();
-    const tierKey = ["good", "better", "best", "ultimate"].includes(tier) ? tier : "good";
+    const tierKey = ["good", "better", "best", "ultimate", "featured", "ecosystem"].includes(tier) ? tier : "good";
+    const maxSlot = tierKey === "featured" || tierKey === "ecosystem" ? 5 : 2;
+    const slotIndex = Number.isFinite(seGuidedCategoryLadderUploadSlot)
+      ? Math.max(0, Math.min(maxSlot, Math.floor(seGuidedCategoryLadderUploadSlot)))
+      : 0;
+    const label = String(file.name || "")
+      .replace(/\.[^.]+$/, "")
+      .trim();
     setSeGuidedCategoryLadderUploads((prev) => {
       const slot = Array.isArray(prev[tierKey]) ? [...prev[tierKey]] : [];
-      for (const file of files) {
-        if (slot.length >= 3) break;
-        const mimeOk = /^image\/(png|jpeg|webp)$/i.test(file.type);
-        const nameOk = /\.(png|jpe?g|webp)$/i.test(file.name || "");
-        if (!mimeOk && !nameOk) continue;
-        const label = String(file.name || "")
-          .replace(/\.[^.]+$/, "")
-          .trim();
-        slot.push({
-          imageUrl: URL.createObjectURL(file),
-          label: label || `Product ${slot.length + 1}`,
-        });
+      while (slot.length <= slotIndex) slot.push(null);
+      const prevEntry = slot[slotIndex];
+      if (prevEntry?.imageUrl) {
+        try {
+          URL.revokeObjectURL(prevEntry.imageUrl);
+        } catch {
+          /* ignore */
+        }
       }
+      slot[slotIndex] = {
+        imageUrl: URL.createObjectURL(file),
+        label: label || `Product ${slotIndex + 1}`,
+      };
       return { ...prev, [tierKey]: slot };
     });
-  }, [seGuidedCategoryLadderUploadTier]);
+  }, [seGuidedCategoryLadderUploadTier, seGuidedCategoryLadderUploadSlot]);
   /** Phase 76.5 — Step 5 dry-run panel (read-only; does not alter invoke payload). */
   const [seGuidedApprovedSendDryRunOpen, setSeGuidedApprovedSendDryRunOpen] = useState(false);
   /** Phase 73.22 — Guided audience wizard (UI/local labels; send payloads unchanged). */
@@ -4766,7 +4898,7 @@ useEffect(() => {
     });
     setSeGuidedUploadedProductImagePreviewFailed(false);
     setSeGuidedCategoryLadderUploads((prev) => {
-      for (const tier of ["good", "better", "best", "ultimate"]) {
+      for (const tier of ["good", "better", "best", "ultimate", "featured", "ecosystem"]) {
         for (const row of prev[tier] || []) {
           try {
             if (row?.imageUrl) URL.revokeObjectURL(row.imageUrl);
@@ -4775,7 +4907,7 @@ useEffect(() => {
           }
         }
       }
-      return { good: [], better: [], best: [], ultimate: [] };
+      return { good: [], better: [], best: [], ultimate: [], featured: [], ecosystem: [] };
     });
     setSeGuidedCategoryLadderUploadTier("good");
   }, [seGuidedWizardMessageKind]);
@@ -4799,7 +4931,7 @@ useEffect(() => {
   useEffect(() => {
     return () => {
       const snapshot = seGuidedCategoryLadderUploadsRef.current;
-      for (const tier of ["good", "better", "best", "ultimate"]) {
+      for (const tier of ["good", "better", "best", "ultimate", "featured", "ecosystem"]) {
         for (const row of snapshot[tier] || []) {
           try {
             if (row?.imageUrl) URL.revokeObjectURL(row.imageUrl);
@@ -4812,7 +4944,7 @@ useEffect(() => {
   }, []);
   useEffect(() => {
     setSeGuidedCategoryLadderUploads((prev) => {
-      for (const tier of ["good", "better", "best", "ultimate"]) {
+      for (const tier of ["good", "better", "best", "ultimate", "featured", "ecosystem"]) {
         for (const row of prev[tier] || []) {
           try {
             if (row?.imageUrl) URL.revokeObjectURL(row.imageUrl);
@@ -4821,9 +4953,10 @@ useEffect(() => {
           }
         }
       }
-      return { good: [], better: [], best: [], ultimate: [] };
+      return { good: [], better: [], best: [], ultimate: [], featured: [], ecosystem: [] };
     });
     setSeGuidedCategoryLadderUploadTier("good");
+    setSeGuidedCategoryLadderUploadSlot(0);
     setSeGuidedStep3ProductId("");
   }, [seGuidedStep3CategoryKey]);
   useEffect(() => {
@@ -12396,10 +12529,15 @@ const handleFinishDealerEnrollment = async () => {
                 if (rowKey !== catKey) continue;
                 const name = String(row?.productName || row?.name || "").trim();
                 if (!name) continue;
+                const rawImageUrl = String(row?.productImageUrl || row?.imageUrl || "").trim();
+                const imageUrl =
+                  rawImageUrl && rawImageUrl !== "/products.png" && !/\/products\.png$/i.test(rawImageUrl)
+                    ? rawImageUrl
+                    : "";
                 out.push({
                   name,
                   role: String(row?.gradeLabel || row?.productFamily || "").trim(),
-                  imageUrl: String(row?.productImageUrl || row?.imageUrl || "").trim(),
+                  imageUrl,
                 });
                 if (out.length >= 4) break;
               }
@@ -12407,7 +12545,7 @@ const handleFinishDealerEnrollment = async () => {
             })();
             const seCategoryProductImages = seCategoryFeaturedProductsSupplement
               .map((p) => String(p?.imageUrl || "").trim())
-              .filter(Boolean);
+              .filter((url) => url && url !== "/products.png" && !/\/products\.png$/i.test(url));
             const seCategoryIdealCustomersSupplement = (() => {
               const signals = Array.isArray(seAssemblyPkg?.customerProfileSignals)
                 ? seAssemblyPkg.customerProfileSignals.map((x) => String(x ?? "").trim()).filter(Boolean)
@@ -12446,103 +12584,17 @@ const handleFinishDealerEnrollment = async () => {
                   id="kl-se-guided-category-ladder-upload"
                   type="file"
                   accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-                  multiple
                   style={{ display: "none" }}
                   onChange={handleSeGuidedCategoryLadderImageUploadChange}
                 />
-                <div
-                  style={{
-                    width: "100%",
-                    maxWidth: 1140,
-                    margin: "0 auto 10px",
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    background: "#f8fafc",
-                    border: "1px solid rgba(203, 213, 225, 0.9)",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: "#1e3a8a" }}>
-                    LADDER PRODUCT PHOTOS (PREVIEW)
-                  </span>
-                  {["good", "better", "best", "ultimate"].map((tierId) => (
-                    <button
-                      key={tierId}
-                      type="button"
-                      onClick={() => setSeGuidedCategoryLadderUploadTier(tierId)}
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 800,
-                        padding: "5px 10px",
-                        borderRadius: 999,
-                        border:
-                          seGuidedCategoryLadderUploadTier === tierId
-                            ? "2px solid #ea580c"
-                            : "1px solid #cbd5e1",
-                        background:
-                          seGuidedCategoryLadderUploadTier === tierId ? "#fff7ed" : "#ffffff",
-                        color: "#1e3a8a",
-                        cursor: "pointer",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      {tierId}
-                      {(seGuidedCategoryLadderUploads[tierId] || []).length
-                        ? ` (${seGuidedCategoryLadderUploads[tierId].length})`
-                        : ""}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => seGuidedCategoryLadderUploadRef.current?.click()}
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 800,
-                      padding: "5px 12px",
-                      borderRadius: 999,
-                      border: "1px solid rgba(234, 88, 12, 0.45)",
-                      background: "#ffffff",
-                      color: "#c2410c",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Add to {seGuidedCategoryLadderUploadTier}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const tier = seGuidedCategoryLadderUploadTier;
-                      setSeGuidedCategoryLadderUploads((prev) => {
-                        for (const row of prev[tier] || []) {
-                          try {
-                            if (row?.imageUrl) URL.revokeObjectURL(row.imageUrl);
-                          } catch {
-                            /* ignore */
-                          }
-                        }
-                        return { ...prev, [tier]: [] };
-                      });
-                    }}
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      padding: "5px 10px",
-                      borderRadius: 999,
-                      border: "1px solid #e2e8f0",
-                      background: "#ffffff",
-                      color: "#64748b",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Clear tier
-                  </button>
-                </div>
                 <CategorySpotlightSellSheet
                   key={`se-category-sell-sheet-${seGuidedStep3CategoryKey || "category"}-${seAiSalesSheetReady ? "ai" : "pkg"}`}
                   categoryLadderKey={seGuidedStep3CategoryKey || undefined}
+                  categoryTitle={
+                    seGuidedStep3CategoryKey
+                      ? `KLONDIKE ${SE_GUIDED_STEP3_CATEGORY_LABELS[seGuidedStep3CategoryKey] || seGuidedStep3CategoryKey}`
+                      : undefined
+                  }
                   featuredProductsSupplement={seCategoryFeaturedProductsSupplement}
                   productImages={seCategoryProductImages}
                   idealCustomers={seCategoryIdealCustomersSupplement}
@@ -12552,6 +12604,8 @@ const handleFinishDealerEnrollment = async () => {
                   cautions={seCategoryCautionsSupplement}
                   pdsLinks={seCategoryPdsLinks}
                   uploadedCategoryProductImages={seGuidedCategoryLadderUploads}
+                  onCategoryProductImageUploadRequest={requestSeGuidedCategoryLadderProductImageUpload}
+                  onLadderTierProductImageUploadRequest={requestSeGuidedCategoryLadderProductImageUpload}
                 />
               </>
             );
@@ -29557,7 +29611,60 @@ case "rep":
               { id: "product", label: "Product Spotlight" },
               { id: "category", label: "Category Spotlight" },
               { id: "customer", label: "Customer Profile" },
+              { id: "oem", label: "OEM Opportunity Profile" },
             ];
+            const oemPreviewOptions = listEquipmentOpportunityProfiles();
+            const selectedOemEquipmentProfile = getEquipmentOpportunityProfile(sellSheetOemPresetKey);
+            const oemSellSheetProps = mapEquipmentOpportunityProfileToSellSheetProps(
+              selectedOemEquipmentProfile
+            );
+            const requestSellSheetCategoryImageUpload = (bucketId, slotIndex) => {
+              const bucket = String(bucketId || "good").toLowerCase();
+              const bucketKey = ["good", "better", "best", "ultimate", "featured", "ecosystem"].includes(bucket)
+                ? bucket
+                : "good";
+              const maxSlot = bucketKey === "featured" || bucketKey === "ecosystem" ? 5 : 2;
+              const slot = Number.isFinite(slotIndex) ? Math.max(0, Math.min(maxSlot, Math.floor(slotIndex))) : 0;
+              setSellSheetCategoryUploadBucket(bucketKey);
+              setSellSheetCategoryUploadSlot(slot);
+              sellSheetCategoryUploadRef.current?.click();
+            };
+            const handleSellSheetCategoryImageUploadChange = (event) => {
+              const file = event.target.files?.[0];
+              if (event.target) event.target.value = "";
+              if (!file) return;
+              const mimeOk = /^image\/(png|jpeg|webp)$/i.test(file.type);
+              const nameOk = /\.(png|jpe?g|webp)$/i.test(file.name || "");
+              if (!mimeOk && !nameOk) return;
+              const bucket = String(sellSheetCategoryUploadBucket || "good").toLowerCase();
+              const bucketKey = ["good", "better", "best", "ultimate", "featured", "ecosystem"].includes(bucket)
+                ? bucket
+                : "good";
+              const maxSlot = bucketKey === "featured" || bucketKey === "ecosystem" ? 5 : 2;
+              const slotIndex = Number.isFinite(sellSheetCategoryUploadSlot)
+                ? Math.max(0, Math.min(maxSlot, Math.floor(sellSheetCategoryUploadSlot)))
+                : 0;
+              const label = String(file.name || "")
+                .replace(/\.[^.]+$/, "")
+                .trim();
+              setSellSheetCategoryUploads((prev) => {
+                const slot = Array.isArray(prev[bucketKey]) ? [...prev[bucketKey]] : [];
+                while (slot.length <= slotIndex) slot.push(null);
+                const prevEntry = slot[slotIndex];
+                if (prevEntry?.imageUrl) {
+                  try {
+                    URL.revokeObjectURL(prevEntry.imageUrl);
+                  } catch {
+                    /* ignore */
+                  }
+                }
+                slot[slotIndex] = {
+                  imageUrl: URL.createObjectURL(file),
+                  label: label || `Product ${slotIndex + 1}`,
+                };
+                return { ...prev, [bucketKey]: slot };
+              });
+            };
             const sellSheetPreviewButtonStyle = (active) => ({
               padding: "10px 18px",
               borderRadius: 8,
@@ -29667,8 +29774,78 @@ case "rep":
                     productImageUrl={sellSheetTestProductImageUrl || undefined}
                   />
                 ) : null}
-                {sellSheetPreviewType === "category" ? <CategorySpotlightSellSheet /> : null}
+                {sellSheetPreviewType === "category" ? (
+                  <>
+                    <input
+                      ref={sellSheetCategoryUploadRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                      style={{ display: "none" }}
+                      onChange={handleSellSheetCategoryImageUploadChange}
+                    />
+                    <CategorySpotlightSellSheet
+                      categoryLadderKey="hydraulic"
+                      uploadedCategoryProductImages={sellSheetCategoryUploads}
+                      onCategoryProductImageUploadRequest={requestSellSheetCategoryImageUpload}
+                      onLadderTierProductImageUploadRequest={requestSellSheetCategoryImageUpload}
+                    />
+                  </>
+                ) : null}
                 {sellSheetPreviewType === "customer" ? <CustomerProfileSellSheet /> : null}
+                {sellSheetPreviewType === "oem" ? (
+                  <div style={{ display: "grid", gap: 16 }}>
+                    <label
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 10,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#cbd5e1",
+                        fontSize: 13,
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span>OEM opportunity profile</span>
+                      <select
+                        value={sellSheetOemPresetKey}
+                        onChange={(e) => setSellSheetOemPresetKey(e.target.value)}
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          border: "1px solid rgba(148, 163, 184, 0.45)",
+                          background: "rgba(15, 23, 42, 0.85)",
+                          color: "#f8fafc",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {oemPreviewOptions.map((preset) => (
+                          <option key={preset.key} value={preset.key}>
+                            {preset.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <p
+                      role="note"
+                      style={{
+                        margin: 0,
+                        padding: "12px 16px",
+                        borderRadius: 8,
+                        background: "rgba(234, 88, 12, 0.12)",
+                        border: "1px solid rgba(251, 146, 60, 0.45)",
+                        color: "#fdba74",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        lineHeight: 1.5,
+                        textAlign: "center",
+                      }}
+                    >
+                      {OEM_OPPORTUNITY_PREVIEW_DISCLAIMER}
+                    </p>
+                    <CustomerProfileSellSheet {...oemSellSheetProps} />
+                  </div>
+                ) : null}
               </>
             );
           })()}
