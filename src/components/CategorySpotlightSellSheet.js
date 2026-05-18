@@ -6,7 +6,7 @@
 
 import React from "react";
 
-export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6d1-1";
+export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6f1";
 
 const KLONDIKE_HEADER_LOGO_SRC = "/klondike-horizontal-logo.png";
 
@@ -114,49 +114,195 @@ const DEMO_DEFAULTS = {
 
 const LADDER_TIER_ORDER = ["good", "better", "best", "ultimate"];
 
+/** Guided wizard Step 3 keys (`App.js` SE_GUIDED_STEP3_CATEGORY_LABELS) → ladder preset id. */
+const WIZARD_CATEGORY_TO_LADDER_KEY = {
+  hydraulic: "hydraulic",
+  agrimax: "agrimax",
+  environmental_eal: "environmental",
+  food_grade: "foodGrade",
+  grease: "grease",
+  hd_engine_oil: "hdEngine",
+  gear_oil: "hydraulic",
+  industrial_specialty: "hydraulic",
+  coolant: "hydraulic",
+  transmission: "hydraulic",
+  other: "hydraulic",
+};
+
 const CATEGORY_LADDER_PRESETS = {
   hydraulic: {
     categoryKey: "hydraulic",
+    ladderStyle: "performance",
     emphasis: [
-      "Standard mixed-fleet coverage",
-      "Environmentally acceptable options",
-      "Food-grade where required",
-      "Severe-duty & high-load circuits",
-      "Wet brake / trans-drive compatibility",
+      "ISO VG discipline & pump tags",
+      "Bulk vs packaged top-off behavior",
+      "Contamination control first",
+      "Seasonal multi-viscosity coverage",
+      "Turbine & circulating programs",
+      "Tractor & wet-brake adjacent fills",
     ],
     tiers: [
       {
         tier: "good",
         label: "GOOD",
-        positioning: "Core value programs for everyday fleet hydraulics",
-        products: ["Professional Hydraulic Fluid", "Standard AW Hydraulic Fluid"],
+        positioning: "Core commercial and professional anti-wear programs",
+        products: ["Professional Hydraulic Fluids", "Advanced Hydraulic Fluids"],
       },
       {
         tier: "better",
         label: "BETTER",
-        positioning: "Step-up protection and seasonal flexibility",
-        products: ["Advanced Hydraulic Fluid", "Multi-Viscosity Hydraulic Fluid"],
+        positioning: "Broader temperature bands and mixed-fleet flexibility",
+        products: ["Multi-Viscosity Hydraulic Fluids", "Tractor Fluids"],
       },
       {
         tier: "best",
         label: "BEST",
-        positioning: "Premium synthetic performance for demanding duty",
-        products: ["Full Synthetic Hydraulic Fluid", "Severe-Duty Hydraulic Fluid"],
+        positioning: "Premium synthetic hydraulics and plant rotating equipment",
+        products: ["XVI Synthetic Hydraulic Fluids", "ISO Turbine Oils"],
       },
       {
         tier: "ultimate",
         label: "ULTIMATE",
-        positioning: "Specialty programs for sensitive sites and extremes",
+        positioning: "Specialty trans-hydraulic, wet brake, and circulating depth",
+        products: ["Wet Brake Lubricant", "Full Synthetic Gear & Circulating Oils"],
+      },
+    ],
+  },
+  agrimax: {
+    categoryKey: "agrimax",
+    ladderStyle: "program",
+    emphasis: [
+      "Farm & ag dealer program depth",
+      "Trans-hydraulic / UTHF conversations",
+      "Wet brake & multi-reservoir discipline",
+      "Confirm equipment tags on PDS",
+      "Seasonal bulk and packaged strategy",
+      "Full-line consolidation (fluids, grease, coolant)",
+    ],
+    tiers: [
+      {
+        tier: "good",
+        label: "CORE",
+        positioning: "Anchor trans-drive hydraulic programs for ag equipment",
         products: [
-          "Bio-Synthetic EAL Hydraulic Fluid",
-          "Food Grade Hydraulic Fluid",
-          "Arctic Hydraulic Fluid",
+          "AGRIMAX Trans Drive Hydraulic Fluid",
+          "Universal tractor / trans-hydraulic fluids (see PDS equipment guidance)",
+        ],
+      },
+      {
+        tier: "better",
+        label: "SPECIALTY",
+        positioning: "Zinc-free and line-specific trans-hydraulic options",
+        products: [
+          "AGRIMAX Zinc Free Trans Drive Hydraulic Fluid",
+          "Wet brake & transmission-fluid positioning (verify tags on PDS)",
+        ],
+      },
+      {
+        tier: "best",
+        label: "SEVERE DUTY",
+        positioning: "Heavy farm engine and high-hour seasonal protection",
+        products: [
+          "AGRIMAX SAE 15W-40 CK-4 Synthetic Blend Heavy Duty Engine Oil",
+          "AGRIMAX Poly Tac / multipurpose grease programs",
+        ],
+      },
+      {
+        tier: "ultimate",
+        label: "COMPLIANCE",
+        positioning: "Coolant and companion programs that protect the ag account",
+        products: [
+          "AGRIMAX Extended Life Coolant programs",
+          "RED TAC / field grease companions (confirm spec on PDS)",
+        ],
+      },
+    ],
+  },
+  environmental: {
+    categoryKey: "environmental",
+    ladderStyle: "program",
+    emphasis: [
+      "Sensitive-site and spill-response planning",
+      "Biodegradability / EAL language from PDS",
+      "Hydraulic + rock drill + specialty depth",
+      "Do not overstate environmental claims",
+      "Pair chemistry with containment discipline",
+      "Cross-sell only where site rules require",
+    ],
+    tiers: [
+      {
+        tier: "good",
+        label: "CORE",
+        positioning: "Inherently biodegradable AW programs for entry EAL conversations",
+        products: ["ENVIRO Inherently Biodegradable AW Hydraulic Fluids"],
+      },
+      {
+        tier: "better",
+        label: "SPECIALTY",
+        positioning: "BIO-labeled biodegradable hydraulics and HEES options",
+        products: ["BIO Biodegradable AW Hydraulic Fluids", "BIO Hees Hydraulic Fluids"],
+      },
+      {
+        tier: "best",
+        label: "SEVERE DUTY",
+        positioning: "Synthetic-blend EAL hydraulics for demanding eco-sensitive duty",
+        products: [
+          "BIO-Synthetic EAL Hydraulic Oils",
+          "BIO Biodegradable Synthetic Blend Hydraulic Fluids",
+        ],
+      },
+      {
+        tier: "ultimate",
+        label: "COMPLIANCE",
+        positioning: "HFDU and specialty environmentally acceptable positioning",
+        products: ["Bio HFDU Hydraulic Fluids", "BIO Biodegradable Rock Drill Oil"],
+      },
+    ],
+  },
+  foodGrade: {
+    categoryKey: "foodGrade",
+    ladderStyle: "program",
+    emphasis: [
+      "NSF H1 registration — confirm on each PDS",
+      "Food plant audit readiness",
+      "Separate food-grade inventory discipline",
+      "Hydraulic, grease, and gear program breadth",
+      "Compressor & industrial H1 where applicable",
+      "No implied OEM or registration beyond PDS",
+    ],
+    tiers: [
+      {
+        tier: "good",
+        label: "CORE",
+        positioning: "Foundation H1 hydraulic programs for food plants",
+        products: ["FOOD-GRADE Hydraulic Oils"],
+      },
+      {
+        tier: "better",
+        label: "SPECIALTY",
+        positioning: "EP grease and general food-processing lubrication",
+        products: ["FOOD-GRADE EP-2 Grease", "FOOD-GRADE multipurpose grease programs"],
+      },
+      {
+        tier: "best",
+        label: "SEVERE DUTY",
+        positioning: "Gear and drivetrain H1 depth for processing equipment",
+        products: ["FOOD-GRADE Gear Oils", "FOOD-GRADE industrial gear programs"],
+      },
+      {
+        tier: "ultimate",
+        label: "COMPLIANCE",
+        positioning: "Compressor, chain, and specialty H1 where PDS supports plant duty",
+        products: [
+          "FOOD-GRADE compressor & circulating oils",
+          "FOOD-GRADE chain / conveyor lubricants (confirm H1 on PDS)",
         ],
       },
     ],
   },
   grease: {
     categoryKey: "grease",
+    ladderStyle: "performance",
     emphasis: [
       "Severe-duty pins & bushings",
       "Shock load & vibration",
@@ -194,38 +340,42 @@ const CATEGORY_LADDER_PRESETS = {
   },
   hdEngine: {
     categoryKey: "hdEngine",
+    ladderStyle: "performance",
     emphasis: [
-      "OEM approval conversations",
-      "CK-4 / FA-4 alignment",
+      "API CK-4 / FA-4 category alignment",
       "Synthetic tier progression",
       "Mixed on- & off-highway fleets",
-      "Emissions-system compatibility",
+      "Emissions-system compatibility (confirm on PDS)",
       "Drain-interval strategy",
+      "Natural gas & specialty engine lines where quoted",
     ],
     tiers: [
       {
         tier: "good",
         label: "GOOD",
         positioning: "Conventional HD programs for cost-sensitive fleets",
-        products: ["Conventional Heavy Duty Engine Oils"],
+        products: ["Commercial Formula Heavy Duty Engine Oils", "Professional Formula Heavy Duty Engine Oils"],
       },
       {
         tier: "better",
         label: "BETTER",
         positioning: "Synthetic blend for improved protection and flexibility",
-        products: ["Synthetic Blend Heavy Duty Engine Oils"],
+        products: ["Synthetic Blend Heavy Duty Engine Oils", "Advanced Formula Heavy Duty Engine Oils"],
       },
       {
         tier: "best",
         label: "BEST",
         positioning: "Full synthetic CK-4 for premium fleet programs",
-        products: ["Full Synthetic CK-4 Heavy Duty Engine Oils"],
+        products: ["Full Synthetic CK-4 Heavy Duty Engine Oils", "SAE 5W-40 Full Synthetic Heavy Duty Engine Oils"],
       },
       {
         tier: "ultimate",
         label: "ULTIMATE",
-        positioning: "Severe-duty extended-drain synthetic strategies",
-        products: ["Severe-Duty Extended-Drain Synthetic Programs"],
+        positioning: "Severe-duty, natural gas, and specialty HD strategies",
+        products: [
+          "Low-ash natural gas engine oils",
+          "Railroad & severe-service HD programs (confirm category on PDS)",
+        ],
       },
     ],
   },
@@ -458,7 +608,19 @@ function normalizeFeaturedProducts(products, productImages) {
   return out;
 }
 
-function inferCategoryLadderKey(categoryTitle, categorySubtitle, applications) {
+function resolveExplicitLadderKey(explicitKey) {
+  const raw = String(explicitKey || "").trim();
+  if (!raw) return "";
+  if (CATEGORY_LADDER_PRESETS[raw]) return raw;
+  const fromWizard = WIZARD_CATEGORY_TO_LADDER_KEY[raw];
+  if (fromWizard && CATEGORY_LADDER_PRESETS[fromWizard]) return fromWizard;
+  return "";
+}
+
+function inferCategoryLadderKey(categoryTitle, categorySubtitle, applications, explicitCategoryKey) {
+  const fromExplicit = resolveExplicitLadderKey(explicitCategoryKey);
+  if (fromExplicit) return fromExplicit;
+
   const blob = [
     categoryTitle,
     categorySubtitle,
@@ -466,16 +628,43 @@ function inferCategoryLadderKey(categoryTitle, categorySubtitle, applications) {
   ]
     .join(" ")
     .toLowerCase();
-  if (/grease|nlgi|red tac|moly tac|ultra tac|nano/.test(blob)) return "grease";
-  if (/engine oil|ck-4|ck4|fa-4|fa4|heavy duty engine|hd engine|motor oil/.test(blob)) {
+
+  if (/\bagrimax\b|agri[- ]max|agri_oem|zinc.?free trans.?drive/.test(blob)) return "agrimax";
+  if (
+    /\bfood[- ]?grade\b|\bnsf\s*h1\b|\bh1\s*food\b|food[- ]processing|food plant/.test(blob) &&
+    !/\bagrimax\b/.test(blob)
+  ) {
+    return "foodGrade";
+  }
+  if (
+    /\b(enviro|bio[- ]|eal|biodegradable|environmentally acceptable|hees|hfdu)\b/.test(blob) &&
+    !/\bagrimax\b/.test(blob)
+  ) {
+    return "environmental";
+  }
+  if (/grease|nlgi|red tac|moly tac|ultra tac|syn tac|nano/.test(blob) && !/\bhydraulic\b/.test(blob)) {
+    return "grease";
+  }
+  if (/engine oil|ck-4|ck4|fa-4|fa4|heavy duty engine|hd engine|motor oil|crankcase/.test(blob)) {
     return "hdEngine";
   }
-  if (/hydraulic|trans.?drive|aw fluid|iso vg|tractor fluid|wet brake/.test(blob)) {
+  if (
+    /hydraulic|iso vg|iso turbine|tractor fluid|wet brake|circulating|xvi synthetic|aw fluid|professional hydraulic/.test(
+      blob
+    ) &&
+    !/\bagrimax\b/.test(blob)
+  ) {
     return "hydraulic";
   }
-  if (/food.?grade/.test(blob) && /hydraulic/.test(blob)) return "hydraulic";
-  if (/gear oil|gear lubricant/.test(blob)) return "hydraulic";
+  if (/gear oil|gear lubricant|drivetrain/.test(blob)) return "hydraulic";
   return "hydraulic";
+}
+
+function ladderSectionHeading(ladder) {
+  if (ladder?.ladderStyle === "program") {
+    return "CORE · SPECIALTY · SEVERE DUTY · COMPLIANCE";
+  }
+  return "GOOD · BETTER · BEST · ULTIMATE";
 }
 
 function normalizeLadderTier(item, fallbackLabel) {
@@ -505,7 +694,12 @@ function normalizeProductLadder(value, presetKey) {
   const key = CATEGORY_LADDER_PRESETS[presetKey] ? presetKey : "hydraulic";
   const preset = CATEGORY_LADDER_PRESETS[key];
   if (!value || typeof value !== "object") {
-    return { ...preset, tiers: preset.tiers.map((t) => ({ ...t, products: [...t.products] })) };
+    return {
+      categoryKey: preset.categoryKey,
+      ladderStyle: preset.ladderStyle || "performance",
+      emphasis: [...preset.emphasis],
+      tiers: preset.tiers.map((t) => ({ ...t, products: [...t.products] })),
+    };
   }
   const emphasis = pickList(value.emphasis ?? value.highlights, preset.emphasis).slice(0, 6);
   const tiersIn = Array.isArray(value.tiers) ? value.tiers : [];
@@ -520,7 +714,8 @@ function normalizeProductLadder(value, presetKey) {
     return normalized;
   });
   return {
-    categoryKey: String(value.categoryKey || key),
+    categoryKey: String(value.categoryKey || preset.categoryKey || key),
+    ladderStyle: String(value.ladderStyle || preset.ladderStyle || "performance"),
     emphasis: emphasis.length ? emphasis : preset.emphasis,
     tiers,
   };
@@ -971,7 +1166,7 @@ function CategoryPerformanceLadderSection({ ladder }) {
           Category performance ladder
         </p>
         <p style={{ margin: "8px 0 0", fontSize: 24, fontWeight: 900, color: BRAND.headerNavy, lineHeight: 1.15 }}>
-          GOOD · BETTER · BEST · ULTIMATE
+          {ladderSectionHeading(ladder)}
         </p>
         <p style={{ margin: "10px 0 0", fontSize: 14, fontWeight: 600, color: "#64748b", lineHeight: 1.5, maxWidth: 720 }}>
           Use the ladder to structure line depth, margin expansion, and upsell conversations—not a single-SKU pitch.
@@ -1594,7 +1789,12 @@ export default function CategorySpotlightSellSheet(props) {
 
   const stripCount = Math.min(Math.max(valueCards.length, 4), 6);
   const stripCards = valueCards.slice(0, stripCount);
-  const ladderPresetKey = inferCategoryLadderKey(categoryTitle, categorySubtitle, applications);
+  const ladderPresetKey = inferCategoryLadderKey(
+    categoryTitle,
+    categorySubtitle,
+    applications,
+    props.categoryLadderKey
+  );
   const productLadder = normalizeProductLadder(
     props.productLadder ?? DEMO_DEFAULTS.productLadder,
     ladderPresetKey

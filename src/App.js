@@ -12378,6 +12378,7 @@ const handleFinishDealerEnrollment = async () => {
                 cautions={seFinalSellSheetCautions}
                 recommendedNextStep={seFinalSellSheetNextStep}
                 pdsLinks={seCategoryPdsLinks}
+                categoryLadderKey={seGuidedStep3CategoryKey || undefined}
               />
             );
             const productSpotlightSellSheetPreview = (
