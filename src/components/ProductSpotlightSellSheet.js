@@ -242,7 +242,15 @@ function resolveCrossSellItems(items) {
 function pickPdsUrl(value) {
   const u = String(value ?? "").trim();
   if (!u) return "";
-  if (/^https?:\/\//i.test(u) || u.startsWith("/")) return u;
+  if (u.startsWith("/pds/")) return u;
+  if (/^https?:\/\//i.test(u)) {
+    try {
+      const path = new URL(u).pathname;
+      return path.startsWith("/pds/") ? path : "";
+    } catch {
+      return "";
+    }
+  }
   return "";
 }
 
@@ -724,8 +732,8 @@ function ProductImageCard({
 }) {
   const clickable = typeof onProductImageClick === "function";
   const uploadHint =
-    String(productImageUploadLabel || "").trim() ||
-    (productImageUrl ? "Click to replace product image" : "Click to upload product image");
+    String(productImageUploadLabel || "").trim() || "Click to upload product image";
+  const replaceAriaLabel = "Replace product image";
 
   const cardStyle = {
     position: "relative",
@@ -759,20 +767,6 @@ function ProductImageCard({
           pointerEvents: "none",
         }}
       />
-      {clickable ? (
-        <p
-          style={{
-            margin: "10px 0 0",
-            fontSize: 11,
-            fontWeight: 800,
-            color: BRAND.orange,
-            textAlign: "center",
-            letterSpacing: "0.06em",
-          }}
-        >
-          {uploadHint}
-        </p>
-      ) : null}
     </>
   ) : (
     <div
@@ -850,7 +844,7 @@ function ProductImageCard({
         textAlign: "inherit",
         font: "inherit",
       }}
-      aria-label={uploadHint}
+      aria-label={productImageUrl ? replaceAriaLabel : uploadHint}
     >
       {inner}
     </button>

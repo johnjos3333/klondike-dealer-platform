@@ -11521,9 +11521,37 @@ const handleFinishDealerEnrollment = async () => {
             const stagedWizardPdsHint =
               seTplStagedKnowledge && kTplSp ? String(kTplSp.pdsFileHint || "").trim() : "";
             const mockWizardPdsHint = String(seGuidedKnowledgePreviewMock?.pdsFileHint || "").trim();
+            const normalizePublicPdsAssetUrl = (raw) => {
+              const s = String(raw ?? "").trim();
+              if (!s) return "";
+              if (s.startsWith("/pds/")) return s;
+              if (/^https?:\/\//i.test(s)) {
+                try {
+                  const path = new URL(s).pathname;
+                  return path.startsWith("/pds/") ? path : "";
+                } catch {
+                  return "";
+                }
+              }
+              return "";
+            };
+            const resolvePublicPdsUrlFromHintOrKey = (hintOrKey) => {
+              const key = String(hintOrKey ?? "").trim();
+              if (!key) return "";
+              const mapUrl = PDS_MAP[key]?.url;
+              const fromMap = normalizePublicPdsAssetUrl(mapUrl);
+              if (fromMap) return fromMap;
+              return normalizePublicPdsAssetUrl(getSalesEnablementPdsUrl(key));
+            };
+            const assemblyPrimaryPdsKey = String(
+              (Array.isArray(seGuidedAssemblyDraftPackage?.productCards)
+                ? seGuidedAssemblyDraftPackage.productCards[0]?.pdsMapKey
+                : "") || ""
+            ).trim();
             const guidedWizardPdsUrl =
-              getSalesEnablementPdsUrl(stagedWizardPdsHint || mockWizardPdsHint) ||
-              String(salesEnablementGuidedTemplateLines.pdsPreviewUrl || "").trim();
+              resolvePublicPdsUrlFromHintOrKey(assemblyPrimaryPdsKey) ||
+              resolvePublicPdsUrlFromHintOrKey(stagedWizardPdsHint || mockWizardPdsHint) ||
+              normalizePublicPdsAssetUrl(salesEnablementGuidedTemplateLines.pdsPreviewUrl);
             const seProductImageHint = getSalesEnablementProductImageHint({
               spotlightId: salesEnablementSelectedId,
               spotlightMode: salesEnablementSpotlightMode,
@@ -12182,7 +12210,7 @@ const handleFinishDealerEnrollment = async () => {
                   productImageUrl={seSellSheetProductImageUrl || undefined}
                   pdsUrl={seSellSheetPdsUrl}
                   onProductImageClick={() => seGuidedProductImageUploadRef.current?.click()}
-                  productImageUploadLabel="Click to upload or replace product image"
+                  productImageUploadLabel="Click to upload product image"
                 />
               </>
             );
