@@ -1,12 +1,12 @@
-/**
+﻿/**
  * CategorySpotlightSellSheet — standalone category / system-solution sell sheet.
- * Layout id: category-spotlight-sell-sheet-v6d1
+ * Layout id: category-spotlight-sell-sheet-v6d1-1
  * Not wired into App.js yet.
  */
 
 import React from "react";
 
-export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6d1";
+export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6d1-1";
 
 const KLONDIKE_HEADER_LOGO_SRC = "/klondike-horizontal-logo.png";
 
@@ -109,6 +109,126 @@ const DEMO_DEFAULTS = {
   recommendedNextStep:
     "Expand hydraulic penetration: standardize ISO VG ladders, consolidate suppliers, and bundle filtration with the category program to reduce downtime across equipment groups.",
   pdsLinks: [],
+  productLadder: null,
+};
+
+const LADDER_TIER_ORDER = ["good", "better", "best", "ultimate"];
+
+const CATEGORY_LADDER_PRESETS = {
+  hydraulic: {
+    categoryKey: "hydraulic",
+    emphasis: [
+      "Standard mixed-fleet coverage",
+      "Environmentally acceptable options",
+      "Food-grade where required",
+      "Severe-duty & high-load circuits",
+      "Wet brake / trans-drive compatibility",
+    ],
+    tiers: [
+      {
+        tier: "good",
+        label: "GOOD",
+        positioning: "Core value programs for everyday fleet hydraulics",
+        products: ["Professional Hydraulic Fluid", "Standard AW Hydraulic Fluid"],
+      },
+      {
+        tier: "better",
+        label: "BETTER",
+        positioning: "Step-up protection and seasonal flexibility",
+        products: ["Advanced Hydraulic Fluid", "Multi-Viscosity Hydraulic Fluid"],
+      },
+      {
+        tier: "best",
+        label: "BEST",
+        positioning: "Premium synthetic performance for demanding duty",
+        products: ["Full Synthetic Hydraulic Fluid", "Severe-Duty Hydraulic Fluid"],
+      },
+      {
+        tier: "ultimate",
+        label: "ULTIMATE",
+        positioning: "Specialty programs for sensitive sites and extremes",
+        products: [
+          "Bio-Synthetic EAL Hydraulic Fluid",
+          "Food Grade Hydraulic Fluid",
+          "Arctic Hydraulic Fluid",
+        ],
+      },
+    ],
+  },
+  grease: {
+    categoryKey: "grease",
+    emphasis: [
+      "Severe-duty pins & bushings",
+      "Shock load & vibration",
+      "Washout resistance",
+      "Relube interval strategy",
+      "Centralized systems",
+      "Wet outdoor environments",
+    ],
+    tiers: [
+      {
+        tier: "good",
+        label: "GOOD",
+        positioning: "Reliable multipurpose EP for general fleet grease points",
+        products: ["RED TAC", "HD TAC"],
+      },
+      {
+        tier: "better",
+        label: "BETTER",
+        positioning: "Moly-fortified upgrade for load and outdoor duty",
+        products: ["MOLY TAC 3%"],
+      },
+      {
+        tier: "best",
+        label: "BEST",
+        positioning: "Synthetic-blend EP for longer intervals and heat",
+        products: ["ULTRA TAC", "MOLY TAC HD 5%"],
+      },
+      {
+        tier: "ultimate",
+        label: "ULTIMATE",
+        positioning: "Flagship programs for the toughest grease applications",
+        products: ["nano Calcium Sulfonate", "nano Lithium Complex Synthetic"],
+      },
+    ],
+  },
+  hdEngine: {
+    categoryKey: "hdEngine",
+    emphasis: [
+      "OEM approval conversations",
+      "CK-4 / FA-4 alignment",
+      "Synthetic tier progression",
+      "Mixed on- & off-highway fleets",
+      "Emissions-system compatibility",
+      "Drain-interval strategy",
+    ],
+    tiers: [
+      {
+        tier: "good",
+        label: "GOOD",
+        positioning: "Conventional HD programs for cost-sensitive fleets",
+        products: ["Conventional Heavy Duty Engine Oils"],
+      },
+      {
+        tier: "better",
+        label: "BETTER",
+        positioning: "Synthetic blend for improved protection and flexibility",
+        products: ["Synthetic Blend Heavy Duty Engine Oils"],
+      },
+      {
+        tier: "best",
+        label: "BEST",
+        positioning: "Full synthetic CK-4 for premium fleet programs",
+        products: ["Full Synthetic CK-4 Heavy Duty Engine Oils"],
+      },
+      {
+        tier: "ultimate",
+        label: "ULTIMATE",
+        positioning: "Severe-duty extended-drain synthetic strategies",
+        products: ["Severe-Duty Extended-Drain Synthetic Programs"],
+      },
+    ],
+  },
 };
 
 function pickList(value, fallback) {
@@ -336,6 +456,74 @@ function normalizeFeaturedProducts(products, productImages) {
     if (out.length >= 6) break;
   }
   return out;
+}
+
+function inferCategoryLadderKey(categoryTitle, categorySubtitle, applications) {
+  const blob = [
+    categoryTitle,
+    categorySubtitle,
+    ...(Array.isArray(applications) ? applications : []),
+  ]
+    .join(" ")
+    .toLowerCase();
+  if (/grease|nlgi|red tac|moly tac|ultra tac|nano/.test(blob)) return "grease";
+  if (/engine oil|ck-4|ck4|fa-4|fa4|heavy duty engine|hd engine|motor oil/.test(blob)) {
+    return "hdEngine";
+  }
+  if (/hydraulic|trans.?drive|aw fluid|iso vg|tractor fluid|wet brake/.test(blob)) {
+    return "hydraulic";
+  }
+  if (/food.?grade/.test(blob) && /hydraulic/.test(blob)) return "hydraulic";
+  if (/gear oil|gear lubricant/.test(blob)) return "hydraulic";
+  return "hydraulic";
+}
+
+function normalizeLadderTier(item, fallbackLabel) {
+  if (!item || typeof item !== "object") {
+    return {
+      tier: fallbackLabel.toLowerCase(),
+      label: fallbackLabel,
+      positioning: "",
+      products: [],
+    };
+  }
+  const tier = String(item.tier || fallbackLabel).toLowerCase();
+  const label = String(item.label ?? fallbackLabel).trim().toUpperCase() || fallbackLabel;
+  const positioning = String(item.positioning ?? item.sub ?? item.desc ?? "").trim();
+  const products = [];
+  const rawProducts = item.products ?? item.skus ?? item.items;
+  if (Array.isArray(rawProducts)) {
+    for (const p of rawProducts) {
+      const name = typeof p === "object" ? String(p.name ?? p.title ?? "").trim() : String(p ?? "").trim();
+      if (name) products.push(name);
+    }
+  }
+  return { tier, label, positioning, products: products.slice(0, 4) };
+}
+
+function normalizeProductLadder(value, presetKey) {
+  const key = CATEGORY_LADDER_PRESETS[presetKey] ? presetKey : "hydraulic";
+  const preset = CATEGORY_LADDER_PRESETS[key];
+  if (!value || typeof value !== "object") {
+    return { ...preset, tiers: preset.tiers.map((t) => ({ ...t, products: [...t.products] })) };
+  }
+  const emphasis = pickList(value.emphasis ?? value.highlights, preset.emphasis).slice(0, 6);
+  const tiersIn = Array.isArray(value.tiers) ? value.tiers : [];
+  const tiers = LADDER_TIER_ORDER.map((tierId, i) => {
+    const fallback = preset.tiers[i] || preset.tiers[0];
+    const match =
+      tiersIn.find((t) => String(t?.tier || t?.label || "").toLowerCase() === tierId) ||
+      tiersIn[i];
+    const normalized = normalizeLadderTier(match, fallback.label);
+    if (!normalized.products.length) normalized.products = [...fallback.products];
+    if (!normalized.positioning) normalized.positioning = fallback.positioning;
+    return normalized;
+  });
+  return {
+    categoryKey: String(value.categoryKey || key),
+    emphasis: emphasis.length ? emphasis : preset.emphasis,
+    tiers,
+  };
 }
 
 function normalizePdsLinks(value) {
@@ -622,6 +810,209 @@ function productLineIndexLabel(index) {
   return String(index + 1).padStart(2, "0");
 }
 
+function LadderTierIcon({ tier }) {
+  const stroke = BRAND.orangeLight;
+  const fill = "rgba(251, 146, 60, 0.28)";
+  const s = 36;
+  const t = String(tier || "good").toLowerCase();
+  if (t === "better") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 36 36" fill="none" aria-hidden>
+        <path d="M8 24l6-10 4 7 8-12 6 9" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (t === "best") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 36 36" fill="none" aria-hidden>
+        <path
+          d="M18 6l4 8h9l-7 6 3 9-9-6-9 6 3-7-6h9l4-8z"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (t === "ultimate") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 36 36" fill="none" aria-hidden>
+        <circle cx="18" cy="18" r="10" fill={fill} stroke={stroke} strokeWidth="1.8" />
+        <path d="M12 18h12M18 12v12" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width={s} height={s} viewBox="0 0 36 36" fill="none" aria-hidden>
+      <rect x="8" y="12" width="20" height="12" rx="3" fill={fill} stroke={stroke} strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function ladderTierVisual(tierIndex) {
+  const palettes = [
+    { bg: "#f8fafc", border: "rgba(30, 58, 138, 0.2)", accent: BRAND.slate },
+    { bg: "#fff7ed", border: "rgba(234, 88, 12, 0.35)", accent: BRAND.orange },
+    { bg: "linear-gradient(160deg, #eff6ff 0%, #fff 100%)", border: "rgba(30, 64, 175, 0.35)", accent: BRAND.navyMid },
+    {
+      bg: `linear-gradient(160deg, ${BRAND.navyDeep} 0%, ${BRAND.navyMid} 100%)`,
+      border: BRAND.orange,
+      accent: BRAND.orangeLight,
+      lightText: true,
+    },
+  ];
+  return palettes[Math.min(tierIndex, 3)];
+}
+
+function LadderTierColumn({ tier, tierIndex }) {
+  const visual = ladderTierVisual(tierIndex);
+  const isUltimate = tierIndex === 3;
+  return (
+    <article
+      style={{
+        padding: "20px 16px 22px",
+        borderRadius: 12,
+        background: visual.bg,
+        border: `2px solid ${visual.border}`,
+        boxShadow: isUltimate ? "0 16px 36px rgba(15, 23, 42, 0.2)" : "0 8px 20px rgba(15, 23, 42, 0.06)",
+        minHeight: 240,
+        display: "flex",
+        flexDirection: "column",
+        transform: isUltimate ? "translateY(-4px)" : "none",
+      }}
+    >
+      <div
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 12,
+          background: isUltimate
+            ? "rgba(255,255,255,0.12)"
+            : `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
+          border: `2px solid ${isUltimate ? BRAND.orangeLight : "rgba(234, 88, 12, 0.45)"}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 12,
+        }}
+        aria-hidden
+      >
+        <LadderTierIcon tier={tier.tier} />
+      </div>
+      <p
+        style={{
+          margin: 0,
+          fontSize: 13,
+          fontWeight: 900,
+          letterSpacing: "0.12em",
+          color: isUltimate ? BRAND.orangeLight : visual.accent,
+        }}
+      >
+        {tier.label}
+      </p>
+      {tier.positioning ? (
+        <p
+          style={{
+            margin: "8px 0 14px",
+            fontSize: 11,
+            fontWeight: 600,
+            lineHeight: 1.45,
+            color: isUltimate ? "rgba(255,255,255,0.88)" : "#64748b",
+          }}
+        >
+          {tier.positioning}
+        </p>
+      ) : null}
+      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8, flex: 1 }}>
+        {tier.products.map((name) => (
+          <li
+            key={name}
+            style={{
+              fontSize: 12,
+              fontWeight: 800,
+              lineHeight: 1.35,
+              color: isUltimate ? BRAND.white : BRAND.headerNavy,
+              padding: "8px 10px",
+              borderRadius: 8,
+              background: isUltimate ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.85)",
+              border: isUltimate ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(30, 58, 138, 0.12)",
+            }}
+          >
+            {name}
+          </li>
+        ))}
+      </ul>
+    </article>
+  );
+}
+
+function CategoryPerformanceLadderSection({ ladder }) {
+  if (!ladder?.tiers?.length) return null;
+  return (
+    <section
+      style={{
+        padding: "36px 44px 40px",
+        background: BRAND.white,
+        borderBottom: "1px solid rgba(226,232,240,0.95)",
+      }}
+    >
+      <div style={{ marginBottom: 22 }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 11,
+            fontWeight: 900,
+            letterSpacing: "0.16em",
+            color: BRAND.orange,
+            textTransform: "uppercase",
+          }}
+        >
+          Category performance ladder
+        </p>
+        <p style={{ margin: "8px 0 0", fontSize: 24, fontWeight: 900, color: BRAND.headerNavy, lineHeight: 1.15 }}>
+          GOOD · BETTER · BEST · ULTIMATE
+        </p>
+        <p style={{ margin: "10px 0 0", fontSize: 14, fontWeight: 600, color: "#64748b", lineHeight: 1.5, maxWidth: 720 }}>
+          Use the ladder to structure line depth, margin expansion, and upsell conversations—not a single-SKU pitch.
+        </p>
+      </div>
+      {ladder.emphasis?.length ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
+          {ladder.emphasis.slice(0, 6).map((line) => (
+            <span
+              key={line}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 999,
+                fontSize: 11,
+                fontWeight: 800,
+                color: BRAND.navy,
+                background: "#f1f5f9",
+                border: "1px solid rgba(30, 58, 138, 0.14)",
+              }}
+            >
+              {line}
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          gap: 14,
+          alignItems: "stretch",
+        }}
+      >
+        {ladder.tiers.slice(0, 4).map((tier, i) => (
+          <LadderTierColumn key={tier.tier} tier={tier} tierIndex={i} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function FeaturedProductCard({ product, index }) {
   const hasImage = Boolean(String(product.imageUrl || "").trim());
   const lineLabel = productLineIndexLabel(index);
@@ -747,14 +1138,14 @@ function ProductLineupSection({ products }) {
               textTransform: "uppercase",
             }}
           >
-            Category product lineup
+            Program reference lineup
           </p>
-          <p style={{ margin: "8px 0 0", fontSize: 22, fontWeight: 900, color: BRAND.headerNavy, lineHeight: 1.2 }}>
-            Program SKUs in this family
+          <p style={{ margin: "8px 0 0", fontSize: 20, fontWeight: 900, color: BRAND.headerNavy, lineHeight: 1.2 }}>
+            Ecosystem SKUs & progression anchors
           </p>
         </div>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#64748b", maxWidth: 320, lineHeight: 1.45 }}>
-          Sell the category as a coordinated lineup—not a single SKU swap.
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#64748b", maxWidth: 340, lineHeight: 1.45 }}>
+          Pair these with the performance ladder for GOOD → ULTIMATE upsell and category penetration.
         </p>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 18 }}>
@@ -1203,11 +1594,21 @@ export default function CategorySpotlightSellSheet(props) {
 
   const stripCount = Math.min(Math.max(valueCards.length, 4), 6);
   const stripCards = valueCards.slice(0, stripCount);
-  const programProductCount = Math.max(featuredProducts.length, 1);
+  const ladderPresetKey = inferCategoryLadderKey(categoryTitle, categorySubtitle, applications);
+  const productLadder = normalizeProductLadder(
+    props.productLadder ?? DEMO_DEFAULTS.productLadder,
+    ladderPresetKey
+  );
+  const programProductCount = Math.max(
+    featuredProducts.length,
+    productLadder.tiers.reduce((n, t) => n + (t.products?.length || 0), 0),
+    4
+  );
 
   return (
     <article
       data-layout={CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID}
+      data-category-ladder={productLadder.categoryKey}
       data-sell-sheet-title={categoryTitle.slice(0, 80)}
       style={{
         width: "100%",
@@ -1360,6 +1761,8 @@ export default function CategorySpotlightSellSheet(props) {
           />
         ))}
       </section>
+
+      <CategoryPerformanceLadderSection ladder={productLadder} />
 
       <ProductLineupSection products={featuredProducts} />
 
