@@ -1,12 +1,12 @@
-﻿/**
- * CategorySpotlightSellSheet — standalone category / system-solution sell sheet.
+/**
+ * CategorySpotlightSellSheet ? standalone category / system-solution sell sheet.
  * Layout id: category-spotlight-sell-sheet-v6d1-1
  * Not wired into App.js yet.
  */
 
 import React from "react";
 
-export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6f2";
+export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6f3";
 
 const KLONDIKE_HEADER_LOGO_SRC = "/klondike-horizontal-logo.png";
 
@@ -26,7 +26,7 @@ const DEMO_DEFAULTS = {
   categoryTitle: "KLONDIKE Hydraulic Fluids",
   categorySubtitle: "Reliable fluid power protection for mixed fleets and demanding equipment.",
   opportunitySummary:
-    "Structure hydraulic conversations around ISO VG discipline, pump tags, and contamination control before any tier upgrade. Position Klondike as a system program—not a single-SKU swap.",
+    "Structure hydraulic conversations around ISO VG discipline, pump tags, and contamination control before any tier upgrade. Position Klondike as a system program?not a single-SKU swap.",
   categoryImageUrl: "",
   productImages: [],
   keyBenefits: [
@@ -92,7 +92,7 @@ const DEMO_DEFAULTS = {
   repTalkTrack: [
     "Lead with OEM tags and operating temperature bands before discussing fluid tier.",
     "Position filtration and breathers ahead of chemistry swaps on repeat-failure circuits.",
-    "Anchor upgrades to documented circuit evidence—not shelf habit or brand loyalty alone.",
+    "Anchor upgrades to documented circuit evidence?not shelf habit or brand loyalty alone.",
     "Pair bulk and packaged strategy with how the yard actually tops off.",
   ],
   discoveryQuestions: [
@@ -114,7 +114,118 @@ const DEMO_DEFAULTS = {
 
 const LADDER_TIER_ORDER = ["good", "better", "best", "ultimate"];
 
-/** Guided wizard Step 3 keys (`App.js` SE_GUIDED_STEP3_CATEGORY_LABELS) → ladder preset id. */
+/** Shared lineup art ? cropped per slot; silhouettes when image fails or is omitted. */
+const LADDER_PRODUCTS_LINEUP_SRC = "/products.png";
+
+/**
+ * Per-category tier product visuals (1?3 per column).
+ * imageUrl optional; variant drives clean drum / grease-tube silhouettes (no equipment art).
+ */
+const LADDER_TIER_PRODUCT_IMAGE_SPECS = {
+  hydraulic: {
+    good: [
+      { name: "Professional Hydraulic Fluids", variant: "drum", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "6% 42%" },
+      { name: "Advanced Hydraulic Fluids", variant: "drum", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "20% 42%" },
+    ],
+    better: [
+      { name: "Multi-Viscosity Hydraulic Fluids", label: "MV Advanced", variant: "drum-mv", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "34% 42%" },
+      { name: "Tractor Fluids", variant: "drum-tractor", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "48% 42%" },
+    ],
+    best: [
+      { name: "XVI Synthetic Hydraulic Fluids", variant: "drum-premium", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "58% 38%" },
+      { name: "ISO Turbine Oils", variant: "drum-turbine", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "72% 38%" },
+    ],
+    ultimate: [
+      { name: "Wet Brake Lubricant", variant: "drum-specialty", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "82% 40%" },
+      { name: "Full Synthetic Gear & Circulating Oils", variant: "drum-circulating", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "90% 40%" },
+      { name: "Bio-Synthetic EAL Hydraulic Fluid", label: "EAL / sensitive site", variant: "drum-eco" },
+    ],
+  },
+  grease: {
+    good: [
+      { name: "RED TAC", variant: "grease-tube", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "10% 55%" },
+      { name: "HD TAC", variant: "grease-tube", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "24% 55%" },
+    ],
+    better: [
+      { name: "MOLY TAC 3%", variant: "grease-tube-moly", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "38% 52%" },
+    ],
+    best: [
+      { name: "ULTRA TAC", variant: "grease-tube-premium", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "52% 50%" },
+      { name: "MOLY TAC HD 5%", variant: "grease-tube-moly", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "64% 50%" },
+    ],
+    ultimate: [
+      { name: "nano Calcium Sulfonate", variant: "grease-nano", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "76% 48%" },
+      { name: "nano Lithium Complex Synthetic", variant: "grease-nano", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "88% 48%" },
+    ],
+  },
+  hdEngine: {
+    good: [
+      { name: "Commercial Formula Heavy Duty Engine Oils", label: "Conventional", variant: "engine-pail", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "8% 35%" },
+      { name: "Professional Formula Heavy Duty Engine Oils", variant: "engine-pail", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "22% 35%" },
+    ],
+    better: [
+      { name: "Synthetic Blend Heavy Duty Engine Oils", label: "Synthetic blend", variant: "engine-pail-blend", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "40% 35%" },
+      { name: "Advanced Formula Heavy Duty Engine Oils", variant: "engine-pail", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "52% 35%" },
+    ],
+    best: [
+      { name: "Full Synthetic CK-4 Heavy Duty Engine Oils", label: "CK-4 full synthetic", variant: "engine-pail-premium", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "66% 32%" },
+      { name: "SAE 5W-40 Full Synthetic Heavy Duty Engine Oils", variant: "engine-pail-premium", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "78% 32%" },
+    ],
+    ultimate: [
+      { name: "Low-ash natural gas engine oils", label: "Specialty / NG", variant: "engine-pail-severe" },
+      { name: "Railroad & severe-service HD programs", label: "Severe duty", variant: "engine-pail-severe" },
+    ],
+  },
+  foodGrade: {
+    good: [{ name: "FOOD-GRADE Hydraulic Oils", label: "H1 hydraulic", variant: "drum-food" }],
+    better: [
+      { name: "FOOD-GRADE EP-2 Grease", variant: "grease-tube-food" },
+      { name: "FOOD-GRADE multipurpose grease programs", variant: "grease-tube-food" },
+    ],
+    best: [
+      { name: "FOOD-GRADE Gear Oils", variant: "drum-food" },
+      { name: "FOOD-GRADE industrial gear programs", variant: "drum-food" },
+    ],
+    ultimate: [
+      { name: "FOOD-GRADE compressor & circulating oils", variant: "drum-food" },
+      { name: "FOOD-GRADE chain / conveyor lubricants", label: "H1 specialty", variant: "drum-food" },
+    ],
+  },
+  environmental: {
+    good: [{ name: "ENVIRO Inherently Biodegradable AW Hydraulic Fluids", label: "ENVIRO", variant: "drum-eco" }],
+    better: [
+      { name: "BIO Biodegradable AW Hydraulic Fluids", label: "BIO", variant: "drum-eco" },
+      { name: "BIO Hees Hydraulic Fluids", label: "HEES", variant: "drum-eco" },
+    ],
+    best: [
+      { name: "BIO-Synthetic EAL Hydraulic Oils", label: "EAL", variant: "drum-eco-premium" },
+      { name: "BIO Biodegradable Synthetic Blend Hydraulic Fluids", variant: "drum-eco" },
+    ],
+    ultimate: [
+      { name: "Bio HFDU Hydraulic Fluids", label: "HFDU", variant: "drum-eco" },
+      { name: "BIO Biodegradable Rock Drill Oil", variant: "drum-eco" },
+    ],
+  },
+  agrimax: {
+    good: [
+      { name: "AGRIMAX Trans Drive Hydraulic Fluid", variant: "drum-agri", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "12% 45%" },
+      { name: "Universal tractor / trans-hydraulic fluids", label: "UTHF", variant: "drum-tractor" },
+    ],
+    better: [
+      { name: "AGRIMAX Zinc Free Trans Drive Hydraulic Fluid", variant: "drum-agri-zf", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "30% 45%" },
+    ],
+    best: [
+      { name: "AGRIMAX SAE 15W-40 CK-4 Synthetic Blend Heavy Duty Engine Oil", label: "CK-4", variant: "engine-pail-agri", imageUrl: LADDER_PRODUCTS_LINEUP_SRC, imageFocus: "55% 38%" },
+      { name: "AGRIMAX Poly Tac / multipurpose grease programs", variant: "grease-tube" },
+    ],
+    ultimate: [
+      { name: "AGRIMAX Extended Life Coolant programs", variant: "drum-coolant" },
+      { name: "RED TAC / field grease companions", variant: "grease-tube" },
+    ],
+  },
+};
+
+/** Guided wizard Step 3 keys (`App.js` SE_GUIDED_STEP3_CATEGORY_LABELS) ? ladder preset id. */
 const WIZARD_CATEGORY_TO_LADDER_KEY = {
   hydraulic: "hydraulic",
   agrimax: "agrimax",
@@ -263,7 +374,7 @@ const CATEGORY_LADDER_PRESETS = {
     categoryKey: "foodGrade",
     ladderStyle: "program",
     emphasis: [
-      "NSF H1 registration — confirm on each PDS",
+      "NSF H1 registration ? confirm on each PDS",
       "Food plant audit readiness",
       "Separate food-grade inventory discipline",
       "Hydraulic, grease, and gear program breadth",
@@ -381,13 +492,13 @@ const CATEGORY_LADDER_PRESETS = {
   },
 };
 
-/** Category-first program copy — headline and depth never come from a single resolved product. */
+/** Category-first program copy ? headline and depth never come from a single resolved product. */
 const CATEGORY_PROGRAM_COPY = {
   hydraulic: {
     categoryTitle: "KLONDIKE Hydraulic Fluids",
     categorySubtitle: "Full-line hydraulic programs for mixed fleets, plants, and mobile equipment.",
     opportunitySummary:
-      "Lead with ISO VG discipline, contamination control, and bulk vs packaged behavior—then walk the GOOD · BETTER · BEST · ULTIMATE ladder. Position Klondike as the hydraulic system partner, not a one-SKU swap.",
+      "Lead with ISO VG discipline, contamination control, and bulk vs packaged behavior?then walk the GOOD ? BETTER ? BEST ? ULTIMATE ladder. Position Klondike as the hydraulic system partner, not a one-SKU swap.",
     keyBenefits: [
       { iconKey: "consolidation", label: "Program consolidation", sub: "One hydraulic story from AW through turbine, tractor, and circulating oils." },
       { iconKey: "uptime", label: "Circuit reliability", sub: "Fewer heat, foam, and slow-response events on first-shift startups." },
@@ -418,8 +529,8 @@ const CATEGORY_PROGRAM_COPY = {
     repTalkTrack: [
       "Start with pump tags, ISO VG, and how the yard tops off before recommending a tier move.",
       "Position filtration and breathers ahead of chemistry changes on repeat-failure circuits.",
-      "Use the ladder to structure margin—AW and professional programs first, synthetic and specialty where duty proves it.",
-      "Separate hydraulic, wet-brake, and circulating conversations—confirm each fill point on PDS.",
+      "Use the ladder to structure margin?AW and professional programs first, synthetic and specialty where duty proves it.",
+      "Separate hydraulic, wet-brake, and circulating conversations?confirm each fill point on PDS.",
     ],
     discoveryQuestions: [
       "Which circuits show foam, heat, or slow response on cold starts?",
@@ -430,13 +541,13 @@ const CATEGORY_PROGRAM_COPY = {
     cautions: [
       "Confirm component and viscosity guidance on each PDS before changing grade or chemistry.",
       "Do not mix incompatible fluids without flush and consultation.",
-      "Wet-brake and hydraulic fills are separate conversations—verify reservoir labels.",
+      "Wet-brake and hydraulic fills are separate conversations?verify reservoir labels.",
     ],
     recommendedNextStep:
       "Standardize the yard on one hydraulic ladder: document ISO VG by asset group, align bulk and packaged behavior, and bundle filtration with tier upgrades.",
     sellingStrategy: {
       positioning: [
-        "Sell the hydraulic system program—ladder depth, not a single drum swap.",
+        "Sell the hydraulic system program?ladder depth, not a single drum swap.",
         "Anchor every recommendation to pump tags, temperature band, and contamination history.",
         "Use Professional and Advanced as the volume base; grow MV, XVI synthetic, and turbine as proof points mature.",
       ],
@@ -453,10 +564,10 @@ const CATEGORY_PROGRAM_COPY = {
         "Yards with wet-brake or tractor-fluid confusion",
       ],
       crossSellPath: [
-        "Grease → chassis and pin programs on the same equipment",
-        "Gear & circulating oils → plant and drivetrain depth",
-        "HD engine oils → mixed highway / off-highway fleets",
-        "Environmental / food-grade → only where site rules require (separate programs)",
+        "Grease ? chassis and pin programs on the same equipment",
+        "Gear & circulating oils ? plant and drivetrain depth",
+        "HD engine oils ? mixed highway / off-highway fleets",
+        "Environmental / food-grade ? only where site rules require (separate programs)",
       ],
     },
   },
@@ -464,7 +575,7 @@ const CATEGORY_PROGRAM_COPY = {
     categoryTitle: "AGRIMAX Full Line",
     categorySubtitle: "Farm and ag-dealer program depth across trans-hydraulics, engines, grease, and coolant.",
     opportunitySummary:
-      "Position AGRIMAX as the full-line ag account strategy—CORE through COMPLIANCE tiers for trans-drive, zinc-free options, CK-4 engine oil, grease, and coolant companions. Confirm equipment tags on every PDS; do not lead with a single companion SKU.",
+      "Position AGRIMAX as the full-line ag account strategy?CORE through COMPLIANCE tiers for trans-drive, zinc-free options, CK-4 engine oil, grease, and coolant companions. Confirm equipment tags on every PDS; do not lead with a single companion SKU.",
     keyBenefits: [
       { iconKey: "retention", label: "Dealer stickiness", sub: "Keep the ag account on one Klondike program story across reservoirs." },
       { iconKey: "consolidation", label: "Full-line consolidation", sub: "Fluids, grease, and coolant under one seasonal conversation." },
@@ -491,13 +602,13 @@ const CATEGORY_PROGRAM_COPY = {
       { title: "Coolants", desc: "OAT / NOAT discipline outside ag line where applicable", iconKey: "coolant" },
     ],
     repTalkTrack: [
-      "Open with equipment tags and reservoir labels—trans-drive vs engine vs wet brake—before any product name.",
-      "Walk the AGRIMAX CORE → COMPLIANCE ladder so the dealer sees program depth, not one green or red SKU.",
+      "Open with equipment tags and reservoir labels?trans-drive vs engine vs wet brake?before any product name.",
+      "Walk the AGRIMAX CORE ? COMPLIANCE ladder so the dealer sees program depth, not one green or red SKU.",
       "Pair seasonal bulk strategy with packaged top-off behavior on the busiest farm accounts.",
-      "Use PDS equipment guidance for line-specific options—do not imply OEM approval beyond what PDS states.",
+      "Use PDS equipment guidance for line-specific options?do not imply OEM approval beyond what PDS states.",
     ],
     discoveryQuestions: [
-      "Which reservoirs are you standardizing this season—trans-hydraulic, engine, wet brake, coolant?",
+      "Which reservoirs are you standardizing this season?trans-hydraulic, engine, wet brake, coolant?",
       "Are green-line and zinc-free programs split by equipment type or mixed on the shelf?",
       "What CK-4 and grease companions are already on the farm account?",
       "Where is a single companion SKU (coolant or grease) carrying the whole story incorrectly?",
@@ -508,10 +619,10 @@ const CATEGORY_PROGRAM_COPY = {
       "Trans-hydraulic, engine, wet-brake, and coolant fills require separate confirmation.",
     ],
     recommendedNextStep:
-      "Build the AGRIMAX full-line plan: anchor trans-drive and zinc-free tiers, add CK-4 and grease companions, and align coolant with seasonal bulk—documented by equipment tag on PDS.",
+      "Build the AGRIMAX full-line plan: anchor trans-drive and zinc-free tiers, add CK-4 and grease companions, and align coolant with seasonal bulk?documented by equipment tag on PDS.",
     sellingStrategy: {
       positioning: [
-        "Sell AGRIMAX as the ag dealer’s full program—not a coolant, grease, or trans-drive SKU in isolation.",
+        "Sell AGRIMAX as the ag dealer?s full program?not a coolant, grease, or trans-drive SKU in isolation.",
         "Lead with reservoir discipline and seasonal strategy, then place ladder tiers.",
         "Keep John Deere / CNH / wet-brake language tied to PDS equipment guidance only.",
       ],
@@ -527,18 +638,18 @@ const CATEGORY_PROGRAM_COPY = {
         "Ag accounts still split across competitors by fill type",
       ],
       crossSellPath: [
-        "Trans-drive anchor → zinc-free specialty where tags support it",
-        "CK-4 engine oil → high-hour seasonal engine program",
-        "Poly Tac / RED TAC → grease depth on the same dealer",
-        "ELC coolant → compliance tier when cooling is part of the ag plan",
+        "Trans-drive anchor ? zinc-free specialty where tags support it",
+        "CK-4 engine oil ? high-hour seasonal engine program",
+        "Poly Tac / RED TAC ? grease depth on the same dealer",
+        "ELC coolant ? compliance tier when cooling is part of the ag plan",
       ],
     },
   },
   environmental: {
     categoryTitle: "KLONDIKE Environmental / EAL Lubricants",
-    categorySubtitle: "Enviro, BIO, and EAL programs for sensitive sites—claims always tied to PDS.",
+    categorySubtitle: "Enviro, BIO, and EAL programs for sensitive sites?claims always tied to PDS.",
     opportunitySummary:
-      "Structure sensitive-site conversations around CORE → COMPLIANCE tiers: ENVIRO AW entry, BIO and HEES depth, BIO-Synthetic EAL, and HFDU / specialty options. Pair chemistry with spill response and containment—never overstate environmental claims.",
+      "Structure sensitive-site conversations around CORE ? COMPLIANCE tiers: ENVIRO AW entry, BIO and HEES depth, BIO-Synthetic EAL, and HFDU / specialty options. Pair chemistry with spill response and containment?never overstate environmental claims.",
     keyBenefits: [
       { iconKey: "consolidation", label: "Site-ready programs", sub: "One environmentally acceptable story from entry AW through HFDU." },
       { iconKey: "uptime", label: "Duty-appropriate tiers", sub: "Match biodegradability and fluid type to equipment and regulations." },
@@ -560,18 +671,18 @@ const CATEGORY_PROGRAM_COPY = {
     crossSell: [
       { title: "Standard hydraulics", desc: "Non-regulated assets on the same fleet", iconKey: "hydraulic" },
       { title: "Food-grade", desc: "Food plants where H1 is required instead of EAL", iconKey: "food" },
-      { title: "Grease", desc: "Chassis programs—confirm environmental claims on PDS", iconKey: "grease" },
+      { title: "Grease", desc: "Chassis programs?confirm environmental claims on PDS", iconKey: "grease" },
       { title: "Gear oils", desc: "Drivetrain fills where site rules allow", iconKey: "gear" },
     ],
     repTalkTrack: [
       "Confirm site rules, spill plans, and equipment tags before recommending any EAL tier.",
-      "Use ENVIRO and BIO labels exactly as PDS describes—no stronger environmental claims.",
-      "Walk CORE → COMPLIANCE so the account sees depth beyond one biodegradable AW drum.",
+      "Use ENVIRO and BIO labels exactly as PDS describes?no stronger environmental claims.",
+      "Walk CORE ? COMPLIANCE so the account sees depth beyond one biodegradable AW drum.",
       "Separate mobile hydraulic, rock drill, and HFDU conversations by application.",
     ],
     discoveryQuestions: [
       "What environmental standard or customer spec drives fluid selection on this site?",
-      "Which equipment groups are already on ENVIRO, BIO, or EAL—and which are not?",
+      "Which equipment groups are already on ENVIRO, BIO, or EAL?and which are not?",
       "When did spill response or containment last change on the account?",
       "Are rock drill, hydraulic, and HFDU needs bundled or quoted separately?",
     ],
@@ -584,8 +695,8 @@ const CATEGORY_PROGRAM_COPY = {
       "Map sensitive-site equipment to the environmental ladder, document PDS claims per asset group, and bundle containment discipline with tier upgrades.",
     sellingStrategy: {
       positioning: [
-        "Sell regulated-site readiness—a tiered EAL program, not a single BIO SKU.",
-        "Lead with site rules and PDS claims, then place CORE → COMPLIANCE depth.",
+        "Sell regulated-site readiness?a tiered EAL program, not a single BIO SKU.",
+        "Lead with site rules and PDS claims, then place CORE ? COMPLIANCE depth.",
       ],
       problemsSolved: [
         "Over-claiming environmental performance vs PDS",
@@ -598,17 +709,17 @@ const CATEGORY_PROGRAM_COPY = {
         "Spill incidents driving fluid reviews",
       ],
       crossSellPath: [
-        "ENVIRO AW → BIO / HEES upgrade where duty increases",
-        "BIO-Synthetic EAL → severe mobile hydraulic programs",
-        "HFDU / rock drill → compliance tier on specialty assets",
+        "ENVIRO AW ? BIO / HEES upgrade where duty increases",
+        "BIO-Synthetic EAL ? severe mobile hydraulic programs",
+        "HFDU / rock drill ? compliance tier on specialty assets",
       ],
     },
   },
   foodGrade: {
     categoryTitle: "KLONDIKE Food Grade Lubricants",
-    categorySubtitle: "NSF H1 food-plant programs—hydraulic, grease, gear, and specialty fills confirmed on PDS.",
+    categorySubtitle: "NSF H1 food-plant programs?hydraulic, grease, gear, and specialty fills confirmed on PDS.",
     opportunitySummary:
-      "Position food-grade as a plant-wide H1 strategy: CORE hydraulics through COMPLIANCE compressor and chain programs. Every registration and application claim must match the PDS—no implied NSF or OEM approval beyond documentation.",
+      "Position food-grade as a plant-wide H1 strategy: CORE hydraulics through COMPLIANCE compressor and chain programs. Every registration and application claim must match the PDS?no implied NSF or OEM approval beyond documentation.",
     keyBenefits: [
       { iconKey: "consolidation", label: "Plant program", sub: "One H1 story across hydraulics, grease, gear, and specialty lines." },
       { iconKey: "uptime", label: "Audit readiness", sub: "Inventory and labeling discipline that survives customer audits." },
@@ -628,20 +739,20 @@ const CATEGORY_PROGRAM_COPY = {
       "Compressor and circulating H1 (confirm PDS)",
     ],
     crossSell: [
-      { title: "Environmental / EAL", desc: "Outdoor or sensitive sites—not food plants", iconKey: "eal" },
+      { title: "Environmental / EAL", desc: "Outdoor or sensitive sites?not food plants", iconKey: "eal" },
       { title: "Industrial hydraulics", desc: "Non-H1 plant areas only where allowed", iconKey: "hydraulic" },
       { title: "Grease (standard)", desc: "Non-processing equipment outside H1 scope", iconKey: "grease" },
-      { title: "Coolants", desc: "Cooling systems—confirm food-plant suitability on PDS", iconKey: "coolant" },
+      { title: "Coolants", desc: "Cooling systems?confirm food-plant suitability on PDS", iconKey: "coolant" },
     ],
     repTalkTrack: [
       "Confirm NSF H1 registration on the PDS for every fill point discussed.",
       "Separate processing vs non-processing equipment before recommending any SKU.",
-      "Walk CORE → COMPLIANCE so the plant sees breadth beyond one hydraulic drum.",
+      "Walk CORE ? COMPLIANCE so the plant sees breadth beyond one hydraulic drum.",
       "Never imply registration or OEM approval beyond what the PDS states.",
     ],
     discoveryQuestions: [
       "Which zones require H1 vs general industrial fluids?",
-      "When is the next customer audit—and what fill points are in scope?",
+      "When is the next customer audit?and what fill points are in scope?",
       "Are grease, hydraulic, and compressor lines on one supplier program today?",
       "Where are non-H1 SKUs still on the shelf in processing areas?",
     ],
@@ -651,10 +762,10 @@ const CATEGORY_PROGRAM_COPY = {
       "Keep food-grade inventory segregated and labeled per plant rules.",
     ],
     recommendedNextStep:
-      "Document every processing fill point, align CORE → COMPLIANCE H1 tiers on PDS, and consolidate grease, gear, and compressor lines under one plant program.",
+      "Document every processing fill point, align CORE ? COMPLIANCE H1 tiers on PDS, and consolidate grease, gear, and compressor lines under one plant program.",
     sellingStrategy: {
       positioning: [
-        "Sell audit-ready plant programs—not a single food-grade hydraulic SKU.",
+        "Sell audit-ready plant programs?not a single food-grade hydraulic SKU.",
         "Lead with zone mapping and PDS registrations, then expand the H1 ladder.",
       ],
       problemsSolved: [
@@ -668,9 +779,9 @@ const CATEGORY_PROGRAM_COPY = {
         "New processing lines without H1 plan",
       ],
       crossSellPath: [
-        "FOOD-GRADE hydraulic → EP-2 grease on processing lines",
-        "Gear H1 → reducers and mixers",
-        "Compressor / chain H1 → compliance tier specialties",
+        "FOOD-GRADE hydraulic ? EP-2 grease on processing lines",
+        "Gear H1 ? reducers and mixers",
+        "Compressor / chain H1 ? compliance tier specialties",
       ],
     },
   },
@@ -678,7 +789,7 @@ const CATEGORY_PROGRAM_COPY = {
     categoryTitle: "KLONDIKE Grease Program",
     categorySubtitle: "Full grease ladder from multipurpose EP through flagship nano programs.",
     opportunitySummary:
-      "Lead with the GOOD · BETTER · BEST · ULTIMATE grease ladder—RED TAC and HD TAC through MOLY TAC, ULTRA TAC, and nano sulfonate / lithium complex synthetics. Sell relube strategy and application severity, not one Poly Tac drum.",
+      "Lead with the GOOD ? BETTER ? BEST ? ULTIMATE grease ladder?RED TAC and HD TAC through MOLY TAC, ULTRA TAC, and nano sulfonate / lithium complex synthetics. Sell relube strategy and application severity, not one Poly Tac drum.",
     keyBenefits: [
       { iconKey: "uptime", label: "Bearing protection", sub: "Match NLGI and EP chemistry to load, water, and relube intervals." },
       { iconKey: "mix", label: "Ladder margin", sub: "Grow from multipurpose into moly, synthetic-blend, and nano tiers." },
@@ -707,12 +818,12 @@ const CATEGORY_PROGRAM_COPY = {
     ],
     repTalkTrack: [
       "Qualify load, water, temperature, and relube interval before naming a grease tier.",
-      "Use the ladder—RED TAC / HD TAC base, MOLY TAC and ULTRA TAC upgrades, nano where severe duty proves it.",
+      "Use the ladder?RED TAC / HD TAC base, MOLY TAC and ULTRA TAC upgrades, nano where severe duty proves it.",
       "Do not let one multipurpose SKU (e.g. Poly Tac alone) stand in for the whole grease program.",
       "Pair centralized system discipline with the right NLGI and EP chemistry.",
     ],
     discoveryQuestions: [
-      "Which joints fail first—washout, pound-out, or heat?",
+      "Which joints fail first?washout, pound-out, or heat?",
       "What relube interval are you actually achieving vs planning?",
       "Are moly and synthetic-blend tiers specified on severe assets only?",
       "Where is one grease SKU doing work that should be split by severity?",
@@ -720,17 +831,17 @@ const CATEGORY_PROGRAM_COPY = {
     cautions: [
       "Confirm NLGI, EP, and compatibility with prior grease on PDS before switching.",
       "Do not mix incompatible thickeners without flush guidance.",
-      "Centralized systems require product and viscosity discipline—verify on PDS.",
+      "Centralized systems require product and viscosity discipline?verify on PDS.",
     ],
     recommendedNextStep:
       "Map grease points by severity, standardize the ladder on the fleet chart, and upgrade moly and nano tiers only where inspection data supports it.",
     sellingStrategy: {
       positioning: [
-        "Sell the grease ladder and relube strategy—not a single multipurpose product.",
+        "Sell the grease ladder and relube strategy?not a single multipurpose product.",
         "Anchor upgrades to joint severity, water, and interval evidence.",
       ],
       problemsSolved: [
-        "One-SKU grease habits (Poly Tac–only stories)",
+        "One-SKU grease habits (Poly Tac?only stories)",
         "Premature pin and bushing wear",
         "Missed nano and synthetic-blend margin",
       ],
@@ -740,10 +851,10 @@ const CATEGORY_PROGRAM_COPY = {
         "Centralized systems without tier discipline",
       ],
       crossSellPath: [
-        "RED TAC / HD TAC → MOLY TAC on loaded outdoor joints",
-        "ULTRA TAC → longer intervals and heat",
-        "nano programs → flagship severe-duty conversions",
-        "Hydraulics & engines → same account system sell",
+        "RED TAC / HD TAC ? MOLY TAC on loaded outdoor joints",
+        "ULTRA TAC ? longer intervals and heat",
+        "nano programs ? flagship severe-duty conversions",
+        "Hydraulics & engines ? same account system sell",
       ],
     },
   },
@@ -751,10 +862,10 @@ const CATEGORY_PROGRAM_COPY = {
     categoryTitle: "KLONDIKE Heavy Duty Engine Oils",
     categorySubtitle: "CK-4 / FA-4 and synthetic tier progression for on- and off-highway fleets.",
     opportunitySummary:
-      "Walk the GOOD · BETTER · BEST · ULTIMATE HD engine ladder—conventional and professional formulas through synthetic blend, full synthetic CK-4, and specialty natural gas / severe service. Align API category and drain strategy to PDS; do not imply OEM approval beyond documentation.",
+      "Walk the GOOD ? BETTER ? BEST ? ULTIMATE HD engine ladder?conventional and professional formulas through synthetic blend, full synthetic CK-4, and specialty natural gas / severe service. Align API category and drain strategy to PDS; do not imply OEM approval beyond documentation.",
     keyBenefits: [
       { iconKey: "consolidation", label: "Fleet program", sub: "One HD story from conventional through full synthetic CK-4." },
-      { iconKey: "uptime", label: "Protection & drains", sub: "Match tier to duty cycle and emissions hardware—per PDS." },
+      { iconKey: "uptime", label: "Protection & drains", sub: "Match tier to duty cycle and emissions hardware?per PDS." },
       { iconKey: "mix", label: "Synthetic growth", sub: "Expand synthetic blend and full synthetic penetration." },
       { iconKey: "expansion", label: "Account depth", sub: "Add natural gas and severe-service where specifications support." },
     ],
@@ -780,25 +891,25 @@ const CATEGORY_PROGRAM_COPY = {
     repTalkTrack: [
       "Confirm API category (CK-4 / FA-4 where applicable), viscosity, and drain interval from tags and PDS.",
       "Use the ladder to place conventional and professional formulas before synthetic upgrades.",
-      "Tie full synthetic CK-4 to measurable duty and emissions hardware needs—not habit alone.",
-      "Reference PDS for natural gas and specialty lines—no implied OEM approvals.",
+      "Tie full synthetic CK-4 to measurable duty and emissions hardware needs?not habit alone.",
+      "Reference PDS for natural gas and specialty lines?no implied OEM approvals.",
     ],
     discoveryQuestions: [
       "What API category and viscosity are on the bulk tank vs over-the-road units?",
       "Which units are candidates for synthetic blend vs full synthetic CK-4?",
-      "How are drain intervals set today—hours, fuel, or calendar?",
+      "How are drain intervals set today?hours, fuel, or calendar?",
       "Are natural gas or specialty engines on a separate program today?",
     ],
     cautions: [
       "Confirm API category, viscosity, and compatibility on each PDS before changing engine oil.",
       "Do not imply OEM approval unless the PDS documents it.",
-      "FA-4 and CK-4 apply to different hardware—verify fleet eligibility.",
+      "FA-4 and CK-4 apply to different hardware?verify fleet eligibility.",
     ],
     recommendedNextStep:
       "Chart fleet units by duty and API need, standardize the HD ladder on bulk and packaged tanks, and phase synthetic upgrades with documented drain strategy.",
     sellingStrategy: {
       positioning: [
-        "Sell fleet engine programs and the HD ladder—not a single CK-4 SKU.",
+        "Sell fleet engine programs and the HD ladder?not a single CK-4 SKU.",
         "Lead with API category, viscosity, and drain strategy from PDS.",
       ],
       problemsSolved: [
@@ -812,10 +923,10 @@ const CATEGORY_PROGRAM_COPY = {
         "Natural gas or severe-service units off-program",
       ],
       crossSellPath: [
-        "Commercial / professional → synthetic blend upgrade path",
-        "Full synthetic CK-4 → premium highway and severe duty",
-        "Coolants & greases → same fleet card",
-        "AGRIMAX CK-4 → ag accounts only (separate program)",
+        "Commercial / professional ? synthetic blend upgrade path",
+        "Full synthetic CK-4 ? premium highway and severe duty",
+        "Coolants & greases ? same fleet card",
+        "AGRIMAX CK-4 ? ag accounts only (separate program)",
       ],
     },
   },
@@ -938,7 +1049,7 @@ function normalizeValueCards(value, fallback) {
     } else {
       const line = String(item ?? "").trim();
       if (!line) continue;
-      const dash = line.match(/^([^:—–-]{1,60})\s*[:—–-]\s*(.+)$/);
+      const dash = line.match(/^([^:??-]{1,60})\s*[:??-]\s*(.+)$/);
       out.push({
         iconKey: "",
         label: String(dash ? dash[1] : line).trim(),
@@ -1102,9 +1213,9 @@ function inferCategoryLadderKey(categoryTitle, categorySubtitle, applications, e
 
 function ladderSectionHeading(ladder) {
   if (ladder?.ladderStyle === "program") {
-    return "CORE · SPECIALTY · SEVERE DUTY · COMPLIANCE";
+    return "CORE ? SPECIALTY ? SEVERE DUTY ? COMPLIANCE";
   }
-  return "GOOD · BETTER · BEST · ULTIMATE";
+  return "GOOD ? BETTER ? BEST ? ULTIMATE";
 }
 
 function mergeUniqueStrings(primary, secondary, max = 12) {
@@ -1228,14 +1339,85 @@ function resolveCategoryProgramContent(props) {
   };
 }
 
-function normalizeLadderTier(item, fallbackLabel) {
+function inferLadderProductVariant(name) {
+  const n = String(name || "").toLowerCase();
+  if (/nano|calcium sulfonate|lithium complex/.test(n)) return "grease-nano";
+  if (/moly tac|ultra tac|red tac|hd tac|grease|poly tac/.test(n)) return "grease-tube";
+  if (/food[- ]?grade|nsf|h1/.test(n)) return "drum-food";
+  if (/enviro|bio|eal|biodegradable|hees|hfdu/.test(n)) return "drum-eco";
+  if (/agrimax|trans.?drive|zinc.?free/.test(n)) return "drum-agri";
+  if (/coolant|antifreeze/.test(n)) return "drum-coolant";
+  if (/engine|ck-4|ck4|fa-4|motor oil|15w-40|5w-40/.test(n)) return "engine-pail";
+  if (/turbine|circulating|gear/.test(n)) return "drum-circulating";
+  if (/wet brake|tractor/.test(n)) return "drum-tractor";
+  if (/xvi|synthetic/.test(n)) return "drum-premium";
+  if (/multi.?viscosity|mv /.test(n)) return "drum-mv";
+  return "drum";
+}
+
+function normalizeTierProductImageEntry(item, fallbackName) {
+  if (typeof item === "string") {
+    const name = item.trim() || fallbackName;
+    return name ? { name, label: "", imageUrl: "", imageFocus: "50% 42%", variant: inferLadderProductVariant(name) } : null;
+  }
+  if (!item || typeof item !== "object") return null;
+  const name = String(item.name ?? item.title ?? fallbackName ?? "").trim();
+  if (!name) return null;
+  return {
+    name,
+    label: String(item.label ?? "").trim(),
+    imageUrl: String(item.imageUrl ?? item.url ?? item.src ?? "").trim(),
+    imageFocus: String(item.imageFocus ?? item.objectPosition ?? "50% 42%").trim(),
+    variant: String(item.variant || inferLadderProductVariant(name)).trim() || "drum",
+  };
+}
+
+function normalizeTierProductImages(rawImages, productNames, specList) {
+  const out = [];
+  const spec = Array.isArray(specList) ? specList : [];
+  const raw = Array.isArray(rawImages) && rawImages.length ? rawImages : spec;
+  for (let i = 0; i < raw.length && out.length < 3; i++) {
+    const entry = normalizeTierProductImageEntry(raw[i], productNames[i]);
+    if (entry) out.push(entry);
+  }
+  if (!out.length) {
+    for (let i = 0; i < productNames.length && out.length < 3; i++) {
+      const name = String(productNames[i] || "").trim();
+      if (!name) continue;
+      const specHit = spec.find((s) => String(s?.name || "").toLowerCase() === name.toLowerCase());
+      const entry = normalizeTierProductImageEntry(specHit || { name }, name);
+      if (entry) out.push(entry);
+    }
+  }
+  return out;
+}
+
+function enrichTierWithProductImages(tier, presetKey, fallbackTier) {
+  const tierId = String(tier.tier || "").toLowerCase();
+  const specList = LADDER_TIER_PRODUCT_IMAGE_SPECS[presetKey]?.[tierId] || [];
+  const products = Array.isArray(tier.products) && tier.products.length ? [...tier.products] : [...(fallbackTier?.products || [])];
+  const productImages = normalizeTierProductImages(
+    tier.productImages ?? fallbackTier?.productImages,
+    products,
+    specList
+  );
+  return {
+    ...tier,
+    products,
+    productImages,
+  };
+}
+
+function normalizeLadderTier(item, fallbackLabel, fallbackTier, presetKey) {
   if (!item || typeof item !== "object") {
-    return {
+    const base = {
       tier: fallbackLabel.toLowerCase(),
       label: fallbackLabel,
       positioning: "",
       products: [],
+      productImages: [],
     };
+    return presetKey ? enrichTierWithProductImages(base, presetKey, fallbackTier) : base;
   }
   const tier = String(item.tier || fallbackLabel).toLowerCase();
   const label = String(item.label ?? fallbackLabel).trim().toUpperCase() || fallbackLabel;
@@ -1248,18 +1430,32 @@ function normalizeLadderTier(item, fallbackLabel) {
       if (name) products.push(name);
     }
   }
-  return { tier, label, positioning, products: products.slice(0, 4) };
+  const partial = {
+    tier,
+    label,
+    positioning,
+    products: products.slice(0, 4),
+    productImages: item.productImages,
+  };
+  if (!partial.products.length && fallbackTier?.products?.length) {
+    partial.products = [...fallbackTier.products];
+  }
+  if (!partial.positioning && fallbackTier?.positioning) {
+    partial.positioning = fallbackTier.positioning;
+  }
+  return presetKey ? enrichTierWithProductImages(partial, presetKey, fallbackTier) : partial;
 }
 
 function normalizeProductLadder(value, presetKey) {
   const key = CATEGORY_LADDER_PRESETS[presetKey] ? presetKey : "hydraulic";
   const preset = CATEGORY_LADDER_PRESETS[key];
+  const mapPresetTier = (t) => enrichTierWithProductImages({ ...t, products: [...t.products] }, key, t);
   if (!value || typeof value !== "object") {
     return {
       categoryKey: preset.categoryKey,
       ladderStyle: preset.ladderStyle || "performance",
       emphasis: [...preset.emphasis],
-      tiers: preset.tiers.map((t) => ({ ...t, products: [...t.products] })),
+      tiers: preset.tiers.map(mapPresetTier),
     };
   }
   const emphasis = pickList(value.emphasis ?? value.highlights, preset.emphasis).slice(0, 6);
@@ -1269,10 +1465,7 @@ function normalizeProductLadder(value, presetKey) {
     const match =
       tiersIn.find((t) => String(t?.tier || t?.label || "").toLowerCase() === tierId) ||
       tiersIn[i];
-    const normalized = normalizeLadderTier(match, fallback.label);
-    if (!normalized.products.length) normalized.products = [...fallback.products];
-    if (!normalized.positioning) normalized.positioning = fallback.positioning;
-    return normalized;
+    return normalizeLadderTier(match, fallback.label, fallback, key);
   });
   return {
     categoryKey: String(value.categoryKey || preset.categoryKey || key),
@@ -1608,97 +1801,267 @@ function LadderTierIcon({ tier }) {
 
 function ladderTierVisual(tierIndex) {
   const palettes = [
-    { bg: "#f8fafc", border: "rgba(30, 58, 138, 0.2)", accent: BRAND.slate },
-    { bg: "#fff7ed", border: "rgba(234, 88, 12, 0.35)", accent: BRAND.orange },
-    { bg: "linear-gradient(160deg, #eff6ff 0%, #fff 100%)", border: "rgba(30, 64, 175, 0.35)", accent: BRAND.navyMid },
     {
-      bg: `linear-gradient(160deg, ${BRAND.navyDeep} 0%, ${BRAND.navyMid} 100%)`,
+      bg: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
+      border: "rgba(148, 163, 184, 0.45)",
+      accent: BRAND.slate,
+      imageMaxH: 56,
+      imageScale: 0.88,
+      columnMinH: 300,
+      boxShadow: "0 4px 14px rgba(15, 23, 42, 0.05)",
+      slotBg: "rgba(255,255,255,0.95)",
+    },
+    {
+      bg: "linear-gradient(180deg, #fffbeb 0%, #fff7ed 100%)",
+      border: "rgba(234, 88, 12, 0.42)",
+      accent: BRAND.orange,
+      imageMaxH: 68,
+      imageScale: 0.94,
+      columnMinH: 320,
+      boxShadow: "0 8px 22px rgba(234, 88, 12, 0.12)",
+      slotBg: "rgba(255,255,255,0.92)",
+    },
+    {
+      bg: "linear-gradient(165deg, #eff6ff 0%, #ffffff 55%)",
+      border: "rgba(30, 64, 175, 0.45)",
+      accent: BRAND.navyMid,
+      imageMaxH: 80,
+      imageScale: 1,
+      columnMinH: 340,
+      boxShadow: "0 12px 28px rgba(30, 58, 138, 0.14)",
+      slotBg: "rgba(255,255,255,0.94)",
+    },
+    {
+      bg: `linear-gradient(165deg, ${BRAND.navyDeep} 0%, ${BRAND.navyMid} 55%, #1e3a8a 100%)`,
       border: BRAND.orange,
       accent: BRAND.orangeLight,
       lightText: true,
+      imageMaxH: 104,
+      imageScale: 1.06,
+      columnMinH: 380,
+      boxShadow: "0 22px 48px rgba(15, 23, 42, 0.28), 0 0 0 1px rgba(251, 146, 60, 0.35)",
+      slotBg: "rgba(255,255,255,0.08)",
     },
   ];
   return palettes[Math.min(tierIndex, 3)];
 }
 
-function LadderTierColumn({ tier, tierIndex }) {
+function LadderProductSilhouette({ variant, size = 48, premium = false, light = false }) {
+  const stroke = light ? "rgba(255,255,255,0.55)" : "rgba(30, 58, 138, 0.35)";
+  const fill = light ? "rgba(255,255,255,0.14)" : premium ? "rgba(234, 88, 12, 0.12)" : "rgba(241, 245, 249, 0.95)";
+  const accent = premium ? BRAND.orange : light ? BRAND.orangeLight : BRAND.navyMid;
+  const isGrease = /grease/.test(variant);
+  const isEngine = /engine/.test(variant);
+  const isEco = /eco|food|agri|coolant/.test(variant);
+  if (isGrease) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden>
+        <rect x="14" y="8" width="20" height="32" rx="4" fill={fill} stroke={stroke} strokeWidth="1.5" />
+        <rect x="17" y="4" width="14" height="8" rx="2" fill={accent} opacity={premium ? 0.9 : 0.55} />
+        <ellipse cx="24" cy="38" rx="8" ry="3" fill={accent} opacity="0.25" />
+      </svg>
+    );
+  }
+  if (isEngine) {
+    return (
+      <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden>
+        <path
+          d="M12 14h24l4 8v16H8V22l4-8z"
+          fill={fill}
+          stroke={stroke}
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        />
+        <rect x="16" y="10" width="16" height="6" rx="2" fill={accent} opacity={premium ? 0.85 : 0.5} />
+      </svg>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" aria-hidden>
+      <ellipse cx="24" cy="40" rx="14" ry="4" fill={accent} opacity="0.18" />
+      <path
+        d="M14 12h20c2 0 4 2 4 4v22c0 2-2 4-4 4H14c-2 0-4-2-4-4V16c0-2 2-4 4-4z"
+        fill={fill}
+        stroke={stroke}
+        strokeWidth="1.5"
+      />
+      <rect x="17" y="8" width="14" height="6" rx="2" fill={accent} opacity={premium ? 0.9 : 0.55} />
+      {isEco ? (
+        <circle cx="36" cy="14" r="5" fill="#059669" opacity="0.75" stroke={light ? "#fff" : "#ecfdf5"} strokeWidth="1" />
+      ) : null}
+    </svg>
+  );
+}
+
+function LadderTierProductSlot({ entry, tierIndex, lightText }) {
   const visual = ladderTierVisual(tierIndex);
   const isUltimate = tierIndex === 3;
+  const [imgFailed, setImgFailed] = React.useState(false);
+  const imageUrl = String(entry?.imageUrl || "").trim();
+  const showPhoto = imageUrl && !imgFailed;
+  const siloSize = Math.round(visual.imageMaxH * 0.55);
   return (
-    <article
-      style={{
-        padding: "20px 16px 22px",
-        borderRadius: 12,
-        background: visual.bg,
-        border: `2px solid ${visual.border}`,
-        boxShadow: isUltimate ? "0 16px 36px rgba(15, 23, 42, 0.2)" : "0 8px 20px rgba(15, 23, 42, 0.06)",
-        minHeight: 240,
-        display: "flex",
-        flexDirection: "column",
-        transform: isUltimate ? "translateY(-4px)" : "none",
+    <div style={{ borderRadius: 10,
+        overflow: "hidden",
+        background: visual.slotBg,
+        border: lightText ? "1px solid rgba(255,255,255,0.18)" : "1px solid rgba(30, 58, 138, 0.14)",
+        boxShadow: isUltimate ? "0 6px 16px rgba(0,0,0,0.2)" : "0 2px 8px rgba(15, 23, 42, 0.06)",
       }}
     >
       <div
         style={{
-          width: 52,
-          height: 52,
-          borderRadius: 12,
-          background: isUltimate
-            ? "rgba(255,255,255,0.12)"
-            : `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
-          border: `2px solid ${isUltimate ? BRAND.orangeLight : "rgba(234, 88, 12, 0.45)"}`,
+          height: visual.imageMaxH,
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-end",
           justifyContent: "center",
-          marginBottom: 12,
-        }}
-        aria-hidden
-      >
-        <LadderTierIcon tier={tier.tier} />
-      </div>
-      <p
-        style={{
-          margin: 0,
-          fontSize: 13,
-          fontWeight: 900,
-          letterSpacing: "0.12em",
-          color: isUltimate ? BRAND.orangeLight : visual.accent,
+          background: lightText
+            ? "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)"
+            : "linear-gradient(180deg, #f1f5f9 0%, #ffffff 100%)",
+          padding: "6px 8px 4px",
+          transform: `scale(${visual.imageScale})`,
+          transformOrigin: "bottom center",
         }}
       >
-        {tier.label}
-      </p>
-      {tier.positioning ? (
-        <p
-          style={{
-            margin: "8px 0 14px",
-            fontSize: 11,
-            fontWeight: 600,
-            lineHeight: 1.45,
-            color: isUltimate ? "rgba(255,255,255,0.88)" : "#64748b",
-          }}
-        >
-          {tier.positioning}
-        </p>
-      ) : null}
-      <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8, flex: 1 }}>
-        {tier.products.map((name) => (
-          <li
-            key={name}
+        {showPhoto ? (
+          <img
+            src={imageUrl}
+            alt=""
+            decoding="async"
+            onError={() => setImgFailed(true)}
             style={{
-              fontSize: 12,
-              fontWeight: 800,
-              lineHeight: 1.35,
-              color: isUltimate ? BRAND.white : BRAND.headerNavy,
-              padding: "8px 10px",
-              borderRadius: 8,
-              background: isUltimate ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.85)",
-              border: isUltimate ? "1px solid rgba(255,255,255,0.15)" : "1px solid rgba(30, 58, 138, 0.12)",
+              maxHeight: visual.imageMaxH - 8,
+              maxWidth: "100%",
+              width: "auto",
+              objectFit: "contain",
+              objectPosition: entry.imageFocus || "50% 42%",
+              filter: isUltimate
+                ? "drop-shadow(0 8px 14px rgba(0,0,0,0.35))"
+                : "drop-shadow(0 4px 8px rgba(15,23,42,0.12))",
+            }}
+          />
+        ) : (
+          <LadderProductSilhouette
+            variant={entry.variant || "drum"}
+            size={siloSize}
+            premium={tierIndex >= 2}
+            light={lightText}
+          />
+        )}
+      </div>
+      <div style={{ padding: "8px 10px 10px" }}>
+        {entry.label ? (
+          <p
+            style={{
+              margin: "0 0 4px",
+              fontSize: 9,
+              fontWeight: 900,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: lightText ? BRAND.orangeLight : BRAND.orange,
             }}
           >
-            {name}
-          </li>
-        ))}
-      </ul>
+            {entry.label}
+          </p>
+        ) : null}
+        <p
+          style={{
+            margin: 0,
+            fontSize: 11,
+            fontWeight: 800,
+            lineHeight: 1.35,
+            color: lightText ? BRAND.white : BRAND.headerNavy,
+          }}
+        >
+          {entry.name}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function LadderTierProductGallery({ productImages, tierIndex, lightText }) {
+  const items = Array.isArray(productImages) ? productImages.slice(0, 3) : [];
+  if (!items.length) return null;
+  return (
+    <div style={{ display: "grid", gap: 10, marginBottom: 4 }}>
+      {items.map((entry) => (
+        <LadderTierProductSlot key={entry.name} entry={entry} tierIndex={tierIndex} lightText={lightText} />
+      ))}
+    </div>
+  );
+}
+
+function LadderTierColumn({ tier, tierIndex }) {
+  const visual = ladderTierVisual(tierIndex);
+  const isUltimate = tierIndex === 3;
+  const productImages =
+    Array.isArray(tier.productImages) && tier.productImages.length
+      ? tier.productImages
+      : tier.products.map((name) => ({ name, variant: inferLadderProductVariant(name) }));
+  return (
+    <article
+      data-ladder-tier={tier.tier}
+      style={{
+        padding: isUltimate ? "22px 14px 20px" : "18px 12px 16px",
+        borderRadius: 14,
+        background: visual.bg,
+        border: `2px solid ${visual.border}`,
+        boxShadow: visual.boxShadow,
+        minHeight: visual.columnMinH,
+        display: "flex",
+        flexDirection: "column",
+        transform: isUltimate ? "translateY(-8px) scale(1.02)" : tierIndex === 2 ? "translateY(-2px)" : "none",
+        zIndex: isUltimate ? 2 : tierIndex === 2 ? 1 : 0,
+        position: "relative",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <span
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: isUltimate
+              ? "rgba(255,255,255,0.12)"
+              : `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
+            border: `2px solid ${isUltimate ? BRAND.orangeLight : "rgba(234, 88, 12, 0.45)"}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+          aria-hidden
+        >
+          <LadderTierIcon tier={tier.tier} />
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: isUltimate ? 14 : 12,
+              fontWeight: 900,
+              letterSpacing: "0.14em",
+              color: isUltimate ? BRAND.orangeLight : visual.accent,
+            }}
+          >
+            {tier.label}
+          </p>
+          {tier.positioning ? (
+            <p
+              style={{
+                margin: "4px 0 0",
+                fontSize: 10,
+                fontWeight: 600,
+                lineHeight: 1.4,
+                color: isUltimate ? "rgba(255,255,255,0.85)" : "#64748b",
+              }}
+            >
+              {tier.positioning}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      <LadderTierProductGallery productImages={productImages} tierIndex={tierIndex} lightText={visual.lightText} />
     </article>
   );
 }
@@ -1707,13 +2070,14 @@ function CategoryPerformanceLadderSection({ ladder }) {
   if (!ladder?.tiers?.length) return null;
   return (
     <section
+      data-category-ladder-visual="true"
       style={{
-        padding: "36px 44px 40px",
-        background: BRAND.white,
+        padding: "44px 44px 48px",
+        background: "linear-gradient(180deg, #f8fafc 0%, #ffffff 28%)",
         borderBottom: "1px solid rgba(226,232,240,0.95)",
       }}
     >
-      <div style={{ marginBottom: 22 }}>
+      <div style={{ marginBottom: 28, textAlign: "center", maxWidth: 820, marginLeft: "auto", marginRight: "auto" }}>
         <p
           style={{
             margin: 0,
@@ -1726,15 +2090,32 @@ function CategoryPerformanceLadderSection({ ladder }) {
         >
           Category performance ladder
         </p>
-        <p style={{ margin: "8px 0 0", fontSize: 24, fontWeight: 900, color: BRAND.headerNavy, lineHeight: 1.15 }}>
+        <p
+          style={{
+            margin: "10px 0 0",
+            fontSize: "clamp(26px, 3.2vw, 34px)",
+            fontWeight: 900,
+            color: BRAND.headerNavy,
+            lineHeight: 1.12,
+          }}
+        >
           {ladderSectionHeading(ladder)}
         </p>
-        <p style={{ margin: "10px 0 0", fontSize: 14, fontWeight: 600, color: "#64748b", lineHeight: 1.5, maxWidth: 720 }}>
-          Use the ladder to structure line depth, margin expansion, and upsell conversations—not a single-SKU pitch.
+        <p
+          style={{
+            margin: "12px auto 0",
+            fontSize: 15,
+            fontWeight: 600,
+            color: "#64748b",
+            lineHeight: 1.55,
+            maxWidth: 640,
+          }}
+        >
+          Visual upsell path for the full program?each tier shows product depth, not a single SKU story.
         </p>
       </div>
       {ladder.emphasis?.length ? (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24, justifyContent: "center" }}>
           {ladder.emphasis.slice(0, 6).map((line) => (
             <span
               key={line}
@@ -1744,8 +2125,9 @@ function CategoryPerformanceLadderSection({ ladder }) {
                 fontSize: 11,
                 fontWeight: 800,
                 color: BRAND.navy,
-                background: "#f1f5f9",
+                background: BRAND.white,
                 border: "1px solid rgba(30, 58, 138, 0.14)",
+                boxShadow: "0 2px 8px rgba(15, 23, 42, 0.04)",
               }}
             >
               {line}
@@ -1757,8 +2139,9 @@ function CategoryPerformanceLadderSection({ ladder }) {
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-          gap: 14,
-          alignItems: "stretch",
+          gap: 16,
+          alignItems: "end",
+          paddingTop: 8,
         }}
       >
         {ladder.tiers.slice(0, 4).map((tier, i) => (
@@ -1901,7 +2284,7 @@ function ProductLineupSection({ products }) {
           </p>
         </div>
         <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#64748b", maxWidth: 340, lineHeight: 1.45 }}>
-          Pair these with the performance ladder for GOOD → ULTIMATE upsell and category penetration.
+          Pair these with the performance ladder for GOOD ? ULTIMATE upsell and category penetration.
         </p>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 18 }}>
@@ -2025,7 +2408,7 @@ function HeroVisualPanel({ categoryImageUrl, featuredProducts, productCount }) {
         System solution ecosystem
       </p>
       <p style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.95)", lineHeight: 1.35 }}>
-        {productCount} products · application coverage · companion categories
+        {productCount} products ? application coverage ? companion categories
       </p>
       <div
         style={{
@@ -2326,7 +2709,7 @@ function CategorySellingStrategySection({ strategy }) {
           Category selling strategy
         </p>
         <p style={{ margin: "8px 0 0", fontSize: 22, fontWeight: 900, color: BRAND.headerNavy, lineHeight: 1.2 }}>
-          Grow the program—not a single SKU
+          Grow the program?not a single SKU
         </p>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 }}>
@@ -2682,7 +3065,7 @@ export default function CategorySpotlightSellSheet(props) {
           >
             <div style={{ flex: "1 1 280px" }}>
               <p style={{ margin: 0, fontSize: 10, fontWeight: 900, letterSpacing: "0.16em" }}>
-                STRATEGIC NEXT STEP · CATEGORY GROWTH
+                STRATEGIC NEXT STEP ? CATEGORY GROWTH
               </p>
               <p style={{ margin: "10px 0 0", fontSize: 18, fontWeight: 900, lineHeight: 1.35 }}>{recommendedNextStep}</p>
             </div>
