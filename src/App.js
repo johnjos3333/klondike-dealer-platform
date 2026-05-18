@@ -138,11 +138,11 @@ function mapEquipmentOpportunityProfileToSellSheetProps(profile) {
 /** Maps Step 3 industry labels to `customerProfiles.js` archetype ids. */
 const SE_GUIDED_STEP3_INDUSTRY_TO_PROFILE_ID = Object.freeze({
   Agriculture: "agriculture",
-  "Forestry / Logging": "industrial_processing",
+  "Forestry / Logging": "forestry_logging",
   "Food Processing": "food_processing",
   Construction: "construction",
   Mining: "mining_aggregate",
-  "Marine / Dredging": "industrial_processing",
+  "Marine / Dredging": "marine_dredging",
   "Industrial / Manufacturing": "manufacturing",
   "Trucking / Fleet": "trucking_fleet",
 });
@@ -306,6 +306,774 @@ const SALES_ENABLEMENT_LIST_STYLE = {
 const KL_SPOTLIGHT_SENT_HISTORY_KEY = "kl_sales_enablement_sent_v1";
 /** KL Admin dashboard Action Center daily list cap (Phase 71D). */
 const KL_ADMIN_ACTION_CENTER_LIMIT = 18;
+/** Phase 7A — coaching Action Center action kinds (KL Admin dashboard). */
+const KL_ADMIN_BDR_ACTION_KINDS = [
+  "training_recommendation",
+  "ride_along_recommendation",
+  "klondike_university_assignment",
+  "business_review_reminder",
+  "product_mix_audit",
+  "category_penetration_opportunity",
+  "category_growth_opportunity",
+  "field_coaching_recommendation",
+  "service_bay_opportunity",
+  "pm_audit_opportunity",
+  "oem_profile_play",
+  "customer_profile_play",
+];
+const KL_ADMIN_ACTION_CENTER_MAX_SPOTLIGHTS = 4;
+
+/** Plain-language coaching copy for enablement alert signals (Phase 7A.1). */
+const KL_ADMIN_ENABLEMENT_SIGNAL_COACHING = {
+  weak_hydraulic_quote_mix: {
+    happened: (al) =>
+      `${String(al.dealerName || "This dealer").trim()} is not quoting much hydraulic fluid yet.`,
+    why: "Hydraulic is where downtime stories win—reps need a simple tag-and-PDS conversation before price talk.",
+    next: (al) =>
+      `Review the “${al.spotlightTitle || "hydraulic"}” materials with the rep before the next shop visit.`,
+  },
+  weak_hydraulic_approved_mix: {
+    happened: (al) =>
+      `${String(al.dealerName || "This dealer").trim()} is not stocking much hydraulic on approved jobs yet.`,
+    why: "When hydraulics lag on approved lines, attach grease and filters usually lag too.",
+    next: (al) =>
+      `Open Sales Enablement and walk the hydraulic story—verify ISO/VG on tags and current PDS.`,
+  },
+  low_grease_penetration: {
+    happened: (al) =>
+      `${String(al.dealerName || "This dealer").trim()} is not selling much grease on quoted work yet.`,
+    why: "Grease is high-frequency PM revenue—if it is optional in talk tracks, bays miss easy attach.",
+    next: (al) =>
+      `Coach PM intervals and chassis packs; use the grease spotlight only after the counter story is clear.`,
+  },
+  weak_synthetic_adoption: {
+    happened: () => "Premium synthetic lines are still a small part of what dealers are stocking.",
+    why: "Reps need simple upgrade language tied to tags—not a price list before the customer visit.",
+    next: () => "Prepare training on synthetic positioning; assign Klondike University if the manager wants online follow-up.",
+  },
+  low_proposal_activity: {
+    happened: (al) =>
+      `${String(al.dealerName || "This dealer").trim()} has quotes but few proposals going out the door.`,
+    why: "Quotes without proposals stall the customer—coaching beats another product email.",
+    next: () => "Sit with the manager on proposal follow-up: who owns the next customer touch?",
+  },
+  weak_approved_capture: {
+    happened: (al) =>
+      `${String(al.dealerName || "This dealer").trim()} is not logging approved lines after customer yeses.`,
+    why: "Without approved lines on file, stocking and coaching conversations stay guesswork.",
+    next: () => "Show the team how approvals feed the counter story—one live example in the CRM.",
+  },
+  proposal_engagement_gap: {
+    happened: (al) =>
+      `${String(al.dealerName || "This dealer").trim()} sent proposals but customers have not responded yet.`,
+    why: "Open proposals go cold fast—reps may need help with timing and the ask.",
+    next: () => "Ride along or call blitz on open proposals while they are still warm.",
+  },
+  low_ocr_utilization: {
+    happened: (al) =>
+      `${String(al.dealerName || "This dealer").trim()} is not scanning competitive labels much yet.`,
+    why: "Label scans give counter staff something concrete to say on hydraulics and HD—without them, reps guess.",
+    next: () => "Run a short counter huddle on scanning competitor labels before the next bid.",
+  },
+  heavy_duty_quote_concentration: {
+    happened: (al) =>
+      `${String(al.dealerName || "This dealer").trim()} is heavy on diesel engine oil quotes right now.`,
+    why: "Fleet-heavy quoting is a chance to open grease, coolant, and trans fluid—not only CK-4.",
+    next: () => "Use the HD spotlight to anchor spec talk, then ask what else is due on the PM sheet.",
+  },
+};
+
+function coachingCopyForEnablementAlert(al) {
+  const signal = String(al?.signalKind || "").trim();
+  const row = KL_ADMIN_ENABLEMENT_SIGNAL_COACHING[signal];
+  if (row) {
+    return {
+      whatChanged: row.happened(al),
+      why: row.why,
+      recommended: row.next(al),
+    };
+  }
+  const dealer = String(al?.dealerName || "This dealer").trim();
+  return {
+    whatChanged: `${dealer} flagged for a coaching follow-up.`,
+    why: String(al?.whyItMatters || "A simple pattern in quotes or stocking needs a manager conversation."),
+    recommended: `Open Sales Enablement and review “${al?.spotlightTitle || "library"}” with the rep before any customer send.`,
+  };
+}
+
+function humanizeKlAdminActionCenterItem(ac) {
+  if (!ac || typeof ac !== "object") return ac;
+  const next = { ...ac };
+  const labelSwap = (s) =>
+    String(s || "")
+      .replace(/\bpenetration\b/gi, "sales")
+      .replace(/\bactivation\b/gi, "setup")
+      .replace(/\bengagement\b/gi, "customer follow-up")
+      .replace(/\breinforcement\b/gi, "coaching")
+      .replace(/\boptimization\b/gi, "improvement")
+      .replace(/\bthreshold\b/gi, "target")
+      .replace(/\bvariance\b/gi, "gap")
+      .replace(/Review Product Mix/g, "Review Dealer Mix");
+  ["issue", "whatChanged", "why", "recommended", "scope", "buttonLabel"].forEach((k) => {
+    if (next[k]) next[k] = labelSwap(next[k]);
+  });
+  if (next.kind === "dealer_activation") {
+    if (/needs attention/i.test(next.issue)) {
+      next.issue = "This dealer still has setup steps to finish.";
+    }
+    if (next.buttonLabel === "Open Dealer Activation") {
+      next.buttonLabel = "Open Dealer Snapshot";
+    }
+  }
+  if (next.kind === "dealers_tab" && /proposal engagement/i.test(next.issue)) {
+    next.issue = "Customers are not responding to proposals yet.";
+    next.why = "Proposals are out the door but replies are quiet—managers may need a follow-up plan.";
+    next.recommended = "Review which dealers have open proposals and who owns the next call.";
+    next.buttonLabel = "Open Dealer Snapshot";
+  }
+  if (next.kind === "dealers_select" && /needs attention/i.test(next.issue)) {
+    next.issue = "Quotes are moving—customers have not replied yet.";
+    next.why = "The rep may need help closing the loop, not another product sheet.";
+    next.recommended = "Call or visit while the quote is still fresh.";
+    next.buttonLabel = "Open Dealer Snapshot";
+  }
+  if (next.kind === "spotlight" && /send spotlight/i.test(next.buttonLabel)) {
+    next.buttonLabel = "Open Sales Enablement";
+  }
+  if (!next.summary) {
+    next.summary = String(next.whatChanged || next.issue || "").trim();
+  }
+  return next;
+}
+
+function computeKlAdminTerritoryProductMixRows(dealers) {
+  const targetCategories = [
+    "HD Engine Oils",
+    "Hydraulic Fluids",
+    "Automotive",
+    "Grease",
+    "Gear Oils",
+    "Transmission Fluids",
+    "Coolants / Chemicals",
+  ];
+  const categoryMap = {
+    "HD Engine Oils": ["Heavy Duty", "HD Engine Oils"],
+    "Hydraulic Fluids": ["Hydraulic Fluids"],
+    Automotive: ["Automotive"],
+    Grease: ["Grease"],
+    "Gear Oils": ["Gear Oils", "Gear"],
+    "Transmission Fluids": ["Transmission Fluids"],
+    "Coolants / Chemicals": ["Coolants", "Chemicals", "Coolants / Chemicals"],
+  };
+  const counts = Object.fromEntries(targetCategories.map((name) => [name, 0]));
+  (Array.isArray(dealers) ? dealers : []).forEach((dealer) => {
+    const mixRows = Array.isArray(dealer?.productMix) ? dealer.productMix : [];
+    mixRows.forEach((row) => {
+      const sourceName = String(row?.name || "").trim();
+      const sourceCount = Number(row?.count || 0);
+      if (!sourceName || !Number.isFinite(sourceCount) || sourceCount <= 0) return;
+      targetCategories.forEach((targetName) => {
+        const aliases = categoryMap[targetName] || [];
+        if (aliases.includes(sourceName)) counts[targetName] += sourceCount;
+      });
+    });
+  });
+  const totalItems = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+  return targetCategories
+    .map((name) => {
+      const count = Number(counts[name] || 0);
+      return {
+        name,
+        count,
+        percent: totalItems > 0 ? Math.round((count / totalItems) * 100) : 0,
+      };
+    })
+    .sort((a, b) => b.count - a.count);
+}
+
+function normalizeKlAdminBdrAction(item) {
+  const kind = String(item?.kind || "").trim();
+  const suggestedFormat = String(item?.suggestedFormat || "").trim() || "dealer review";
+  let suggestedOwner = String(item?.suggestedOwner || "").trim() || "KL BDM";
+  if (kind === "ride_along_recommendation") suggestedOwner = item.suggestedOwner || "Field rep";
+  if (kind === "klondike_university_assignment") {
+    suggestedOwner = item.suggestedOwner || "Dealer manager";
+  }
+  const whatChanged = String(item?.whatChanged || item?.issue || "").trim();
+  const issue = String(item?.issue || whatChanged).trim();
+  return {
+    ...item,
+    issue,
+    whatChanged,
+    summary: String(item?.summary || whatChanged).trim(),
+    suggestedOwner,
+    suggestedFormat,
+    navigationIntent: String(item?.navigationIntent || "open_dealer_snapshot").trim(),
+  };
+}
+
+function sortKlAdminActionCenterQueue(actions) {
+  const priority = (ac) => {
+    if (typeof ac.severityRank === "number") return ac.severityRank;
+    if (ac.kind === "dealer_activation") return 0;
+    if (KL_ADMIN_BDR_ACTION_KINDS.includes(ac.kind)) return 2;
+    if (ac.kind === "spotlight") return 3;
+    return 4;
+  };
+  return [...actions].sort((a, b) => {
+    const d = priority(a) - priority(b);
+    if (d !== 0) return d;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+}
+
+/**
+ * Field-coaching next steps from in-memory KL Admin dashboard signals (Phase 7A / 7A.1).
+ */
+function buildKlAdminBdrActionCenterExtensions(ctx) {
+  const {
+    dealers = [],
+    enablementAlerts = [],
+    proposalSignals = {},
+    inventoryModel = null,
+    productMixRows = [],
+    productPerformanceCards = [],
+    dealerHealth = {},
+    operationalBuckets = {},
+    ocrSnapshot = null,
+  } = ctx || {};
+  const actions = [];
+  const usedIds = new Set();
+  const push = (item) => {
+    if (!item?.id || usedIds.has(item.id)) return;
+    usedIds.add(item.id);
+    actions.push(normalizeKlAdminBdrAction(item));
+  };
+
+  const dealerList = Array.isArray(dealers) ? dealers : [];
+  const pickDealer = (predicate) => dealerList.find(predicate) || dealerList[0] || null;
+  const defaultOid = String(dealerList[0]?.organization_id || "");
+  const defaultName = String(dealerList[0]?.name || "Leading dealer").trim();
+
+  const proposalsSent = Number(proposalSignals?.proposalsSent || 0);
+  const responsesReceived = Number(proposalSignals?.responsesReceived || 0);
+  const inactiveCount = Number(operationalBuckets?.inactive || 0);
+  const needsAttention = Number(operationalBuckets?.needsAttention || 0);
+  const syntheticPct =
+    inventoryModel?.hasData && Number.isFinite(Number(inventoryModel.syntheticSharePct))
+      ? Math.round(Number(inventoryModel.syntheticSharePct))
+      : null;
+
+  const mixRows = Array.isArray(productMixRows) ? productMixRows : [];
+  const nonZeroMix = mixRows.filter((r) => Number(r?.count || 0) > 0);
+  const weakestAdopted = [...nonZeroMix].sort((a, b) => Number(a.count) - Number(b.count))[0];
+  const zeroMix = mixRows.filter((r) => Number(r?.count || 0) === 0);
+
+  if (proposalsSent >= 2 && responsesReceived === 0) {
+    push({
+      id: "bdr-business-review-proposal-stall",
+      kind: "business_review_reminder",
+      issue: "It may be time for a dealer business review.",
+      scope: "Territory",
+      whatChanged: `There are ${proposalsSent} proposals out with no customer replies logged yet.`,
+      why: "When proposals sit quiet, reps often need a manager plan—not more product sheets.",
+      recommended: "Prepare a short QBR: open proposals, who owns the next call, and what ships this month.",
+      suggestedOwner: "KL BDM",
+      suggestedFormat: "business review",
+      buttonLabel: "Prepare Business Review",
+      navigationIntent: "prepare_business_review",
+      accent: "orange",
+      severityRank: 1,
+    });
+  }
+
+  const stallDealer = pickDealer((d) => {
+    const qs = Number(d?.quotesCreated || 0);
+    const ps = Number(d?.proposalsSent || 0);
+    const cr = Number(d?.customerResponses || 0);
+    return qs >= 2 && ps >= 1 && cr === 0;
+  });
+  if (stallDealer) {
+    const oid = String(stallDealer.organization_id || "");
+    const dName = String(stallDealer.name || "Dealer").trim();
+    push({
+      id: `bdr-ride-along-${oid || "territory"}`,
+      kind: "ride_along_recommendation",
+      issue: "This rep may need help closing quotes.",
+      scope: dName,
+      whatChanged: `${dName} has ${Number(stallDealer.quotesCreated || 0)} quotes and ${Number(stallDealer.proposalsSent || 0)} proposals with no customer reply yet.`,
+      why: "Watching a live customer visit shows whether the gap is follow-up, spec talk, or pricing—not another email.",
+      recommended: "Ride along on the next customer visit and coach how they ask for the decision.",
+      suggestedOwner: "Field rep",
+      suggestedFormat: "ride-along",
+      buttonLabel: "Schedule Ride-Along",
+      navigationIntent: "schedule_ride_along",
+      accent: "blue",
+      dealerOrgId: oid,
+      severityRank: 1,
+    });
+    push({
+      id: `bdr-field-coaching-${oid || "territory"}`,
+      kind: "field_coaching_recommendation",
+      issue: "Coach proposal follow-up while quotes are still warm.",
+      scope: dName,
+      whatChanged: "Quotes and proposals are moving but customers have not said yes or no yet.",
+      why: "A quick manager role-play on the close often beats sending more library content.",
+      recommended: "Call the rep today: list open proposals and agree on the next customer touch by name.",
+      suggestedOwner: "KL BDM",
+      suggestedFormat: "in-person training",
+      buttonLabel: "Open Dealer Snapshot",
+      navigationIntent: "open_dealer_snapshot",
+      accent: "blue",
+      dealerOrgId: oid,
+      severityRank: 2,
+    });
+  }
+
+  if (inactiveCount > 0 || Number(dealerHealth?.dealersNeedingAttention || 0) > 0) {
+    const quietDealer = pickDealer((d) => {
+      const q = Number(d?.quotesCreated || 0);
+      const p = Number(d?.proposalsSent || 0);
+      const r = Number(d?.customerResponses || 0);
+      return q + p + r === 0;
+    });
+    push({
+      id: `bdr-training-activation-${String(quietDealer?.organization_id || "territory")}`,
+      kind: "training_recommendation",
+      issue: quietDealer
+        ? `${String(quietDealer.name || "A dealer").trim()} has been quiet on quotes and proposals.`
+        : "Several dealers have been quiet on quotes and proposals.",
+      scope: quietDealer ? String(quietDealer.name || "Dealer").trim() : "Territory",
+      whatChanged: quietDealer
+        ? "No quotes, proposals, or customer replies are on file for this org yet."
+        : `${inactiveCount || Number(dealerHealth.dealersNeedingAttention || 0)} dealer(s) show little or no recent activity.`,
+      why: "Counters and reps often need a simple restart: first quote, first proposal, first follow-up log.",
+      recommended:
+        "Prepare in-person training on the basics—profile, first quote, proposal send, and logging the customer reply.",
+      suggestedOwner: "KL BDM",
+      suggestedFormat: "in-person training",
+      buttonLabel: "Prepare Training",
+      navigationIntent: "prepare_training",
+      accent: "orange",
+      dealerOrgId: String(quietDealer?.organization_id || defaultOid),
+      severityRank: inactiveCount > 1 ? 1 : 2,
+    });
+  }
+
+  const ocrTotal = Number(ocrSnapshot?.totalScans || 0);
+  const ocrRepCount = Array.isArray(ocrSnapshot?.topReps) ? ocrSnapshot.topReps.length : 0;
+  if (ocrTotal === 0 || (ocrTotal > 0 && ocrRepCount <= 1)) {
+    push({
+      id: "bdr-training-ocr-competitive",
+      kind: "training_recommendation",
+      issue: "Counter staff may need help using label scans.",
+      scope: "Territory field team",
+      whatChanged:
+        ocrTotal === 0
+          ? "No competitive label scans are logged for the territory yet."
+          : `Only ${ocrRepCount} rep(s) are doing most of the scanning.`,
+      why: "Scans give reps something real to say on hydraulics and HD before they match a price card.",
+      recommended: "Run a 15-minute counter huddle: scan a competitor drum and turn it into two spec questions.",
+      suggestedOwner: "KL BDM",
+      suggestedFormat: "in-person training",
+      buttonLabel: "Prepare Training",
+      navigationIntent: "prepare_training",
+      accent: "blue",
+      severityRank: 2,
+    });
+  }
+
+  if (syntheticPct !== null && syntheticPct < 18) {
+    push({
+      id: "bdr-klu-synthetic-adoption",
+      kind: "klondike_university_assignment",
+      issue: "Reps may need more practice on premium synthetic lines.",
+      scope: "Territory",
+      whatChanged: `Synthetic products are about ${syntheticPct}% of approved demand in the current view—room to grow.`,
+      why: "Managers can assign a short online module so every rep uses the same upgrade language.",
+      recommended:
+        "Assign the synthetic module in Klondike University; check in live on tag-and-PDS talk—not price first.",
+      suggestedOwner: "Dealer manager",
+      suggestedFormat: "online training",
+      buttonLabel: "Prepare Training",
+      navigationIntent: "prepare_training",
+      accent: "blue",
+      severityRank: 2,
+    });
+  }
+
+  const pressureCard = (Array.isArray(productPerformanceCards) ? productPerformanceCards : []).find(
+    (c) => c?.trend?.dir === "down"
+  );
+  if (pressureCard) {
+    const catName = String(pressureCard.title || "this category").trim();
+    push({
+      id: `bdr-training-category-${String(pressureCard.key || "category")}`,
+      kind: "training_recommendation",
+      issue: `This dealer may need more ${catName} product training.`,
+      scope: "Territory",
+      whatChanged: String(
+        pressureCard.trend?.detail || `${catName} sales have slipped versus the last snapshot.`
+      ),
+      why: String(
+        pressureCard.operationalStatus ||
+          "Reps sell more when they have two discovery questions and a PDS habit—not a bulk swap pitch."
+      ),
+      recommended: String(
+        pressureCard.recommendedAction ||
+          `Prepare a short in-person session on ${catName}: tags, common failures, and what not to promise.`
+      ),
+      suggestedOwner: "KL BDM",
+      suggestedFormat: "in-person training",
+      buttonLabel: "Prepare Training",
+      navigationIntent: "prepare_training",
+      accent: "orange",
+      severityRank: 2,
+    });
+  }
+
+  if (weakestAdopted && Number(weakestAdopted.count) > 0 && Number(weakestAdopted.percent) < 12) {
+    const catCard = (Array.isArray(productPerformanceCards) ? productPerformanceCards : []).find(
+      (c) => String(c.title || "").trim() === String(weakestAdopted.name || "").trim()
+    );
+    const catName = String(weakestAdopted.name || "this category").trim();
+    push({
+      id: `bdr-growth-${catName.replace(/\s+/g, "-").toLowerCase()}`,
+      kind: "category_growth_opportunity",
+      issue: `Room to grow ${catName} at your dealers.`,
+      scope: "Territory",
+      whatChanged: `${catName} is only about ${weakestAdopted.percent}% of quoted lines—lighter than other categories.`,
+      why: "Growth usually comes from PM attach and bay habits, not one big bulk deal.",
+      recommended: catCard?.recommendedAction
+        ? `${catCard.recommendedAction} Check tags and PDS before the dealer commits.`
+        : `Pick two dealers and review ${catName} on the PM sheet—what is missing on the counter story?`,
+      suggestedOwner: "KL BDM",
+      suggestedFormat: "dealer review",
+      buttonLabel: "Review Dealer Mix",
+      navigationIntent: "review_product_mix",
+      accent: "green",
+      spotlightId: catCard?.spotlightId,
+      spotlightType: catCard?.spotlightType,
+      severityRank: 2,
+    });
+  }
+
+  const greaseRow = mixRows.find((r) => String(r.name || "").includes("Grease"));
+  if (greaseRow && Number(greaseRow.percent || 0) < 10 && Number(greaseRow.count || 0) > 0) {
+    push({
+      id: "bdr-pm-audit-grease",
+      kind: "pm_audit_opportunity",
+      issue: "PM grease may be under-sold on service intervals.",
+      scope: "Territory",
+      whatChanged: "Grease is a smaller slice of quoted work than other fluid categories.",
+      why: "Chassis and bearing grease should ride along with every PM conversation—not only engine oil.",
+      recommended: "Run a PM audit on two active dealers: what is on the lube sticker vs what gets quoted?",
+      suggestedOwner: "KL BDM",
+      suggestedFormat: "dealer review",
+      buttonLabel: "Review Dealer Mix",
+      navigationIntent: "review_product_mix",
+      accent: "green",
+      severityRank: 2,
+    });
+  }
+
+  const hdRow = mixRows.find((r) => String(r.name || "").includes("HD Engine"));
+  if (hdRow && Number(hdRow.percent || 0) >= 28) {
+    push({
+      id: "bdr-service-bay-hd-heavy",
+      kind: "service_bay_opportunity",
+      issue: "Service bays are heavy on diesel engine oil—open the rest of the PM ticket.",
+      scope: "Territory",
+      whatChanged: "HD engine oil leads quoted activity; other PM lines may be getting skipped in talk tracks.",
+      why: "When bays only hear CK-4, they miss grease, coolant, and trans fluid on the same visit.",
+      recommended:
+        "Walk the service manager through a PM sheet: engine oil plus grease, filters, and hydraulics due the same week.",
+      suggestedOwner: "Dealer manager",
+      suggestedFormat: "in-person training",
+      buttonLabel: "Prepare Training",
+      navigationIntent: "prepare_training",
+      accent: "orange",
+      severityRank: 2,
+    });
+  }
+
+  if (zeroMix.length > 0) {
+    const names = zeroMix.slice(0, 2).map((r) => r.name).join(" and ");
+    push({
+      id: "bdr-product-mix-audit-zero-categories",
+      kind: "product_mix_audit",
+      issue: "Some product lines are not showing up in quotes yet.",
+      scope: "Territory",
+      whatChanged: `${names} do not appear on quoted lines in the current territory view.`,
+      why: "That can mean the counter is not stocking the story—or reps are not logging those quotes.",
+      recommended: "Review dealer mix with two managers: what is on the shelf vs what gets quoted?",
+      suggestedOwner: "KL BDM",
+      suggestedFormat: "dealer review",
+      buttonLabel: "Review Dealer Mix",
+      navigationIntent: "review_product_mix",
+      accent: "blue",
+      severityRank: 2,
+    });
+  }
+
+  const concentratedDealer = pickDealer((dealer) => {
+    const rows = Array.isArray(dealer?.productMix) ? dealer.productMix : [];
+    const total = rows.reduce((sum, row) => sum + Number(row?.count || 0), 0);
+    if (total <= 0) return false;
+    const topShare = rows.reduce((best, row) => {
+      const ratio = Number(row?.count || 0) / total;
+      return ratio > best ? ratio : best;
+    }, 0);
+    return topShare >= 0.6;
+  });
+  if (concentratedDealer) {
+    const oid = String(concentratedDealer.organization_id || "");
+    push({
+      id: `bdr-product-mix-audit-${oid || "dealer"}`,
+      kind: "product_mix_audit",
+      issue: `${String(concentratedDealer.name || "This dealer").trim()} relies on one product line heavily.`,
+      scope: String(concentratedDealer.name || "Dealer").trim(),
+      whatChanged: "Most quoted lines sit in a single category—other PM products may be getting skipped.",
+      why: "When fleets shift seasonally, a one-line counter story leaves money on the table.",
+      recommended:
+        "Open the dealer snapshot and ask the manager: what PM lines are due that are not on the quote today?",
+      suggestedOwner: "Dealer manager",
+      suggestedFormat: "dealer review",
+      buttonLabel: "Open Dealer Snapshot",
+      navigationIntent: "open_dealer_snapshot",
+      accent: "green",
+      dealerOrgId: oid,
+      severityRank: 3,
+    });
+  }
+
+  const alertBySignal = {};
+  (Array.isArray(enablementAlerts) ? enablementAlerts : []).forEach((al) => {
+    const sk = String(al.signalKind || "").trim();
+    if (sk && !alertBySignal[sk]) alertBySignal[sk] = al;
+  });
+
+  const signalToCustomerProfile = {
+    low_grease_penetration: "construction",
+    weak_hydraulic_quote_mix: "mining_aggregate",
+    weak_hydraulic_approved_mix: "mining_aggregate",
+    heavy_duty_quote_concentration: "truck_dealers",
+    weak_synthetic_adoption: "shop_fleet_maintenance",
+    low_ocr_utilization: "shop_fleet_maintenance",
+  };
+  const signalToOemKey = {
+    heavy_duty_quote_concentration: "international",
+    weak_hydraulic_quote_mix: "cat",
+    weak_hydraulic_approved_mix: "volvo_ce",
+    low_proposal_activity: "cat",
+  };
+
+  Object.entries(signalToCustomerProfile).forEach(([signal, profileId]) => {
+    const al = alertBySignal[signal];
+    if (!al) return;
+    const oid = String(al.dealerOrgId || defaultOid);
+    const coach = coachingCopyForEnablementAlert(al);
+    const profileLabel = profileId.replace(/_/g, " ");
+    push({
+      id: `bdr-customer-play-${signal}-${oid}`,
+      kind: "customer_profile_play",
+      issue: `Use the ${profileLabel} customer playbook with ${String(al.dealerName || defaultName).trim()}.`,
+      scope: profileLabel,
+      whatChanged: coach.whatChanged,
+      why: coach.why,
+      recommended: `Open Sales Enablement with the ${profileLabel} profile—coach discovery questions and check tags/PDS on site.`,
+      suggestedOwner: "Field rep",
+      suggestedFormat: "in-person training",
+      buttonLabel: "Open Sales Enablement",
+      navigationIntent: "open_sales_enablement",
+      accent: "blue",
+      dealerOrgId: oid,
+      customerProfileId: profileId,
+      enablementSignalKind: signal,
+      severityRank: typeof al.severityRank === "number" ? al.severityRank + 1 : 2,
+    });
+  });
+
+  Object.entries(signalToOemKey).forEach(([signal, oemKey]) => {
+    const al = alertBySignal[signal];
+    if (!al) return;
+    const oid = String(al.dealerOrgId || defaultOid);
+    const coach = coachingCopyForEnablementAlert(al);
+    push({
+      id: `bdr-oem-play-${signal}-${oid}`,
+      kind: "oem_profile_play",
+      issue: `Walk the ${oemKey.replace(/_/g, " ")} OEM playbook with ${String(al.dealerName || defaultName).trim()}.`,
+      scope: `OEM · ${oemKey.replace(/_/g, " ")}`,
+      whatChanged: coach.whatChanged,
+      why: `${coach.why} This is a spec conversation aid—not an OEM approval.`,
+      recommended:
+        "Open Sales Enablement, review the OEM profile with the rep, and align questions to equipment tags on the lot.",
+      suggestedOwner: "KL BDM",
+      suggestedFormat: "in-person training",
+      buttonLabel: "Open Sales Enablement",
+      navigationIntent: "open_sales_enablement",
+      accent: "blue",
+      dealerOrgId: oid,
+      oemOpportunityProfileKey: oemKey,
+      enablementSignalKind: signal,
+      severityRank: typeof al.severityRank === "number" ? al.severityRank + 1 : 2,
+    });
+  });
+
+  if (needsAttention > 0 && !usedIds.has("bdr-klu-enablement-refresh")) {
+    push({
+      id: "bdr-klu-enablement-refresh",
+      kind: "klondike_university_assignment",
+      issue: "Assign a short Klondike University refresher for busy reps.",
+      scope: "Territory",
+      whatChanged: `${needsAttention} dealer(s) have quotes but slow proposal or customer reply habits.`,
+      why: "A 20-minute online module between visits keeps proposal discipline consistent.",
+      recommended:
+        "Ask the manager to assign core modules in Klondike University—confirm completion on the next visit.",
+      suggestedOwner: "Dealer manager",
+      suggestedFormat: "online training",
+      buttonLabel: "Prepare Training",
+      navigationIntent: "prepare_training",
+      accent: "blue",
+      severityRank: 3,
+    });
+  }
+
+  return actions;
+}
+
+function mergeKlAdminActionCenterQueue({
+  baseActions = [],
+  enablementAlerts = [],
+  dealers = [],
+  proposalSignals = {},
+  inventoryModel = null,
+  productMixRows = [],
+  productPerformanceCards = [],
+  dealerHealth = {},
+  operationalBuckets = {},
+  ocrSnapshot = null,
+  limit = KL_ADMIN_ACTION_CENTER_LIMIT,
+}) {
+  const merged = (Array.isArray(baseActions) ? baseActions : []).map(humanizeKlAdminActionCenterItem);
+  const seen = new Set(merged.map((a) => a.id));
+
+  const push = (item) => {
+    if (merged.length >= limit) return false;
+    const id = String(item?.id || "").trim();
+    if (!id || seen.has(id)) return false;
+    seen.add(id);
+    const row =
+      item.kind && KL_ADMIN_BDR_ACTION_KINDS.includes(item.kind)
+        ? normalizeKlAdminBdrAction(item)
+        : item;
+    merged.push(humanizeKlAdminActionCenterItem(row));
+    return true;
+  };
+
+  const bdr = buildKlAdminBdrActionCenterExtensions({
+    dealers,
+    enablementAlerts,
+    proposalSignals,
+    inventoryModel,
+    productMixRows,
+    productPerformanceCards,
+    dealerHealth,
+    operationalBuckets,
+    ocrSnapshot,
+  });
+  bdr.forEach((row) => push(row));
+
+  const alerts = Array.isArray(enablementAlerts) ? enablementAlerts : [];
+  let spotlightCount = merged.filter((a) => a.kind === "spotlight").length;
+  for (const al of alerts) {
+    if (merged.length >= limit) break;
+    if (spotlightCount >= KL_ADMIN_ACTION_CENTER_MAX_SPOTLIGHTS) break;
+    const id = `alert-${al.alertKey}`;
+    if (seen.has(id)) continue;
+    const sev = typeof al.severityRank === "number" ? al.severityRank : 2;
+    const signal = String(al.signalKind || "");
+    const profilePlayExists = merged.some(
+      (a) =>
+        (a.kind === "customer_profile_play" || a.kind === "oem_profile_play") &&
+        a.enablementSignalKind === signal
+    );
+    if (profilePlayExists && sev >= 2) continue;
+    seen.add(id);
+    const coach = coachingCopyForEnablementAlert(al);
+    merged.push(
+      humanizeKlAdminActionCenterItem({
+        id,
+        kind: "spotlight",
+        issue: `Review spotlight materials for ${String(al.dealerName || "this dealer").trim()}.`,
+        scope: String(al.dealerName || "Dealer").trim(),
+        whatChanged: coach.whatChanged,
+        why: coach.why,
+        recommended: coach.recommended,
+        suggestedOwner: "KL BDM",
+        suggestedFormat: "spotlight",
+        buttonLabel: "Open Sales Enablement",
+        navigationIntent: "open_sales_enablement",
+        accent: "blue",
+        dealerOrgId: String(al.dealerOrgId || ""),
+        spotlightId: al.spotlightId,
+        spotlightType: al.spotlightType,
+        severityRank: sev,
+        enablementSignalKind: signal,
+      })
+    );
+    spotlightCount += 1;
+  }
+
+  if (merged.length < limit && !seen.has("cmd-open-sales-enablement")) {
+    merged.push(
+      humanizeKlAdminActionCenterItem({
+        id: "cmd-open-sales-enablement",
+        kind: "sales_enablement",
+        issue: "Review Sales Enablement before your next dealer visit.",
+        scope: "Territory",
+        whatChanged: "Spotlights, profiles, and guided packages are ready to preview.",
+        why: "Coaching lands better when you have the right story—not a blind forward to the customer.",
+        recommended: "Open the library, pick one topic, and walk it with a rep before anything goes outbound.",
+        suggestedOwner: "KL BDM",
+        suggestedFormat: "dealer review",
+        buttonLabel: "Open Sales Enablement",
+        navigationIntent: "open_sales_enablement",
+        accent: "blue",
+        severityRank: 4,
+      })
+    );
+    seen.add("cmd-open-sales-enablement");
+  }
+
+  const defaultPlaybookOrgId = String((dealers || [])[0]?.organization_id || "");
+  const playbookMocks = buildKlAdminActionPlaybookMocks({ dealerOrgId: defaultPlaybookOrgId });
+  for (const row of playbookMocks) {
+    if (merged.length >= limit) break;
+    if (merged.length >= 12) break;
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    merged.push(
+      humanizeKlAdminActionCenterItem({
+        ...row,
+        whatChanged: String(row.whatChanged || row.issue || "").trim(),
+        suggestedOwner: "KL BDM",
+        suggestedFormat: row.kind === "spotlight" ? "spotlight" : "dealer review",
+      })
+    );
+  }
+
+  return sortKlAdminActionCenterQueue(merged)
+    .slice(0, limit)
+    .map((ac) => {
+      let out = humanizeKlAdminActionCenterItem(ac);
+      if (out.kind !== "spotlight" || typeof out.severityRank === "number") return out;
+      const al = alerts.find((x) => `alert-${x.alertKey}` === out.id);
+      if (!al || typeof al.severityRank !== "number") return out;
+      return { ...out, severityRank: al.severityRank, enablementSignalKind: al.signalKind };
+    });
+}
+
 /** Local-only territory incentive / contest definitions (Phase 72 — no backend schema). */
 const KL_TERRITORY_CONTESTS_KEY = "kl_territory_contests_v1";
 
@@ -7894,9 +8662,6 @@ const handleFinishDealerEnrollment = async () => {
   }, [klAdminDashboardDealersForView, ocrSnapshot?.topDealers]);
 
   const klondikeActionCenterActions = React.useMemo(() => {
-    const alerts = Array.isArray(klondikeDashboardEnablementAlerts)
-      ? klondikeDashboardEnablementAlerts
-      : [];
     const base = buildKlondikeActionCenterActions({
       enablementAlerts: klondikeDashboardEnablementAlerts,
       dealerNetworkPerformance,
@@ -7904,74 +8669,31 @@ const handleFinishDealerEnrollment = async () => {
       territoryInventoryModel: klondikeTerritoryInventoryModel,
       maxActions: 24,
     });
-    const merged = [...base];
-    const seen = new Set(base.map((a) => a.id));
-
-    for (const al of alerts) {
-      if (merged.length >= KL_ADMIN_ACTION_CENTER_LIMIT) break;
-      const id = `alert-${al.alertKey}`;
-      if (seen.has(id)) continue;
-      seen.add(id);
-      merged.push({
-        id,
-        kind: "spotlight",
-        issue: al.issueTitle || "Dealer enablement gap detected.",
-        scope: String(al.dealerName || "Dealer").trim(),
-        why:
-          al.whyItMatters || "Rule-based signals flagged this dealer for coaching.",
-        recommended: `Send the “${al.spotlightTitle}” spotlight after you review copy.`,
-        buttonLabel: "Send Spotlight",
-        accent: "blue",
-        dealerOrgId: String(al.dealerOrgId || ""),
-        spotlightId: al.spotlightId,
-        spotlightType: al.spotlightType,
-        severityRank: typeof al.severityRank === "number" ? al.severityRank : 2,
-        enablementSignalKind: al.signalKind,
-      });
-    }
-
-    if (merged.length < KL_ADMIN_ACTION_CENTER_LIMIT && !seen.has("cmd-open-sales-enablement")) {
-      merged.push({
-        id: "cmd-open-sales-enablement",
-        kind: "sales_enablement",
-        issue: "Preview spotlights and coach outbound sends.",
-        scope: "Territory",
-        why: "Keep library copy and recipients aligned before dealers deploy.",
-        recommended: "Open Sales Enablement to review materials and delivery workflow.",
-        buttonLabel: "Open Sales Enablement",
-        accent: "blue",
-      });
-    }
-
-    const defaultPlaybookOrgId = String((dealerNetworkPerformance || [])[0]?.organization_id || "");
-    const playbookMocks = buildKlAdminActionPlaybookMocks({
-      dealerOrgId: defaultPlaybookOrgId,
-    });
-    for (const row of playbookMocks) {
-      if (merged.length >= KL_ADMIN_ACTION_CENTER_LIMIT) break;
-      if (merged.length >= 5) break;
-      if (seen.has(row.id)) continue;
-      seen.add(row.id);
-      merged.push(row);
-    }
-
-    return merged.slice(0, KL_ADMIN_ACTION_CENTER_LIMIT).map((ac) => {
-      if (ac.kind !== "spotlight" || typeof ac.severityRank === "number") return ac;
-      const al = alerts.find((x) => `alert-${x.alertKey}` === ac.id);
-      if (!al || typeof al.severityRank !== "number") return ac;
-      return { ...ac, severityRank: al.severityRank, enablementSignalKind: al.signalKind };
+    return mergeKlAdminActionCenterQueue({
+      baseActions: base,
+      enablementAlerts: klondikeDashboardEnablementAlerts,
+      dealers: dealerNetworkPerformance,
+      proposalSignals: klondikeTerritoryProposalSignals,
+      inventoryModel: klondikeTerritoryInventoryModel,
+      productMixRows: computeKlAdminTerritoryProductMixRows(dealerNetworkPerformance),
+      productPerformanceCards: adminDashboardProductPerformanceCards,
+      dealerHealth: adminDealerHealthFoundation,
+      operationalBuckets: adminDealerOperationalBuckets,
+      ocrSnapshot,
+      limit: KL_ADMIN_ACTION_CENTER_LIMIT,
     });
   }, [
     klondikeDashboardEnablementAlerts,
     dealerNetworkPerformance,
     klondikeTerritoryProposalSignals,
     klondikeTerritoryInventoryModel,
+    adminDashboardProductPerformanceCards,
+    adminDealerHealthFoundation,
+    adminDealerOperationalBuckets,
+    ocrSnapshot,
   ]);
 
   const klondikeActionCenterActionsKlDashboard = React.useMemo(() => {
-    const alerts = Array.isArray(klondikeDashboardEnablementAlertsKlDashboard)
-      ? klondikeDashboardEnablementAlertsKlDashboard
-      : [];
     const base = buildKlondikeActionCenterActions({
       enablementAlerts: klondikeDashboardEnablementAlertsKlDashboard,
       dealerNetworkPerformance: klAdminDashboardDealersForView,
@@ -7979,68 +8701,28 @@ const handleFinishDealerEnrollment = async () => {
       territoryInventoryModel: klAdminDashboardInventoryView,
       maxActions: 24,
     });
-    const merged = [...base];
-    const seen = new Set(base.map((a) => a.id));
-
-    for (const al of alerts) {
-      if (merged.length >= KL_ADMIN_ACTION_CENTER_LIMIT) break;
-      const id = `alert-${al.alertKey}`;
-      if (seen.has(id)) continue;
-      seen.add(id);
-      merged.push({
-        id,
-        kind: "spotlight",
-        issue: al.issueTitle || "Dealer enablement gap detected.",
-        scope: String(al.dealerName || "Dealer").trim(),
-        why:
-          al.whyItMatters || "Rule-based signals flagged this dealer for coaching.",
-        recommended: `Send the “${al.spotlightTitle}” spotlight after you review copy.`,
-        buttonLabel: "Send Spotlight",
-        accent: "blue",
-        dealerOrgId: String(al.dealerOrgId || ""),
-        spotlightId: al.spotlightId,
-        spotlightType: al.spotlightType,
-        severityRank: typeof al.severityRank === "number" ? al.severityRank : 2,
-        enablementSignalKind: al.signalKind,
-      });
-    }
-
-    if (merged.length < KL_ADMIN_ACTION_CENTER_LIMIT && !seen.has("cmd-open-sales-enablement")) {
-      merged.push({
-        id: "cmd-open-sales-enablement",
-        kind: "sales_enablement",
-        issue: "Preview spotlights and coach outbound sends.",
-        scope: "Territory",
-        why: "Keep library copy and recipients aligned before dealers deploy.",
-        recommended: "Open Sales Enablement to review materials and delivery workflow.",
-        buttonLabel: "Open Sales Enablement",
-        accent: "blue",
-      });
-    }
-
-    const defaultPlaybookOrgId = String((klAdminDashboardDealersForView || [])[0]?.organization_id || "");
-    const playbookMocks = buildKlAdminActionPlaybookMocks({
-      dealerOrgId: defaultPlaybookOrgId,
-    });
-    for (const row of playbookMocks) {
-      if (merged.length >= KL_ADMIN_ACTION_CENTER_LIMIT) break;
-      if (merged.length >= 5) break;
-      if (seen.has(row.id)) continue;
-      seen.add(row.id);
-      merged.push(row);
-    }
-
-    return merged.slice(0, KL_ADMIN_ACTION_CENTER_LIMIT).map((ac) => {
-      if (ac.kind !== "spotlight" || typeof ac.severityRank === "number") return ac;
-      const al = alerts.find((x) => `alert-${x.alertKey}` === ac.id);
-      if (!al || typeof al.severityRank !== "number") return ac;
-      return { ...ac, severityRank: al.severityRank, enablementSignalKind: al.signalKind };
+    return mergeKlAdminActionCenterQueue({
+      baseActions: base,
+      enablementAlerts: klondikeDashboardEnablementAlertsKlDashboard,
+      dealers: klAdminDashboardDealersForView,
+      proposalSignals: klAdminDashboardProposalSignalsView,
+      inventoryModel: klAdminDashboardInventoryView,
+      productMixRows: computeKlAdminTerritoryProductMixRows(klAdminDashboardDealersForView),
+      productPerformanceCards: adminDashboardProductPerformanceCards,
+      dealerHealth: adminDealerHealthFoundationKlDashboard,
+      operationalBuckets: adminDealerOperationalBucketsKlDashboard,
+      ocrSnapshot,
+      limit: KL_ADMIN_ACTION_CENTER_LIMIT,
     });
   }, [
     klondikeDashboardEnablementAlertsKlDashboard,
     klAdminDashboardDealersForView,
     klAdminDashboardProposalSignalsView,
     klAdminDashboardInventoryView,
+    adminDashboardProductPerformanceCards,
+    adminDealerHealthFoundationKlDashboard,
+    adminDealerOperationalBucketsKlDashboard,
+    ocrSnapshot,
   ]);
 
   const salesEnablementDealerIntel = React.useMemo(() => {
@@ -12658,21 +13340,16 @@ const handleFinishDealerEnrollment = async () => {
               seGuidedStep3ProfileIndustry,
               seGuidedWizardProfileRefId
             );
-            const seCustomerProfileSellSheetProps = mapCustomerIndustryProfileToSellSheetProps(
-              seGuidedCustomerProfileRow,
-              {
-                industry: seGuidedStep3ProfileIndustry,
-                focus: seGuidedStep3ProfileFocus,
-                assemblyPackage: seGuidedAssemblyDraftPackage?.ok ? seGuidedAssemblyDraftPackage : null,
-              }
-            );
             const seOemOpportunitySellSheetProps = mapEquipmentOpportunityProfileToSellSheetProps(
               getEquipmentOpportunityProfile(seGuidedOemEquipmentKey)
             );
             const customerProfileSellSheetPreview = (
               <CustomerProfileSellSheet
                 key={`se-customer-profile-sell-sheet-${seGuidedCustomerProfileRow?.id || seGuidedStep3ProfileIndustry || "customer"}-${seGuidedAssemblyDraftPackage?.ok ? "draft" : "registry"}`}
-                {...seCustomerProfileSellSheetProps}
+                customerProfileId={seGuidedCustomerProfileRow?.id}
+                assemblyPackage={seGuidedAssemblyDraftPackage?.ok ? seGuidedAssemblyDraftPackage : null}
+                industryContext={seGuidedStep3ProfileIndustry}
+                focusContext={seGuidedStep3ProfileFocus}
               />
             );
             const oemOpportunitySellSheetPreview = (
@@ -18564,7 +19241,7 @@ const handleFinishDealerEnrollment = async () => {
                 color: "#94a3b8",
               }}
             >
-              KL ADMIN · NEXT BEST ACTIONS
+              KL ADMIN · FIELD COACHING
             </div>
             <h3
               style={{
@@ -18588,10 +19265,10 @@ const handleFinishDealerEnrollment = async () => {
               }}
             >
               <span style={{ color: "#f8fafc", fontWeight: 800 }}>
-                Prioritized next-best actions for KL Admin follow-up.
+                What happened, why it matters, and what to do next—like a regional manager on your shoulder.
               </span>{" "}
-              Work the queue top-down—full territory intelligence continues below (up to{" "}
-              {KL_ADMIN_ACTION_CENTER_LIMIT} items).
+              Work the list top-down (up to {KL_ADMIN_ACTION_CENTER_LIMIT} items). Deeper territory detail
+              stays below.
             </p>
             {klAdminDashboardDemoFallbackActive ? (
               <div
@@ -18630,22 +19307,50 @@ const handleFinishDealerEnrollment = async () => {
             const actionIsHighPriority = (a) => {
               const sev = typeof a.severityRank === "number" ? a.severityRank : null;
               if (a.kind === "dealer_activation") return true;
+              if (a.kind === "business_review_reminder") return true;
               if (a.kind === "spotlight" && sev === 0) return true;
               if (sev === 0 || sev === 1) return true;
-              if (a.accent === "orange") return true;
+              if (a.accent === "orange" && sev !== null && sev <= 1) return true;
               return false;
             };
             const highPriorityCount = queueActions.filter(actionIsHighPriority).length;
-            const trainingOpportunityCount = queueActions.filter((a) => {
+            const trainingCoachingCount = queueActions.filter((a) => {
+              if (
+                a.kind === "training_recommendation" ||
+                a.kind === "klondike_university_assignment" ||
+                a.kind === "ride_along_recommendation" ||
+                a.kind === "field_coaching_recommendation" ||
+                a.kind === "service_bay_opportunity"
+              ) {
+                return true;
+              }
               if (a.kind !== "sales_enablement") return false;
               const blob = `${a.issue || ""} ${a.recommended || ""} ${a.buttonLabel || ""}`;
-              return /training|walkthrough|visit|enablement session|course|university|coaching/i.test(blob);
+              return /training|walkthrough|visit|course|university|coaching|huddle/i.test(blob);
             }).length;
-            const spotlightOpportunityCount = queueActions.filter((a) => a.kind === "spotlight").length;
-            const fieldReviewCount = queueActions.filter((a) =>
-              ["dealer_activation", "inventory_intel", "dealers_tab", "dealers_select", "workflow_notice"].includes(
-                a.kind
-              )
+            const growthOpportunityCount = queueActions.filter((a) =>
+              [
+                "category_penetration_opportunity",
+                "category_growth_opportunity",
+                "spotlight",
+                "pm_audit_opportunity",
+              ].includes(a.kind)
+            ).length;
+            const dealerReviewCount = queueActions.filter((a) =>
+              ["business_review_reminder", "product_mix_audit"].includes(a.kind)
+            ).length;
+            const fieldFollowUpCount = queueActions.filter((a) =>
+              [
+                "dealer_activation",
+                "inventory_intel",
+                "dealers_tab",
+                "dealers_select",
+                "workflow_notice",
+                "oem_profile_play",
+                "customer_profile_play",
+                "ride_along_recommendation",
+                "field_coaching_recommendation",
+              ].includes(a.kind)
             ).length;
             const tileBase = {
               padding: "8px 12px",
@@ -18664,7 +19369,7 @@ const handleFinishDealerEnrollment = async () => {
                     gap: 8,
                     gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 96px), 1fr))",
                   }}
-                  title={`Dealer activation / critical spotlight items in queue: ${dealerRisksFlagged}`}
+                  title={`Dealers needing immediate attention in queue: ${dealerRisksFlagged}`}
                 >
                   <div style={{ ...tileBase, borderLeft: "3px solid #dc2626" }}>
                     <div
@@ -18675,7 +19380,7 @@ const handleFinishDealerEnrollment = async () => {
                         color: "#64748b",
                       }}
                     >
-                      HIGH PRIORITY
+                      NEEDS ATTENTION
                     </div>
                     <div
                       style={{
@@ -18690,7 +19395,7 @@ const handleFinishDealerEnrollment = async () => {
                       {highPriorityCount}
                     </div>
                     <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
-                      Critical / urgent queue
+                      Do these first
                     </div>
                   </div>
                   <div style={{ ...tileBase, borderLeft: "3px solid #7c3aed" }}>
@@ -18702,7 +19407,7 @@ const handleFinishDealerEnrollment = async () => {
                         color: "#64748b",
                       }}
                     >
-                      TRAINING
+                      TRAINING & COACHING
                     </div>
                     <div
                       style={{
@@ -18714,10 +19419,10 @@ const handleFinishDealerEnrollment = async () => {
                         lineHeight: 1.15,
                       }}
                     >
-                      {trainingOpportunityCount}
+                      {trainingCoachingCount}
                     </div>
                     <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
-                      Enablement / coaching hooks
+                      Visits · training · ride-alongs
                     </div>
                   </div>
                   <div style={{ ...tileBase, borderLeft: "3px solid #2563eb" }}>
@@ -18729,7 +19434,7 @@ const handleFinishDealerEnrollment = async () => {
                         color: "#64748b",
                       }}
                     >
-                      SPOTLIGHTS
+                      DEALER REVIEWS
                     </div>
                     <div
                       style={{
@@ -18741,10 +19446,37 @@ const handleFinishDealerEnrollment = async () => {
                         lineHeight: 1.15,
                       }}
                     >
-                      {spotlightOpportunityCount}
+                      {dealerReviewCount}
                     </div>
                     <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
-                      Product / category sends
+                      QBR · dealer mix check-ins
+                    </div>
+                  </div>
+                  <div style={{ ...tileBase, borderLeft: "3px solid #059669" }}>
+                    <div
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 900,
+                        letterSpacing: "0.1em",
+                        color: "#64748b",
+                      }}
+                    >
+                      GROWTH OPPORTUNITIES
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 2,
+                        fontSize: 20,
+                        fontWeight: 900,
+                        color: "#0f172a",
+                        letterSpacing: "-0.02em",
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      {growthOpportunityCount}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
+                      Category sales · spotlights · PM
                     </div>
                   </div>
                   <div style={{ ...tileBase, borderLeft: "3px solid #0d9488" }}>
@@ -18756,7 +19488,7 @@ const handleFinishDealerEnrollment = async () => {
                         color: "#64748b",
                       }}
                     >
-                      FIELD / REVIEW
+                      FIELD FOLLOW-UP
                     </div>
                     <div
                       style={{
@@ -18768,10 +19500,10 @@ const handleFinishDealerEnrollment = async () => {
                         lineHeight: 1.15,
                       }}
                     >
-                      {fieldReviewCount}
+                      {fieldFollowUpCount}
                     </div>
                     <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 2, lineHeight: 1.3 }}>
-                      Activation · roster · demand
+                      Dealers · profiles · visits
                     </div>
                   </div>
                 </div>
@@ -18956,10 +19688,32 @@ const handleFinishDealerEnrollment = async () => {
                   .filter(Boolean);
                 const scopeLine = String(ac.scope || "").trim();
                 const issueLine = String(ac.issue || "").trim();
+                const summaryLine = String(ac.summary || "").trim();
+                const showSummaryLine =
+                  summaryLine &&
+                  summaryLine !== issueLine &&
+                  summaryLine !== String(ac.whatChanged || "").trim();
+                const suggestedOwnerLine = String(ac.suggestedOwner || "").trim();
+                const suggestedFormatLine = String(ac.suggestedFormat || "").trim();
                 let whatChangedBlock;
                 let whyMattersBriefDisplay;
                 let supportingWhyTail = "";
-                if (acSentences.length === 0) {
+                const explicitWhatChanged = String(ac.whatChanged || "").trim();
+                if (explicitWhatChanged) {
+                  whatChangedBlock = explicitWhatChanged;
+                  whyMattersBriefDisplay =
+                    acSentences.length > 0
+                      ? acSentences.slice(0, 2).join(" ")
+                      : String(ac.recommended || "")
+                          .trim()
+                          .split(/(?<=[.!?])\s+/)[0] || "Prioritize while dashboard signals are fresh.";
+                  if (whyMattersBriefDisplay.length > 320) {
+                    whyMattersBriefDisplay = `${whyMattersBriefDisplay.slice(0, 317)}…`;
+                  }
+                  if (whatChangedBlock.length > 360) {
+                    whatChangedBlock = `${whatChangedBlock.slice(0, 357)}…`;
+                  }
+                } else if (acSentences.length === 0) {
                   whatChangedBlock =
                     [scopeLine, issueLine].filter(Boolean).join(" · ") || "Territory signal surfaced for KL Admin.";
                   const r = String(ac.recommended || "").trim();
@@ -19077,6 +19831,47 @@ const handleFinishDealerEnrollment = async () => {
                       ? "Opens Sales Enablement library for review."
                       : "Opens Sales Enablement for training follow-up (mock scheduling later).";
                   followAffects = "Territory enablement programs";
+                } else if (ac.kind === "training_recommendation") {
+                  followPrepared = "Training prep staged (mock).";
+                  followClick = "Prepare Training stores a mock scheduler notice—no outbound send.";
+                  followAffects = String(ac.scope || "Territory").trim();
+                } else if (ac.kind === "klondike_university_assignment") {
+                  followPrepared = "Klondike University reminder staged (mock).";
+                  followClick = "Prepare Training opens enablement with online module reminder.";
+                  followAffects = "Dealer manager · online modules";
+                } else if (ac.kind === "ride_along_recommendation") {
+                  followPrepared = "Ride-along hold staged (mock).";
+                  followClick = "Schedule Ride-Along stores mock notice—calendar wiring later.";
+                  followAffects = dealerDisplayName || followAffects;
+                } else if (ac.kind === "business_review_reminder") {
+                  followPrepared = "Business review agenda staged (mock).";
+                  followClick = "Prepare Business Review opens dealer list—no CRM write.";
+                  followAffects = "Territory · open proposals";
+                } else if (
+                  ac.kind === "product_mix_audit" ||
+                  ac.kind === "category_penetration_opportunity" ||
+                  ac.kind === "category_growth_opportunity" ||
+                  ac.kind === "pm_audit_opportunity"
+                ) {
+                  followPrepared = "Dealer mix review staged.";
+                  followClick = "Review Dealer Mix opens Product Strategy and mix signals.";
+                  followAffects = "Territory category mix · quoted lines";
+                } else if (ac.kind === "field_coaching_recommendation") {
+                  followPrepared = "Field coaching note staged (mock).";
+                  followClick = "Opens dealer snapshot to coach follow-up on open quotes.";
+                  followAffects = dealerDisplayName || followAffects;
+                } else if (ac.kind === "service_bay_opportunity") {
+                  followPrepared = "Service bay coaching topic noted.";
+                  followClick = "Prepare Training opens enablement for PM / bay talking points.";
+                  followAffects = "Service manager · PM ticket";
+                } else if (ac.kind === "customer_profile_play") {
+                  followPrepared = `Customer profile · ${String(ac.customerProfileId || "library")}`;
+                  followClick = "Opens Sales Enablement guided builder on the industry playbook.";
+                  followAffects = dealerDisplayName || followAffects;
+                } else if (ac.kind === "oem_profile_play") {
+                  followPrepared = `OEM opportunity profile · ${String(ac.oemOpportunityProfileKey || "oem")}`;
+                  followClick = "Opens Sales Enablement OEM opportunity profile—spec conversation only.";
+                  followAffects = dealerDisplayName || followAffects;
                 }
                 const followHeadline = `${followStatus}${followPrepared ? ` · ${followPrepared}` : ""}`;
                 const completion = klAdminActionCenterCompletionById[ac.id];
@@ -19216,6 +20011,20 @@ const handleFinishDealerEnrollment = async () => {
                       >
                         {issueLine || "Action item"}
                       </div>
+                      {showSummaryLine ? (
+                        <div
+                          style={{
+                            marginTop: 6,
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: "#334155",
+                            lineHeight: 1.45,
+                            maxWidth: 520,
+                          }}
+                        >
+                          {summaryLine}
+                        </div>
+                      ) : null}
                       {scopeLine ? (
                         <div
                           style={{
@@ -19229,6 +20038,46 @@ const handleFinishDealerEnrollment = async () => {
                           {scopeLine}
                         </div>
                       ) : null}
+                      {suggestedOwnerLine || suggestedFormatLine ? (
+                        <div
+                          style={{
+                            marginTop: 8,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "6px 10px",
+                            fontSize: 10,
+                            fontWeight: 800,
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          {suggestedOwnerLine ? (
+                            <span
+                              style={{
+                                padding: "3px 8px",
+                                borderRadius: 999,
+                                background: "#f1f5f9",
+                                border: "1px solid rgba(148, 163, 184, 0.45)",
+                                color: "#475569",
+                              }}
+                            >
+                              Owner · {suggestedOwnerLine}
+                            </span>
+                          ) : null}
+                          {suggestedFormatLine ? (
+                            <span
+                              style={{
+                                padding: "3px 8px",
+                                borderRadius: 999,
+                                background: "#eff6ff",
+                                border: "1px solid rgba(59, 130, 246, 0.35)",
+                                color: "#1d4ed8",
+                              }}
+                            >
+                              Format · {suggestedFormatLine}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div style={{ marginTop: 10 }}>
                         <div
                           style={{
@@ -19239,7 +20088,7 @@ const handleFinishDealerEnrollment = async () => {
                             marginBottom: 4,
                           }}
                         >
-                          WHAT CHANGED
+                          WHAT HAPPENED
                         </div>
                         <div
                           style={{
@@ -19293,7 +20142,7 @@ const handleFinishDealerEnrollment = async () => {
                             marginBottom: 6,
                           }}
                         >
-                          RECOMMENDED NEXT STEP
+                          WHAT TO DO NEXT
                         </div>
                         <div
                           style={{
@@ -19303,7 +20152,7 @@ const handleFinishDealerEnrollment = async () => {
                             lineHeight: 1.4,
                           }}
                         >
-                          {String(ac.recommended || "").trim() || "Review routing and pick the next accountable move."}
+                          {String(ac.recommended || "").trim() || "Pick the next move and own the follow-up."}
                         </div>
                       </div>
                       {supportingWhyTail ? (
@@ -19317,7 +20166,7 @@ const handleFinishDealerEnrollment = async () => {
                               listStyle: "none",
                             }}
                           >
-                            Supporting signals
+                            More context
                           </summary>
                           <div
                             style={{
@@ -19500,6 +20349,98 @@ const handleFinishDealerEnrollment = async () => {
                       <button
                         type="button"
                       onClick={() => {
+                        const navIntent = String(ac.navigationIntent || "").trim();
+                        if (navIntent === "prepare_training") {
+                          setProductStrategyWorkflowNotice(
+                            formatKlAdminTrainingSchedulerMockNotice({
+                              topic: String(ac.issue || "Enablement session").trim(),
+                              audience: String(ac.scope || "Territory").trim(),
+                              nextStep: String(ac.recommended || "").trim(),
+                              detail:
+                                ac.kind === "klondike_university_assignment"
+                                  ? "Klondike University assignment · mock hold · online module path"
+                                  : "Prepare Training · mock hold · in-person or category coaching",
+                            })
+                          );
+                          setKlondikeAdminTab("sales_enablement");
+                          markActionPrepared();
+                          return;
+                        }
+                        if (navIntent === "schedule_ride_along") {
+                          setProductStrategyWorkflowNotice(
+                            formatKlAdminTrainingSchedulerMockNotice({
+                              topic: String(ac.issue || "Ride-along").trim(),
+                              audience: String(ac.scope || "Field rep").trim(),
+                              nextStep: String(ac.recommended || "").trim(),
+                              detail: "Schedule Ride-Along · mock hold · field calendar wiring later",
+                            })
+                          );
+                          if (oid) setSalesEnablementDealerOrgId(oid);
+                          setKlondikeAdminTab("dealers");
+                          if (dealerRowMatch) setSelectedDealerPerformance(dealerRowMatch);
+                          markActionPrepared();
+                          return;
+                        }
+                        if (navIntent === "prepare_business_review") {
+                          setProductStrategyWorkflowNotice(
+                            formatKlAdminMessageComposerMockNotice({
+                              recipient: `Territory leadership · ${String(ac.scope || "Territory").trim()}`,
+                              subject: String(ac.issue || "Business review").trim(),
+                              purpose: String(ac.why || "QBR prep from Action Center signals.").trim(),
+                              nextSuggestedAction: String(ac.recommended || "").trim(),
+                              detail: "Prepare Business Review · mock agenda · no CRM write",
+                            })
+                          );
+                          setKlondikeAdminTab("dealers");
+                          markActionPrepared();
+                          return;
+                        }
+                        if (navIntent === "review_product_mix") {
+                          setKlondikeAdminTab("product_strategy");
+                          markActionHandled();
+                          return;
+                        }
+                        if (navIntent === "open_dealer_snapshot") {
+                          setKlondikeAdminTab("dealers");
+                          if (dealerRowMatch) setSelectedDealerPerformance(dealerRowMatch);
+                          markActionHandled();
+                          return;
+                        }
+                        if (
+                          navIntent === "open_sales_enablement" ||
+                          ac.kind === "customer_profile_play" ||
+                          ac.kind === "oem_profile_play"
+                        ) {
+                          if (ac.kind === "customer_profile_play" && ac.customerProfileId) {
+                            setKlondikeAdminTab("sales_enablement");
+                            if (oid) setSalesEnablementDealerOrgId(oid);
+                            setSeGuidedWizardMessageKind("customer_profile");
+                            setSeGuidedWizardProfileRefId(String(ac.customerProfileId));
+                            markActionHandled();
+                            return;
+                          }
+                          if (ac.kind === "oem_profile_play" && ac.oemOpportunityProfileKey) {
+                            setKlondikeAdminTab("sales_enablement");
+                            if (oid) setSalesEnablementDealerOrgId(oid);
+                            setSeGuidedWizardMessageKind("oem_opportunity_profile");
+                            setSeGuidedOemEquipmentKey(String(ac.oemOpportunityProfileKey));
+                            markActionHandled();
+                            return;
+                          }
+                          if (ac.kind === "spotlight" && ac.spotlightId) {
+                            openSalesEnablementSpotlightFlow(
+                              ac.dealerOrgId,
+                              ac.spotlightId,
+                              ac.spotlightType,
+                              { openPanel: false }
+                            );
+                            markActionHandled();
+                            return;
+                          }
+                          setKlondikeAdminTab("sales_enablement");
+                          markActionHandled();
+                          return;
+                        }
                         if (ac.kind === "workflow_notice") {
                           setProductStrategyWorkflowNotice(
                             formatKlAdminMessageComposerMockNotice({

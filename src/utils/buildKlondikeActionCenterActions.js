@@ -1,12 +1,12 @@
 /**
  * Prioritized KL Admin dashboard actions from existing session intelligence only.
+ * Phase 7A.1 — plain field-coaching language.
  */
 
 import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "../data/salesEnablement/spotlightSuggestionRules";
 
 /**
- * Static coaching archetypes to fill Action Center when live signals are sparse (Phase 72B.5).
- * Uses existing action kinds + handlers only.
+ * Static coaching archetypes when live signals are sparse.
  */
 export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
   const oid = String(dealerOrgId || "");
@@ -15,11 +15,12 @@ export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
     {
       id: "playbook-dealer-activation-risk",
       kind: oid ? "dealer_activation" : "dealers_tab",
-      issue: "Dealer activation risk is elevated.",
+      issue: "A dealer still needs help getting set up.",
       scope: "Territory",
-      why: "Orgs stuck before the first quote burn runway and skew funnel math.",
-      recommended: "Target the slowest onboarding lanes before rolling wider campaigns.",
-      buttonLabel: "Review Dealer",
+      whatChanged: "Setup steps are incomplete before the first quote goes out.",
+      why: "Counters stay quiet when profile, team, and first quote habits are not in place.",
+      recommended: "Open the dealer snapshot and finish the next setup step with the manager.",
+      buttonLabel: "Open Dealer Snapshot",
       accent: "orange",
       dealerOrgId: oid || undefined,
       severityRank: 1,
@@ -27,11 +28,12 @@ export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
     {
       id: "playbook-weak-grease-adoption",
       kind: "spotlight",
-      issue: "Weak grease adoption versus territory potential.",
+      issue: "This territory may be under-selling grease on PM work.",
       scope: "Category · Grease",
-      why: "PM intervals and attach SKUs slip when grease stays optional in conversations.",
-      recommended: "Deploy the grease program spotlight with bundled PM talking points.",
-      buttonLabel: "Send Spotlight",
+      whatChanged: "Grease is not showing up as often as other fluid lines in quotes.",
+      why: "PM grease should ride with every chassis conversation—not only engine oil.",
+      recommended: "Review the grease spotlight with a rep before the next fleet visit.",
+      buttonLabel: "Open Sales Enablement",
       accent: "orange",
       dealerOrgId: oid,
       spotlightId: CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY.Grease,
@@ -41,24 +43,26 @@ export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
     {
       id: "playbook-low-ocr-usage",
       kind: "workflow_notice",
-      issue: "Low OCR usage limits competitive visibility.",
+      issue: "Reps are not scanning competitor labels much.",
       scope: "Territory",
-      why: "Without label scans, reps guess on swap-outs while competitors hide blind spots.",
-      recommended: "Ask managers to mandate scans on competitive bids this week.",
+      whatChanged: "Few label scans are on file for competitive comparisons.",
+      why: "Without scans, counter staff guess on swap-outs instead of using a real spec story.",
+      recommended: "Ask managers for one scan per competitive bid this week (mock notice only).",
       buttonLabel: "Notify Manager",
       accent: "blue",
       noticeText:
-        "Follow-up prepared (mock): manager OCR reminder staged as banner only — no email sent; scheduling later.",
+        "Follow-up prepared (mock): manager reminder staged as banner only — no email sent yet.",
       severityRank: 2,
     },
     {
       id: "playbook-synthetic-conversion",
       kind: "spotlight",
-      issue: "Synthetic conversion opportunity on approved demand.",
+      issue: "Room to coach premium synthetic lines.",
       scope: "Category · Synthetic",
-      why: "Premium mix lifts margin when fleets accept OEM-aligned upgrades.",
-      recommended: "Push synthetic upgrade positioning before price concessions.",
-      buttonLabel: "Send Spotlight",
+      whatChanged: "Synthetic products are still a modest part of approved demand.",
+      why: "Reps sell upgrades when they have simple tag-and-PDS language—not a price sheet first.",
+      recommended: "Walk the synthetic spotlight with the manager before the next fleet pitch.",
+      buttonLabel: "Open Sales Enablement",
       accent: "orange",
       dealerOrgId: oid,
       spotlightId: "cs-synthetic-upgrade",
@@ -68,11 +72,12 @@ export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
     {
       id: "playbook-training-followup",
       kind: "sales_enablement",
-      issue: "Training follow-up needed after recent spotlights.",
-      scope: "Territory enablement",
-      why: "Reps retain narratives when reinforcement lands within a tight window of sends.",
-      recommended: "Queue a walkthrough tied to last week's spotlight themes.",
-      buttonLabel: "Request Training",
+      issue: "Follow up training after recent spotlight sends.",
+      scope: "Territory",
+      whatChanged: "Spotlight materials went out recently—reps may need a live walkthrough.",
+      why: "Stories stick when a manager rehearses them within a few days of the send.",
+      recommended: "Book a short training huddle tied to last week's spotlight themes.",
+      buttonLabel: "Prepare Training",
       accent: "blue",
       severityRank: 3,
     },
@@ -87,76 +92,88 @@ function activationGapForDealer(dealer) {
     {
       stepId: "profile",
       test: () => Boolean(a.profilesQueryOk) && !a.profileConfigured,
-      why: "Profile setup is incomplete—downstream workflows stay blocked.",
-      recommended: "Finish dealer profile configuration in activation.",
+      whatChanged: "Dealer profile is not finished yet.",
+      why: "Quotes and proposals look unfinished to customers until the profile is complete.",
+      recommended: "Finish the dealer profile with the manager on your next call.",
     },
     {
       stepId: "logo",
       test: () => Boolean(a.profilesQueryOk) && !a.logoUploaded,
-      why: "Branding assets are missing—customer-facing proposals look unfinished.",
-      recommended: "Upload the dealer logo for polished outbound materials.",
+      whatChanged: "Dealer logo is missing on customer-facing materials.",
+      why: "Proposals look generic without the dealer brand on the header.",
+      recommended: "Upload the dealer logo together—takes five minutes on a screen share.",
     },
     {
       stepId: "admin",
       test: () => !a.hasDealerAdmin,
-      why: "No dealer admin is assigned—org governance is unclear.",
-      recommended: "Assign or activate a dealer administrator.",
+      whatChanged: "No dealer admin is assigned for this org.",
+      why: "Someone needs to own user access and day-to-day settings.",
+      recommended: "Assign a dealer admin before reps start quoting.",
     },
     {
       stepId: "manager",
       test: () => !a.hasManager,
-      why: "No manager role on file—coaching coverage may be thin.",
-      recommended: "Add a manager membership for this dealer org.",
+      whatChanged: "No manager contact is on file for this dealer.",
+      why: "Coaching and approvals stall without a named manager.",
+      recommended: "Add a manager membership for this org.",
     },
     {
       stepId: "reps",
       test: () => !a.repsAssigned,
-      why: "Field reps are not wired to this org—quotes may stall.",
-      recommended: "Assign reps or confirm team assignments.",
+      whatChanged: "Field reps are not linked to this dealer yet.",
+      why: "Quotes may sit in limbo if the wrong team owns the account.",
+      recommended: "Confirm rep assignments with the dealer principal.",
     },
     {
       stepId: "quote",
       test: () => !a.firstQuoteCreated,
-      why: "No quotes yet—pipeline proof is missing.",
-      recommended: "Coach the team to create the first quote.",
+      whatChanged: "No quotes have been created for this dealer yet.",
+      why: "The first quote proves the counter story works in the system.",
+      recommended: "Coach the team to build one live quote on your visit.",
     },
     {
       stepId: "proposal_sent",
       test: () => !a.firstProposalSent,
-      why: "Quotes exist but outbound proposals are not logged.",
-      recommended: "Drive proposal sends so customers can decide.",
+      whatChanged: "Quotes exist but no proposal has gone to a customer yet.",
+      why: "Customers cannot say yes until a proposal leaves the shop.",
+      recommended: "Send one proposal while you are on site and log it together.",
     },
     {
       stepId: "viewed",
       test: () =>
         Boolean(a.proposalViewsQueryOk) && !a.customerProposalViewed && Boolean(a.firstProposalSent),
-      why: "Customers have not opened proposal links yet.",
-      recommended: "Confirm links are reaching buyers and reps are following up.",
+      whatChanged: "Customers have not opened the proposal link yet.",
+      why: "The email or text may not be reaching the buyer—worth checking live.",
+      recommended: "Confirm the customer got the link and the rep has a follow-up time.",
     },
     {
       stepId: "response",
       test: () =>
         Boolean(a.customerProposalViewed) && !a.customerResponseReceived,
-      why: "Proposals were viewed but no decision rows landed.",
-      recommended: "Follow up while proposals are still warm.",
+      whatChanged: "The customer viewed the proposal but has not decided yet.",
+      why: "Decisions go cold fast—this is a coach-the-close moment.",
+      recommended: "Call the buyer while the proposal is still open on their screen.",
     },
     {
       stepId: "demand",
       test: () => Boolean(a.customerResponseReceived) && !a.approvedDemandGenerated,
-      why: "Responses exist without approved lines—demand capture is incomplete.",
-      recommended: "Work approvals so inventory signals populate.",
+      whatChanged: "Customer said yes but approved lines are not logged yet.",
+      why: "Stocking conversations need approved lines on file.",
+      recommended: "Walk approvals with the manager so inventory reflects reality.",
     },
     {
       stepId: "inventory",
       test: () => Boolean(a.approvedDemandGenerated) && !a.inventoryAlertsActive,
-      why: "Approved demand is not flowing into inventory-ready signals.",
-      recommended: "Confirm approved lines roll into inventory alerts.",
+      whatChanged: "Approved demand is not showing up for inventory follow-up yet.",
+      why: "The counter needs approved lines to plan stocking and reorders.",
+      recommended: "Confirm approved lines flow into inventory alerts with the manager.",
     },
     {
       stepId: "ocr",
       test: () => Boolean(a.ocrQueryOk) && !a.ocrScanStarted,
-      why: "No OCR scans—competitive label intelligence is blind.",
-      recommended: "Start OCR hygiene with counter or field reps.",
+      whatChanged: "No competitive label scans started for this dealer.",
+      why: "Scans give counter staff a concrete story on swaps and specs.",
+      recommended: "Scan one competitor label together on the next visit.",
     },
   ];
 
@@ -164,6 +181,7 @@ function activationGapForDealer(dealer) {
     if (row.test()) {
       return {
         stepId: row.stepId,
+        whatChanged: row.whatChanged,
         why: row.why,
         recommended: row.recommended,
       };
@@ -173,20 +191,7 @@ function activationGapForDealer(dealer) {
 }
 
 /**
- * @returns {Array<{
- *   id: string,
- *   kind: 'spotlight' | 'dealer_activation' | 'inventory_intel' | 'dealers_tab' | 'dealers_select',
- *   issue: string,
- *   scope: string,
- *   why: string,
- *   recommended: string,
- *   buttonLabel: string,
- *   accent: 'blue' | 'orange' | 'green',
- *   dealerOrgId?: string,
- *   spotlightId?: string,
- *   spotlightType?: string,
- *   dealerRow?: object,
- * }>}
+ * @returns {Array<object>}
  */
 export function buildKlondikeActionCenterActions({
   enablementAlerts,
@@ -213,11 +218,12 @@ export function buildKlondikeActionCenterActions({
     push({
       id: `alert-${al.alertKey}`,
       kind: "spotlight",
-      issue: al.issueTitle || "Dealer enablement gap detected.",
+      issue: `Review spotlight materials for ${String(al.dealerName || "this dealer").trim()}.`,
       scope: String(al.dealerName || "Dealer").trim(),
-      why: al.whyItMatters || "Rule-based signals flagged this dealer for coaching.",
-      recommended: `Send the “${al.spotlightTitle}” spotlight after you review copy.`,
-      buttonLabel: "Send Spotlight",
+      whatChanged: `${String(al.dealerName || "This dealer").trim()} needs a coaching touch on ${String(al.spotlightTitle || "enablement").trim()}.`,
+      why: String(al.whyItMatters || "A simple pattern in quotes or stocking needs a manager conversation."),
+      recommended: `Open Sales Enablement and walk “${al.spotlightTitle || "library"}” with the rep before any customer send.`,
+      buttonLabel: "Open Sales Enablement",
       accent: "blue",
       dealerOrgId: String(al.dealerOrgId || ""),
       spotlightId: al.spotlightId,
@@ -236,11 +242,12 @@ export function buildKlondikeActionCenterActions({
     push({
       id: `activation-${oid}-${gap.stepId}`,
       kind: "dealer_activation",
-      issue: "This dealer needs attention.",
+      issue: "This dealer still has setup steps to finish.",
       scope: String(d.name || "Dealer").trim(),
+      whatChanged: gap.whatChanged,
       why: gap.why,
       recommended: gap.recommended,
-      buttonLabel: "Open Dealer Activation",
+      buttonLabel: "Open Dealer Snapshot",
       accent: "orange",
       dealerOrgId: oid,
     });
@@ -260,11 +267,12 @@ export function buildKlondikeActionCenterActions({
       push({
         id: "territory-proposal-engagement-stall",
         kind: "dealers_tab",
-        issue: "Proposal engagement is quiet.",
+        issue: "Customers are not responding to proposals yet.",
         scope: "Territory",
-        why: "Outbound proposals are logged but no customer responses have arrived.",
-        recommended: "Review which dealers have live proposals and coach follow-up.",
-        buttonLabel: "Review Proposal Engagement",
+        whatChanged: `${proposalsSent} proposals are out with no customer replies logged.`,
+        why: "Managers may need a follow-up plan—not more product sheets.",
+        recommended: "See which dealers have open proposals and who owns the next call.",
+        buttonLabel: "Open Dealer Snapshot",
         accent: "blue",
       })
     ) {
@@ -282,11 +290,12 @@ export function buildKlondikeActionCenterActions({
         push({
           id: `dealer-followup-${oid}`,
           kind: "dealers_select",
-          issue: "This dealer needs attention.",
+          issue: "Quotes are moving—customers have not replied yet.",
           scope: String(d.name || "Dealer").trim(),
-          why: "Quotes and proposals are moving but no customer responses are recorded.",
-          recommended: "Confirm reps are closing the loop on open proposals.",
-          buttonLabel: "Open Dealer Record",
+          whatChanged: `${qs} quotes and ${ps} proposals with no customer decision logged.`,
+          why: "The rep may need help closing the loop while the quote is still warm.",
+          recommended: "Open this dealer and agree on the next customer call or visit.",
+          buttonLabel: "Open Dealer Snapshot",
           accent: "green",
           dealerOrgId: oid,
           dealerRow: d,
@@ -300,11 +309,12 @@ export function buildKlondikeActionCenterActions({
     push({
       id: "territory-proposal-conversion-skew",
       kind: "dealers_tab",
-      issue: "Proposal conversion needs attention.",
+      issue: "Too many lines are getting declined on recent proposals.",
       scope: "Territory",
-      why: "Declined lines currently outweigh approvals in captured decisions.",
-      recommended: "Review positioning, specs, and pricing assumptions on recent proposals.",
-      buttonLabel: "Review Proposal Engagement",
+      whatChanged: "Declined lines are outpacing approvals in recent customer decisions.",
+      why: "Specs, positioning, or price assumptions may be off—worth a manager review.",
+      recommended: "Review recent proposals with two reps: tags, PDS, and what the customer actually needed.",
+      buttonLabel: "Open Dealer Snapshot",
       accent: "orange",
     });
   }
@@ -319,13 +329,13 @@ export function buildKlondikeActionCenterActions({
       push({
         id: "territory-inventory-review",
         kind: "inventory_intel",
-        issue: accel ? "SKU demand is accelerating." : "Review territory demand signals.",
-        scope: "Territory inventory rollup",
-        why: accel
-          ? "Approved units are climbing quickly on one or more SKUs—stocking may need alignment."
-          : insightFirst,
-        recommended:
-          "Review approved-demand categories, package mix, and dealer concentration in Inventory Intelligence.",
+        issue: accel ? "Some SKUs are moving faster than usual." : "Check territory stocking signals.",
+        scope: "Territory",
+        whatChanged: accel
+          ? "Approved units are climbing quickly on one or more SKUs."
+          : String(insightFirst).trim() || "Demand signals changed in the inventory view.",
+        why: "Fast movers can stock out bays—or show where coaching is working.",
+        recommended: "Open Inventory Intelligence with the manager: what to stock before the next rush.",
         buttonLabel: "Review Inventory Demand",
         accent: "green",
       });
