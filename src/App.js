@@ -54,6 +54,8 @@ import { getSalesEnablementProductImageHint } from "./data/salesEnablement/sales
 import { getKlAdminIntelligenceRecommendation } from "./data/salesEnablement/klAdminIntelligenceAssistant";
 import { LubricationConceptAdvisorPanel } from "./components/LubricationConceptAdvisorPanel";
 import ProductSpotlightSellSheet from "./components/ProductSpotlightSellSheet";
+import CategorySpotlightSellSheet from "./components/CategorySpotlightSellSheet";
+import CustomerProfileSellSheet from "./components/CustomerProfileSellSheet";
 
 /** Dev-only full-page sell sheet preview — keep false for normal Sales Enablement wizard flow. */
 const SHOW_SELL_SHEET_TEST = false;
@@ -4484,6 +4486,10 @@ export default function App() {
   const [password, setPassword] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+
+  /** Isolated sell-sheet template preview (SHOW_SELL_SHEET_TEST only). */
+  const [sellSheetPreviewType, setSellSheetPreviewType] = useState("product");
+  const [sellSheetTestProductImageUrl, setSellSheetTestProductImageUrl] = useState("");
 
   const [appLoading, setAppLoading] = useState(true);
   const [session, setSession] = useState(null);
@@ -29181,7 +29187,126 @@ case "rep":
         }}
       >
         <div style={{ width: "100%", maxWidth: 1140 }}>
-          <ProductSpotlightSellSheet />
+          {(() => {
+            const sellSheetPreviewOptions = [
+              { id: "product", label: "Product Spotlight" },
+              { id: "category", label: "Category Spotlight" },
+              { id: "customer", label: "Customer Profile" },
+            ];
+            const sellSheetPreviewButtonStyle = (active) => ({
+              padding: "10px 18px",
+              borderRadius: 8,
+              border: active ? "2px solid #fb923c" : "1px solid rgba(148, 163, 184, 0.45)",
+              background: active ? "rgba(234, 88, 12, 0.18)" : "rgba(15, 23, 42, 0.65)",
+              color: active ? "#fff7ed" : "#cbd5e1",
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.04em",
+              cursor: "pointer",
+            });
+            const handleSellSheetTestProductImageChange = (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              setSellSheetTestProductImageUrl((prev) => {
+                if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+                return URL.createObjectURL(file);
+              });
+            };
+            const clearSellSheetTestProductImage = () => {
+              setSellSheetTestProductImageUrl((prev) => {
+                if (prev && prev.startsWith("blob:")) URL.revokeObjectURL(prev);
+                return "";
+              });
+            };
+            return (
+              <>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 10,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 20,
+                  }}
+                >
+                  {sellSheetPreviewOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setSellSheetPreviewType(option.id)}
+                      style={sellSheetPreviewButtonStyle(sellSheetPreviewType === option.id)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                {sellSheetPreviewType === "product" ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: 12,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: 20,
+                    }}
+                  >
+                    <label
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "10px 16px",
+                        borderRadius: 8,
+                        background: "rgba(255,255,255,0.08)",
+                        border: "1px solid rgba(251, 146, 60, 0.5)",
+                        color: "#fdba74",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Upload product image
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleSellSheetTestProductImageChange}
+                        style={{ display: "none" }}
+                      />
+                    </label>
+                    {sellSheetTestProductImageUrl ? (
+                      <button
+                        type="button"
+                        onClick={clearSellSheetTestProductImage}
+                        style={{
+                          padding: "10px 14px",
+                          borderRadius: 8,
+                          border: "1px solid rgba(148, 163, 184, 0.45)",
+                          background: "transparent",
+                          color: "#94a3b8",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Clear image
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+                {sellSheetPreviewType === "product" ? (
+                  <ProductSpotlightSellSheet
+                    productImageUrl={sellSheetTestProductImageUrl || undefined}
+                  />
+                ) : null}
+                {sellSheetPreviewType === "category" ? <CategorySpotlightSellSheet /> : null}
+                {sellSheetPreviewType === "customer" ? <CustomerProfileSellSheet /> : null}
+              </>
+            );
+          })()}
         </div>
       </div>
     );
