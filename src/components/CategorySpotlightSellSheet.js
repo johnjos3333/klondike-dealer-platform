@@ -1,12 +1,12 @@
-﻿/**
+/**
  * CategorySpotlightSellSheet — standalone category / system-solution sell sheet.
- * Layout id: category-spotlight-sell-sheet-v6a1
+ * Layout id: category-spotlight-sell-sheet-v6d1
  * Not wired into App.js yet.
  */
 
 import React from "react";
 
-export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6a1";
+export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6d1";
 
 const KLONDIKE_HEADER_LOGO_SRC = "/klondike-horizontal-logo.png";
 
@@ -31,34 +31,34 @@ const DEMO_DEFAULTS = {
   productImages: [],
   keyBenefits: [
     {
-      iconKey: "opportunity",
-      label: "Market Opportunity",
-      sub: "Construction rebound and rental utilization put hours on circuits before filters catch up.",
-    },
-    {
-      iconKey: "margin",
-      label: "Margin Expansion",
-      sub: "Bundle AW, MV, and specialty hydraulics with filtration and sampling discipline.",
+      iconKey: "expansion",
+      label: "Market Expansion",
+      sub: "Grow category share where construction, ag, and industrial hours are climbing.",
     },
     {
       iconKey: "mix",
       label: "Product Mix Growth",
-      sub: "Rationalize ISO VG ladders across bulk and packaged top-off behavior.",
+      sub: "Rationalize AW, MV, and specialty hydraulics across bulk and packaged behavior.",
+    },
+    {
+      iconKey: "consolidation",
+      label: "Supplier Consolidation",
+      sub: "Standardize the yard on one hydraulic program instead of fragmented SKUs.",
+    },
+    {
+      iconKey: "uptime",
+      label: "Equipment Uptime",
+      sub: "Fewer heat, foam, and slow-response events that pull assets offline.",
     },
     {
       iconKey: "retention",
       label: "Customer Retention",
-      sub: "Fewer repeat failures that erode trust in the dealer fluid program.",
+      sub: "Protect dealer trust when repeat circuit failures threaten the fluid account.",
     },
     {
-      iconKey: "coverage",
-      label: "Application Coverage",
-      sub: "Match temperature band and OEM tags across mixed fleets and yards.",
-    },
-    {
-      iconKey: "confidence",
-      label: "Rep Confidence",
-      sub: "Field-ready talk tracks tied to circuit evidence—not shelf color.",
+      iconKey: "downtime",
+      label: "Reduced Downtime",
+      sub: "Align filtration, breathers, and fluid tier before failures cascade.",
     },
   ],
   idealCustomers: [
@@ -83,7 +83,12 @@ const DEMO_DEFAULTS = {
     { name: "Arctic Blue Hydraulic Fluid", role: "Cold-start and low-temp yards" },
     { name: "Bio-Synthetic EAL Hydraulic Fluid", role: "Sensitive-site options where applicable" },
   ],
-  crossSell: ["Grease", "Gear Oils", "Heavy Duty Engine Oils", "Coolants"],
+  crossSell: [
+    { title: "Grease", desc: "Pins, bearings, and chassis protection across the yard", iconKey: "grease" },
+    { title: "Gear Oils", desc: "Drivetrain and reducer programs for mobile equipment", iconKey: "gear" },
+    { title: "Heavy Duty Engine Oils", desc: "On- and off-highway engine coverage for mixed fleets", iconKey: "engine" },
+    { title: "Coolants", desc: "Fleet cooling discipline tied to hydraulic accounts", iconKey: "coolant" },
+  ],
   repTalkTrack: [
     "Lead with OEM tags and operating temperature bands before discussing fluid tier.",
     "Position filtration and breathers ahead of chemistry swaps on repeat-failure circuits.",
@@ -102,7 +107,7 @@ const DEMO_DEFAULTS = {
     "See product data sheets for each SKU discussed.",
   ],
   recommendedNextStep:
-    "Photograph priority circuits, align ISO VG from pump tags, and stage filtration upgrades alongside any fluid conversation.",
+    "Expand hydraulic penetration: standardize ISO VG ladders, consolidate suppliers, and bundle filtration with the category program to reduce downtime across equipment groups.",
   pdsLinks: [],
 };
 
@@ -237,17 +242,71 @@ function normalizeValueCards(value, fallback) {
 
 function valueIconKey(tile, index) {
   const preset = String(tile?.iconKey || "").toLowerCase();
-  if (["opportunity", "margin", "mix", "retention", "coverage", "confidence"].includes(preset)) {
+  if (
+    ["expansion", "mix", "consolidation", "uptime", "retention", "downtime", "opportunity", "margin", "coverage"].includes(
+      preset
+    )
+  ) {
     return preset;
   }
   const blob = `${tile?.label || ""} ${tile?.sub || ""}`.toLowerCase();
-  if (/margin|profit|revenue/.test(blob)) return "margin";
-  if (/mix|sku|portfolio/.test(blob)) return "mix";
+  if (/consolidat|standardiz|supplier/.test(blob)) return "consolidation";
+  if (/uptime|reliab/.test(blob)) return "uptime";
+  if (/downtime|reduce.*stop|unplanned/.test(blob)) return "downtime";
   if (/retention|loyal|stick/.test(blob)) return "retention";
-  if (/coverage|application|fit/.test(blob)) return "coverage";
-  if (/confidence|rep|enable/.test(blob)) return "confidence";
-  if (/opportunity|market|growth/.test(blob)) return "opportunity";
-  return ["opportunity", "margin", "mix", "retention", "coverage", "confidence"][index % 6];
+  if (/mix|sku|portfolio|growth/.test(blob)) return "mix";
+  if (/expansion|market|opportunity/.test(blob)) return "expansion";
+  if (/margin|profit|revenue/.test(blob)) return "expansion";
+  return ["expansion", "mix", "consolidation", "uptime", "retention", "downtime"][index % 6];
+}
+
+function normalizeCrossSellItems(value, fallback) {
+  const raw = Array.isArray(value) ? value : fallback;
+  const out = [];
+  for (const item of raw) {
+    if (item && typeof item === "object") {
+      const title = sanitizeLabel(item) || String(item.title ?? item.name ?? "").trim();
+      const desc = String(item.desc ?? item.sub ?? item.role ?? "").trim();
+      const iconKey = String(item.iconKey || "").trim();
+      if (!title) continue;
+      out.push({ title, desc, iconKey });
+    } else {
+      const title = sanitizeLabel(item) || String(item ?? "").trim();
+      if (!title) continue;
+      out.push({ title, desc: crossSellDescriptor(title), iconKey: crossSellIconKey(title) });
+    }
+    if (out.length >= 6) break;
+  }
+  if (!out.length && value !== fallback) {
+    return normalizeCrossSellItems(fallback, fallback);
+  }
+  return out;
+}
+
+function crossSellIconKey(title) {
+  const t = String(title || "").toLowerCase();
+  if (/grease|tac/.test(t)) return "grease";
+  if (/gear/.test(t)) return "gear";
+  if (/engine|ck-4|hd/.test(t)) return "engine";
+  if (/coolant|antifreeze/.test(t)) return "coolant";
+  if (/hydraulic/.test(t)) return "hydraulic";
+  if (/food/.test(t)) return "food";
+  if (/compressor/.test(t)) return "compressor";
+  if (/chain/.test(t)) return "chain";
+  if (/eal|bio|enviro/.test(t)) return "eal";
+  return "program";
+}
+
+function crossSellDescriptor(title) {
+  const t = String(title || "").toLowerCase();
+  if (/grease/.test(t)) return "Pin, bearing, and chassis protection";
+  if (/gear/.test(t)) return "Drivetrain and reducer coverage";
+  if (/engine/.test(t)) return "Fleet engine program expansion";
+  if (/coolant/.test(t)) return "Cooling system discipline";
+  if (/food/.test(t)) return "NSF H1 programs where required";
+  if (/compressor/.test(t)) return "Plant air and compressor circuits";
+  if (/chain/.test(t)) return "Food-grade chain and conveyor lube";
+  return "Companion category in the lubrication system";
 }
 
 function normalizeFeaturedProducts(products, productImages) {
@@ -454,14 +513,29 @@ function QuestionList({ items, max = 5 }) {
 
 function OpportunityIconSvg({ iconKey }) {
   const stroke = BRAND.orangeLight;
-  const fill = "rgba(251, 146, 60, 0.28)";
-  const k = String(iconKey || "opportunity");
-  const s = 40;
-  if (k === "margin") {
+  const fill = "rgba(251, 146, 60, 0.32)";
+  const k = String(iconKey || "expansion");
+  const s = 44;
+  if (k === "consolidation") {
     return (
-      <svg width={s} height={s} viewBox="0 0 40 40" fill="none" aria-hidden>
-        <path d="M8 28h24M8 22h16" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
-        <path d="M28 10v18M32 14h-8" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+      <svg width={s} height={s} viewBox="0 0 44 44" fill="none" aria-hidden>
+        <path d="M10 30h24M14 22h16M18 14h8" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" />
+        <circle cx="32" cy="12" r="4" fill={fill} stroke={stroke} strokeWidth="1.6" />
+      </svg>
+    );
+  }
+  if (k === "uptime") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 44 44" fill="none" aria-hidden>
+        <path d="M10 32l8-14 6 9 10-16 8 13" stroke={stroke} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (k === "downtime") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 44 44" fill="none" aria-hidden>
+        <circle cx="22" cy="24" r="11" stroke={stroke} strokeWidth="2" />
+        <path d="M22 14v10l7 5" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
       </svg>
     );
   }
@@ -487,47 +561,33 @@ function OpportunityIconSvg({ iconKey }) {
       </svg>
     );
   }
-  if (k === "coverage") {
-    return (
-      <svg width={s} height={s} viewBox="0 0 40 40" fill="none" aria-hidden>
-        <circle cx="20" cy="20" r="12" fill={fill} stroke={stroke} strokeWidth="1.8" />
-        <path d="M12 20h16M20 12v16" stroke={stroke} strokeWidth="2" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  if (k === "confidence") {
-    return (
-      <svg width={s} height={s} viewBox="0 0 40 40" fill="none" aria-hidden>
-        <circle cx="20" cy="14" r="6" fill={fill} stroke={stroke} strokeWidth="1.6" />
-        <path d="M10 32c0-6 4-10 10-10s10 4 10 10" stroke={stroke} strokeWidth="1.8" />
-      </svg>
-    );
-  }
   return (
-    <svg width={s} height={s} viewBox="0 0 40 40" fill="none" aria-hidden>
-      <path d="M8 28l8-12 6 8 10-14 8 10" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={s} height={s} viewBox="0 0 44 44" fill="none" aria-hidden>
+      <circle cx="22" cy="22" r="13" fill={fill} stroke={stroke} strokeWidth="1.8" />
+      <path d="M14 26l6-10 4 7 8-12 6 9" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-function OpportunityValueCard({ tile }) {
+function OpportunityValueCard({ tile, isLast }) {
   return (
     <article
       style={{
-        padding: "22px 14px 24px",
+        padding: "26px 16px 28px",
         textAlign: "center",
-        borderRight: "1px solid rgba(226, 232, 240, 0.95)",
-        background: BRAND.white,
+        borderRight: isLast ? "none" : "1px solid rgba(226, 232, 240, 0.95)",
+        background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
       }}
     >
       <div
         style={{
-          width: 72,
-          height: 72,
+          width: 80,
+          height: 80,
           margin: "0 auto",
-          borderRadius: 999,
-          background: `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
-          border: "2px solid rgba(234, 88, 12, 0.5)",
+          borderRadius: 16,
+          background: `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 55%, #1e40af 100%)`,
+          border: "2px solid rgba(234, 88, 12, 0.55)",
+          boxShadow: "0 12px 28px rgba(15, 23, 42, 0.18)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -538,19 +598,19 @@ function OpportunityValueCard({ tile }) {
       </div>
       <p
         style={{
-          margin: "12px 0 0",
-          fontSize: 11,
+          margin: "14px 0 0",
+          fontSize: 12,
           fontWeight: 900,
-          color: BRAND.orange,
-          letterSpacing: "0.06em",
+          color: BRAND.headerNavy,
+          letterSpacing: "0.08em",
           textTransform: "uppercase",
-          lineHeight: 1.25,
+          lineHeight: 1.2,
         }}
       >
         {tile.label}
       </p>
       {tile.sub ? (
-        <p style={{ margin: "8px 0 0", fontSize: 12, fontWeight: 600, color: "#475569", lineHeight: 1.4 }}>
+        <p style={{ margin: "8px 0 0", fontSize: 11, fontWeight: 600, color: "#64748b", lineHeight: 1.45 }}>
           {tile.sub}
         </p>
       ) : null}
@@ -558,31 +618,55 @@ function OpportunityValueCard({ tile }) {
   );
 }
 
-function FeaturedProductCard({ product }) {
+function productLineIndexLabel(index) {
+  return String(index + 1).padStart(2, "0");
+}
+
+function FeaturedProductCard({ product, index }) {
   const hasImage = Boolean(String(product.imageUrl || "").trim());
+  const lineLabel = productLineIndexLabel(index);
   return (
     <article
       style={{
-        borderRadius: 12,
+        borderRadius: 14,
         overflow: "hidden",
         background: BRAND.white,
-        border: "1px solid rgba(30, 58, 138, 0.2)",
-        boxShadow: "0 8px 20px rgba(15, 23, 42, 0.08)",
+        border: "1px solid rgba(30, 58, 138, 0.22)",
+        boxShadow: "0 12px 32px rgba(15, 23, 42, 0.1)",
         display: "flex",
         flexDirection: "column",
-        minHeight: 200,
+        minHeight: 220,
+        position: "relative",
       }}
     >
+      <span
+        style={{
+          position: "absolute",
+          top: 12,
+          left: 12,
+          zIndex: 2,
+          fontSize: 11,
+          fontWeight: 900,
+          letterSpacing: "0.12em",
+          color: BRAND.orangeLight,
+          background: "rgba(15, 23, 42, 0.72)",
+          padding: "4px 8px",
+          borderRadius: 6,
+        }}
+        aria-hidden
+      >
+        {lineLabel}
+      </span>
       <div
         style={{
-          height: 120,
+          height: 132,
           background: hasImage
-            ? BRAND.white
-            : `linear-gradient(145deg, ${BRAND.navyDeep} 0%, ${BRAND.navyMid} 100%)`,
+            ? "linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%)"
+            : `linear-gradient(145deg, ${BRAND.navyDeep} 0%, ${BRAND.navyMid} 70%, #1e40af 100%)`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: hasImage ? 8 : 16,
+          padding: hasImage ? 12 : 18,
         }}
       >
         {hasImage ? (
@@ -593,18 +677,34 @@ function FeaturedProductCard({ product }) {
             style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
           />
         ) : (
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden>
-            <rect x="10" y="14" width="28" height="22" rx="4" stroke={BRAND.orangeLight} strokeWidth="2" />
-            <path d="M16 24h16M16 30h10" stroke={BRAND.orangeLight} strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 13,
+              fontWeight: 800,
+              color: "rgba(255,255,255,0.92)",
+              textAlign: "center",
+              lineHeight: 1.35,
+              padding: "0 8px",
+            }}
+          >
+            {product.name}
+          </p>
         )}
       </div>
-      <div style={{ padding: "14px 14px 16px", flex: 1, background: "#f8fafc" }}>
+      <div
+        style={{
+          padding: "16px 16px 18px",
+          flex: 1,
+          background: "#f8fafc",
+          borderTop: `3px solid ${BRAND.orange}`,
+        }}
+      >
         <p style={{ margin: 0, fontSize: 14, fontWeight: 900, color: BRAND.headerNavy, lineHeight: 1.3 }}>
           {product.name}
         </p>
         {product.role ? (
-          <p style={{ margin: "8px 0 0", fontSize: 12, fontWeight: 600, color: "#64748b", lineHeight: 1.4 }}>
+          <p style={{ margin: "8px 0 0", fontSize: 12, fontWeight: 600, color: "#64748b", lineHeight: 1.45 }}>
             {product.role}
           </p>
         ) : null}
@@ -613,9 +713,62 @@ function FeaturedProductCard({ product }) {
   );
 }
 
-function HeroVisualPanel({ categoryImageUrl, featuredProducts }) {
+function ProductLineupSection({ products }) {
+  const lineup = products.slice(0, 6);
+  if (!lineup.length) return null;
+  const cols = lineup.length <= 3 ? lineup.length : lineup.length <= 4 ? 2 : 3;
+  return (
+    <section
+      style={{
+        padding: "36px 44px 40px",
+        background: "linear-gradient(180deg, #f1f5f9 0%, #ffffff 55%)",
+        borderTop: "1px solid rgba(226,232,240,0.95)",
+        borderBottom: "1px solid rgba(226,232,240,0.95)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 12,
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          marginBottom: 22,
+        }}
+      >
+        <div>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: "0.16em",
+              color: BRAND.orange,
+              textTransform: "uppercase",
+            }}
+          >
+            Category product lineup
+          </p>
+          <p style={{ margin: "8px 0 0", fontSize: 22, fontWeight: 900, color: BRAND.headerNavy, lineHeight: 1.2 }}>
+            Program SKUs in this family
+          </p>
+        </div>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#64748b", maxWidth: 320, lineHeight: 1.45 }}>
+          Sell the category as a coordinated lineup—not a single SKU swap.
+        </p>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 18 }}>
+        {lineup.map((p, i) => (
+          <FeaturedProductCard key={p.name} product={p} index={i} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HeroVisualPanel({ categoryImageUrl, featuredProducts, productCount }) {
   const categoryImg = String(categoryImageUrl || "").trim();
-  const products = featuredProducts.slice(0, 4);
+  const products = featuredProducts.slice(0, 6);
   const withImages = products.filter((p) => String(p.imageUrl || "").trim());
 
   if (categoryImg) {
@@ -706,23 +859,70 @@ function HeroVisualPanel({ categoryImageUrl, featuredProducts }) {
     <div
       style={{
         borderRadius: 16,
-        padding: "40px 28px",
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(251, 146, 60, 0.4)",
-        textAlign: "center",
+        padding: "22px 20px 24px",
+        background: "rgba(255,255,255,0.07)",
+        border: "1px solid rgba(251, 146, 60, 0.45)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.12)",
       }}
     >
-      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden style={{ margin: "0 auto 16px" }}>
-        <rect x="12" y="18" width="40" height="28" rx="6" stroke={BRAND.orangeLight} strokeWidth="2.5" />
-        <path d="M20 32h24M20 40h14" stroke={BRAND.orangeLight} strokeWidth="2" strokeLinecap="round" />
-        <circle cx="48" cy="16" r="4" fill={BRAND.orangeMuted} />
-      </svg>
-      <p style={{ margin: 0, fontSize: 13, fontWeight: 900, letterSpacing: "0.1em", color: BRAND.orangeLight }}>
-        SYSTEM SOLUTION
+      <p
+        style={{
+          margin: "0 0 6px",
+          fontSize: 10,
+          fontWeight: 900,
+          letterSpacing: "0.16em",
+          color: BRAND.orangeLight,
+          textTransform: "uppercase",
+        }}
+      >
+        System solution ecosystem
       </p>
-      <p style={{ margin: "10px 0 0", fontSize: 14, fontWeight: 600, color: "rgba(255,255,255,0.85)", lineHeight: 1.45 }}>
-        Multi-product category program for mixed fleets and demanding equipment.
+      <p style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 800, color: "rgba(255,255,255,0.95)", lineHeight: 1.35 }}>
+        {productCount} products · application coverage · companion categories
       </p>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: products.length <= 2 ? "1fr" : "repeat(2, 1fr)",
+          gap: 10,
+        }}
+      >
+        {products.map((p, i) => {
+          const img = String(p.imageUrl || "").trim();
+          return (
+            <div
+              key={p.name}
+              style={{
+                borderRadius: 10,
+                padding: img ? 8 : "12px 10px",
+                background: "rgba(255,255,255,0.1)",
+                border: "1px solid rgba(255,255,255,0.18)",
+                minHeight: img ? 72 : 0,
+              }}
+            >
+              {img ? (
+                <img
+                  src={img}
+                  alt={p.name}
+                  decoding="async"
+                  style={{
+                    width: "100%",
+                    height: 52,
+                    objectFit: "contain",
+                    background: "#fff",
+                    borderRadius: 6,
+                    marginBottom: 6,
+                  }}
+                />
+              ) : null}
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.92)", lineHeight: 1.3 }}>
+                <span style={{ color: BRAND.orangeMuted, marginRight: 6 }}>{productLineIndexLabel(i)}</span>
+                {p.name}
+              </p>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -752,28 +952,194 @@ function PillGrid({ items, max = 8 }) {
   );
 }
 
+function CustomerFitIconSvg({ label }) {
+  const stroke = BRAND.orangeLight;
+  const fill = "rgba(251, 146, 60, 0.24)";
+  const t = String(label || "").toLowerCase();
+  const s = 28;
+  if (/mining|aggregate/.test(t)) {
+    return (
+      <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+        <path d="M6 24h20M10 18l4-8 4 6 6-10 4 8" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (/agri|farm/.test(t)) {
+    return (
+      <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+        <circle cx="16" cy="14" r="5" fill={fill} stroke={stroke} strokeWidth="1.6" />
+        <path d="M8 26c2-6 6-8 8-8s6 2 8 8" stroke={stroke} strokeWidth="1.6" />
+      </svg>
+    );
+  }
+  if (/construct|rental|earth/.test(t)) {
+    return (
+      <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+        <rect x="8" y="14" width="16" height="8" rx="2" fill={fill} stroke={stroke} strokeWidth="1.6" />
+        <path d="M12 22v4h8v-4" stroke={stroke} strokeWidth="1.6" />
+      </svg>
+    );
+  }
+  if (/fleet|municipal|transit|truck|yard|distributor/.test(t)) {
+    return (
+      <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+        <rect x="6" y="12" width="20" height="8" rx="2" stroke={stroke} strokeWidth="1.6" />
+        <circle cx="11" cy="22" r="2.5" stroke={stroke} strokeWidth="1.4" />
+        <circle cx="21" cy="22" r="2.5" stroke={stroke} strokeWidth="1.4" />
+      </svg>
+    );
+  }
+  if (/food/.test(t)) {
+    return (
+      <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+        <path d="M10 10h12v12H10z" fill={fill} stroke={stroke} strokeWidth="1.6" />
+        <path d="M14 14h4M14 18h4" stroke={stroke} strokeWidth="1.4" />
+      </svg>
+    );
+  }
+  if (/industrial|plant/.test(t)) {
+    return (
+      <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+        <path d="M8 24V14l6-4 4 3 6-5v16" stroke={stroke} strokeWidth="1.6" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+      <circle cx="16" cy="16" r="9" fill={fill} stroke={stroke} strokeWidth="1.6" />
+    </svg>
+  );
+}
+
 function CustomerFitTiles({ items, max = 6 }) {
   const list = pickList(items, []).slice(0, max);
   if (!list.length) return null;
   const cols = list.length <= 4 ? 2 : 3;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 10 }}>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 12 }}>
       {list.map((line, i) => (
         <article
           key={`cust-${i}`}
           style={{
-            padding: "14px 12px",
-            borderRadius: 10,
-            background: "linear-gradient(160deg, #f8fafc 0%, #fff 100%)",
-            border: "1px solid rgba(30, 58, 138, 0.14)",
-            fontSize: 13,
-            fontWeight: 800,
-            color: BRAND.navy,
+            padding: "16px 12px",
+            borderRadius: 12,
+            background: BRAND.white,
+            border: "1px solid rgba(30, 58, 138, 0.16)",
+            boxShadow: "0 6px 16px rgba(15, 23, 42, 0.06)",
             textAlign: "center",
-            lineHeight: 1.35,
           }}
         >
-          {line}
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              margin: "0 auto",
+              borderRadius: 12,
+              background: `linear-gradient(145deg, ${BRAND.navyDeep} 0%, ${BRAND.navyMid} 100%)`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            aria-hidden
+          >
+            <CustomerFitIconSvg label={line} />
+          </div>
+          <p style={{ margin: "10px 0 0", fontSize: 12, fontWeight: 900, color: BRAND.navy, lineHeight: 1.35 }}>
+            {line}
+          </p>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function SystemSolutionIconSvg({ iconKey }) {
+  const stroke = BRAND.orangeLight;
+  const fill = "rgba(251, 146, 60, 0.28)";
+  const k = String(iconKey || "program");
+  const s = 32;
+  if (k === "grease") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+        <circle cx="16" cy="16" r="8" fill={fill} stroke={stroke} strokeWidth="1.6" />
+      </svg>
+    );
+  }
+  if (k === "gear") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+        <circle cx="16" cy="16" r="7" stroke={stroke} strokeWidth="1.8" />
+        <circle cx="16" cy="16" r="2.5" fill={fill} />
+      </svg>
+    );
+  }
+  if (k === "engine") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+        <rect x="8" y="10" width="16" height="12" rx="2" fill={fill} stroke={stroke} strokeWidth="1.6" />
+      </svg>
+    );
+  }
+  if (k === "coolant") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+        <path d="M16 6v20M12 10h8M12 22h8" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width={s} height={s} viewBox="0 0 32 32" fill="none" aria-hidden>
+      <path d="M8 22h16M10 16h12M12 10h8" stroke={stroke} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SystemSolutionHub({ items, max = 6 }) {
+  const list = items.slice(0, max);
+  if (list.length < 2) return null;
+  const cols = list.length <= 3 ? list.length : list.length === 4 ? 2 : 3;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gap: 14 }}>
+      {list.map((item) => (
+        <article
+          key={item.title}
+          style={{
+            padding: "18px 16px",
+            borderRadius: 12,
+            background: BRAND.white,
+            border: "1px solid rgba(30, 58, 138, 0.18)",
+            borderLeft: `4px solid ${BRAND.orange}`,
+            boxShadow: "0 8px 22px rgba(15, 23, 42, 0.08)",
+            display: "grid",
+            gridTemplateColumns: "44px 1fr",
+            gap: 12,
+            alignItems: "center",
+          }}
+        >
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 10,
+              background: `linear-gradient(145deg, ${BRAND.navy} 0%, ${BRAND.navyMid} 100%)`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            aria-hidden
+          >
+            <SystemSolutionIconSvg iconKey={item.iconKey || crossSellIconKey(item.title)} />
+          </div>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 900, color: BRAND.headerNavy, lineHeight: 1.25 }}>
+              {item.title}
+            </p>
+            {item.desc ? (
+              <p style={{ margin: "6px 0 0", fontSize: 11, fontWeight: 600, color: "#64748b", lineHeight: 1.4 }}>
+                {item.desc}
+              </p>
+            ) : null}
+          </div>
         </article>
       ))}
     </div>
@@ -830,13 +1196,14 @@ export default function CategorySpotlightSellSheet(props) {
     DEMO_DEFAULTS.repTalkTrack,
     DEMO_DEFAULTS.discoveryQuestions
   );
-  const crossSell = pickList(props.crossSell, DEMO_DEFAULTS.crossSell);
+  const systemSolutionItems = normalizeCrossSellItems(props.crossSell, DEMO_DEFAULTS.crossSell);
   const cautions = pickList(props.cautions, DEMO_DEFAULTS.cautions);
   const recommendedNextStep = pickText(props.recommendedNextStep, DEMO_DEFAULTS.recommendedNextStep);
   const pdsLinks = normalizePdsLinks(props.pdsLinks ?? DEMO_DEFAULTS.pdsLinks);
 
   const stripCount = Math.min(Math.max(valueCards.length, 4), 6);
   const stripCards = valueCards.slice(0, stripCount);
+  const programProductCount = Math.max(featuredProducts.length, 1);
 
   return (
     <article
@@ -892,26 +1259,41 @@ export default function CategorySpotlightSellSheet(props) {
           borderBottom: "1px solid rgba(226,232,240,0.95)",
         }}
       >
-        <div style={{ padding: "44px 44px 48px", display: "grid", gap: 16, alignContent: "center" }}>
-          <span
-            style={{
-              justifySelf: "start",
-              fontSize: 10,
-              fontWeight: 900,
-              letterSpacing: "0.18em",
-              padding: "6px 12px",
-              borderRadius: 999,
-              color: "#fff",
-              background: "rgba(255,255,255,0.12)",
-              border: "1px solid rgba(255,255,255,0.3)",
-            }}
-          >
-            CATEGORY SPOTLIGHT
-          </span>
+        <div style={{ padding: "40px 44px 44px", display: "grid", gap: 14, alignContent: "center" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 900,
+                letterSpacing: "0.18em",
+                padding: "6px 12px",
+                borderRadius: 999,
+                color: "#fff",
+                background: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.3)",
+              }}
+            >
+              CATEGORY PROGRAM
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                letterSpacing: "0.1em",
+                padding: "6px 10px",
+                borderRadius: 999,
+                color: BRAND.orangeLight,
+                background: "rgba(234, 88, 12, 0.2)",
+                border: "1px solid rgba(251, 146, 60, 0.45)",
+              }}
+            >
+              {programProductCount} SKU LINEUP
+            </span>
+          </div>
           <h1
             style={{
               margin: 0,
-              fontSize: "clamp(30px, 3.8vw, 48px)",
+              fontSize: "clamp(32px, 4.2vw, 52px)",
               fontWeight: 900,
               color: BRAND.white,
               lineHeight: 1.05,
@@ -926,16 +1308,43 @@ export default function CategorySpotlightSellSheet(props) {
             </p>
           ) : null}
           {opportunitySummary ? (
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "rgba(255,255,255,0.9)", lineHeight: 1.6, maxWidth: 540 }}>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 17,
+                fontWeight: 600,
+                color: "rgba(255,255,255,0.92)",
+                lineHeight: 1.62,
+                maxWidth: 560,
+              }}
+            >
               {opportunitySummary}
             </p>
           ) : null}
         </div>
-        <div style={{ padding: "36px 28px 40px 20px", display: "flex", alignItems: "center" }}>
-          <HeroVisualPanel categoryImageUrl={categoryImageUrl} featuredProducts={featuredProducts} />
+        <div style={{ padding: "32px 28px 36px 16px", display: "flex", alignItems: "center" }}>
+          <HeroVisualPanel
+            categoryImageUrl={categoryImageUrl}
+            featuredProducts={featuredProducts}
+            productCount={programProductCount}
+          />
         </div>
       </section>
 
+      <section style={{ background: BRAND.headerNavy, padding: "14px 44px 16px" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 11,
+            fontWeight: 900,
+            letterSpacing: "0.14em",
+            color: BRAND.orangeLight,
+            textTransform: "uppercase",
+          }}
+        >
+          Category growth opportunity
+        </p>
+      </section>
       <section
         style={{
           display: "grid",
@@ -944,37 +1353,15 @@ export default function CategorySpotlightSellSheet(props) {
         }}
       >
         {stripCards.map((tile, i) => (
-          <OpportunityValueCard key={`opp-${i}-${tile.label}`} tile={{ ...tile, iconKey: valueIconKey(tile, i) }} />
+          <OpportunityValueCard
+            key={`opp-${i}-${tile.label}`}
+            tile={{ ...tile, iconKey: valueIconKey(tile, i) }}
+            isLast={i === stripCards.length - 1}
+          />
         ))}
       </section>
 
-      {featuredProducts.length ? (
-        <section style={{ padding: "32px 44px 8px", background: BRAND.white }}>
-          <p
-            style={{
-              margin: "0 0 18px",
-              fontSize: 12,
-              fontWeight: 900,
-              letterSpacing: "0.14em",
-              color: BRAND.headerNavy,
-              textTransform: "uppercase",
-            }}
-          >
-            Featured products in this program
-          </p>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${Math.min(featuredProducts.length, 3)}, minmax(0, 1fr))`,
-              gap: 16,
-            }}
-          >
-            {featuredProducts.slice(0, 6).map((p) => (
-              <FeaturedProductCard key={p.name} product={p} />
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <ProductLineupSection products={featuredProducts} />
 
       <section style={{ padding: "28px 44px 36px", display: "grid", gap: 22, background: BRAND.white }}>
         <section style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
@@ -1003,10 +1390,32 @@ export default function CategorySpotlightSellSheet(props) {
           ) : null}
         </section>
 
-        {crossSell.length >= 2 ? (
-          <FlyerCard title="Cross-sell and system solutions" subtitle="Grow the lubrication system">
-            <CrossSellGrid items={crossSell} max={4} />
-          </FlyerCard>
+        {systemSolutionItems.length >= 2 ? (
+          <section
+            style={{
+              padding: "28px 28px 30px",
+              borderRadius: 12,
+              background: `linear-gradient(135deg, ${BRAND.navyDeep} 0%, ${BRAND.navyMid} 100%)`,
+              border: "1px solid rgba(251, 146, 60, 0.35)",
+            }}
+          >
+            <p
+              style={{
+                margin: "0 0 6px",
+                fontSize: 11,
+                fontWeight: 900,
+                letterSpacing: "0.14em",
+                color: BRAND.orangeLight,
+                textTransform: "uppercase",
+              }}
+            >
+              System-selling expansion
+            </p>
+            <p style={{ margin: "0 0 18px", fontSize: 20, fontWeight: 900, color: BRAND.white, lineHeight: 1.25 }}>
+              Grow the full lubrication program
+            </p>
+            <SystemSolutionHub items={systemSolutionItems} max={6} />
+          </section>
         ) : null}
 
         {cautions.length ? (
@@ -1019,19 +1428,22 @@ export default function CategorySpotlightSellSheet(props) {
           <section
             style={{
               borderRadius: 12,
-              padding: "20px 24px",
+              padding: "24px 28px",
               display: "flex",
               flexWrap: "wrap",
               gap: 16,
               alignItems: "center",
               justifyContent: "space-between",
-              background: `linear-gradient(98deg, ${BRAND.orange} 0%, #c2410c 45%, ${BRAND.navyMid} 100%)`,
+              background: `linear-gradient(98deg, ${BRAND.orange} 0%, #c2410c 42%, ${BRAND.navyMid} 100%)`,
               color: BRAND.white,
+              boxShadow: "0 16px 40px rgba(234, 88, 12, 0.25)",
             }}
           >
-            <div style={{ flex: "1 1 260px" }}>
-              <p style={{ margin: 0, fontSize: 10, fontWeight: 900, letterSpacing: "0.14em" }}>RECOMMENDED NEXT STEP</p>
-              <p style={{ margin: "8px 0 0", fontSize: 17, fontWeight: 900, lineHeight: 1.32 }}>{recommendedNextStep}</p>
+            <div style={{ flex: "1 1 280px" }}>
+              <p style={{ margin: 0, fontSize: 10, fontWeight: 900, letterSpacing: "0.16em" }}>
+                STRATEGIC NEXT STEP · CATEGORY GROWTH
+              </p>
+              <p style={{ margin: "10px 0 0", fontSize: 18, fontWeight: 900, lineHeight: 1.35 }}>{recommendedNextStep}</p>
             </div>
             {pdsLinks.length ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -1067,7 +1479,7 @@ export default function CategorySpotlightSellSheet(props) {
           src="/products.png"
           alt="Klondike lubricants product lineup"
           decoding="async"
-          style={{ width: "100%", minHeight: 260, maxHeight: 320, objectFit: "contain", display: "block", margin: "0 auto" }}
+          style={{ width: "100%", minHeight: 300, maxHeight: 360, objectFit: "contain", display: "block", margin: "0 auto" }}
         />
       </section>
 
