@@ -135,6 +135,160 @@ function mapEquipmentOpportunityProfileToSellSheetProps(profile) {
   };
 }
 
+/** Maps Step 3 industry labels to `customerProfiles.js` archetype ids. */
+const SE_GUIDED_STEP3_INDUSTRY_TO_PROFILE_ID = Object.freeze({
+  Agriculture: "agriculture",
+  "Forestry / Logging": "industrial_processing",
+  "Food Processing": "food_processing",
+  Construction: "construction",
+  Mining: "mining_aggregate",
+  "Marine / Dredging": "industrial_processing",
+  "Industrial / Manufacturing": "manufacturing",
+  "Trucking / Fleet": "trucking_fleet",
+});
+
+const SE_CUSTOMER_PROFILE_CATEGORY_LABELS = Object.freeze({
+  grease: "Grease programs",
+  hydraulic_fluids: "Hydraulic fluids",
+  hd_engine_oils: "Heavy duty engine oils",
+  tractor_fluids: "Tractor / UTHF fluids",
+  synthetics: "Synthetic lubricants",
+  coolant: "Coolant programs",
+  transmission: "Transmission fluids",
+});
+
+const CUSTOMER_PROFILE_PAIN_ICON_KEYS = [
+  "shock",
+  "hydraulic",
+  "contamination",
+  "downtime",
+  "bearing",
+  "washout",
+];
+
+/**
+ * @param {string} industry
+ * @param {string} profileRefId
+ * @returns {import("./data/salesEnablement/customerProfiles").SalesEnablementCustomerProfile | null}
+ */
+function resolveSeGuidedCustomerProfileRow(industry, profileRefId) {
+  const profiles = SALES_ENABLEMENT_CUSTOMER_PROFILES?.profiles || [];
+  const fromRef = profiles.find((p) => String(p?.id) === String(profileRefId || ""));
+  if (fromRef) return fromRef;
+  const mappedId = SE_GUIDED_STEP3_INDUSTRY_TO_PROFILE_ID[String(industry || "").trim()];
+  if (mappedId) {
+    return profiles.find((p) => String(p?.id) === mappedId) || null;
+  }
+  return null;
+}
+
+/**
+ * @param {import("./data/salesEnablement/customerProfiles").SalesEnablementCustomerProfile | null | undefined} profile
+ * @param {{ industry?: string, focus?: string, assemblyPackage?: object | null }} [opts]
+ */
+function mapCustomerIndustryProfileToSellSheetProps(profile, opts = {}) {
+  if (!profile) return {};
+
+  const industry = String(opts.industry || "").trim();
+  const focus = String(opts.focus || "").trim();
+  const assemblyPkg =
+    opts.assemblyPackage && typeof opts.assemblyPackage === "object" ? opts.assemblyPackage : null;
+
+  const customerPainPoints = (profile.commonPainPoints || []).slice(0, 6).map((line, index) => {
+    const text = String(line || "").trim();
+    const dash = text.match(/^([^:—–-]{1,80})\s*[:—–-]\s*(.+)$/);
+    return {
+      iconKey: CUSTOMER_PROFILE_PAIN_ICON_KEYS[index % CUSTOMER_PROFILE_PAIN_ICON_KEYS.length],
+      label: dash ? dash[1].trim() : text.slice(0, 80),
+      sub: dash ? dash[2].trim() : "",
+    };
+  });
+
+  const likelyLubricantNeeds = (profile.priorityProductCategories || []).map((key) => {
+    const id = String(key || "").trim();
+    return {
+      category: SE_CUSTOMER_PROFILE_CATEGORY_LABELS[id] || id.replace(/_/g, " "),
+      role: "Priority KLONDIKE category for this customer archetype—verify on tags, manuals, and current PDS",
+    };
+  });
+
+  const assemblySignals = Array.isArray(assemblyPkg?.customerProfileSignals)
+    ? assemblyPkg.customerProfileSignals.map((x) => String(x ?? "").trim()).filter(Boolean)
+    : [];
+  const opportunitySignals = [
+    ...(profile.buyingTriggers || []),
+    ...assemblySignals,
+  ]
+    .map((x) => String(x || "").trim())
+    .filter(Boolean)
+    .slice(0, 6);
+
+  const assemblyRep = Array.isArray(assemblyPkg?.repQuestions)
+    ? assemblyPkg.repQuestions.map((x) => String(x ?? "").trim()).filter(Boolean)
+    : [];
+  const repTalkTrack = [
+    ...(profile.recommendedMessagingAngles || []),
+    ...assemblyRep,
+  ]
+    .map((x) => String(x || "").trim())
+    .filter(Boolean)
+    .slice(0, 6);
+
+  const assemblyDiscovery = Array.isArray(assemblyPkg?.customerProfileQuestions)
+    ? assemblyPkg.customerProfileQuestions.map((x) => String(x ?? "").trim()).filter(Boolean)
+    : [];
+  const discoveryQuestions = [
+    ...assemblyDiscovery,
+    ...(profile.buyingTriggers || []).map((t) => {
+      const s = String(t || "").trim();
+      return s.endsWith("?") ? s : `When does this show up: ${s}?`;
+    }),
+  ]
+    .map((x) => String(x || "").trim())
+    .filter(Boolean)
+    .slice(0, 6);
+
+  const crossSell = (profile.priorityProductCategories || []).map((key) => {
+    const id = String(key || "").trim();
+    return SE_CUSTOMER_PROFILE_CATEGORY_LABELS[id] || id.replace(/_/g, " ");
+  });
+
+  const operatingSummary = (profile.operatingConditions || [])
+    .map((x) => String(x || "").trim())
+    .filter(Boolean)
+    .join(" ");
+
+  const recommendedProducts = (Array.isArray(assemblyPkg?.productCards) ? assemblyPkg.productCards : [])
+    .slice(0, 4)
+    .map((row) => ({
+      name: String(row?.productName || row?.name || "").trim(),
+      why: String(row?.positioningLine || row?.gradeLabel || "Spec conversation anchor—verify on current PDS").trim(),
+    }))
+    .filter((row) => row.name);
+
+  return {
+    profileTitle: String(profile.title || "Customer profile").trim(),
+    profileSubtitle: [industry, focus].filter(Boolean).join(" · ") || "Industry customer playbook",
+    profileSummary:
+      operatingSummary ||
+      "Industry customer playbook for discovery and KLONDIKE category conversations—verify requirements on equipment tags, manuals, and current PDS.",
+    customerPainPoints,
+    equipmentTypes: profile.relevantEquipmentTypes || [],
+    likelyLubricantNeeds,
+    recommendedProducts,
+    opportunitySignals,
+    repTalkTrack,
+    discoveryQuestions,
+    crossSell,
+    cautions: [
+      "Customer profile for rep enablement—not a customer endorsement. Verify application requirements using equipment tags, operator manuals, and the current PDS before any recommendation.",
+      "Do not imply OEM approval unless the exact wording appears on the current PDS for that SKU.",
+    ],
+    recommendedNextStep:
+      "Run discovery on operating conditions and pain points, then map KLONDIKE categories to documented spec conversations verified on tags, manuals, and current PDS.",
+  };
+}
+
 const SALES_ENABLEMENT_BODY_STYLE = {
   margin: 0,
   fontSize: 14,
@@ -4873,6 +5027,13 @@ useEffect(() => {
   const [seGuidedStep3ProductId, setSeGuidedStep3ProductId] = useState("");
   const [seGuidedStep3ProfileIndustry, setSeGuidedStep3ProfileIndustry] = useState("");
   const [seGuidedStep3ProfileFocus, setSeGuidedStep3ProfileFocus] = useState("");
+  const [seGuidedOemEquipmentKey, setSeGuidedOemEquipmentKey] = useState("cat");
+  useEffect(() => {
+    const industry = String(seGuidedStep3ProfileIndustry || "").trim();
+    if (!industry) return;
+    const mappedId = SE_GUIDED_STEP3_INDUSTRY_TO_PROFILE_ID[industry];
+    if (mappedId) setSeGuidedWizardProfileRefId(mappedId);
+  }, [seGuidedStep3ProfileIndustry]);
   useEffect(() => {
     setSeGuidedAssemblyDraftPackage(null);
     setSeGuidedAssemblyDraftError(null);
@@ -11383,8 +11544,11 @@ const handleFinishDealerEnrollment = async () => {
             const wizardBuildReady =
               Boolean(seGuidedAssemblyDraftPackage?.ok) ||
               (seGuidedWizardMessageKind === "customer_profile"
-                ? Boolean(String(seGuidedWizardProfileRefId || "").trim())
-                : salesEnablementSelectedId != null);
+                ? Boolean(String(seGuidedStep3ProfileIndustry || "").trim()) ||
+                  Boolean(String(seGuidedWizardProfileRefId || "").trim())
+                : seGuidedWizardMessageKind === "oem_opportunity_profile"
+                  ? Boolean(String(seGuidedOemEquipmentKey || "").trim())
+                  : salesEnablementSelectedId != null);
             let guidedStep = 1;
             if (audienceReady) guidedStep = 2;
             if (audienceReady && messageKindReady) guidedStep = 3;
@@ -11425,9 +11589,11 @@ const handleFinishDealerEnrollment = async () => {
             const buildMessageTypeLabel =
               seGuidedWizardMessageKind === "customer_profile"
                 ? "Customer profile"
-                : seGuidedWizardMessageKind === "category"
-                  ? "Category spotlight"
-                  : "Product spotlight";
+                : seGuidedWizardMessageKind === "oem_opportunity_profile"
+                  ? "OEM opportunity profile"
+                  : seGuidedWizardMessageKind === "category"
+                    ? "Category spotlight"
+                    : "Product spotlight";
             const guidedMockProductLabel =
               SE_GUIDED_MOCK_PRODUCT_IMAGE_OPTIONS.find((o) => o.id === seGuidedMockProductImageId)?.label || "—";
             const guidedPreviewProductLabel =
@@ -12480,6 +12646,41 @@ const handleFinishDealerEnrollment = async () => {
               (seGuidedWizardMessageKind == null && salesEnablementSpotlightMode === "category");
             const seRenderCategorySpotlightSellSheet =
               seIsCategorySpotlightWizard && Boolean(seGuidedAssemblyDraftPackage?.ok);
+            const seIsCustomerProfileWizard = seGuidedWizardMessageKind === "customer_profile";
+            const seIsOemOpportunityWizard = seGuidedWizardMessageKind === "oem_opportunity_profile";
+            const seRenderCustomerProfileSellSheet =
+              seIsCustomerProfileWizard &&
+              (Boolean(String(seGuidedStep3ProfileIndustry || "").trim()) ||
+                Boolean(String(seGuidedWizardProfileRefId || "").trim()));
+            const seRenderOemOpportunitySellSheet =
+              seIsOemOpportunityWizard && Boolean(String(seGuidedOemEquipmentKey || "").trim());
+            const seGuidedCustomerProfileRow = resolveSeGuidedCustomerProfileRow(
+              seGuidedStep3ProfileIndustry,
+              seGuidedWizardProfileRefId
+            );
+            const seCustomerProfileSellSheetProps = mapCustomerIndustryProfileToSellSheetProps(
+              seGuidedCustomerProfileRow,
+              {
+                industry: seGuidedStep3ProfileIndustry,
+                focus: seGuidedStep3ProfileFocus,
+                assemblyPackage: seGuidedAssemblyDraftPackage?.ok ? seGuidedAssemblyDraftPackage : null,
+              }
+            );
+            const seOemOpportunitySellSheetProps = mapEquipmentOpportunityProfileToSellSheetProps(
+              getEquipmentOpportunityProfile(seGuidedOemEquipmentKey)
+            );
+            const customerProfileSellSheetPreview = (
+              <CustomerProfileSellSheet
+                key={`se-customer-profile-sell-sheet-${seGuidedCustomerProfileRow?.id || seGuidedStep3ProfileIndustry || "customer"}-${seGuidedAssemblyDraftPackage?.ok ? "draft" : "registry"}`}
+                {...seCustomerProfileSellSheetProps}
+              />
+            );
+            const oemOpportunitySellSheetPreview = (
+              <CustomerProfileSellSheet
+                key={`se-oem-opportunity-sell-sheet-${seGuidedOemEquipmentKey}-${EQUIPMENT_OPPORTUNITY_PROFILE_DISCLAIMER ? "v2" : "v1"}`}
+                {...seOemOpportunitySellSheetProps}
+              />
+            );
             const seSellSheetProductImageUrl = (() => {
               if (seGuidedUploadedProductImagePreviewFailed) return "";
               return String(seGuidedUploadedProductImageUrl || "").trim();
@@ -13635,6 +13836,13 @@ const handleFinishDealerEnrollment = async () => {
                           accent: "#047857",
                           bg: "linear-gradient(160deg, #ecfdf5 0%, #ffffff 55%)",
                         },
+                        {
+                          kind: "oem_opportunity_profile",
+                          title: "OEM Opportunity Profile",
+                          sub: "Equipment-specific lubrication playbooks—verify on tags and PDS.",
+                          accent: "#7c3aed",
+                          bg: "linear-gradient(160deg, #f5f3ff 0%, #ffffff 55%)",
+                        },
                       ].map((mt) => {
                         const active = seGuidedWizardMessageKind === mt.kind;
                         return (
@@ -13643,7 +13851,7 @@ const handleFinishDealerEnrollment = async () => {
                             type="button"
                             onClick={() => {
                               setSeGuidedWizardMessageKind(mt.kind);
-                              if (mt.kind === "customer_profile") {
+                              if (mt.kind === "customer_profile" || mt.kind === "oem_opportunity_profile") {
                                 setSalesEnablementLibraryTab("customer_profiles");
                               } else {
                                 setSalesEnablementSpotlightMode(mt.kind);
@@ -13712,7 +13920,37 @@ const handleFinishDealerEnrollment = async () => {
                             gap: 12,
                           }}
                         >
-                          {seGuidedWizardMessageKind === "customer_profile" ? (
+                          {seGuidedWizardMessageKind === "oem_opportunity_profile" ? (
+                            <>
+                              <label style={{ display: "grid", gap: 6, fontSize: 11, fontWeight: 800, color: "#5b21b6" }}>
+                                OEM equipment profile
+                                <select
+                                  value={seGuidedOemEquipmentKey}
+                                  onChange={(e) => setSeGuidedOemEquipmentKey(e.target.value)}
+                                  style={{
+                                    width: "100%",
+                                    borderRadius: 10,
+                                    padding: "10px 12px",
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    border: "1px solid rgba(124, 58, 237, 0.45)",
+                                    background: "#ffffff",
+                                    color: "#0f172a",
+                                  }}
+                                >
+                                  {listEquipmentOpportunityProfiles().map((preset) => (
+                                    <option key={preset.key} value={preset.key}>
+                                      {preset.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <p style={{ margin: 0, fontSize: 11, color: "#64748b", lineHeight: 1.45, fontWeight: 600 }}>
+                                Registry-backed OEM opportunity playbook—continue to Step 4 preview. Verify requirements
+                                on equipment tags, manuals, and current PDS (draft generation optional).
+                              </p>
+                            </>
+                          ) : seGuidedWizardMessageKind === "customer_profile" ? (
                             <>
                               <label style={{ display: "grid", gap: 6, fontSize: 11, fontWeight: 800, color: "#1e3a8a" }}>
                                 Industry / Customer Type
@@ -13851,6 +14089,7 @@ const handleFinishDealerEnrollment = async () => {
                               type="button"
                               disabled={
                                 seGuidedAssemblyDraftBusy ||
+                                seGuidedWizardMessageKind === "oem_opportunity_profile" ||
                                 (seGuidedWizardMessageKind === "product" &&
                                   (!seGuidedStep3CategoryKey || !seGuidedStep3ProductId)) ||
                                 (seGuidedWizardMessageKind === "category" && !seGuidedStep3CategoryKey) ||
@@ -14580,7 +14819,11 @@ const handleFinishDealerEnrollment = async () => {
                         seRenderProductSpotlightSellSheet ||
                         seIsProductSpotlightWizard ||
                         seRenderCategorySpotlightSellSheet ||
-                        seIsCategorySpotlightWizard
+                        seIsCategorySpotlightWizard ||
+                        seRenderCustomerProfileSellSheet ||
+                        seIsCustomerProfileWizard ||
+                        seRenderOemOpportunitySellSheet ||
+                        seIsOemOpportunityWizard
                           ? {
                               padding: 0,
                               background: "transparent",
@@ -14806,6 +15049,126 @@ const handleFinishDealerEnrollment = async () => {
                             }}
                           >
                             Generate a Klondike draft in Step 3 to preview the Category Spotlight sell sheet here.
+                          </div>
+                        )
+                      ) : seIsCustomerProfileWizard ? (
+                        seRenderCustomerProfileSellSheet ? (
+                          <>
+                            <div
+                              role="status"
+                              style={{
+                                width: "100%",
+                                maxWidth: 1140,
+                                margin: "0 auto",
+                                padding: "8px 14px",
+                                borderRadius: 8,
+                                background: "#dcfce7",
+                                border: "2px solid #16a34a",
+                                fontSize: 13,
+                                fontWeight: 900,
+                                letterSpacing: "0.06em",
+                                color: "#14532d",
+                                textAlign: "center",
+                              }}
+                            >
+                              USING CUSTOMER PROFILE SELL SHEET COMPONENT
+                            </div>
+                            <section
+                              style={{
+                                width: "100%",
+                                maxWidth: 1140,
+                                margin: "0 auto",
+                                padding: "8px 0 0",
+                                boxSizing: "border-box",
+                                minWidth: 0,
+                              }}
+                            >
+                              {customerProfileSellSheetPreview}
+                            </section>
+                          </>
+                        ) : (
+                          <div
+                            style={{
+                              padding: "16px 18px",
+                              borderRadius: 12,
+                              background: "#f8fafc",
+                              border: "1px dashed rgba(148, 163, 184, 0.65)",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              color: "#475569",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            Select an industry / customer type in Step 3 to preview the Customer Profile sell sheet
+                            here.
+                          </div>
+                        )
+                      ) : seIsOemOpportunityWizard ? (
+                        seRenderOemOpportunitySellSheet ? (
+                          <>
+                            <div
+                              role="status"
+                              style={{
+                                width: "100%",
+                                maxWidth: 1140,
+                                margin: "0 auto",
+                                padding: "8px 14px",
+                                borderRadius: 8,
+                                background: "#dcfce7",
+                                border: "2px solid #16a34a",
+                                fontSize: 13,
+                                fontWeight: 900,
+                                letterSpacing: "0.06em",
+                                color: "#14532d",
+                                textAlign: "center",
+                              }}
+                            >
+                              USING OEM OPPORTUNITY PROFILE COMPONENT
+                            </div>
+                            <p
+                              role="note"
+                              style={{
+                                margin: 0,
+                                padding: "12px 16px",
+                                borderRadius: 8,
+                                background: "rgba(234, 88, 12, 0.12)",
+                                border: "1px solid rgba(251, 146, 60, 0.45)",
+                                color: "#9a3412",
+                                fontSize: 13,
+                                fontWeight: 700,
+                                lineHeight: 1.5,
+                                textAlign: "center",
+                              }}
+                            >
+                              {OEM_OPPORTUNITY_PREVIEW_DISCLAIMER}
+                            </p>
+                            <section
+                              style={{
+                                width: "100%",
+                                maxWidth: 1140,
+                                margin: "0 auto",
+                                padding: "8px 0 0",
+                                boxSizing: "border-box",
+                                minWidth: 0,
+                              }}
+                            >
+                              {oemOpportunitySellSheetPreview}
+                            </section>
+                          </>
+                        ) : (
+                          <div
+                            style={{
+                              padding: "16px 18px",
+                              borderRadius: 12,
+                              background: "#f8fafc",
+                              border: "1px dashed rgba(148, 163, 184, 0.65)",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              color: "#475569",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            Select an OEM equipment profile in Step 3 to preview the opportunity playbook here.
                           </div>
                         )
                       ) : (
