@@ -6,6 +6,10 @@
 
 import React from "react";
 import { getCategoryProgramIntelligence } from "../data/salesEnablement/categoryProgramIntelligence.js";
+import {
+  getCategoryOemSpecCoaching,
+  OEM_SPEC_VERIFY_LINE,
+} from "../data/salesEnablement/oemSpecMappings.js";
 
 export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6f11";
 
@@ -824,9 +828,9 @@ const CATEGORY_LADDER_PRESETS = {
 const CATEGORY_PROGRAM_COPY = {
   hydraulic: {
     categoryTitle: "KLONDIKE Hydraulic Fluids",
-    categorySubtitle: "Full-line hydraulic programs for mixed fleets, plants, and mobile equipment.",
+    categorySubtitle: "Keep equipment running — leaks, heat, and ISO VG discipline on mixed fleets.",
     opportunitySummary:
-      "Lead with ISO VG discipline, contamination control, and bulk vs packaged behavior ? then walk the GOOD ? BETTER ? BEST ? ULTIMATE ladder. Position Klondike as the hydraulic system partner, not a one-SKU swap.",
+      "Practical hydraulic playbook: fix leaks and heat, match ISO VG to tags, then walk the ladder — not a one-drum AW swap.",
     keyBenefits: [
       { iconKey: "consolidation", label: "Program consolidation", sub: "One hydraulic story from AW through turbine, tractor, and circulating oils." },
       { iconKey: "uptime", label: "Circuit reliability", sub: "Fewer heat, foam, and slow-response events on first-shift startups." },
@@ -872,7 +876,7 @@ const CATEGORY_PROGRAM_COPY = {
       "Wet-brake and hydraulic fills are separate conversations ? verify reservoir labels.",
     ],
     recommendedNextStep:
-      "Standardize the yard on one hydraulic ladder: document ISO VG by asset group, align bulk and packaged behavior, and bundle filtration with tier upgrades.",
+      "Schedule a category review; run a lunch-and-learn on ISO VG tags; send this spotlight; assign hydraulic fundamentals training.",
     sellingStrategy: {
       positioning: [
         "Sell the hydraulic system program ? ladder depth, not a single drum swap.",
@@ -901,9 +905,9 @@ const CATEGORY_PROGRAM_COPY = {
   },
   agrimax: {
     categoryTitle: "AGRIMAX Full Line",
-    categorySubtitle: "Farm and ag-dealer program depth across trans-hydraulics, engines, grease, and coolant.",
+    categorySubtitle: "John Deere / Case IH equipment — same spec, same protection, save money (where PDS supports).",
     opportunitySummary:
-      "Teach reps how to sell the AGRIMAX category: spec-matched alternatives to OEM-branded fluids, wet-brake and reservoir discipline, seasonal uptime, and dealer PM programs ? always verified against equipment tags and PDS. Never imply OEM endorsement.",
+      "Dealer sales playbook for ag: wet brake chatter, seasonal PM, trans-drive, and OEM-spec conversations only with PDS proof — not one red drum for every sump.",
     keyBenefits: [
       { iconKey: "retention", label: "Dealer stickiness", sub: "Keep the ag account on one Klondike program story across reservoirs." },
       { iconKey: "consolidation", label: "Full-line consolidation", sub: "Fluids, grease, and coolant under one seasonal conversation." },
@@ -930,16 +934,16 @@ const CATEGORY_PROGRAM_COPY = {
       { title: "Coolants", desc: "OAT / NOAT discipline outside ag line where applicable", iconKey: "coolant" },
     ],
     repTalkTrack: [
-      "Open with equipment tags and reservoir labels ? trans-drive vs engine vs wet brake ? before any product name.",
-      "Walk the AGRIMAX CORE ? COMPLIANCE ladder so the dealer sees program depth, not one green or red SKU.",
-      "Pair seasonal bulk strategy with packaged top-off behavior on the busiest farm accounts.",
-      "Use PDS equipment guidance for line-specific options ? do not imply OEM approval beyond what PDS states.",
+      "What are customers using today in the trans-hydraulic sump?",
+      "Are customers asking for OEM-branded fluids?",
+      "Are wet brakes noisy after the last fluid change?",
+      "Map reservoirs before naming any product — trans-drive, engine, wet brake, grease, coolant.",
     ],
     discoveryQuestions: [
-      "Which reservoirs are you standardizing this season ? trans-hydraulic, engine, wet brake, coolant?",
-      "Are green-line and zinc-free programs split by equipment type or mixed on the shelf?",
-      "What CK-4 and grease companions are already on the farm account?",
-      "Where is a single companion SKU (coolant or grease) carrying the whole story incorrectly?",
+      "Are wet brakes noisy?",
+      "What fluid types do equipment tags require?",
+      "What's in today's harvest bundle beyond engine oil?",
+      "Which John Deere / Case IH models drive seasonal PM volume?",
     ],
     cautions: [
       "Confirm equipment and fluid-type guidance on each AGRIMAX PDS before recommending a line color or chemistry.",
@@ -947,37 +951,31 @@ const CATEGORY_PROGRAM_COPY = {
       "Trans-hydraulic, engine, wet-brake, and coolant fills require separate confirmation.",
     ],
     recommendedNextStep:
-      "Build the AGRIMAX full-line plan: anchor trans-drive and zinc-free tiers, add CK-4 and grease companions, and align coolant with seasonal bulk ? documented by equipment tag on PDS.",
+      "Run a lunch-and-learn on reservoir maps; refresh seasonal PM SKUs; send this spotlight to the rep; prepare a business review on ag line depth.",
     sellingStrategy: {
       positioning: [
-        "Sell AGRIMAX as the ag dealer's full program ? not a coolant, grease, or trans-drive SKU in isolation.",
-        "Lead with reservoir discipline and seasonal strategy, then place ladder tiers.",
-        "Keep John Deere / CNH / wet-brake language tied to PDS equipment guidance only.",
+        "Same spec, same protection, save money — where PDS supports.",
+        "Seasonal PM bundles beat single-SKU counter habits.",
+        "No implied John Deere / Case IH endorsement.",
       ],
       problemsSolved: [
-        "Single-SKU ag stories (coolant-only or grease-only) shrinking margin",
-        "Line-color confusion on the shelf",
-        "Missed CK-4 and trans-drive consolidation",
-        "Seasonal stock-outs on the wrong tier",
+        "Wet brake chatter after wrong fluid",
+        "One red drum for every compartment",
+        "Incomplete harvest / planting PM kits",
       ],
       opportunitySignals: [
-        "Dealers leading with 50/50 coolant or Poly Tac instead of the program",
-        "Farms with multiple reservoir types on one invoice",
-        "Ag accounts still split across competitors by fill type",
+        "Wet brake noise within 50 hours of service",
+        "PM kit sells filters and engine oil only",
+        "Customer buying OEM jugs without tag proof",
       ],
-      crossSellPath: [
-        "Trans-drive anchor ? zinc-free specialty where tags support it",
-        "CK-4 engine oil ? high-hour seasonal engine program",
-        "Poly Tac / RED TAC ? grease depth on the same dealer",
-        "ELC coolant ? compliance tier when cooling is part of the ag plan",
-      ],
+      crossSellPath: ["Gear oil", "Bar & chain / drip oil", "Grease", "Coolant"],
     },
   },
   environmental: {
     categoryTitle: "KLONDIKE Environmental / EAL Lubricants",
-    categorySubtitle: "Enviro, BIO, and EAL programs for sensitive sites ? claims always tied to PDS.",
+    categorySubtitle: "Sensitive sites — documented ENVIRO / BIO / EAL per PDS.",
     opportunitySummary:
-      "Structure sensitive-site conversations around CORE ? COMPLIANCE tiers: ENVIRO AW entry, BIO and HEES depth, BIO-Synthetic EAL, and HFDU / specialty options. Pair chemistry with spill response and containment ? never overstate environmental claims.",
+      "When spills, bids, or watershed rules apply: match ENVIRO through BIO-Synthetic EAL per PDS — not vague green marketing.",
     keyBenefits: [
       { iconKey: "consolidation", label: "Site-ready programs", sub: "One environmentally acceptable story from entry AW through HFDU." },
       { iconKey: "uptime", label: "Duty-appropriate tiers", sub: "Match biodegradability and fluid type to equipment and regulations." },
@@ -1115,9 +1113,9 @@ const CATEGORY_PROGRAM_COPY = {
   },
   grease: {
     categoryTitle: "KLONDIKE Grease Program",
-    categorySubtitle: "Full grease ladder from multipurpose EP through flagship nano programs.",
+    categorySubtitle: "Washout, shock load, and relube discipline — walk the grease ladder.",
     opportunitySummary:
-      "Lead with the GOOD ? BETTER ? BEST ? ULTIMATE grease ladder ? RED TAC and HD TAC through MOLY TAC, ULTRA TAC, and nano sulfonate / lithium complex synthetics. Sell relube strategy and application severity, not one Poly Tac drum.",
+      "Map joints first: washout, shock load, centralized systems, and relube intervals — then place RED TAC through nano, not one Poly Tac for every zerk.",
     keyBenefits: [
       { iconKey: "uptime", label: "Bearing protection", sub: "Match NLGI and EP chemistry to load, water, and relube intervals." },
       { iconKey: "mix", label: "Ladder margin", sub: "Grow from multipurpose into moly, synthetic-blend, and nano tiers." },
@@ -1162,7 +1160,7 @@ const CATEGORY_PROGRAM_COPY = {
       "Centralized systems require product and viscosity discipline ? verify on PDS.",
     ],
     recommendedNextStep:
-      "Map grease points by severity, standardize the ladder on the fleet chart, and upgrade moly and nano tiers only where inspection data supports it.",
+      "Review PM grease SKUs on the fleet chart; run a lunch-and-learn on NLGI; send this spotlight to the rep.",
     sellingStrategy: {
       positioning: [
         "Sell the grease ladder and relube strategy ? not a single multipurpose product.",
@@ -1365,9 +1363,9 @@ const CATEGORY_PROGRAM_COPY = {
   },
   industrialSpecialty: {
     categoryTitle: "KLONDIKE Industrial Specialty Fluids",
-    categorySubtitle: "Turbine, circulating, compressor, and specialty industrial programs beyond standard hydraulics.",
+    categorySubtitle: "Turbine, compressor, and plant fills — not AW in every sump.",
     opportunitySummary:
-      "Help reps discover specialty plant fills they may not know we carry ? compressors, turbines, circulating oils, rock drill, saw guide, heat transfer, and way oils.",
+      "Plant walk playbook: ask what is in the turbine, compressor, and reducer before quoting mobile AW — map specialty fills per PDS.",
     keyBenefits: [
       { iconKey: "expansion", label: "Plant discovery", sub: "Map fill points beyond AW hydraulic tanks." },
       { iconKey: "consolidation", label: "Specialty breadth", sub: "Turbine, circulating, and compressor lines on one Klondike story." },
@@ -2428,52 +2426,50 @@ function ladderPresetFromRegistry(registry, fallbackPreset, presetKey) {
 
 function performanceEnablementFromRegistry(registry) {
   if (!registry) return null;
-  const bullets = mergeUniqueStrings(
-    registry.keyTechnologyThemes,
-    mergeUniqueStrings(registry.recommendedRepTalkingPoints, registry.chemistryGuidance, 5),
-    5
-  );
+  const bullets = mergeUniqueStrings(registry.keySellingAngles, registry.customerProblemsSolved, 4);
   if (!bullets.length) return null;
   return {
-    title: `${registry.label} category intelligence`,
+    title: `${registry.label} — quick dealer coaching`,
     intro: cleanCategoryDisplayText(registry.categorySummary),
     bullets: bullets.map(cleanCategoryDisplayText),
   };
 }
 
 function buildCategoryIntelligencePlaybookFromRegistry(registry) {
-  const sections = [
-    {
-      id: "howItWorks",
-      title: "How this category works",
-      items: registry.keyTechnologyThemes,
-    },
-    {
-      id: "confusion",
-      title: "Common customer confusion",
-      items: registry.customerProblemsSolved,
-    },
-    {
-      id: "upgradePaths",
-      title: "Upgrade paths",
-      items: registry.keySellingAngles,
-    },
-    {
-      id: "chemistry",
-      title: "Chemistry guidance",
-      items: registry.chemistryGuidance,
-    },
-    {
-      id: "specTalk",
-      title: "Spec & application conversations",
-      items: registry.specificationGuidance,
-    },
-    {
-      id: "hiddenOpportunities",
-      title: "Opportunities reps may miss",
-      items: registry.applicationGuidance,
-    },
-  ]
+  const whatToSay = mergeUniqueStrings(
+    registry.recommendedRepTalkingPoints,
+    registry.discoveryFocus,
+    10
+  );
+  const nextSteps = coerceStringLines(
+    registry.dealerNextSteps || registry.applicationGuidance,
+    [],
+    6
+  );
+  const oemCoaching = registry.oemSpecCoaching || getCategoryOemSpecCoaching(registry.key);
+  const sectionDefs = [
+    { id: "solves", title: "What this category solves", items: registry.customerProblemsSolved },
+    { id: "dealersCare", title: "Why dealers care", items: registry.keySellingAngles },
+    { id: "whatToSay", title: "What the rep should say", items: whatToSay },
+    { id: "crossSell", title: "What to cross-sell", items: registry.crossSellFocus },
+    { id: "nextSteps", title: "What to do next", items: nextSteps },
+  ];
+  if (oemCoaching?.whatToAsk?.length) {
+    sectionDefs.splice(3, 0, {
+      id: "oemWhatToAsk",
+      title: "What to ask (OEM / spec)",
+      items: oemCoaching.whatToAsk,
+    });
+  }
+  if (oemCoaching?.specCallouts?.length) {
+    const insertAt = sectionDefs.findIndex((s) => s.id === "crossSell");
+    sectionDefs.splice(insertAt >= 0 ? insertAt : sectionDefs.length, 0, {
+      id: "oemSpecCallouts",
+      title: "Likely spec conversations (verify on PDS)",
+      items: oemCoaching.specCallouts,
+    });
+  }
+  const sections = sectionDefs
     .map((section) => ({
       id: section.id,
       title: cleanCategoryDisplayText(section.title),
@@ -2482,13 +2478,14 @@ function buildCategoryIntelligencePlaybookFromRegistry(registry) {
     .filter((section) => section.items.length);
 
   return {
-    playbookTitle: cleanCategoryDisplayText(`${registry.label} category intelligence`),
+    playbookTitle: cleanCategoryDisplayText(`${registry.label} — dealer sales playbook`),
     playbookIntro: cleanCategoryDisplayText(registry.categorySummary),
     sections,
+    oemSpecVerifyLine: oemCoaching ? OEM_SPEC_VERIFY_LINE : null,
     repStrategy: {
-      whereToPosition: coerceStringLines(registry.keySellingAngles, [], 6).map(cleanCategoryDisplayText),
       customerPainPoint: coerceStringLines(registry.customerProblemsSolved, [], 6).map(cleanCategoryDisplayText),
-      repSellingAngle: coerceStringLines(registry.recommendedRepTalkingPoints, [], 6).map(cleanCategoryDisplayText),
+      whereToPosition: coerceStringLines(registry.keySellingAngles, [], 6).map(cleanCategoryDisplayText),
+      repSellingAngle: whatToSay.map(cleanCategoryDisplayText),
       crossSellPath: coerceStringLines(registry.crossSellFocus, [], 6).map(cleanCategoryDisplayText),
     },
   };
@@ -3914,19 +3911,7 @@ function IntelligenceBulletList({ items, accentColor }) {
 function CategoryIntelligencePlaybookSection({ playbook }) {
   if (!playbook || typeof playbook !== "object") return null;
   const intelSections = Array.isArray(playbook.sections) ? playbook.sections : [];
-  const repStrategy = playbook.repStrategy || {};
-  const repBlocks = [
-    { title: "Where to position it", key: "whereToPosition", color: BRAND.navyMid },
-    { title: "Customer pain point", key: "customerPainPoint", color: "#047857" },
-    { title: "Rep selling angle", key: "repSellingAngle", color: "#c2410c" },
-    { title: "Cross-sell path", key: "crossSellPath", color: "#5b21b6" },
-  ]
-    .map((block) => ({
-      ...block,
-      items: coerceStringLines(repStrategy[block.key], [], 6),
-    }))
-    .filter((block) => block.items.length > 0);
-  if (!intelSections.length && !repBlocks.length) return null;
+  if (!intelSections.length) return null;
   const intelColors = [BRAND.navyMid, "#0369a1", "#047857", "#c2410c", "#5b21b6"];
   return (
     <section
@@ -3950,7 +3935,7 @@ function CategoryIntelligencePlaybookSection({ playbook }) {
             textTransform: "uppercase",
           }}
         >
-          Category enablement
+          Dealer sales playbook
         </p>
         <p
           style={{
@@ -3961,16 +3946,16 @@ function CategoryIntelligencePlaybookSection({ playbook }) {
             lineHeight: 1.12,
           }}
         >
-          {playbook.playbookTitle || "CATEGORY INTELLIGENCE"}
+          {playbook.playbookTitle || "DEALER SALES PLAYBOOK"}
         </p>
         {playbook.playbookIntro ? (
           <p
             style={{
               margin: "10px auto 0",
-              fontSize: 14,
-              fontWeight: 600,
+              fontSize: 15,
+              fontWeight: 700,
               color: "#475569",
-              lineHeight: 1.55,
+              lineHeight: 1.45,
               maxWidth: 640,
             }}
           >
@@ -3978,94 +3963,62 @@ function CategoryIntelligencePlaybookSection({ playbook }) {
           </p>
         ) : null}
       </div>
-      {intelSections.length ? (
-        <div style={{ display: "grid", gap: 14 }}>
-          <p
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: 14,
+        }}
+      >
+        {intelSections.map((section, index) => (
+          <article
+            key={section.id || section.title}
             style={{
-              margin: 0,
-              fontSize: 11,
-              fontWeight: 900,
-              letterSpacing: "0.14em",
-              color: BRAND.orange,
-              textTransform: "uppercase",
-              textAlign: "center",
+              padding: "18px 18px 16px",
+              borderRadius: 12,
+              background: BRAND.white,
+              border: "1px solid rgba(30, 58, 138, 0.14)",
+              borderLeft: `4px solid ${intelColors[index % intelColors.length]}`,
+              boxShadow: "0 8px 22px rgba(15, 23, 42, 0.06)",
+              gridColumn:
+                section.id === "whatToSay" ||
+                section.id === "oemWhatToAsk" ||
+                section.id === "oemSpecCallouts"
+                  ? "1 / -1"
+                  : undefined,
             }}
           >
-            Category intelligence
-          </p>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-              gap: 14,
-            }}
-          >
-            {intelSections.map((section, index) => (
-              <article
-                key={section.id || section.title}
-                style={{
-                  padding: "18px 18px 16px",
-                  borderRadius: 12,
-                  background: BRAND.white,
-                  border: "1px solid rgba(30, 58, 138, 0.14)",
-                  borderLeft: `4px solid ${intelColors[index % intelColors.length]}`,
-                  boxShadow: "0 8px 22px rgba(15, 23, 42, 0.06)",
-                  gridColumn: section.id === "howItWorks" && intelSections.length >= 5 ? "1 / -1" : undefined,
-                }}
-              >
-                <p
-                  style={{
-                    margin: "0 0 12px",
-                    fontSize: 12,
-                    fontWeight: 900,
-                    color: BRAND.headerNavy,
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {section.title}
-                </p>
-                <IntelligenceBulletList items={section.items} accentColor={intelColors[index % intelColors.length]} />
-              </article>
-            ))}
-          </div>
-        </div>
-      ) : null}
-      {repBlocks.length ? (
-        <div style={{ display: "grid", gap: 14 }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 11,
-              fontWeight: 900,
-              letterSpacing: "0.14em",
-              color: BRAND.orange,
-              textTransform: "uppercase",
-              textAlign: "center",
-            }}
-          >
-            Rep opportunity strategy
-          </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 16 }}>
-            {repBlocks.map((block) => (
-              <article
-                key={block.title}
-                style={{
-                  padding: "18px 18px 16px",
-                  borderRadius: 12,
-                  background: BRAND.white,
-                  border: "1px solid rgba(30, 58, 138, 0.14)",
-                  borderLeft: `4px solid ${block.color}`,
-                  boxShadow: "0 8px 22px rgba(15, 23, 42, 0.06)",
-                }}
-              >
-                <p style={{ margin: "0 0 12px", fontSize: 12, fontWeight: 900, color: BRAND.headerNavy, letterSpacing: "0.06em" }}>
-                  {block.title}
-                </p>
-                <IntelligenceBulletList items={block.items} accentColor={block.color} />
-              </article>
-            ))}
-          </div>
-        </div>
+            <p
+              style={{
+                margin: "0 0 12px",
+                fontSize: 12,
+                fontWeight: 900,
+                color: BRAND.headerNavy,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
+              {section.title}
+            </p>
+            <IntelligenceBulletList items={section.items} accentColor={intelColors[index % intelColors.length]} />
+          </article>
+        ))}
+      </div>
+      {playbook.oemSpecVerifyLine ? (
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#64748b",
+            lineHeight: 1.45,
+            textAlign: "center",
+            maxWidth: 720,
+            marginInline: "auto",
+          }}
+        >
+          {playbook.oemSpecVerifyLine}
+        </p>
       ) : null}
     </section>
   );

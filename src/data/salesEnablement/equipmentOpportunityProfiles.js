@@ -1,3 +1,5 @@
+import { enrichEquipmentOpportunityProfile } from "./oemSpecMappings.js";
+
 /**
  * Phase 6G — Equipment manufacturer opportunity profile foundation (data only).
  *
@@ -720,12 +722,13 @@ export function normalizeEquipmentProfileKey(input) {
 export function getEquipmentOpportunityProfile(key) {
   const normalized = normalizeEquipmentProfileKey(key);
   if (!normalized) return null;
-  return EQUIPMENT_OPPORTUNITY_PROFILE_MAP[normalized] || null;
+  const base = EQUIPMENT_OPPORTUNITY_PROFILE_MAP[normalized];
+  return base ? enrichEquipmentOpportunityProfile(base) : null;
 }
 
 /**
  * @returns {EquipmentOpportunityProfile[]}
  */
 export function listEquipmentOpportunityProfiles() {
-  return [...EQUIPMENT_OPPORTUNITY_PROFILES];
+  return EQUIPMENT_OPPORTUNITY_PROFILES.map((profile) => enrichEquipmentOpportunityProfile(profile));
 }

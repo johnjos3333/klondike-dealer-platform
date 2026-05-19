@@ -9,6 +9,8 @@ import {
   getCustomerProfileById,
   mapCustomerProfileToSellSheetProps,
 } from "../data/salesEnablement/customerProfiles";
+import { getEquipmentOpportunityProfile } from "../data/salesEnablement/equipmentOpportunityProfiles.js";
+import { OEM_SPEC_VERIFY_LINE } from "../data/salesEnablement/oemSpecMappings.js";
 
 export const CUSTOMER_PROFILE_SELL_SHEET_LAYOUT_ID = "customer-profile-sell-sheet-v6f12";
 export const OEM_OPPORTUNITY_PROFILE_VERSION = 1;
@@ -445,6 +447,49 @@ export function listOemOpportunityProfiles() {
   return Object.values(OEM_OPPORTUNITY_PROFILE_PRESETS);
 }
 
+/**
+ * Map enriched equipment registry profile to sell-sheet OEM preset shape.
+ * @param {import("../data/salesEnablement/equipmentOpportunityProfiles.js").EquipmentOpportunityProfile} profile
+ */
+function mapEquipmentRegistryToOemPreset(profile) {
+  if (!profile) return null;
+  const painFromConversations = (profile.commonLubricationConversations || []).slice(0, 4).map((line, i) => {
+    const text = String(line || "").trim();
+    const dash = text.match(/^([^:—–-]{1,72})\s*[:—–-]\s*(.+)$/);
+    const iconKeys = ["hydraulic", "shock", "downtime", "contamination"];
+    return {
+      iconKey: iconKeys[i] || "hydraulic",
+      label: dash ? dash[1].trim() : text.slice(0, 56),
+      sub: dash ? dash[2].trim() : "",
+    };
+  });
+  return {
+    key: profile.key,
+    label: profile.label,
+    profileTitle: profile.profileTitle,
+    profileSubtitle: profile.profileSubtitle,
+    profileSummary: profile.opportunitySummary,
+    customerPainPoints: painFromConversations.length ? painFromConversations : undefined,
+    equipmentTypes: profile.equipmentTypes,
+    likelyLubricantNeeds: (profile.typicalFluidCategories || []).map(({ category, role }) => ({
+      category,
+      role,
+    })),
+    recommendedProducts: (profile.recommendedProductAnchors || []).map(({ name, positioning }) => ({
+      name,
+      why: positioning,
+    })),
+    opportunitySignals: profile.opportunitySignals,
+    repTalkTrack: profile.recommendedRepTalkingPoints,
+    discoveryQuestions: profile.discoveryFocus,
+    crossSell: profile.crossSellFocus,
+    cautions: profile.cautions,
+    recommendedNextStep: profile.recommendedNextStep,
+    likelySpecConversations: profile.likelySpecConversations || [],
+    specWhatToAsk: profile.specWhatToAsk || [],
+  };
+}
+
 function mergeProfileList(primary, supplement, max = 8) {
   const out = [];
   const seen = new Set();
@@ -469,7 +514,10 @@ function mergeProfileList(primary, supplement, max = 8) {
 
 function resolveCustomerProfileFields(props) {
   const oemKey = props.oemProfileKey || props.oemOpportunityProfileKey;
-  const preset = getOemOpportunityProfile(oemKey);
+  const registryProfile = oemKey ? getEquipmentOpportunityProfile(oemKey) : null;
+  const registryPreset = registryProfile ? mapEquipmentRegistryToOemPreset(registryProfile) : null;
+  const legacyPreset = getOemOpportunityProfile(oemKey);
+  const preset = registryPreset || legacyPreset;
   const isOem = Boolean(preset) || props.profileKind === "oem" || props.profileType === "oem";
 
   const customerProfileId =
@@ -530,6 +578,9 @@ function resolveCustomerProfileFields(props) {
       ? mergeProfileList(base.cautions, props.cautions, 6)
       : fallback.cautions,
     recommendedNextStep: textPrimary(props.recommendedNextStep, base.recommendedNextStep, fallback.recommendedNextStep),
+    likelySpecConversations: Array.isArray(base.likelySpecConversations) ? base.likelySpecConversations : [],
+    specWhatToAsk: mergeProfileList(base.specWhatToAsk, props.specWhatToAsk, 6),
+    oemSpecVerifyLine: preset ? OEM_SPEC_VERIFY_LINE : null,
   };
 }
 
@@ -1238,6 +1289,92 @@ function RecommendedOpportunityCard({ item }) {
   );
 }
 
+function OemSpecConversationPanel({ rows, whatToAsk, verifyLine }) {
+  const specRows = Array.isArray(rows) ? rows.slice(0, 5) : [];
+  const askLines = Array.isArray(whatToAsk) ? whatToAsk.slice(0, 5) : [];
+  if (!specRows.length && !askLines.length) return null;
+  return (
+    <section
+      data-oem-spec-conversations="true"
+      style={{
+        padding: "20px 22px",
+        borderRadius: 12,
+        background: "linear-gradient(155deg, #f8fafc 0%, #fff 100%)",
+        border: "1px solid rgba(30, 58, 138, 0.18)",
+        display: "grid",
+        gap: 16,
+      }}
+    >
+      <div>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            fontWeight: 900,
+            letterSpacing: "0.12em",
+            color: BRAND.headerNavy,
+            textTransform: "uppercase",
+          }}
+        >
+          Likely OEM / spec conversations
+        </p>
+        <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 600, color: "#64748b", lineHeight: 1.45 }}>
+          PDS-supported topics only—not OEM endorsement or approval.
+        </p>
+      </div>
+      {specRows.length ? (
+        <div style={{ display: "grid", gap: 10 }}>
+          {specRows.map((row) => (
+            <article
+              key={row.specLabel}
+              style={{
+                padding: "14px 16px",
+                borderRadius: 10,
+                background: BRAND.white,
+                border: "1px solid rgba(203, 213, 225, 0.9)",
+                borderLeft: `4px solid ${BRAND.orange}`,
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 900, color: BRAND.headerNavy }}>{row.specLabel}</p>
+              <p style={{ margin: "4px 0 0", fontSize: 11, fontWeight: 800, color: BRAND.orange, letterSpacing: "0.04em" }}>
+                {row.fluidCategory}
+              </p>
+              <p style={{ margin: "8px 0 0", fontSize: 12, fontWeight: 700, color: "#334155", lineHeight: 1.4 }}>
+                {(row.klondikeProducts || []).join(" · ")}
+              </p>
+              {row.positioning ? (
+                <p style={{ margin: "8px 0 0", fontSize: 11, fontWeight: 600, color: "#64748b", lineHeight: 1.45 }}>
+                  {row.positioning}
+                </p>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      ) : null}
+      {askLines.length ? (
+        <div>
+          <p
+            style={{
+              margin: "0 0 8px",
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: "0.08em",
+              color: BRAND.headerNavy,
+              textTransform: "uppercase",
+            }}
+          >
+            What to ask before quoting
+          </p>
+          <QuestionList items={askLines} max={5} />
+        </div>
+      ) : null}
+      {verifyLine ? (
+        <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: "#64748b", lineHeight: 1.45 }}>{verifyLine}</p>
+      ) : null}
+    </section>
+  );
+}
+
 function CrossSellGrid({ items, max = 5 }) {
   const list = [];
   for (const item of Array.isArray(items) ? items : []) {
@@ -1370,6 +1507,9 @@ export default function CustomerProfileSellSheet(props) {
   const crossSell = pickList(profile.crossSell, DEMO_DEFAULTS.crossSell);
   const cautions = pickList(profile.cautions, DEMO_DEFAULTS.cautions);
   const recommendedNextStep = profile.recommendedNextStep;
+  const likelySpecConversations = profile.likelySpecConversations;
+  const specWhatToAsk = profile.specWhatToAsk;
+  const oemSpecVerifyLine = profile.oemSpecVerifyLine;
 
   const painCount = Math.min(Math.max(painTiles.length, 4), 6);
   const painGrid = painTiles.slice(0, painCount);
@@ -1537,6 +1677,13 @@ export default function CustomerProfileSellSheet(props) {
       ) : null}
 
       <section style={{ padding: "28px 44px 36px", display: "grid", gap: 22, background: BRAND.white }}>
+        {isOemProfile ? (
+          <OemSpecConversationPanel
+            rows={likelySpecConversations}
+            whatToAsk={specWhatToAsk}
+            verifyLine={oemSpecVerifyLine}
+          />
+        ) : null}
         <section style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
           {equipmentTypes.length ? (
             <FlyerCard

@@ -4,6 +4,8 @@
  * Not wired to UI, sends, or resolvers yet.
  */
 
+import { attachCategoryOemSpecCoaching } from "./oemSpecMappings.js";
+
 export const CATEGORY_PROGRAM_INTELLIGENCE_VERSION = 1;
 
 /**
@@ -65,6 +67,7 @@ export const CATEGORY_PROGRAM_INTELLIGENCE_VERSION = 1;
  *   applicationGuidance: string[],
  *   flagshipProducts: FlagshipProductRef[],
  *   categoryFamilies: CategoryFamilyRef[],
+ *   dealerNextSteps?: string[],
  * }} CategoryProgramIntelligence
  */
 
@@ -74,23 +77,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "hydraulic",
     label: "Hydraulic Fluids",
     categoryType: "ladder",
-    flagshipPositioning:
-      "XVI Synthetic Hydraulic Fluids anchor premium pump protection; Professional and Advanced Formula AW tiers cover bulk fleet and industrial baselines with documented ISO VG discipline.",
+    flagshipPositioning: "Keep equipment running — match ISO VG to tags, fix leaks and heat before swapping brands.",
     categorySummary:
-      "Hydraulic is a viscosity-grade and duty-class category: match ISO VG to tags, separate bulk top-off behavior from packaged fills, and ladder from commercial AW through multi-viscosity, tractor/wet-brake, severe-duty, and turbine/circulating programs.",
+      "Hydraulic reliability wins the counter conversation: leaks, heat, wet duty, and mixed equipment need the right ISO VG — not one AW drum for every pump.",
     customerProblemsSolved: [
-      "Pump wear and varnish from wrong ISO VG or neglected fluid analysis.",
-      "Seasonal cold-start sluggishness where single-grade AW is stretched past its comfort zone.",
-      "Cross-contamination when tractor, industrial, and mobile bulk tanks share hoses without discipline.",
-      "Downtime on turbines and circulating systems running generic AW instead of R&O turbine oils.",
+      "Leaks and slow cycles when the wrong ISO VG or dirty fluid is in the tank",
+      "Heat and foam on first shift in cold or wet yards",
+      "Mixed equipment sharing bulk tanks without hose discipline",
+      "Repeat pump failures when analysis and filtration are skipped",
     ],
     keySellingAngles: [
-      "ISO VG and pump tag discipline before price.",
-      "Professional Formula for value bulk; Advanced Formula for step-up protection.",
-      "Multi-Viscosity AW for seasonal fleets and temperature swing.",
-      "XVI Synthetic for premium mobile and severe-duty pump life conversations.",
-      "Tractor / wet-brake and universal red tractor fluid only where application charts allow.",
-      "Long Life Turbine and circulating oils for plant air, compressors, and R&O circuits—not AW in a turbine reservoir.",
+      "Fewer comeback calls when ISO VG matches equipment tags",
+      "Bulk program margin on Professional through XVI synthetic ladder",
+      "Counter staff can coach tags — not guess viscosity from drum color",
+      "Hydraulic accounts pull grease, gear, and coolant on the same fleet card",
     ],
     keyTechnologyThemes: [
       "AW anti-wear hydraulic fluids (Professional, Advanced, Commercial Formula)",
@@ -101,23 +101,23 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "ENVIRO / BIO / EAL hydraulic companions on sensitive sites",
     ],
     recommendedRepTalkingPoints: [
-      "What ISO VG tags, bulk tanks, and top-off practices exist on this account?",
-      "Where are they losing hours—cold start, pump noise, varnish, or contamination?",
-      "Separate mobile AW bulk from turbine and circulating reservoirs before quoting one drum.",
-      "Ladder Professional → Advanced → MV → XVI where duty and analysis support the step-up.",
+      "What ISO VG is on the pump tag for the unit that failed last?",
+      "Where are you seeing leaks, heat, or slow response first thing in the morning?",
+      "What are you using in bulk today — and how do you top off in the field?",
+      "Are bulk tanks and hoses separated between AW, tractor fluid, and plant circuits?",
     ],
     discoveryFocus: [
-      "Equipment types, pump OEM tags, and ISO VG requirements",
-      "Bulk vs packaged buying and hose discipline between tanks",
-      "Fluid analysis history and varnish/water issues",
-      "Seasonal temperature range and cold-start complaints",
-      "Tractor, skid-steer, or mixed ag/industrial assets on the same card",
+      "Which circuits show heat, foam, or slow response first?",
+      "What ISO VG tags are on the worst asset this week?",
+      "Are bulk and packaged top-offs on the same program?",
     ],
-    crossSellFocus: [
-      "Grease programs on the same mobile fleet card",
-      "HD engine oil where highway and off-road assets share the yard",
-      "ENVIRO / BIO / EAL hydraulics for forestry, marine, and sensitive sites",
-      "Industrial specialty turbine and compressor oils in plant accounts",
+    crossSellFocus: ["Gear oil — final drives and reducers", "Grease — pins and chassis", "Coolant — fleet cooling on mixed yards"],
+    dealerNextSteps: [
+      "Schedule a hydraulic category review with the dealer manager",
+      "Run a lunch-and-learn on ISO VG tags and bulk discipline",
+      "Review PM hydraulic SKUs on the seasonal bundle sheet",
+      "Send this hydraulic spotlight to the outside-sales rep",
+      "Assign hydraulic fundamentals training for new counter staff",
     ],
     cautions: [
       "Do not put AW hydraulic fluid in turbine, compressor R&O, or OEM-specified dry circuits without compatibility review.",
@@ -153,23 +153,9 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
         },
       ],
     },
-    chemistryGuidance: [
-      "AW (anti-wear) zinc chemistry is the default mobile and industrial hydraulic conversation—match additive class to OEM and PDS.",
-      "Multi-viscosity AW uses polymer thickeners for broader temperature windows—confirm pump and hose compatibility on the PDS.",
-      "Synthetic and synthetic-blend hydraulics (XVI) for premium oxidation stability and cold flow where documented.",
-      "R&O turbine oils are not interchangeable with AW—different inhibitor and wear packages.",
-    ],
-    specificationGuidance: [
-      "Lead with ISO VG on tags and bulk purchase orders before brand habit.",
-      "Reference DIN 51524 / ISO 11158 / OEM sheets only where the PDS documents them.",
-      "Fluid analysis (particle count, water, oxidation) supports upgrade conversations—not guesswork.",
-    ],
-    applicationGuidance: [
-      "Mobile equipment, presses, and industrial power units: AW ladder by duty and analysis.",
-      "Tractor and skid-steer hydraulics: confirm wet-brake and transmission compatibility before UTHF fills.",
-      "Turbines, compressors, and circulating systems: turbine/R&O products per PDS—not generic AW.",
-      "Severe-duty and cold climates: MV AW or XVI synthetic where tags and PDS allow.",
-    ],
+    chemistryGuidance: ["Match AW vs R&O vs tractor fluid to the reservoir label and PDS — not habit."],
+    specificationGuidance: ["Lead with ISO VG on tags before quoting a tier move."],
+    applicationGuidance: [],
     flagshipProducts: [
       {
         id: "xvi-synthetic-hydraulic",
@@ -224,22 +210,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "grease",
     label: "Grease",
     categoryType: "ladder",
-    flagshipPositioning:
-      "nano Calcium Sulfonate and nano Lithium Complex Synthetic greases anchor ULTIMATE severe-duty; RED TAC and HD TAC are GOOD baselines; MOLY TAC 3% is BETTER; ULTRA TAC and MOLY TAC HD 5% are BEST.",
+    flagshipPositioning: "Stop pin and bushing comebacks — match grease tier to washout, shock load, and relube interval.",
     categorySummary:
-      "Grease is NLGI grade, thickener, and moly level discipline: ladder from multipurpose RED TAC / HD TAC through moly EP, synthetic blend EP, to nano sulfonate and nano lithium complex synthetic for shock, water, and load.",
+      "Grease wins when reps map joints first: washout, shock load, centralized systems, and relube intervals — then walk RED TAC through nano on the ladder.",
     customerProblemsSolved: [
-      "Pin and bearing failures from wrong NLGI or thickener family in auto-lube lines.",
-      "Washout and water ingress on wet shifts and wash-down routes.",
-      "Shock-load metal loss where commodity EP-2 is treated as interchangeable.",
-      "Centralized lube systems pumping grease incompatible with OEM thickener charts.",
+      "Grease washout on pins and bushings after rain or pressure washing",
+      "Shock load pounding out commodity EP-2 on loaders and implements",
+      "Wrong NLGI or thickener in centralized lube systems",
+      "Relube intervals stretched with the wrong grease family on the chart",
     ],
     keySellingAngles: [
-      "RED TAC / HD TAC = GOOD multipurpose and HD chassis entry.",
-      "MOLY TAC 3% = BETTER moly-fortified EP for implements and shock loads.",
-      "ULTRA TAC and MOLY TAC HD 5% = BEST synthetic blend and high-moly severe duty.",
-      "nano Calcium Sulfonate / nano Lithium Complex Synthetic = ULTIMATE published EP and washout story.",
-      "Match NLGI and thickener to OEM charts before price on auto-lube and bulk.",
+      "Fewer pin and bearing comebacks on seasonal PM routes",
+      "Ladder margin from RED TAC through moly and nano tiers",
+      "Counter can explain NLGI by joint severity — not one Poly Tac for every zerk",
+      "Grease pulls hydraulic and gear on the same equipment card",
     ],
     keyTechnologyThemes: [
       "Lithium and lithium complex thickeners",
@@ -249,21 +233,21 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Bentone and specialty high-temp greases where PDS supports",
     ],
     recommendedRepTalkingPoints: [
-      "Walk the zerk map: load, water, temperature, and central lube compatibility.",
-      "Name the ladder tier before SKU—GOOD/BETTER/BEST/ULTIMATE is the enablement story.",
-      "Use PDS Timken, 4-ball, and washout numbers on premium tiers—not 'heavier is better.'",
-      "Do not auto-lube a new thickener family without OEM confirmation.",
+      "Do customers complain about washout on pins or bushings?",
+      "Which joints fail first — wet booms, chassis, or centralized lube lines?",
+      "What relube interval are you actually hitting vs planning?",
+      "Are you on one grease SKU for every point on the fleet chart?",
     ],
     discoveryFocus: [
-      "NLGI grade and thickener on OEM charts and auto-lube labels",
-      "Worst joints: wet booms, crushers, chassis, fifth wheel, open gear",
-      "Wash-down and water exposure routines",
-      "Current grease board habits and 'all EP-2 is the same' behavior",
+      "Where is grease washing out or pounding out?",
+      "What NLGI does the OEM chart show for your worst asset?",
     ],
-    crossSellFocus: [
-      "HD engine oil on vocational fleets sharing the grease program",
-      "Hydraulic AW on mobile assets using the same yard",
-      "Gear oil on drivetrain and reducer accounts",
+    crossSellFocus: ["Hydraulic fluids", "Gear oil", "Coolant"],
+    dealerNextSteps: [
+      "Review PM grease SKUs on the fleet chart with the dealer manager",
+      "Run a lunch-and-learn on NLGI and the grease ladder",
+      "Send this grease spotlight to the outside-sales rep",
+      "Prepare a business review on grease depth vs one-SKU habits",
     ],
     cautions: [
       "Do not substitute nano or moly greases into central systems without compatibility review.",
@@ -299,22 +283,9 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
         },
       ],
     },
-    chemistryGuidance: [
-      "GOOD: RED TAC / HD TAC multipurpose lithium programs for baseline chassis and bearings.",
-      "BETTER: MOLY TAC 3% — lithium complex with 3% moly for shock and implement duty.",
-      "BEST: ULTRA TAC synthetic blend EP; MOLY TAC HD 5% for higher moly severe service.",
-      "ULTIMATE: nano calcium sulfonate and nano lithium complex synthetic—use PDS EP, Timken, and washout language only.",
-    ],
-    specificationGuidance: [
-      "Confirm NLGI grade and thickener family on OEM charts before quoting.",
-      "Reference Timken OK, 4-ball weld, and water washout only as printed on the PDS.",
-      "Auto-lube and bulk systems require compatibility review for thickener changes.",
-    ],
-    applicationGuidance: [
-      "Chassis, pins, and U-joints: ladder from RED TAC / HD TAC upward by load and water.",
-      "Implements and shock loads: MOLY TAC 3% and MOLY TAC HD 5% where moly EP is approved.",
-      "Crushers, hammers, and wet severe pins: nano ULTIMATE tiers where PDS supports the duty.",
-    ],
+    chemistryGuidance: ["Confirm NLGI and thickener on the PDS before switching grease families."],
+    specificationGuidance: ["Match joint severity to ladder tier — verify on OEM chart."],
+    applicationGuidance: [],
     flagshipProducts: [
       {
         id: "nano-calcium-sulfonate",
@@ -369,22 +340,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "hd_engine_oil",
     label: "HD Engine Oils",
     categoryType: "ladder",
-    flagshipPositioning:
-      "Full Synthetic CK-4 and SAE 5W-40 full synthetic anchor premium highway and severe-duty; Commercial Formula conventional and synthetic blend CK-4/FA-4 cover mixed fleet baselines.",
+    flagshipPositioning: "CK-4 / FA-4 discipline on the fleet card — severe duty, emissions hardware, and coolant on the same lane.",
     categorySummary:
-      "HD engine oil is API CK-4 / FA-4 and OEM drain-interval discipline: ladder conventional → synthetic blend → full synthetic CK-4, with FA-4 only where OEM and emissions hardware allow; mixed-fleet and natural-gas programs need ash and sulfur conversations on the PDS.",
+      "HD engine oil is a fleet program conversation: CK-4 vs FA-4, mixed fleet bulk discipline, severe-duty drains, and coolant support — verified on VIN tags and PDS.",
     customerProblemsSolved: [
-      "Wrong API category (CK-4 vs FA-4 vs obsolete CJ-4 habits) on newer diesels.",
-      "Shortened drain intervals from soot, fuel dilution, and missed analysis.",
-      "Mixed fleets buying one 15W-40 for every engine without emissions compatibility review.",
-      "Natural gas and low-ash programs using highway diesel oil by habit.",
+      "CK-4 vs FA-4 confusion on newer tractors and vocational units",
+      "Short drains from soot and fuel dilution without oil analysis",
+      "One 15W-40 bulk tank for every diesel regardless of emissions generation",
+      "Engine-only lane bundles missing HD coolant and chassis grease",
     ],
     keySellingAngles: [
-      "Conventional Commercial Formula for value fleets with analysis discipline.",
-      "Synthetic blend CK-4 / FA-4 for step-up oxidation and fuel economy where OEM allows FA-4.",
-      "Full synthetic CK-4 for premium drain and severe-duty highway programs.",
-      "OEM and API conversations only where PDS and OEM sheets align—CK-4 default for mixed unknowns.",
-      "Mixed fleet: separate FA-4-capable units from CK-4 bulk where tags differ.",
+      "Lane revenue when engine, coolant, grease, and gear ship together",
+      "Analysis-backed synthetic upgrade — not mileage myths",
+      "Counter staff can read API category from VIN — not habit",
+      "Fewer aftertreatment comebacks when bulk matches tag",
     ],
     keyTechnologyThemes: [
       "CK-4 heavy-duty diesel (conventional, synthetic blend, full synthetic)",
@@ -394,21 +363,21 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Professional and Advanced Formula naming for fleet baselines",
     ],
     recommendedRepTalkingPoints: [
-      "What engines, model years, and drain intervals are on the fleet card?",
-      "Is FA-4 on the table per OEM, or is CK-4 the safe bulk standard?",
-      "Lead with oil analysis and fuel dilution before premium synthetic upsell.",
-      "Do not blend FA-4 and CK-4 bulk without fleet segmentation.",
+      "What API category and viscosity are on your bulk tank today?",
+      "Which units are FA-4 candidates vs CK-4 — who made the last bulk decision?",
+      "Do you stock coolant on the same fleet program as engine oil?",
+      "Are you sampling soot and fuel dilution on vocational segments?",
     ],
     discoveryFocus: [
-      "Engine families, emissions generation, and OEM oil category",
-      "Bulk vs packaged and shop top-off habits",
-      "Drain interval targets and analysis program",
-      "Natural gas, sour gas, or low-ash requirements",
+      "What model years are on the fleet card?",
+      "How are HD vs automotive bulk tanks labeled?",
     ],
-    crossSellFocus: [
-      "Coolant programs on the same highway and vocational card",
-      "Transmission and drivetrain fluids on mixed fleets",
-      "Grease and chassis on vocational and municipal accounts",
+    crossSellFocus: ["Coolant", "Grease", "Gear oil"],
+    dealerNextSteps: [
+      "Review fleet bulk chart (CK-4/FA-4 and viscosity) with the dealer manager",
+      "Run a lunch-and-learn on API category from VIN tags",
+      "Send this HD engine spotlight to the outside-sales rep",
+      "Prepare a business review on lane bundle completeness",
     ],
     cautions: [
       "Do not recommend FA-4 where OEM requires CK-4 or mixed unknowns without verification.",
@@ -509,21 +478,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "gear_oil",
     label: "Gear Oils",
     categoryType: "ladder",
-    flagshipPositioning:
-      "Full Synthetic Industrial EP Gear Lubricants anchor ULTIMATE plant and severe reducer duty; Commercial Gear Lubricants are GOOD; Industrial EP and Full Synthetic Gear are BETTER/BEST.",
+    flagshipPositioning: "Final drives and reducers need the right viscosity and EP — not 80W-90 habit.",
     categorySummary:
-      "Gear oil is GL-5 / industrial EP and viscosity grade discipline for differentials, final drives, and industrial reducers—ladder commercial → industrial EP → full synthetic → full synthetic industrial EP.",
+      "Gear oil is a compartment conversation: differentials, final drives, and enclosed reducers each get GL-5 or industrial EP per tag — walk the ladder on mobile and plant accounts.",
     customerProblemsSolved: [
-      "Foam, wear, and thermal breakdown from wrong viscosity or EP level in reducers.",
-      "Using automotive GL-5 habits on industrial enclosed gears without EP review.",
-      "Mixing synthetic and mineral in bulk without flush discipline.",
-      "Downtime on industrial boxes running generic gear oil below required FZG/EP load.",
+      "Final drive wear when 80W-90 is used without reading the tag",
+      "Foam and heat in enclosed reducers on the wrong EP level",
+      "Gearbox failures trending before drains are scheduled",
+      "Industrial boxes running automotive gear habits below required load",
     ],
     keySellingAngles: [
-      "Commercial Gear Lubricants for value differentials and standard final drives.",
-      "Industrial EP for enclosed industrial gears and heavier loads.",
-      "Full Synthetic Gear for temperature swing and extended service where PDS supports.",
-      "Full Synthetic Industrial EP for top industrial reducer and severe-duty programs.",
+      "Pair gear with hydraulic quotes on the same mobile iron",
+      "Ladder margin from commercial through full synthetic industrial EP",
+      "Fewer reducer comebacks when viscosity matches tag",
+      "Plant accounts discover specialty fills beyond AW bulk",
     ],
     keyTechnologyThemes: [
       "API GL-5 automotive and commercial gear",
@@ -532,20 +500,19 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Viscosity grade (75W-90, 80W-90, 85W-140, ISO VG industrial)",
     ],
     recommendedRepTalkingPoints: [
-      "Differential, final drive, or enclosed industrial reducer—three different conversation paths.",
-      "Confirm viscosity and EP on tags before quoting 80W-90 out of habit.",
-      "Industrial EP is not automatic substitute for every GL-5 application—read PDS.",
+      "Are you seeing gearbox failures on mobile or plant iron?",
+      "Is this a differential, final drive, or enclosed reducer?",
+      "What viscosity and EP level are on the compartment tag?",
     ],
     discoveryFocus: [
-      "Asset type: on-highway differential vs industrial enclosed gear",
-      "Viscosity grade on tags and drain history",
-      "Temperature, load, and foam complaints",
-      "Bulk vs packaged and cross-contamination between grades",
+      "Which compartment failed last — axle, final drive, or reducer?",
+      "What viscosity is on the tag?",
     ],
-    crossSellFocus: [
-      "HD engine oil on fleets sharing the shop",
-      "Hydraulic AW on mobile assets with shared maintenance bay",
-      "Grease on chassis and bearing programs",
+    crossSellFocus: ["Hydraulic fluids", "Grease", "HD engine oil"],
+    dealerNextSteps: [
+      "Walk one final-drive tag on yard iron with the dealer manager",
+      "Send this gear oil spotlight to the outside-sales rep",
+      "Review gear SKUs on the mobile equipment PM sheet",
     ],
     cautions: [
       "Do not use industrial EP in yellow-metal or OEM-restricted applications without PDS review.",
@@ -580,21 +547,9 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
         },
       ],
     },
-    chemistryGuidance: [
-      "EP additives for hypoid and industrial load—match GL-5 / industrial EP class to PDS.",
-      "Synthetic base stocks for oxidation and low-temperature flow on premium tiers.",
-      "Do not assume sulfur EP is acceptable in all yellow-metal applications—check PDS.",
-    ],
-    specificationGuidance: [
-      "API GL-5, MT-1, and industrial EP specifications as printed on PDS.",
-      "ISO VG for industrial enclosed gears vs SAE grades for automotive differentials.",
-      "OEM fill lists only where documented.",
-    ],
-    applicationGuidance: [
-      "Highway and vocational differentials: commercial and full synthetic GL-5 per viscosity tag.",
-      "Industrial reducers and enclosed gears: industrial EP ladder.",
-      "Severe temperature or load: full synthetic industrial EP where PDS supports.",
-    ],
+    chemistryGuidance: ["Match GL-5 vs industrial EP to the compartment tag and PDS."],
+    specificationGuidance: ["Confirm viscosity grade on the tag before quoting."],
+    applicationGuidance: [],
     flagshipProducts: [
       {
         id: "fs-industrial-ep-gear",
@@ -637,23 +592,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "transmission",
     label: "Transmission & Driveline Fluids",
     categoryType: "program",
-    flagshipPositioning:
-      "Application correctness first: Universal Transmission Fluid, wet brake/trans-drive, tractor hydraulic/transmission, powershift, driveline, and ATF are not interchangeable—Allison/TES conversations only where PDS supports.",
+    flagshipPositioning: "Read the reservoir label first — transmission, wet brake, and driveline are not one red fluid.",
     categorySummary:
-      "Transmission is a program category: teach fluid class by compartment (ATF, CVT where listed, UTHF, wet brake, powershift, driveline) and stop one-size-fits-all red-fluid habits.",
+      "Stop one-size-fits-all tractor fluid habits: UTTO, wet brake, ATF, and driveline each get their own conversation — verified on tags and PDS.",
     customerProblemsSolved: [
-      "Wrong fluid in wet brake / trans-hydraulic compartments causing chatter and warranty risk.",
-      "ATF spec mismatch (DEXRON, MERCON, TES) leading to shift complaints.",
-      "Powershift and tractor reservoirs filled with generic hydraulic AW.",
-      "Driveline and PTO programs neglected on ag and vocational cards.",
+      "Wet brake chatter after wrong fluid in a shared sump",
+      "Shift complaints when ATF spec does not match the tag",
+      "Powershift or tractor sumps filled with generic AW from bulk",
+      "Driveline neglected on ag and vocational PM bundles",
     ],
     keySellingAngles: [
-      "Universal Transmission Fluid only where PDS application list supports—not every compartment.",
-      "Wet brake / trans-drive and AGRIMAX trans-drive for ag combined systems.",
-      "Tractor hydraulic/transmission: Universal Red Tractor Fluid and Arctic Tractor Fluid where tags allow.",
-      "Powershift and heavy-duty trans fluids per OEM and PDS—no AW substitutes.",
-      "ATF: match spec sheet; Allison/TES only with documented approval language.",
-      "Driveline GL-5 and gear programs paired with transmission discipline on same fleet.",
+      "Fewer wet-brake and trans comebacks for the service lane",
+      "Ag dealer PM bundles include trans-drive, not engine oil alone",
+      "Counter staff coach compartments — not drum color",
+      "Transmission discipline pulls grease, engine, and gear on the card",
     ],
     keyTechnologyThemes: [
       "Universal Transmission Fluid",
@@ -664,22 +616,21 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Tractor hydraulic/transmission fluids",
     ],
     recommendedRepTalkingPoints: [
-      "Which compartment are we filling—transmission, wet brake, hydraulic, or driveline?",
-      "Read the tag and PDS application list before quoting universal fluid.",
-      "Allison/TES is a documented-conversation-only lane—no implied approvals.",
-      "Pair trans-drive discipline with grease and engine on ag seasonal PM.",
+      "Which compartment are we filling — transmission, wet brake, hydraulic, or driveline?",
+      "Are wet brakes noisy after the last fluid change?",
+      "What ATF or builder spec letters are on the highway units?",
+      "Are you stocking only universal red tractor fluid for every sump?",
     ],
     discoveryFocus: [
-      "Equipment OEM, compartment tags, and current fluid brand habits",
-      "Wet brake chatter, shift quality, or PTO complaints",
-      "ATF spec letters and drain intervals",
-      "Ag vs highway vs vocational mix on the account",
+      "How many reservoir types are on the equipment tag?",
+      "Where did wet brake noise show up last?",
     ],
-    crossSellFocus: [
-      "AGRIMAX trans-drive on ag accounts",
-      "Gear oil on driveline and differentials",
-      "Hydraulic AW for separate hydraulic-only circuits",
-      "Grease on chassis and U-joints",
+    crossSellFocus: ["AGRIMAX trans-drive (ag)", "Gear oil (driveline)", "Grease", "Hydraulic AW (standalone circuits)"],
+    dealerNextSteps: [
+      "Run a lunch-and-learn on wet brake vs trans-drive",
+      "Review ag seasonal PM bundle with the dealer manager",
+      "Send this transmission spotlight to the outside-sales rep",
+      "Assign transmission & wet brake fundamentals training",
     ],
     cautions: [
       "Do not claim Allison/TES approval unless the exact phrase appears on the PDS for that SKU.",
@@ -787,25 +738,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "coolant",
     label: "Coolants & Cooling System Chemistry",
     categoryType: "program",
-    flagshipPositioning:
-      "Gold OAT ELC (Gold) is the flagship nitrite-free extended-life program for mixed fleet and all-engines HD conversations where PDS supports—never label Gold as light-duty automotive only. Red NOAT ELC and Commercial HD NOAT ELC anchor classic heavy-duty diesel NOAT programs.",
+    flagshipPositioning: "Too many coolants create confusion — one simple inhibitor strategy per bulk tank.",
     categorySummary:
-      "Coolant is inhibitor technology and fleet program discipline: OAT, NOAT, universal, nitrite-free, extended-life, HD diesel, and mixed-fleet separation—color is not chemistry.",
+      "Mixed fleets usually need a simple coolant strategy: OAT, NOAT, nitrite-free Gold, or universal — with top-off and contamination discipline, not drum color.",
     customerProblemsSolved: [
-      "Mixed-chemistry top-offs after partial drains and roadside emergencies.",
-      "Universal green coolant used in HD diesel radiators without NOAT verification.",
-      "Confusing automotive OAT color habits with HD NOAT program requirements.",
-      "Premix ratio and water quality errors in bulk blending.",
-      "Contamination from shared hoses, unlabeled bulk, and emergency top-offs across inhibitor families.",
+      "Top-off confusion after partial drains or roadside emergencies",
+      "Universal green in HD diesel radiators without NOAT verification",
+      "Mixed-chemistry hoses between automotive OAT and HD NOAT bulk",
+      "Premix ratio and water quality mistakes at the bulk blender",
     ],
     keySellingAngles: [
-      "Gold OAT ELC: flagship nitrite-free / all-engines / mixed-fleet ELC where PDS supports—HD positioning, not light-duty dismissal.",
-      "Red NOAT ELC and Commercial HD NOAT ELC: heavy-duty diesel NOAT programs with nitrite for liner protection where specified.",
-      "Yellow Automotive OAT ELC: light-duty automotive OAT programs—separate from HD bulk tanks.",
-      "Green Universal: conventional/universal entry—verify before HD NOAT substitution.",
-      "Extended-life = drain strategy tied to inhibitor depletion, not drum color.",
-      "Mixed-fleet discipline: separate LD OAT bays from HD NOAT bulk.",
-      "Top-off discipline: document partial drains, test strips, and flush rules before changing inhibitor technology.",
+      "Fewer gel and comeback calls when inhibitor families are separated",
+      "PM revenue on flush, test strips, and seasonal coolant bundles",
+      "Counter can explain OAT vs NOAT vs nitrite-free — not color",
+      "Coolant completes HD engine lane programs",
     ],
     keyTechnologyThemes: [
       "OAT (organic acid technology) automotive and ELC",
@@ -816,23 +762,22 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "HOAT / Commercial HD programs where PDS lists them",
     ],
     recommendedRepTalkingPoints: [
-      "What equipment types, bulk tanks, and top-off practices exist?",
-      "Gold is nitrite-free mixed-fleet / all-engines flagship per PDS—never call it light-duty only.",
-      "Match OAT, NOAT, nitrite-free, and universal language to PDS—not drum color.",
-      "Document flush and compatibility when changing inhibitor families.",
-      "Post bulk-tank labels by inhibitor family—OAT, NOAT, nitrite-free Gold, universal—not color alone.",
+      "Do you stock coolant on the same program as HD engine oil?",
+      "What inhibitor family is in each bulk tank today?",
+      "What top-off chemistry was used after the last partial drain?",
+      "Are automotive OAT and HD NOAT hoses separated at the rack?",
     ],
     discoveryFocus: [
-      "HD diesel vs automotive vs ag equipment mix",
-      "Bulk tank labels, hose separation, and top-off habits after partial drains",
-      "Current inhibitor family and drain interval targets",
-      "Water quality and premix vs concentrate process",
+      "Which bulk tanks serve HD vs light-duty?",
+      "What caused the last coolant comeback?",
     ],
-    crossSellFocus: [
-      "HD engine oil on the same fleet card",
-      "Power steering and brake fluids in the service lane",
-      "Grease and chassis on mixed fleets",
-      "Cooling system cleaners and flush chemicals",
+    crossSellFocus: ["HD engine oil", "Grease", "Chemicals (brake, steering, flush)"],
+    dealerNextSteps: [
+      "Post bulk-tank labels by inhibitor family with the dealer manager",
+      "Run a lunch-and-learn on top-off and flush discipline",
+      "Review seasonal coolant PM SKUs",
+      "Send this coolant spotlight to the outside-sales rep",
+      "Prepare a business review on mixed-fleet coolant strategy",
     ],
     cautions: [
       "NEVER label Gold OAT ELC as light-duty only—PDS positions nitrite-free all-engines / mixed fleet.",
@@ -869,24 +814,9 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
         },
       ],
     },
-    chemistryGuidance: [
-      "OAT: organic acid inhibitors—common automotive and many ELC programs.",
-      "NOAT: nitrite plus organic acids for heavy-duty wet-sleeve liner protection.",
-      "Gold (Gold OAT ELC): nitrite-free OAT extended-life—flagship mixed fleet / all-engines per PDS; not light-duty shorthand.",
-      "Universal / conventional: entry programs—do not substitute for HD NOAT without verification.",
-      "Extended-life: inhibitor depletion and drain interval—not color.",
-    ],
-    specificationGuidance: [
-      "ASTM, TMC, and OEM references only where PDS documents them.",
-      "Separate HD NOAT, nitrite-free Gold, automotive OAT, and universal programs in bulk storage.",
-      "Flush and compatibility procedures when migrating inhibitor technology.",
-    ],
-    applicationGuidance: [
-      "Heavy-duty diesel highway and off-highway: Red NOAT ELC and Commercial HD NOAT where PDS supports.",
-      "Mixed fleet and nitrite-free ELC: Gold OAT ELC per PDS—all-engines positioning.",
-      "Automotive passenger and light commercial: Yellow OAT ELC where appropriate.",
-      "Universal green: entry and price-led bays—upgrade path to OAT/NOAT programs by equipment.",
-    ],
+    chemistryGuidance: ["Match inhibitor family to equipment tag — verify on PDS before top-off."],
+    specificationGuidance: ["Separate bulk tanks by OAT, NOAT, nitrite-free Gold, and universal."],
+    applicationGuidance: [],
     flagshipProducts: [
       {
         id: "gold-oat-elc",
@@ -942,23 +872,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     label: "AGRIMAX",
     categoryType: "program",
     flagshipPositioning:
-      "AGRIMAX is OEM-spec conversation enablement for ag dealers: trans-drive / UTHF, zinc-free options, CK-4 engine, grease, and coolant companions—JD/CNH positioning only where PDS and OEM sheets support.",
+      "John Deere / Case IH equipment — same spec, same protection, save money where PDS supports (not OEM endorsement).",
     categorySummary:
-      "AGRIMAX teaches spec-correct fluid conversations across shared ag compartments, seasonal PM, and brand-loyal customers—not a single red tractor fluid for every reservoir.",
+      "AGRIMAX helps ag dealers sell seasonal PM: wet brake discipline, trans-drive, and spec conversations only where tags and PDS support — not one red drum for every sump.",
     customerProblemsSolved: [
-      "One fluid used in transmission, hydraulic, and wet-brake circuits without reading tags.",
-      "Green vs red line color mistaken for interchangeable chemistry.",
-      "Wet brake chatter blamed on brakes when fluid compatibility is root cause.",
-      "Brand-loyal customers believing only OEM-branded fluids meet spec.",
+      "Wet brake chatter after the wrong fluid in a shared sump",
+      "One red tractor fluid quoted for every compartment",
+      "Seasonal PM kits missing trans-drive, grease, or coolant",
+      "Customers paying OEM premium without tag proof",
     ],
     keySellingAngles: [
-      "Trans-drive / UTHF anchors the ag conversation where PDS lists combined duty.",
-      "Zinc-free trans-drive where equipment tags and PDS require zinc-free chemistry.",
-      "CK-4 synthetic blend engine oil for high-hour seasonal engine protection.",
-      "Grease and coolant companions complete seasonal PM—not standalone upsells.",
-      "Dealer PM programs and bulk standardization across reservoirs.",
-      "Dealer service-lane and counter bundles: trans-drive, engine, grease, and coolant on one seasonal PM visit.",
-      "JD/CNH and OEM spec language only with PDS/OEM documentation.",
+      "Counter margin on full-line PM bundles vs single-SKU habits",
+      "Fewer wet-brake callbacks after service season",
+      "Staff can explain spec match — not imply OEM endorsement",
+      "Seasonal bulk revenue on planting and harvest windows",
     ],
     keyTechnologyThemes: [
       "AGRIMAX Trans Drive Hydraulic Fluid",
@@ -968,21 +895,29 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "OEM spec alignment (JD/CNH where PDS supports)",
     ],
     recommendedRepTalkingPoints: [
-      "Map reservoirs before quoting one tractor fluid.",
-      "Use zinc-free and CK-4 stories only where tags and PDS align.",
-      "Seasonal PM: bundle trans-drive, engine, grease, and coolant on one dealer visit.",
-      "Respect brand loyalty with spec proof from PDS—not generic discounting.",
+      "What are customers using today in the trans-hydraulic sump?",
+      "Are customers asking for OEM-branded fluids?",
+      "Are wet brakes noisy after the last fluid change?",
+      "What's in today's harvest bundle beyond engine oil and filters?",
+      "Which John Deere / Case IH models drive your seasonal PM volume?",
     ],
     discoveryFocus: [
-      "Equipment brands, hours, and seasonal service windows",
-      "Compartment tags and current fluid habits",
-      "Wet brake, PTO, and hydraulic complaints",
-      "Dealer bulk tanks and private-label loyalty",
+      "Are wet brakes noisy?",
+      "What fluid types do equipment tags require?",
+      "What is missing from spring or harvest PM kits?",
     ],
     crossSellFocus: [
-      "RED TAC / field grease on the same equipment card",
-      "Coolant programs for seasonal flush",
-      "HD hydraulic AW for supporting construction assets",
+      "Gear oil — loaders and support iron",
+      "Bar & chain / drip oil — shop programs where PDS lists forestry duty",
+      "Grease — field and chassis PM",
+      "Coolant — seasonal flush companions",
+    ],
+    dealerNextSteps: [
+      "Run a lunch-and-learn on reservoir maps for counter staff",
+      "Review seasonal PM SKU list with the dealer manager",
+      "Send this AGRIMAX spotlight to the outside-sales rep",
+      "Prepare a business review on ag line depth vs competitor single-SKU habits",
+      "Assign transmission & wet brake training before planting rush",
     ],
     cautions: [
       "Do not claim JD/CNH approval without exact PDS/OEM documentation.",
@@ -1021,21 +956,9 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
         },
       ],
     },
-    chemistryGuidance: [
-      "UTHF / trans-drive fluids may include friction modifiers for wet brakes—AW is not automatic substitute.",
-      "Zinc-free programs for equipment lines where tags and PDS require zinc-free chemistry.",
-      "CK-4 engine oils for diesel ag engines—confirm viscosity and API on PDS.",
-    ],
-    specificationGuidance: [
-      "JD/CNH and OEM spec references only where PDS documents them for that SKU.",
-      "Equipment tag fluid types override line color and competitor habits.",
-      "Seasonal change intervals per OEM and PDS—not generic highway drain assumptions.",
-    ],
-    applicationGuidance: [
-      "Tractors, combines, and sprayers: map transmission, hydraulic, wet brake, and engine separately.",
-      "Construction and ag mixed yards: segment AGRIMAX from highway bulk tanks.",
-      "Dealer PM: standardize companion SKUs across seasonal visits.",
-    ],
+    chemistryGuidance: ["Verify wet-brake and trans-drive chemistry on PDS before recommending any SKU."],
+    specificationGuidance: ["OEM spec language only where the current PDS documents it."],
+    applicationGuidance: [],
     flagshipProducts: [
       {
         id: "agrimax-trans-drive",
@@ -1084,23 +1007,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "food_grade",
     label: "Food-Grade Lubricants",
     categoryType: "program",
-    flagshipPositioning:
-      "NSF H1 registered food-grade programs where PDS supports—hydraulic, grease, gear, compressor, and chain/conveyor specialties for washdown, incidental contact, and audit-ready plants.",
+    flagshipPositioning: "Audit-ready H1 programs — map zones before quoting any SKU.",
     categorySummary:
-      "Food grade is compliance and audit discipline: H1 where supported, separate H1 from H2 habits, and map hydraulic, grease, gear, and specialty circuits in washdown plants.",
+      "Food plants need simple H1 discipline: which zones require registration, what is on the shelf, and washdown-ready greases and hydraulics per PDS.",
     customerProblemsSolved: [
-      "Non-H1 fluids in areas with incidental food contact risk.",
-      "Washdown stripping marginal lubricants and increasing regrease frequency.",
-      "Audit findings from poor H1 documentation and wrong product class in zones.",
-      "Using general industrial gear or hydraulic oil in food-adjacent circuits.",
+      "Non-H1 fluid in food-adjacent manifolds before an audit",
+      "Washdown stripping grease off bearings and conveyors",
+      "Shelf labels that do not match NSF registration on the PDS",
+      "Maintenance borrowing industrial AW during a weekend stop",
     ],
     keySellingAngles: [
-      "NSF H1 positioning only where PDS registers H1 for that SKU.",
-      "FOOD-GRADE Hydraulic Oils for H1 hydraulic circuits.",
-      "FOOD-GRADE EP-2 Grease for H1 bearing and chassis points in plants.",
-      "FOOD-GRADE gear, compressor, and chain programs to complete the plant map.",
-      "Washdown and incidental contact discipline—not 'food plant' labeling without H1 proof.",
-      "Audit readiness: PDS, registration, and zone labeling on the shelf.",
+      "Pass audits with labeled H1 inventory at each manifold",
+      "Plant-wide program beyond one hydraulic drum",
+      "Counter staff quote registration numbers from the PDS",
+      "Keep the account off farm-store substitutes in food zones",
     ],
     keyTechnologyThemes: [
       "NSF H1 registration (where PDS supports)",
@@ -1110,21 +1030,21 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Washdown and wet environment performance",
     ],
     recommendedRepTalkingPoints: [
-      "Which zones require H1 vs general plant fluids—map before quoting.",
-      "Repeat NSF H1 only when the PDS and registration support that SKU.",
-      "Bundle hydraulic, grease, and chain on audit prep visits.",
-      "Do not substitute H2 or general industrial fluids into H1 zones.",
+      "Which zones require H1 vs general plant fluids?",
+      "What did your last audit flag on lubrication?",
+      "Are H1 and non-H1 bulk tanks hose-separated?",
+      "What compressor and chain fills are in scope for the next audit?",
     ],
     discoveryFocus: [
-      "Plant zones, audit schedule, and sanitation intensity",
-      "Current H1 documentation and shelf labeling",
-      "Hydraulic, compressor, chain, and bearing circuits",
-      "Washdown frequency and regrease complaints",
+      "When is the next customer audit?",
+      "Which circuits are food-adjacent on your diagram?",
     ],
-    crossSellFocus: [
-      "Industrial specialty compressor oils in non-food circuits",
-      "General hydraulic AW in non-food plant areas",
-      "Coolant and chemicals only where appropriate outside food contact zones",
+    crossSellFocus: ["H1 grease", "H1 gear & compressor", "H1 chain / conveyor (where PDS supports)"],
+    dealerNextSteps: [
+      "Post H1 SKU labels at food-adjacent manifolds",
+      "Schedule a plant zone walk with the dealer manager",
+      "Send this food-grade spotlight to the outside-sales rep",
+      "Assign food-grade basics training before the audit window",
     ],
     cautions: [
       "Do not claim NSF H1 without registration documentation on the PDS for that product.",
@@ -1160,22 +1080,9 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
         },
       ],
     },
-    chemistryGuidance: [
-      "H1 lubricants for incidental food contact per NSF registration where PDS supports.",
-      "Separate food-grade base stocks and additive packages from general industrial oils.",
-      "Washdown-resistant greases and fluids per PDS performance claims only.",
-    ],
-    specificationGuidance: [
-      "NSF H1 registration numbers and categories as printed on PDS.",
-      "OEM and plant audit checklists—document SKU to zone mapping.",
-      "Do not use 'food safe' language without H1 registration proof.",
-    ],
-    applicationGuidance: [
-      "Hydraulic presses and pumps in food plants: H1 hydraulic oils.",
-      "Bearings, chassis, and conveyors with incidental contact risk: H1 greases.",
-      "Compressors and gearboxes in food zones: H1 gear and circulating per PDS.",
-      "Chain and conveyor: H1 chain lubes where PDS lists application.",
-    ],
+    chemistryGuidance: ["Quote NSF H1 only when registration appears on the PDS for that SKU."],
+    specificationGuidance: ["Document SKU-to-zone mapping before the audit."],
+    applicationGuidance: [],
     flagshipProducts: [
       {
         id: "food-grade-hydraulic",
@@ -1224,22 +1131,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "environmental_eal",
     label: "Environmental / EAL Lubricants",
     categoryType: "program",
-    flagshipPositioning:
-      "ENVIRO, BIO, and EAL programs position biodegradable and environmentally acceptable lubricants where PDS supports—marine, forestry, sensitive sites, and regulated applications.",
+    flagshipPositioning: "Sensitive sites need documented ENVIRO / BIO / EAL programs — not marketing greenwash.",
     categorySummary:
-      "Environmental/EAL is compliance and site-risk positioning: ladder ENVIRO inherently biodegradable AW through BIO and BIO-Synthetic EAL, with HFDU and rock drill specialties for niche applications.",
+      "When spills, contracts, or watershed rules apply, match ENVIRO entry through BIO-Synthetic EAL per PDS — pair with containment, not vague eco claims.",
     customerProblemsSolved: [
-      "Spills and leaks on sensitive watersheds and forestry roads.",
-      "Customer specs requiring biodegradable or EAL fluids without a mapped Klondike program.",
-      "Using general AW where regulations or contracts require EAL documentation.",
-      "Marine and dredging equipment needing environmentally acceptable stern tube and hydraulic programs.",
+      "Spill risk on forestry roads, parks, and waterways",
+      "Customer bid language requiring biodegradable or EAL proof",
+      "Generic AW quoted where regulations require documentation",
+      "Marine and municipal accounts without a mapped Klondike EAL program",
     ],
     keySellingAngles: [
-      "ENVIRO Inherently Biodegradable AW/MV for sensitive site baselines where PDS supports.",
-      "BIO Biodegradable AW and synthetic blend hydraulics for step-up biodegradability.",
-      "BIO-Synthetic EAL Hydraulic Oils for premium EAL positioning.",
-      "BIO Hees and specialty EAL fluids per application lists on PDS.",
-      "Marine, forestry, and municipal sensitive-site opportunities—not generic 'green' labeling.",
+      "Win sensitive-site bids with PDS environmental language",
+      "Step-up margin from ENVIRO through BIO-Synthetic EAL",
+      "Pair with forestry and marine customer profiles",
+      "Keep standard AW on non-sensitive iron on the same contractor card",
     ],
     keyTechnologyThemes: [
       "ENVIRO inherently biodegradable hydraulic fluids",
@@ -1249,21 +1154,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Biodegradable rock drill and niche applications",
     ],
     recommendedRepTalkingPoints: [
-      "What site, spill, or contract language triggers biodegradable/EAL review?",
-      "Match ENVIRO vs BIO vs EAL tiers to PDS environmental claims—not marketing greenwash.",
-      "Pair with forestry, marine, and municipal account plans.",
-      "Confirm local regulations and customer spec sheets before quoting.",
+      "What site, spill, or contract language triggers biodegradable review?",
+      "What are you using in hydraulics on sensitive blocks today?",
+      "Do you need documentation for a bid or regulator?",
+      "Which equipment stays on standard AW vs EAL duty?",
     ],
     discoveryFocus: [
-      "Regulatory, contract, or customer EAL requirements",
-      "Spill history and sensitive location (water, forest, parkland)",
-      "Equipment types: mobile hydraulic, marine, drill, municipal",
-      "Current 'green' products without documentation",
+      "Where is the next job near water or parkland?",
+      "What does the customer spec sheet require?",
     ],
-    crossSellFocus: [
-      "Standard hydraulic AW for non-sensitive assets on same contractor",
-      "Grease programs on forestry and municipal fleets",
-      "Industrial specialty for plant equipment outside sensitive zones",
+    crossSellFocus: ["Standard hydraulic AW (non-sensitive iron)", "Grease", "Industrial specialty (plant)"],
+    dealerNextSteps: [
+      "Review ENVIRO / BIO ladder with the dealer manager",
+      "Send this environmental spotlight for the next forestry or marine bid",
+      "Assign fundamentals training on PDS environmental claims",
     ],
     cautions: [
       "Do not claim biodegradable or EAL performance beyond PDS environmental statements.",
@@ -1363,21 +1267,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "industrial_specialty",
     label: "Industrial Specialty Oils",
     categoryType: "program",
-    flagshipPositioning:
-      "Industrial specialty maps turbine, circulating, compressor, rock drill, and plant specialty fluids—Long Life Turbine and full synthetic circulating oils for R&O circuits, not AW substitutes.",
+    flagshipPositioning: "Plant walk first — turbine, compressor, and reducer fills are not mobile AW.",
     categorySummary:
-      "Industrial specialty is plant equipment enablement: turbine, circulating, compressor, way lube, and heat-transfer fills are separate from mobile AW—match R&O and specialty chemistry on tags, never AW in a turbine or dry compressor sump.",
+      "Ask what is in each sump before quoting: turbine R&O, compressor fluid, industrial gear, and mobile AW are separate programs per PDS.",
     customerProblemsSolved: [
-      "AW hydraulic oil used in turbine and circulating reservoirs.",
-      "Compressor varnish and moisture issues from wrong oil class.",
-      "Industrial reducers running automotive gear oil below required load.",
-      "Missed ENVIRO/BIO opportunities on plant contracts with environmental clauses.",
+      "AW mistakenly used in turbine or compressor sumps",
+      "Compressor varnish when the wrong oil class is in service",
+      "Reducers on automotive gear habits below plant load",
+      "Plant buyers who only know mobile hydraulic SKUs",
     ],
     keySellingAngles: [
-      "Long Life Turbine Oils and full synthetic circulating/compressor oils for R&O duty.",
-      "Industrial EP gear for enclosed reducers—not mobile AW crossovers.",
-      "BIO rock drill and ENVIRO MV for environmental niche plant and mobile accounts.",
-      "Professional AW only where plant mobile hydraulics are separate from turbine circuits.",
+      "Discover turbine and compressor lines the dealer did not know we carry",
+      "Plant program margin beyond one AW bulk tank",
+      "Pair specialty fills with mobile AW on material-handling iron",
+      "ENVIRO / BIO where plant contracts require sensitive-site fluids",
     ],
     keyTechnologyThemes: [
       "R&O turbine and circulating oils",
@@ -1387,20 +1290,20 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Crossover to ENVIRO/BIO where plant specs require",
     ],
     recommendedRepTalkingPoints: [
-      "Is this reservoir turbine, compressor, gear, or hydraulic—four different programs.",
-      "R&O turbine oils are not AW—read tag and PDS application.",
-      "Plant walk: map circulating, compressor, gear, and mobile hydraulics separately.",
+      "Is this reservoir turbine, compressor, gear, or hydraulic?",
+      "What oil class is in the compressor today?",
+      "Are you seeing varnish or moisture on rotating equipment?",
+      "What specialty fills are still sourced outside Klondike?",
     ],
     discoveryFocus: [
-      "Reservoir types and OEM recommended oil classes",
-      "Varnish, moisture, and foaming complaints on turbines and compressors",
-      "Industrial gear loads and viscosity grades",
-      "Environmental clauses on plant contracts",
+      "Which rotating assets have the longest drain intervals?",
+      "Are compressor and turbine on the same supplier program as hydraulics?",
     ],
-    crossSellFocus: [
-      "Mobile hydraulic AW for plant material handling equipment",
-      "Food-grade programs in food manufacturing zones",
-      "Grease for motor bearing and auxiliary lube points",
+    crossSellFocus: ["Mobile hydraulic AW", "Food-grade (food zones only)", "Grease"],
+    dealerNextSteps: [
+      "Schedule a plant fill-point walk with the dealer manager",
+      "Send this industrial specialty spotlight to the rep",
+      "Review turbine and compressor SKUs on the plant list",
     ],
     cautions: [
       "Do not use AW hydraulic fluid in turbine, R&O, or compressor applications without PDS approval.",
@@ -1435,22 +1338,9 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
         },
       ],
     },
-    chemistryGuidance: [
-      "R&O inhibitors for turbines and circulating systems vs AW zinc for hydraulics.",
-      "Compressor oils manage moisture and oxidation differently than turbine R&O.",
-      "Industrial EP gear sulfur-phosphorus load carrying for enclosed gears.",
-    ],
-    specificationGuidance: [
-      "ISO VG and R&O classifications for turbines per PDS.",
-      "DIN 51524 and OEM turbine oil sheets where documented.",
-      "Compressor fluid specifications per PDS application lists.",
-    ],
-    applicationGuidance: [
-      "Steam and gas turbines, circulating systems: Long Life Turbine and synthetic circulating oils.",
-      "Plant air compressors: compressor-duty fluids per PDS—not AW.",
-      "Enclosed industrial gears: industrial EP and full synthetic industrial EP.",
-      "Rock drill and specialty: BIO rock drill where PDS lists niche application.",
-    ],
+    chemistryGuidance: ["Turbine R&O and compressor fluids are not AW — verify on PDS."],
+    specificationGuidance: ["Match oil class to reservoir label before quoting."],
+    applicationGuidance: [],
     flagshipProducts: [
       {
         id: "long-life-turbine",
@@ -1500,12 +1390,15 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
 /** @type {Readonly<Record<string, CategoryProgramIntelligence>>} */
 export const CATEGORY_PROGRAM_INTELLIGENCE_MAP = Object.freeze(
   CATEGORY_PROGRAM_INTELLIGENCE_LIST.reduce((acc, entry) => {
-    acc[entry.key] = entry;
+    const enriched = attachCategoryOemSpecCoaching(entry);
+    acc[enriched.key] = enriched;
     return acc;
   }, /** @type {Record<string, CategoryProgramIntelligence>} */ ({}))
 );
 
-export const CATEGORY_PROGRAM_INTELLIGENCE = Object.freeze([...CATEGORY_PROGRAM_INTELLIGENCE_LIST]);
+export const CATEGORY_PROGRAM_INTELLIGENCE = Object.freeze(
+  CATEGORY_PROGRAM_INTELLIGENCE_LIST.map((entry) => attachCategoryOemSpecCoaching(entry))
+);
 
 const KEY_ALIASES = Object.freeze({
   hydraulic: "hydraulic",
