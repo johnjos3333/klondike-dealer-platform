@@ -478,9 +478,19 @@ export function buildDealerBusinessReviewPlan(dealer, ctx = {}) {
     warehouseNeeded
   );
 
+  const preparedAt = new Date();
   return {
     version: 1,
-    generatedAt: new Date().toISOString(),
+    generatedAt: preparedAt.toISOString(),
+    preparedDateLabel: preparedAt.toLocaleDateString(undefined, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }),
+    preparedSubtitle: "Prepared from platform activity and projected opportunities",
+    footerDisclaimer:
+      "Projected opportunity only. Not dealer counter sales, ERP data, closed revenue, or dealership inventory.",
     dealerOrgId: oid,
     dealerName: name,
     platformBoundaryNote:
@@ -508,7 +518,7 @@ export function buildDealerBusinessReviewPlan(dealer, ctx = {}) {
         items: trainingCoachingPlan,
       },
       suggestedAgenda: {
-        title: "Suggested Business Review Agenda",
+        title: "Suggested Review Agenda",
         steps: [
           "Review recent quote activity and who owns follow-up on open proposals.",
           "Review top product and category interests from quoted lines on the platform.",
@@ -531,4 +541,48 @@ export function isBusinessReviewActionCenterItem(ac) {
   if (!ac || typeof ac !== "object") return false;
   if (ac.recommendationType === "business_review_recommendation") return true;
   return String(ac.kind || "").includes("business_review");
+}
+
+/**
+ * Plain-text export for clipboard copy.
+ * @param {ReturnType<typeof buildDealerBusinessReviewPlan>} plan
+ */
+export function formatBusinessReviewPlanPlainText(plan) {
+  if (!plan?.sections) return "";
+  const s = plan.sections;
+  const lines = [
+    "KLONDIKE DEALER BUSINESS REVIEW",
+    String(plan.dealerName || "Dealer").trim(),
+    String(plan.preparedDateLabel || "").trim(),
+    String(plan.preparedSubtitle || "Prepared from platform activity and projected opportunities").trim(),
+    "",
+    "—— Dealer Snapshot ——",
+    `Recent activity: ${s.dealerSnapshot?.recentActivity || "—"}`,
+    `Proposals: ${s.dealerSnapshot?.proposalActivitySummary || "—"}`,
+  ];
+  const cats = s.dealerSnapshot?.topQuotedCategories || [];
+  if (cats.length) {
+    lines.push("Top quoted categories:");
+    cats.forEach((c) => lines.push(`  · ${c.label}${c.count ? ` (${c.count})` : ""}`));
+  }
+  lines.push("", `—— ${s.interpretation?.title || "What We Think Is Happening"} ——`);
+  (s.interpretation?.bullets || []).forEach((b) => lines.push(`  · ${b.text}`));
+  lines.push("", `—— ${s.categoryGrowthOpportunities?.title || "Category Growth Opportunities"} ——`);
+  (s.categoryGrowthOpportunities?.items || []).forEach((row) => {
+    lines.push(`  ${row.category}`);
+    lines.push(`    Why: ${row.whyItMatters}`);
+    lines.push(`    Enablement: ${row.suggestedEnablement}`);
+  });
+  lines.push("", `—— ${s.trainingCoachingPlan?.title || "Training / Coaching Plan"} ——`);
+  (s.trainingCoachingPlan?.items || []).forEach((row) => {
+    lines.push(`  · ${row.label} — ${row.rationale}`);
+  });
+  lines.push("", `—— ${s.suggestedAgenda?.title || "Suggested Review Agenda"} ——`);
+  (s.suggestedAgenda?.steps || []).forEach((step, i) => lines.push(`  ${i + 1}. ${step}`));
+  lines.push("", `—— ${s.next30DayActionPlan?.title || "Next 30-Day Action Plan"} ——`);
+  (s.next30DayActionPlan?.actions || []).forEach((row) => {
+    lines.push(`  · ${row.action} — ${row.detail}`);
+  });
+  lines.push("", String(plan.footerDisclaimer || plan.platformBoundaryNote || "").trim());
+  return lines.filter((ln, idx, arr) => !(ln === "" && arr[idx - 1] === "")).join("\n");
 }

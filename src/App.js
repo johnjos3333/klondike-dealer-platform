@@ -31,6 +31,7 @@ import {
 } from "./utils/klAdminActionCenterIntelligence";
 import {
   buildDealerBusinessReviewPlan,
+  formatBusinessReviewPlanPlainText,
   isBusinessReviewActionCenterItem,
 } from "./utils/buildDealerBusinessReviewPlan";
 import { computeTerritoryProposalSignals } from "./utils/territoryProposalSignals";
@@ -497,36 +498,60 @@ function humanizeKlAdminActionCenterItem(ac) {
 }
 
 function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
+  const [copyStatus, setCopyStatus] = useState("");
   const plan = preview?.plan;
-  if (!plan?.sections) return null;
-  const s = plan.sections;
-  const sectionShell = (title, children) => (
+  const isEmpty = Boolean(preview?.empty) || !plan?.sections;
+  const s = plan?.sections;
+  const bdrBtnBase = {
+    cursor: "pointer",
+    borderRadius: 10,
+    padding: "9px 16px",
+    fontSize: 12,
+    fontWeight: 900,
+    letterSpacing: "0.04em",
+  };
+  const sectionCard = (title, children) => (
     <div
       style={{
-        marginTop: 16,
-        padding: "12px 14px",
-        borderRadius: 12,
-        background: "#f8fafc",
-        border: "1px solid rgba(226, 232, 240, 0.95)",
+        marginTop: 18,
+        borderRadius: 14,
+        overflow: "hidden",
+        border: "1px solid rgba(30, 58, 138, 0.18)",
+        boxShadow: "0 10px 28px rgba(15, 23, 42, 0.07)",
       }}
     >
       <div
         style={{
+          padding: "11px 16px",
+          background: "linear-gradient(90deg, #0f172a 0%, #1e3a8a 72%, #1e40af 100%)",
+          borderLeft: "4px solid #ea580c",
           fontSize: 11,
           fontWeight: 900,
-          letterSpacing: "0.1em",
-          color: "#1e3a8a",
-          marginBottom: 8,
+          letterSpacing: "0.12em",
+          color: "#f8fafc",
           textTransform: "uppercase",
         }}
       >
         {title}
       </div>
-      {children}
+      <div style={{ padding: "16px 18px", background: "#ffffff" }}>{children}</div>
     </div>
   );
+
+  const handleCopy = async () => {
+    if (!plan) return;
+    try {
+      await navigator.clipboard.writeText(formatBusinessReviewPlanPlainText(plan));
+      setCopyStatus("Copied to clipboard");
+    } catch {
+      setCopyStatus("Copy failed — select text manually");
+    }
+    window.setTimeout(() => setCopyStatus(""), 2400);
+  };
+
   return (
     <div
+      className="kl-bdr-overlay kl-bdr-no-print"
       role="dialog"
       aria-modal="true"
       aria-labelledby="kl-bdr-plan-title"
@@ -538,69 +563,113 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
         alignItems: "flex-start",
         justifyContent: "center",
         padding: "24px 16px 32px",
-        background: "rgba(15, 23, 42, 0.55)",
+        background: "rgba(15, 23, 42, 0.62)",
         overflowY: "auto",
       }}
       onClick={onClose}
     >
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #kl-bdr-print-root, #kl-bdr-print-root * { visibility: visible !important; }
+          #kl-bdr-print-root {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            max-height: none !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          .kl-bdr-no-print { display: none !important; }
+        }
+      `}</style>
       <div
+        id="kl-bdr-print-root"
         onClick={(e) => e.stopPropagation()}
         style={{
-          width: "min(720px, 100%)",
+          width: "min(760px, 100%)",
           marginTop: 8,
-          borderRadius: 16,
+          borderRadius: 18,
           background: "#ffffff",
-          border: "1px solid rgba(148, 163, 184, 0.45)",
-          boxShadow: "0 28px 64px rgba(15, 23, 42, 0.28)",
-          padding: "20px 22px 24px",
+          border: "1px solid rgba(30, 58, 138, 0.22)",
+          boxShadow: "0 32px 72px rgba(15, 23, 42, 0.35)",
           maxHeight: "calc(100vh - 48px)",
           overflowY: "auto",
         }}
       >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 900,
-                letterSpacing: "0.12em",
-                color: "#64748b",
-                textTransform: "uppercase",
-              }}
-            >
-              Business Review Plan · Preview
-            </div>
-            <h4
-              id="kl-bdr-plan-title"
-              style={{ margin: "6px 0 0", fontSize: 20, fontWeight: 900, color: "#0f172a", lineHeight: 1.25 }}
-            >
-              {plan.dealerName}
-            </h4>
-            <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
-              {plan.platformBoundaryNote}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
+        <div
+          style={{
+            padding: "22px 24px 20px",
+            background: "linear-gradient(165deg, #0f172a 0%, #1e3a8a 52%, #0f172a 100%)",
+            borderRadius: "18px 18px 0 0",
+            borderBottom: "3px solid #ea580c",
+          }}
+        >
+          <div
             style={{
-              flex: "0 0 auto",
-              cursor: "pointer",
-              border: "1px solid rgba(148, 163, 184, 0.6)",
-              borderRadius: 8,
-              padding: "6px 12px",
-              fontSize: 12,
-              fontWeight: 800,
-              background: "#f8fafc",
-              color: "#475569",
+              fontSize: 10,
+              fontWeight: 900,
+              letterSpacing: "0.16em",
+              color: "#fb923c",
+              textTransform: "uppercase",
             }}
           >
-            Close
-          </button>
+            KLONDIKE
+          </div>
+          <h2
+            id="kl-bdr-plan-title"
+            style={{
+              margin: "6px 0 0",
+              fontSize: 22,
+              fontWeight: 900,
+              letterSpacing: "0.06em",
+              color: "#f8fafc",
+              lineHeight: 1.2,
+              textTransform: "uppercase",
+            }}
+          >
+            Dealer Business Review
+          </h2>
+          {!isEmpty ? (
+            <>
+              <p style={{ margin: "12px 0 0", fontSize: 26, fontWeight: 900, color: "#ffffff", lineHeight: 1.15 }}>
+                {plan.dealerName}
+              </p>
+              <p style={{ margin: "8px 0 0", fontSize: 13, fontWeight: 700, color: "#cbd5e1" }}>
+                {plan.preparedDateLabel}
+              </p>
+              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#94a3b8", lineHeight: 1.45, maxWidth: 560 }}>
+                {plan.preparedSubtitle}
+              </p>
+            </>
+          ) : null}
         </div>
 
-        {sectionShell(
-          "1 · Dealer Snapshot",
+        <div style={{ padding: "8px 22px 22px" }}>
+          {isEmpty ? (
+            <div
+              style={{
+                marginTop: 24,
+                padding: "28px 22px",
+                borderRadius: 14,
+                textAlign: "center",
+                background: "linear-gradient(160deg, #f8fafc 0%, #fff7ed 100%)",
+                border: "1px dashed rgba(234, 88, 12, 0.45)",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0f172a", lineHeight: 1.45 }}>
+                Choose a dealer or open this from an Action Center recommendation.
+              </p>
+              <p style={{ margin: "10px 0 0", fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>
+                Select a dealer in Step 1 of Sales Enablement, or use Prepare Business Review on an Action Center card.
+              </p>
+            </div>
+          ) : (
+            <>
+              {sectionCard(
+                "Dealer Snapshot",
           <>
             <p style={{ margin: 0, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
               <strong>Recent platform activity:</strong> {s.dealerSnapshot.recentActivity}
@@ -625,8 +694,8 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
           </>
         )}
 
-        {sectionShell(
-          `2 · ${s.interpretation.title}`,
+        {sectionCard(
+          s.interpretation.title,
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
             {(s.interpretation.bullets || []).map((b) => (
               <li key={b.id} style={{ marginBottom: 6 }}>
@@ -636,8 +705,8 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
           </ul>
         )}
 
-        {sectionShell(
-          `3 · ${s.categoryGrowthOpportunities.title}`,
+        {sectionCard(
+          s.categoryGrowthOpportunities.title,
           (s.categoryGrowthOpportunities.items || []).length ? (
             <div style={{ display: "grid", gap: 10 }}>
               {s.categoryGrowthOpportunities.items.map((row) => (
@@ -667,8 +736,8 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
           )
         )}
 
-        {sectionShell(
-          `4 · ${s.trainingCoachingPlan.title}`,
+        {sectionCard(
+          s.trainingCoachingPlan.title,
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
             {(s.trainingCoachingPlan.items || []).map((row) => (
               <li key={`${row.type}-${row.label}`} style={{ marginBottom: 8 }}>
@@ -679,8 +748,8 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
           </ul>
         )}
 
-        {sectionShell(
-          `5 · ${s.suggestedAgenda.title}`,
+        {sectionCard(
+          s.suggestedAgenda.title,
           <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
             {(s.suggestedAgenda.steps || []).map((step, i) => (
               <li key={i} style={{ marginBottom: 6 }}>
@@ -690,8 +759,8 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
           </ol>
         )}
 
-        {sectionShell(
-          `6 · ${s.next30DayActionPlan.title}`,
+        {sectionCard(
+          s.next30DayActionPlan.title,
           <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
             {(s.next30DayActionPlan.actions || []).map((row) => (
               <li key={row.action} style={{ marginBottom: 8 }}>
@@ -701,10 +770,71 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
             ))}
           </ul>
         )}
+            </>
+          )}
 
-        <p style={{ margin: "16px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
-          Preview only · no export · no CRM write · session-local
-        </p>
+          <div
+            className="kl-bdr-no-print"
+            style={{
+              marginTop: 22,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 10,
+              alignItems: "center",
+            }}
+          >
+            {!isEmpty ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  style={{
+                    ...bdrBtnBase,
+                    color: "#ffffff",
+                    border: "1px solid #1e3a8a",
+                    background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)",
+                  }}
+                >
+                  Copy Review Plan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    ...bdrBtnBase,
+                    color: "#0f172a",
+                    border: "1px solid rgba(234, 88, 12, 0.55)",
+                    background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
+                  }}
+                >
+                  Print / Save as PDF
+                </button>
+              </>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                ...bdrBtnBase,
+                color: "#475569",
+                border: "1px solid rgba(148, 163, 184, 0.75)",
+                background: "#f8fafc",
+                marginLeft: isEmpty ? 0 : "auto",
+              }}
+            >
+              Close
+            </button>
+            {copyStatus ? (
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#047857", width: "100%" }}>{copyStatus}</span>
+            ) : null}
+          </div>
+
+          <p style={{ margin: "14px 0 0", fontSize: 10, color: "#94a3b8", lineHeight: 1.45, textAlign: "center" }}>
+            {isEmpty
+              ? "Session preview · no data written"
+              : plan.footerDisclaimer || "Projected opportunity only."}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -8838,6 +8968,39 @@ const handleFinishDealerEnrollment = async () => {
     ocrSnapshot,
   ]);
 
+  const openKlAdminBusinessReviewPreview = useCallback(
+    (opts = {}) => {
+      const oid = String(opts.dealerOrgId || salesEnablementDealerOrgId || "").trim();
+      const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+      const dealer =
+        opts.dealerRow ||
+        dealers.find((d) => String(d?.organization_id || "") === oid) ||
+        null;
+      if (!dealer || !oid) {
+        setKlAdminBusinessReviewPreview({ empty: true });
+        return;
+      }
+      const signalContext = opts.signalContext || {
+        enablementAlerts: klondikeDashboardEnablementAlerts,
+        territoryProposalSignals: klondikeTerritoryProposalSignals,
+        territoryInventoryModel: klondikeTerritoryInventoryModel,
+      };
+      const plan = buildDealerBusinessReviewPlan(dealer, signalContext);
+      setKlAdminBusinessReviewPreview({
+        plan,
+        dealerName: plan.dealerName,
+        actionId: opts.actionId || null,
+      });
+    },
+    [
+      salesEnablementDealerOrgId,
+      dealerNetworkPerformance,
+      klondikeDashboardEnablementAlerts,
+      klondikeTerritoryProposalSignals,
+      klondikeTerritoryInventoryModel,
+    ]
+  );
+
   const salesEnablementDealerIntel = React.useMemo(() => {
     if (!salesEnablementDealerOrgId) {
       return buildDealerEnablementIntelligence({
@@ -14671,6 +14834,46 @@ const handleFinishDealerEnrollment = async () => {
                           </button>
                         );
                       })}
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 4,
+                        borderRadius: 16,
+                        padding: "20px 20px 22px",
+                        border: "2px solid rgba(15, 23, 42, 0.88)",
+                        background: "linear-gradient(160deg, #f1f5f9 0%, #ffffff 42%, #fff7ed 100%)",
+                        boxShadow: "0 14px 32px rgba(15, 23, 42, 0.1)",
+                        display: "grid",
+                        gap: 12,
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 900, letterSpacing: "0.06em", color: "#0f172a" }}>
+                        Dealer Business Review
+                      </div>
+                      <p style={{ margin: 0, fontSize: 12, color: "#475569", lineHeight: 1.55, fontWeight: 600 }}>
+                        Build a dealer review from quote activity, category mix, training needs, and projected
+                        opportunities.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => openKlAdminBusinessReviewPreview()}
+                        style={{
+                          cursor: "pointer",
+                          justifySelf: "start",
+                          borderRadius: 10,
+                          padding: "10px 18px",
+                          fontSize: 12,
+                          fontWeight: 900,
+                          letterSpacing: "0.04em",
+                          color: "#ffffff",
+                          border: "1px solid #9a3412",
+                          background: "linear-gradient(135deg, #1e3a8a 0%, #1e40af 55%, #ea580c 100%)",
+                          boxShadow: "0 8px 20px rgba(30, 58, 138, 0.28)",
+                        }}
+                      >
+                        Prepare Business Review
+                      </button>
                     </div>
                   </div>
 
@@ -20525,32 +20728,17 @@ const handleFinishDealerEnrollment = async () => {
                             reviewDealers.find(
                               (d) => String(d?.organization_id || "") === reviewOid
                             ) ||
-                            (reviewOid
-                              ? {
-                                  organization_id: reviewOid,
-                                  name: String(ac.scope || dealerDisplayName || "Dealer").trim(),
-                                  quotesCreated: 0,
-                                  proposalsSent: 0,
-                                  customerResponses: 0,
-                                  productMix: [],
-                                }
-                              : null);
-                          if (reviewDealer) {
-                            const plan = buildDealerBusinessReviewPlan(reviewDealer, {
+                            null;
+                          openKlAdminBusinessReviewPreview({
+                            dealerRow: reviewDealer,
+                            dealerOrgId: reviewOid,
+                            actionId: ac.id,
+                            signalContext: {
                               enablementAlerts: klondikeDashboardEnablementAlertsKlDashboard,
                               territoryProposalSignals: klAdminDashboardProposalSignalsView,
                               territoryInventoryModel: klAdminDashboardInventoryView,
-                            });
-                            setKlAdminBusinessReviewPreview({
-                              plan,
-                              actionId: ac.id,
-                              dealerName: plan.dealerName,
-                            });
-                          } else {
-                            setProductStrategyWorkflowNotice(
-                              "Business Review Plan: select a dealer with quote activity to generate a preview."
-                            );
-                          }
+                            },
+                          });
                           markActionPrepared();
                           return;
                         }
