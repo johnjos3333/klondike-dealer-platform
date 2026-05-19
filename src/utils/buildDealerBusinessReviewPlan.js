@@ -11,6 +11,7 @@ import {
   KL_ADMIN_TRAINING_MODULES,
   buildIntentionalProfileAndOemActions,
 } from "./klAdminActionCenterIntelligence";
+import { recommendKlondikeUniversityCourses } from "../data/salesEnablement/klondikeUniversityCourses";
 
 export const KLONDIKE_BDR_LOGO_SRC = "/klondike-horizontal-logo.png";
 
@@ -305,7 +306,7 @@ function buildTrainingCoachingPlan(signals, profileActions) {
   if (signals.newDealer) {
     items.push({
       type: "in_person_kickoff",
-      label: "In-person kickoff training",
+      label: "Suggested in-person follow-up: New dealer kickoff",
       rationale:
         "Hydraulic Fundamentals, Grease Fundamentals, first quote, proposal send, and follow-up habits while activity is still ramping.",
     });
@@ -322,9 +323,19 @@ function buildTrainingCoachingPlan(signals, profileActions) {
   trainingKeys.forEach((key) => {
     const mod = KL_ADMIN_TRAINING_MODULES[key];
     if (!mod) return;
+    const inPersonLabel =
+      key === "grease_fundamentals"
+        ? "Grease category review"
+        : key === "hydraulic_fundamentals"
+          ? "Hydraulic category review"
+          : key === "coolant_technology"
+            ? "Coolant program review"
+            : key === "transmission_wet_brake"
+              ? "Transmission / wet brake review"
+              : mod.label;
     items.push({
       type: "category_training",
-      label: mod.label,
+      label: `Suggested in-person follow-up: ${inPersonLabel}`,
       rationale: mod.why,
     });
   });
@@ -332,16 +343,17 @@ function buildTrainingCoachingPlan(signals, profileActions) {
   if (signals.stalledQuoteActivity || (signals.proposalsSent >= 2 && signals.customerResponses === 0)) {
     items.push({
       type: "ride_along",
-      label: "Ride-along",
+      label: "Suggested in-person follow-up: Ride-along",
       rationale: "Listen for the customer decision ask while proposals are still open on the platform.",
     });
   }
 
-  items.push({
-    type: "klondike_university",
-    label: "Klondike University assignment",
-    rationale:
-      "Assign an online module for managers who want follow-up between field visits—optional, not a substitute for counter coaching.",
+  recommendKlondikeUniversityCourses(signals, { maxCourses: 4 }).forEach((course) => {
+    items.push({
+      type: "klondike_university_refresher",
+      label: `Suggested Klondike University refresher: ${course.title}`,
+      rationale: course.whyItMatters,
+    });
   });
 
   if (signals.narrowProductMix || signals.categoryExpansionOpportunity) {

@@ -4,6 +4,10 @@
  */
 
 import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "../data/salesEnablement/spotlightSuggestionRules";
+import {
+  formatKlondikeUniversityActionIssue,
+  recommendKlondikeUniversityCourses,
+} from "../data/salesEnablement/klondikeUniversityCourses";
 
 /** @typedef {"mix_expansion" | "category_gap" | "quote_followup" | "business_review" | "training" | "oem_play" | "profile_play" | "spotlight" | "setup" | "competitive"} IntelligenceTheme */
 
@@ -391,9 +395,9 @@ export function rankDealerSignalActions(signals) {
       whatChanged: `Outside-sales activity is just starting for ${name}—few quotes or proposals on file yet.`,
       why: "Early field visits shape how reps quote, send proposals, and follow up—before patterns harden.",
       recommended:
-        "Schedule in-person kickoff training: Hydraulic Fundamentals, Grease Fundamentals, first quote, proposal send, and follow-up habits.",
+        "Schedule in-person kickoff: first quote, proposal send, and follow-up habits—pair with Klondike University foundations.",
       trainingModuleKey: "hydraulic_fundamentals",
-      enablementTitle: "Hydraulic Fundamentals · Grease Fundamentals · kickoff",
+      enablementTitle: "New dealer kickoff",
       severityRank: 0,
       confidence: 93,
     }));
@@ -525,6 +529,7 @@ export function rankDealerSignalActions(signals) {
       id: `sig-no-transmission-${oid}`,
       kind: "training_recommendation",
       intelligenceTheme: "training",
+      recommendationType: "category_training_recommendation",
       signalKey: "noTransmission",
       dedupeKey: `${oid}:training:transmission`,
       issue: `${name} may need transmission / wet brake fundamentals.`,
@@ -542,12 +547,56 @@ export function rankDealerSignalActions(signals) {
 }
 
 /**
+ * Attach Klondike University course names to training-oriented Action Center rows.
+ * @param {object} row
+ * @param {ReturnType<typeof computeDealerActionCenterSignals>} signals
+ * @param {object} [kuContext]
+ */
+function enrichActionWithKlondikeUniversity(row, signals, kuContext = {}) {
+  const isTrainingRow =
+    row.kind === "training_recommendation" || row.kind === "klondike_university_assignment";
+
+  if (!isTrainingRow) return row;
+
+  const kuCourses = recommendKlondikeUniversityCourses(signals, {
+    ...kuContext,
+    signalKey: row.signalKey,
+    maxCourses: 4,
+  });
+  const primary = kuCourses[0];
+  if (!primary) return row;
+
+  const hydraulicWhy =
+    row.signalKey === "hydraulicNoGear" || row.signalKey === "hydraulicOnly"
+      ? "This dealer is quoting hydraulic products, but related categories look underdeveloped."
+      : primary.whyItMatters;
+
+  return {
+    ...row,
+    klondikeUniversityCourseId: primary.id,
+    klondikeUniversityCourseIds: kuCourses.map((c) => c.id),
+    klondikeUniversityCourseTitles: kuCourses.map((c) => c.title),
+    enablementTitle: primary.title,
+    issue: formatKlondikeUniversityActionIssue(primary),
+    why: hydraulicWhy || row.why || primary.whyItMatters,
+    recommended: primary.suggestedNextAction || row.recommended,
+    suggestedFormat: "klondike university",
+    buttonLabel: row.buttonLabel || "Prepare Training",
+    navigationIntent: row.navigationIntent || "prepare_training",
+  };
+}
+
+/**
  * @param {object} dealer
  * @param {ReturnType<typeof computeDealerActionCenterSignals>} signals
- * @param {{ trainingModules?: object, maxActions?: number }} [opts]
+ * @param {{ trainingModules?: object, maxActions?: number, klondikeUniversityContext?: object }} [opts]
  */
 export function buildActionsFromDealerSignals(dealer, signals, opts = {}) {
-  const { trainingModules = KL_ADMIN_TRAINING_MODULES, maxActions = 3 } = opts;
+  const {
+    trainingModules = KL_ADMIN_TRAINING_MODULES,
+    maxActions = 3,
+    klondikeUniversityContext = {},
+  } = opts;
   const oid = signals.dealerOrgId;
   const name = signals.dealerName;
   const ranked = rankDealerSignalActions(signals);
@@ -563,7 +612,7 @@ export function buildActionsFromDealerSignals(dealer, signals, opts = {}) {
       row.recommendationType === "spotlight_recommendation" ||
       Boolean(row.enablementTitle && spot);
     const useSpotlightCta = isSpotlightRec || Boolean(spot && /spotlight/i.test(String(row.recommended || "")));
-    return {
+    const base = {
       ...row,
       scope: name,
       summary: String(row.whatChanged || row.issue || "").trim(),
@@ -589,6 +638,9 @@ export function buildActionsFromDealerSignals(dealer, signals, opts = {}) {
         useSpotlightCta || !training ? row.recommended : training.next,
       ...(spot ? { spotlightId: spot.id, spotlightType: spot.type } : {}),
     };
+
+    if (useSpotlightCta) return base;
+    return enrichActionWithKlondikeUniversity(base, signals, klondikeUniversityContext);
   };
 
   for (const entry of ranked) {
