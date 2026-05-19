@@ -12,6 +12,8 @@ import {
   buildIntentionalProfileAndOemActions,
 } from "./klAdminActionCenterIntelligence";
 
+export const KLONDIKE_BDR_LOGO_SRC = "/klondike-horizontal-logo.png";
+
 const MIX_LABELS = {
   hd: "HD Engine Oil",
   hydraulic: "Hydraulic",
@@ -428,9 +430,133 @@ function buildNext30DayActions(signals, opportunities, warehouseNeeded) {
   return actions.slice(0, 5);
 }
 
+function formatCurrencyUsd(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return `$${Math.round(n).toLocaleString()}`;
+}
+
+function resolveDealerLogoUrl(dealer, ctx) {
+  return (
+    String(dealer?.dealerLogoUrl || "").trim() ||
+    String(ctx?.dealerLogoUrl || "").trim() ||
+    ""
+  );
+}
+
+/**
+ * @param {object} dealer
+ * @param {{ contests?: object[], contestLeaderSummaries?: Record<string, object>, dealers?: object[] }} ctx
+ * @returns {object[]|null}
+ */
+function buildContestResultsItems(dealer, ctx) {
+  const oid = String(dealer?.organization_id || "");
+  const contests = Array.isArray(ctx?.contests) ? ctx.contests : [];
+  const leaders = ctx?.contestLeaderSummaries || {};
+  const dealers = Array.isArray(ctx?.dealers) ? ctx.dealers : [];
+
+  const items = contests
+    .filter((c) => {
+      const scope = String(c?.scopeType || "territory");
+      if (scope === "dealer" && c?.scopeDealerOrgId) {
+        return String(c.scopeDealerOrgId) === oid;
+      }
+      return scope === "territory" || scope === "all_reps";
+    })
+    .map((c) => {
+      const cid = String(c?.id || "");
+      const ld = leaders[cid] || {};
+      const start = String(c?.startDate || "").slice(0, 10);
+      const end = String(c?.endDate || "").slice(0, 10);
+      const dateRange =
+        start && end ? `${start} – ${end}` : String(c?.dateRangeLabel || "").trim() || "Active window";
+
+      let standings = [];
+      const scope = String(c?.scopeType || "territory");
+      if (scope === "dealer") {
+        standings = (Array.isArray(dealer?.leaderboard) ? dealer.leaderboard : [])
+          .slice(0, 5)
+          .map((r) => {
+            const val = formatCurrencyUsd(r?.revenue);
+            return {
+              name: String(r?.name || "Rep").trim(),
+              detail: [
+                `${Number(r?.quotes || 0)} quotes`,
+                `${Number(r?.proposals || 0)} proposals`,
+                val ? `${val} accepted proposal value` : null,
+              ]
+                .filter(Boolean)
+                .join(" · "),
+            };
+          })
+          .filter((r) => r.name);
+      } else if (dealers.length) {
+        standings = [...dealers]
+          .sort((a, b) => Number(b?.revenueWon || 0) - Number(a?.revenueWon || 0))
+          .slice(0, 3)
+          .map((d) => {
+            const val = formatCurrencyUsd(d?.revenueWon);
+            return {
+              name: String(d?.name || "Dealer").trim(),
+              detail: val
+                ? `${val} projected accepted proposal value on the platform`
+                : "Quote activity on the platform",
+            };
+          });
+      }
+
+      return {
+        contestName: String(c?.title || "Territory contest").trim(),
+        dateRange,
+        progressLine: String(ld?.line || "—").trim(),
+        footnote: String(ld?.footnote || "").trim(),
+        leaderLabel: ld?.qualified ? "Leader" : "Progress",
+        standings,
+      };
+    });
+
+  return items.length ? items : null;
+}
+
+/**
+ * @param {object} dealer
+ * @returns {{ empty: boolean, rows: object[] }}
+ */
+function buildRepPlatformAdoption(dealer) {
+  const raw = Array.isArray(dealer?.leaderboard) ? dealer.leaderboard : [];
+  const rows = raw
+    .map((r) => ({
+      name: String(r?.name || "Rep").trim(),
+      quotesCreated: Number(r?.quotes || 0),
+      proposalsSent: Number(r?.proposals || 0),
+      acceptedProposalValue: Number(r?.revenue || 0),
+      customerResponses: Number(r?.responses || 0),
+      spotlightUsage: null,
+    }))
+    .filter((r) => r.name)
+    .sort(
+      (a, b) =>
+        b.quotesCreated +
+        b.proposalsSent * 2 +
+        b.acceptedProposalValue / 1000 -
+        (a.quotesCreated + a.proposalsSent * 2 + a.acceptedProposalValue / 1000)
+    )
+    .slice(0, 10);
+
+  return { empty: rows.length === 0, rows };
+}
+
 /**
  * @param {object} dealer — dealerNetworkPerformance row
- * @param {{ enablementAlerts?: object[], territoryProposalSignals?: object, territoryInventoryModel?: object }} [ctx]
+ * @param {{
+ *   enablementAlerts?: object[],
+ *   territoryProposalSignals?: object,
+ *   territoryInventoryModel?: object,
+ *   contests?: object[],
+ *   contestLeaderSummaries?: Record<string, object>,
+ *   dealers?: object[],
+ *   dealerLogoUrl?: string,
+ * }} [ctx]
  */
 export function buildDealerBusinessReviewPlan(dealer, ctx = {}) {
   const name = String(dealer?.name || "Dealer").trim();
@@ -478,24 +604,15 @@ export function buildDealerBusinessReviewPlan(dealer, ctx = {}) {
     warehouseNeeded
   );
 
+  const acceptedProposalValue = Number(dealer?.revenueWon || 0);
+  const acceptedProposalCount = Number(dealer?.approvedLineCount || 0);
+  const acceptedValueLabel = formatCurrencyUsd(acceptedProposalValue);
+  const contestItems = buildContestResultsItems(dealer, ctx);
+  const repAdoption = buildRepPlatformAdoption(dealer);
+  const dealerLogoUrl = resolveDealerLogoUrl(dealer, ctx);
+
   const preparedAt = new Date();
-  return {
-    version: 1,
-    generatedAt: preparedAt.toISOString(),
-    preparedDateLabel: preparedAt.toLocaleDateString(undefined, {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }),
-    preparedSubtitle: "Prepared from platform activity and projected opportunities",
-    footerDisclaimer:
-      "Projected opportunity only. Not dealer counter sales, ERP data, closed revenue, or dealership inventory.",
-    dealerOrgId: oid,
-    dealerName: name,
-    platformBoundaryNote:
-      "Built from outside-sales quote, proposal, category mix, and enablement usage only—not dealer counter sales, ERP data, closed revenue, or dealership inventory levels.",
-    sections: {
+  const sections = {
       dealerSnapshot: {
         dealerName: name,
         recentActivity: `${q} quotes · ${p} proposals · ${r} customer reply signal(s) on the platform`,
@@ -504,6 +621,15 @@ export function buildDealerBusinessReviewPlan(dealer, ctx = {}) {
           count: c.count,
         })),
         proposalActivitySummary: proposalSummary,
+        acceptedProposalCount,
+        acceptedProposalValue,
+        acceptedProposalValueLabel: acceptedValueLabel
+          ? `${acceptedValueLabel} projected accepted proposal value`
+          : "No accepted proposal value on the platform yet",
+        acceptedProposalCountLabel:
+          acceptedProposalCount > 0
+            ? `${acceptedProposalCount} accepted proposal line(s) on the platform`
+            : "No accepted proposal lines on the platform yet",
       },
       interpretation: {
         title: "What We Think Is Happening",
@@ -533,7 +659,45 @@ export function buildDealerBusinessReviewPlan(dealer, ctx = {}) {
         title: "Next 30-Day Action Plan",
         actions: next30DayActions,
       },
+    };
+
+  if (contestItems) {
+    sections.contestResults = {
+      title: "Contest Results",
+      items: contestItems,
+    };
+  }
+
+  sections.repPlatformAdoption = {
+    title: "Rep Platform Adoption",
+    empty: repAdoption.empty,
+    rows: repAdoption.rows,
+  };
+
+  return {
+    version: 1,
+    generatedAt: preparedAt.toISOString(),
+    preparedDateLabel: preparedAt.toLocaleDateString(undefined, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    }),
+    preparedSubtitle: "Prepared from platform activity and projected opportunities",
+    footerDisclaimer:
+      "Projected opportunity only. Not dealer counter sales, ERP data, closed revenue, or dealership inventory.",
+    dealerOrgId: oid,
+    dealerName: name,
+    acceptedProposalValue,
+    acceptedProposalCount,
+    branding: {
+      klondikeLogoSrc: KLONDIKE_BDR_LOGO_SRC,
+      dealerLogoUrl,
+      dealerName: name,
     },
+    platformBoundaryNote:
+      "Built from outside-sales quote, proposal, category mix, and enablement usage only—not dealer counter sales, ERP data, closed revenue, or dealership inventory levels.",
+    sections,
   };
 }
 
@@ -559,7 +723,32 @@ export function formatBusinessReviewPlanPlainText(plan) {
     "—— Dealer Snapshot ——",
     `Recent activity: ${s.dealerSnapshot?.recentActivity || "—"}`,
     `Proposals: ${s.dealerSnapshot?.proposalActivitySummary || "—"}`,
+    `Accepted proposal value: ${s.dealerSnapshot?.acceptedProposalValueLabel || "—"}`,
+    `Accepted proposal count: ${s.dealerSnapshot?.acceptedProposalCountLabel || "—"}`,
   ];
+  if (s.contestResults?.items?.length) {
+    lines.push("", `—— ${s.contestResults.title} ——`);
+    s.contestResults.items.forEach((c) => {
+      lines.push(`  ${c.contestName} (${c.dateRange})`);
+      lines.push(`    ${c.progressLine}`);
+      if (c.footnote) lines.push(`    ${c.footnote}`);
+      (c.standings || []).forEach((st) => lines.push(`    · ${st.name}: ${st.detail}`));
+    });
+  }
+  if (s.repPlatformAdoption) {
+    lines.push("", `—— ${s.repPlatformAdoption.title} ——`);
+    if (s.repPlatformAdoption.empty) {
+      lines.push("  No rep activity yet on the platform.");
+    } else {
+      (s.repPlatformAdoption.rows || []).forEach((r) => {
+        const val = Number(r.acceptedProposalValue || 0);
+        const valTxt = val > 0 ? ` · $${Math.round(val).toLocaleString()} accepted proposal value` : "";
+        lines.push(
+          `  · ${r.name}: ${r.quotesCreated} quotes · ${r.proposalsSent} proposals${valTxt}`
+        );
+      });
+    }
+  }
   const cats = s.dealerSnapshot?.topQuotedCategories || [];
   if (cats.length) {
     lines.push("Top quoted categories:");

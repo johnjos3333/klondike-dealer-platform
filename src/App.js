@@ -33,6 +33,7 @@ import {
   buildDealerBusinessReviewPlan,
   formatBusinessReviewPlanPlainText,
   isBusinessReviewActionCenterItem,
+  KLONDIKE_BDR_LOGO_SRC,
 } from "./utils/buildDealerBusinessReviewPlan";
 import { computeTerritoryProposalSignals } from "./utils/territoryProposalSignals";
 import { buildSalesEnablementSpotlightEmailPayload } from "./utils/buildSalesEnablementSpotlightEmailPayload";
@@ -497,11 +498,62 @@ function humanizeKlAdminActionCenterItem(ac) {
   return next;
 }
 
+function BdrDealerLogoMark({ logoUrl, dealerName }) {
+  const [broken, setBroken] = useState(false);
+  const src = String(logoUrl || "").trim();
+  const boxStyle = {
+    minWidth: 120,
+    maxWidth: 160,
+    minHeight: 48,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+  if (src && !broken) {
+    return (
+      <img
+        src={src}
+        alt={`${String(dealerName || "Dealer").trim()} logo`}
+        className="kl-bdr-dealer-logo"
+        onError={() => setBroken(true)}
+        style={{
+          maxHeight: 48,
+          maxWidth: 160,
+          width: "auto",
+          height: "auto",
+          objectFit: "contain",
+          display: "block",
+        }}
+      />
+    );
+  }
+  return (
+    <div
+      className="kl-bdr-dealer-logo-placeholder"
+      style={{
+        ...boxStyle,
+        padding: "10px 14px",
+        borderRadius: 10,
+        border: "1px dashed rgba(148, 163, 184, 0.75)",
+        background: "#f8fafc",
+        fontSize: 11,
+        fontWeight: 800,
+        color: "#64748b",
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+      }}
+    >
+      Dealer Logo
+    </div>
+  );
+}
+
 function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
   const [copyStatus, setCopyStatus] = useState("");
   const plan = preview?.plan;
   const isEmpty = Boolean(preview?.empty) || !plan?.sections;
   const s = plan?.sections;
+  const branding = plan?.branding || {};
   const bdrBtnBase = {
     cursor: "pointer",
     borderRadius: 10,
@@ -569,6 +621,13 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
       onClick={onClose}
     >
       <style>{`
+        .kl-bdr-kl-logo {
+          max-height: 44px;
+          width: auto;
+          max-width: 200px;
+          object-fit: contain;
+          display: block;
+        }
         @media print {
           body * { visibility: hidden !important; }
           #kl-bdr-print-root, #kl-bdr-print-root * { visibility: visible !important; }
@@ -579,10 +638,21 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
             width: 100% !important;
             margin: 0 !important;
             max-height: none !important;
+            overflow: visible !important;
             box-shadow: none !important;
             border: none !important;
           }
           .kl-bdr-no-print { display: none !important; }
+          .kl-bdr-brand-header {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .kl-bdr-kl-logo,
+          .kl-bdr-dealer-logo {
+            max-height: 52px !important;
+            max-width: 220px !important;
+            object-fit: contain !important;
+          }
         }
       `}</style>
       <div
@@ -600,51 +670,80 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
         }}
       >
         <div
+          className="kl-bdr-brand-header"
           style={{
-            padding: "22px 24px 20px",
-            background: "linear-gradient(165deg, #0f172a 0%, #1e3a8a 52%, #0f172a 100%)",
+            padding: "20px 24px 18px",
+            background: "#ffffff",
             borderRadius: "18px 18px 0 0",
-            borderBottom: "3px solid #ea580c",
+            borderBottom: "4px solid #ea580c",
           }}
         >
           <div
             style={{
-              fontSize: 10,
-              fontWeight: 900,
-              letterSpacing: "0.16em",
-              color: "#fb923c",
-              textTransform: "uppercase",
+              display: "grid",
+              gridTemplateColumns: "minmax(120px, 1fr) minmax(200px, 2fr) minmax(120px, 1fr)",
+              gap: 16,
+              alignItems: "center",
             }}
           >
-            KLONDIKE
+            <div style={{ display: "flex", justifyContent: "flex-start" }}>
+              <img
+                src={branding.klondikeLogoSrc || KLONDIKE_BDR_LOGO_SRC}
+                alt="Klondike Lubricants"
+                className="kl-bdr-kl-logo"
+              />
+            </div>
+            <div style={{ textAlign: "center", minWidth: 0 }}>
+              <h2
+                id="kl-bdr-plan-title"
+                style={{
+                  margin: 0,
+                  fontSize: 18,
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  color: "#0f172a",
+                  lineHeight: 1.25,
+                  textTransform: "uppercase",
+                }}
+              >
+                KLONDIKE Dealer Business Review
+              </h2>
+              {!isEmpty ? (
+                <>
+                  <p
+                    style={{
+                      margin: "10px 0 0",
+                      fontSize: 20,
+                      fontWeight: 900,
+                      color: "#1e3a8a",
+                      lineHeight: 1.2,
+                    }}
+                  >
+                    {plan.dealerName}
+                  </p>
+                  <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 700, color: "#475569" }}>
+                    {plan.preparedDateLabel}
+                  </p>
+                </>
+              ) : null}
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: 11,
+                  color: "#64748b",
+                  lineHeight: 1.45,
+                }}
+              >
+                {plan?.preparedSubtitle || "Prepared from platform activity and projected opportunities"}
+              </p>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <BdrDealerLogoMark
+                logoUrl={branding.dealerLogoUrl}
+                dealerName={plan?.dealerName || branding.dealerName}
+              />
+            </div>
           </div>
-          <h2
-            id="kl-bdr-plan-title"
-            style={{
-              margin: "6px 0 0",
-              fontSize: 22,
-              fontWeight: 900,
-              letterSpacing: "0.06em",
-              color: "#f8fafc",
-              lineHeight: 1.2,
-              textTransform: "uppercase",
-            }}
-          >
-            Dealer Business Review
-          </h2>
-          {!isEmpty ? (
-            <>
-              <p style={{ margin: "12px 0 0", fontSize: 26, fontWeight: 900, color: "#ffffff", lineHeight: 1.15 }}>
-                {plan.dealerName}
-              </p>
-              <p style={{ margin: "8px 0 0", fontSize: 13, fontWeight: 700, color: "#cbd5e1" }}>
-                {plan.preparedDateLabel}
-              </p>
-              <p style={{ margin: "6px 0 0", fontSize: 12, color: "#94a3b8", lineHeight: 1.45, maxWidth: 560 }}>
-                {plan.preparedSubtitle}
-              </p>
-            </>
-          ) : null}
         </div>
 
         <div style={{ padding: "8px 22px 22px" }}>
@@ -677,6 +776,12 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
             <p style={{ margin: "8px 0 0", fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
               <strong>Proposal activity:</strong> {s.dealerSnapshot.proposalActivitySummary}
             </p>
+            <p style={{ margin: "8px 0 0", fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+              <strong>Accepted proposal value:</strong> {s.dealerSnapshot.acceptedProposalValueLabel}
+            </p>
+            <p style={{ margin: "6px 0 0", fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+              <strong>Accepted proposal count:</strong> {s.dealerSnapshot.acceptedProposalCountLabel}
+            </p>
             {s.dealerSnapshot.topQuotedCategories?.length ? (
               <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
                 {s.dealerSnapshot.topQuotedCategories.map((c) => (
@@ -693,6 +798,97 @@ function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
             )}
           </>
         )}
+
+              {s.contestResults?.items?.length ? (
+                sectionCard(
+                  s.contestResults.title,
+                  <div style={{ display: "grid", gap: 14 }}>
+                    {s.contestResults.items.map((c) => (
+                      <div
+                        key={c.contestName}
+                        style={{
+                          padding: "12px 14px",
+                          borderRadius: 12,
+                          background: "#f8fafc",
+                          border: "1px solid rgba(226, 232, 240, 0.95)",
+                          borderLeft: "3px solid #ea580c",
+                        }}
+                      >
+                        <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a" }}>{c.contestName}</div>
+                        <p style={{ margin: "4px 0 0", fontSize: 11, color: "#64748b" }}>{c.dateRange}</p>
+                        <p style={{ margin: "8px 0 0", fontSize: 12, color: "#334155" }}>
+                          <strong>{c.leaderLabel}:</strong> {c.progressLine}
+                        </p>
+                        {c.footnote ? (
+                          <p style={{ margin: "4px 0 0", fontSize: 11, color: "#64748b" }}>{c.footnote}</p>
+                        ) : null}
+                        {c.standings?.length ? (
+                          <ul
+                            style={{
+                              margin: "10px 0 0",
+                              paddingLeft: 18,
+                              fontSize: 12,
+                              color: "#475569",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {c.standings.map((st) => (
+                              <li key={`${c.contestName}-${st.name}`}>
+                                <strong>{st.name}</strong> — {st.detail}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : null}
+
+              {s.repPlatformAdoption ? (
+                sectionCard(
+                  s.repPlatformAdoption.title,
+                  s.repPlatformAdoption.empty ? (
+                    <p style={{ margin: 0, fontSize: 13, color: "#64748b", lineHeight: 1.5 }}>
+                      No rep activity yet on the platform for this dealer.
+                    </p>
+                  ) : (
+                    <div style={{ overflowX: "auto" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: 12,
+                          color: "#334155",
+                        }}
+                      >
+                        <thead>
+                          <tr style={{ background: "#f1f5f9", textAlign: "left" }}>
+                            <th style={{ padding: "8px 10px", fontWeight: 900 }}>Rep</th>
+                            <th style={{ padding: "8px 10px", fontWeight: 900 }}>Quotes</th>
+                            <th style={{ padding: "8px 10px", fontWeight: 900 }}>Proposals</th>
+                            <th style={{ padding: "8px 10px", fontWeight: 900 }}>Accepted proposal value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {s.repPlatformAdoption.rows.map((row) => (
+                            <tr key={row.name} style={{ borderTop: "1px solid #e2e8f0" }}>
+                              <td style={{ padding: "8px 10px", fontWeight: 700 }}>{row.name}</td>
+                              <td style={{ padding: "8px 10px" }}>{row.quotesCreated}</td>
+                              <td style={{ padding: "8px 10px" }}>{row.proposalsSent}</td>
+                              <td style={{ padding: "8px 10px" }}>
+                                {Number(row.acceptedProposalValue || 0) > 0
+                                  ? `$${Math.round(row.acceptedProposalValue).toLocaleString()}`
+                                  : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                )
+              ) : null}
 
         {sectionCard(
           s.interpretation.title,
@@ -6762,6 +6958,10 @@ useEffect(() => {
         organization_id: org.id,
         name: org.name,
         slug: org.slug,
+        dealerLogoUrl:
+          String(profileRow?.logo_url || "").trim() ||
+          String(profileRow?.dealer_logo_url || "").trim() ||
+          "",
         quotesCreated: orgQuotes.length,
         approvedLineCount: approvedItems.length,
         proposalsSent: orgQuotes.filter(
@@ -8971,19 +9171,64 @@ const handleFinishDealerEnrollment = async () => {
   const openKlAdminBusinessReviewPreview = useCallback(
     (opts = {}) => {
       const oid = String(opts.dealerOrgId || salesEnablementDealerOrgId || "").trim();
-      const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+      const seDealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
+      const klDealers = Array.isArray(klAdminDashboardDealersForView)
+        ? klAdminDashboardDealersForView
+        : [];
+      const fromKlDashboard = Boolean(opts.signalContext);
+      const dealers = fromKlDashboard ? klDealers : seDealers;
       const dealer =
         opts.dealerRow ||
         dealers.find((d) => String(d?.organization_id || "") === oid) ||
+        seDealers.find((d) => String(d?.organization_id || "") === oid) ||
         null;
       if (!dealer || !oid) {
         setKlAdminBusinessReviewPreview({ empty: true });
         return;
       }
-      const signalContext = opts.signalContext || {
+      const baseCtx = opts.signalContext || {
         enablementAlerts: klondikeDashboardEnablementAlerts,
         territoryProposalSignals: klondikeTerritoryProposalSignals,
         territoryInventoryModel: klondikeTerritoryInventoryModel,
+      };
+      const contests = fromKlDashboard
+        ? Array.isArray(liveActiveTerritoryContestsKlDashboard)
+          ? liveActiveTerritoryContestsKlDashboard
+          : []
+        : Array.isArray(liveActiveTerritoryContests)
+          ? liveActiveTerritoryContests
+          : [];
+      const leaderCtx = fromKlDashboard
+        ? klAdminDashboardDemoFallbackActive && liveActiveTerritoryContests.length === 0
+          ? {
+              dealers: klDealers,
+              inventoryModel: klAdminDashboardInventoryView,
+              territoryProposalTotal:
+                adminTerritoryPerformanceRollupKlDashboard?.totalProposalsSent,
+              repLeaderboardFoundation: adminRepLeaderboardFoundationKlDashboard,
+            }
+          : {
+              dealers: klDealers.length ? klDealers : dealers,
+              inventoryModel:
+                baseCtx.territoryInventoryModel ?? klAdminDashboardInventoryView,
+              territoryProposalTotal:
+                adminTerritoryPerformanceRollupKlDashboard?.totalProposalsSent,
+            }
+        : {
+            dealers: seDealers,
+            inventoryModel: baseCtx.territoryInventoryModel ?? klondikeTerritoryInventoryModel,
+          };
+      const contestLeaderSummaries = {};
+      contests.forEach((c) => {
+        const cid = String(c?.id || "").trim();
+        if (!cid) return;
+        contestLeaderSummaries[cid] = resolveTerritoryContestLeaderDisplay(c, leaderCtx);
+      });
+      const signalContext = {
+        ...baseCtx,
+        contests,
+        dealers: dealers.length ? dealers : seDealers,
+        contestLeaderSummaries,
       };
       const plan = buildDealerBusinessReviewPlan(dealer, signalContext);
       setKlAdminBusinessReviewPreview({
@@ -8995,9 +9240,17 @@ const handleFinishDealerEnrollment = async () => {
     [
       salesEnablementDealerOrgId,
       dealerNetworkPerformance,
+      klAdminDashboardDealersForView,
       klondikeDashboardEnablementAlerts,
       klondikeTerritoryProposalSignals,
       klondikeTerritoryInventoryModel,
+      liveActiveTerritoryContests,
+      liveActiveTerritoryContestsKlDashboard,
+      klAdminDashboardDemoFallbackActive,
+      klAdminDashboardInventoryView,
+      adminTerritoryPerformanceRollupKlDashboard?.totalProposalsSent,
+      adminRepLeaderboardFoundationKlDashboard,
+      resolveTerritoryContestLeaderDisplay,
     ]
   );
 
