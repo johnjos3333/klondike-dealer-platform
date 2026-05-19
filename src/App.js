@@ -549,7 +549,52 @@ function BdrDealerLogoMark({ logoUrl, dealerName }) {
   );
 }
 
-function KlAdminTerritoryIntelligencePanel({ intel, onFocusDealer, onPrepareBusinessReview }) {
+function tiCtaLabel(ctaType) {
+  if (ctaType === "sales_enablement") return "Open Sales Enablement";
+  if (ctaType === "prepare_training") return "Prepare Training";
+  if (ctaType === "business_review") return "Prepare Business Review";
+  if (ctaType === "dealer_mix") return "Review Dealer Mix";
+  return "View dealer";
+}
+
+function tiMomentumBadgeStyle(label) {
+  if (label === "Needs Follow-Up" || label === "New Dealer Ramp-Up") {
+    return { bg: "#fff7ed", color: "#c2410c", border: "rgba(251, 146, 60, 0.45)" };
+  }
+  if (label === "Narrow Product Mix") {
+    return { bg: "#fef2f2", color: "#b91c1c", border: "rgba(248, 113, 113, 0.45)" };
+  }
+  if (label === "Growing" || label === "Expanding Categories") {
+    return { bg: "#ecfdf5", color: "#047857", border: "rgba(52, 211, 153, 0.45)" };
+  }
+  return { bg: "#eff6ff", color: "#1d4ed8", border: "rgba(59, 130, 246, 0.35)" };
+}
+
+function KlAdminTerritoryIntelligencePanel({
+  intel,
+  onFocusDealer,
+  onPrepareBusinessReview,
+  onOpenSalesEnablement,
+  onPrepareTraining,
+}) {
+  const runCta = (ctaType, dealerOrgId, spotlightCategoryId) => {
+    const oid = String(dealerOrgId || "").trim();
+    if (!oid) return;
+    if (ctaType === "business_review" && onPrepareBusinessReview) {
+      onPrepareBusinessReview(oid);
+      return;
+    }
+    if (ctaType === "sales_enablement" && onOpenSalesEnablement) {
+      onOpenSalesEnablement(oid, spotlightCategoryId || null);
+      return;
+    }
+    if (ctaType === "prepare_training" && onPrepareTraining) {
+      onPrepareTraining(oid);
+      return;
+    }
+    if (onFocusDealer) onFocusDealer(oid);
+  };
+
   if (!intel?.dealerCount) {
     return (
       <div
@@ -559,17 +604,9 @@ function KlAdminTerritoryIntelligencePanel({ intel, onFocusDealer, onPrepareBusi
           padding: "20px 22px",
           background: "#ffffff",
           border: "1px solid rgba(226, 232, 240, 0.95)",
-          boxShadow: "0 10px 28px rgba(15, 23, 42, 0.06)",
         }}
       >
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 900,
-            letterSpacing: "0.12em",
-            color: "#64748b",
-          }}
-        >
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: "#64748b" }}>
           TERRITORY INTELLIGENCE
         </div>
         <p style={{ margin: "10px 0 0", fontSize: 14, color: "#64748b", lineHeight: 1.5 }}>
@@ -579,355 +616,449 @@ function KlAdminTerritoryIntelligencePanel({ intel, onFocusDealer, onPrepareBusi
     );
   }
 
-  const cardShell = {
-    borderRadius: 12,
-    padding: "14px 16px",
-    background: "#ffffff",
-    border: "1px solid rgba(251, 146, 60, 0.28)",
-    borderLeft: "3px solid rgba(234, 88, 12, 0.88)",
-    boxShadow: "0 6px 20px rgba(15, 23, 42, 0.06)",
-    minWidth: 0,
+  const focus = intel.territoryFocus || {};
+  const tiBtn = {
+    cursor: "pointer",
+    borderRadius: 9,
+    padding: "7px 12px",
+    fontSize: 11,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
   };
-
-  const sectionTitle = {
+  const tiSectionHead = {
     fontSize: 11,
     fontWeight: 900,
     letterSpacing: "0.12em",
     color: "#64748b",
-    marginBottom: 6,
+    marginBottom: 4,
+  };
+  const tiCard = {
+    borderRadius: 14,
+    padding: "16px 18px",
+    background: "#ffffff",
+    border: "1px solid rgba(226, 232, 240, 0.95)",
+    boxShadow: "0 8px 22px rgba(15, 23, 42, 0.05)",
+    minWidth: 0,
   };
 
-  const heatmapSections = Object.values(intel.categoryHeatmap || {});
+  const renderCta = (ctaType, dealerOrgId, spotlightCategoryId, variant = "primary") => (
+    <button
+      type="button"
+      onClick={() => runCta(ctaType, dealerOrgId, spotlightCategoryId)}
+      style={{
+        ...tiBtn,
+        border:
+          variant === "primary"
+            ? "1px solid #9a3412"
+            : "1px solid rgba(30, 58, 138, 0.35)",
+        background:
+          variant === "primary"
+            ? "linear-gradient(135deg, #1e3a8a 0%, #ea580c 100%)"
+            : "#ffffff",
+        color: variant === "primary" ? "#fff" : "#1e3a8a",
+      }}
+    >
+      {tiCtaLabel(ctaType)}
+    </button>
+  );
+
+  const focusTiles = [
+    { label: "Focus this week", value: focus.focusThisWeek },
+    { label: "Biggest category opportunity", value: focus.biggestCategoryOpportunity },
+    { label: "Dealers needing review", value: focus.dealersNeedingReview },
+    { label: "Recommended first move", value: focus.recommendedFirstMove },
+  ];
 
   return (
-    <div style={{ marginBottom: 22, display: "grid", gap: 18 }}>
+    <div style={{ marginBottom: 24, display: "grid", gap: 20 }}>
       <div
         style={{
-          borderRadius: 18,
-          padding: "22px 22px 20px",
-          background: "linear-gradient(165deg, #f8fafc 0%, #ffffff 48%, #fff7ed 100%)",
-          border: "1px solid rgba(30, 58, 138, 0.14)",
-          boxShadow: "0 12px 32px rgba(15, 23, 42, 0.07)",
+          borderRadius: 20,
+          overflow: "hidden",
+          border: "1px solid rgba(30, 58, 138, 0.22)",
+          boxShadow: "0 20px 48px rgba(15, 23, 42, 0.12)",
         }}
       >
-        <div style={sectionTitle}>KLONDIKE · TERRITORY INTELLIGENCE</div>
-        <h3
-          style={{
-            margin: "6px 0 0",
-            fontSize: 22,
-            fontWeight: 900,
-            color: "#0f172a",
-            letterSpacing: "-0.02em",
-            lineHeight: 1.2,
-          }}
-        >
-          Territory Opportunity Snapshot
-        </h3>
-        <p style={{ margin: "8px 0 0", fontSize: 13, color: "#64748b", lineHeight: 1.5, maxWidth: 760 }}>
-          Outside-sales coaching from quotes, proposals, category mix, and enablement usage—not dealer ERP or
-          counter analytics.
-        </p>
         <div
           style={{
-            marginTop: 14,
-            display: "grid",
-            gap: 10,
-            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 120px), 1fr))",
+            padding: "22px 24px 20px",
+            background: "linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #1e40af 100%)",
           }}
         >
-          {[
-            { label: "Growing", n: intel.healthSummary?.Growing || 0, color: "#059669" },
-            { label: "Stable", n: intel.healthSummary?.Stable || 0, color: "#2563eb" },
-            { label: "Needs attention", n: intel.healthSummary?.["Needs Attention"] || 0, color: "#dc2626" },
-            { label: "New / developing", n: intel.healthSummary?.["New / Developing"] || 0, color: "#7c3aed" },
-          ].map((t) => (
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 900,
+              letterSpacing: "0.14em",
+              color: "rgba(248, 250, 252, 0.72)",
+            }}
+          >
+            KLONDIKE · TERRITORY COMMAND
+          </div>
+          <h3
+            style={{
+              margin: "8px 0 0",
+              fontSize: 24,
+              fontWeight: 900,
+              color: "#f8fafc",
+              letterSpacing: "-0.02em",
+              lineHeight: 1.15,
+            }}
+          >
+            Territory Focus
+          </h3>
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: "#cbd5e1", lineHeight: 1.45, maxWidth: 640 }}>
+            What should you focus on first? Outside-sales signals only—quotes, proposals, and category mix.
+          </p>
+        </div>
+        <div
+          style={{
+            padding: "18px 20px 20px",
+            background: "linear-gradient(180deg, #fff7ed 0%, #ffffff 100%)",
+            display: "grid",
+            gap: 12,
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))",
+          }}
+        >
+          {focusTiles.map((tile) => (
             <div
-              key={t.label}
+              key={tile.label}
               style={{
-                ...cardShell,
-                borderLeftColor: t.color,
-                padding: "10px 12px",
+                padding: "12px 14px",
+                borderRadius: 12,
+                background: "#ffffff",
+                border: "1px solid rgba(251, 146, 60, 0.28)",
+                borderLeft: "3px solid #ea580c",
               }}
             >
-              <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: "#64748b" }}>
-                {t.label.toUpperCase()}
+              <div
+                style={{
+                  fontSize: 9,
+                  fontWeight: 900,
+                  letterSpacing: "0.1em",
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                }}
+              >
+                {tile.label}
               </div>
-              <div style={{ marginTop: 4, fontSize: 22, fontWeight: 900, color: "#0f172a" }}>{t.n}</div>
+              <p style={{ margin: "6px 0 0", fontSize: 13, fontWeight: 700, color: "#0f172a", lineHeight: 1.45 }}>
+                {tile.value || "—"}
+              </p>
             </div>
           ))}
         </div>
-        {(intel.opportunitySnapshot?.summaryBullets || []).length ? (
-          <ul
-            style={{
-              margin: "14px 0 0",
-              paddingLeft: 18,
-              fontSize: 13,
-              color: "#334155",
-              lineHeight: 1.55,
-            }}
-          >
-            {intel.opportunitySnapshot.summaryBullets.map((b) => (
-              <li key={b}>{b}</li>
-            ))}
-          </ul>
-        ) : null}
-        {(intel.opportunitySnapshot?.strongestGrowthOpportunities || []).length ? (
-          <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 900, color: "#1e3a8a", marginBottom: 8 }}>
-              Strongest growth opportunities
-            </div>
-            <div style={{ display: "grid", gap: 8 }}>
-              {intel.opportunitySnapshot.strongestGrowthOpportunities.map((row) => (
-                <div key={row.dealerOrgId} style={{ ...cardShell, padding: "10px 14px" }}>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a" }}>{row.dealerName}</div>
-                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
-                    {row.momentum} · {(row.gaps || []).join(", ") || "category coaching"}
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gap: 16,
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))",
+        }}
+      >
+        <div style={tiCard}>
+          <div style={tiSectionHead}>TOP 3 · DEALER OPPORTUNITIES</div>
+          <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+            {(intel.topDealerOpportunities || []).length ? (
+              intel.topDealerOpportunities.map((row, idx) => (
+                <div
+                  key={row.dealerOrgId}
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 11,
+                    background: idx === 0 ? "rgba(255, 247, 237, 0.65)" : "#f8fafc",
+                    border: "1px solid rgba(226, 232, 240, 0.9)",
+                    borderLeft: idx === 0 ? "3px solid #ea580c" : "3px solid #1e3a8a",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: "#0f172a" }}>{row.dealerName}</div>
+                    <span
+                      style={{
+                        fontSize: 9,
+                        fontWeight: 900,
+                        padding: "3px 8px",
+                        borderRadius: 999,
+                        background: "#f1f5f9",
+                        color: "#475569",
+                      }}
+                    >
+                      #{idx + 1}
+                    </span>
+                  </div>
+                  <p style={{ margin: "6px 0 0", fontSize: 12, fontWeight: 700, color: "#1e3a8a", lineHeight: 1.4 }}>
+                    {row.headline}
                   </p>
+                  <p style={{ margin: "4px 0 0", fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>{row.why}</p>
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "#334155", lineHeight: 1.45 }}>
+                    <strong>Next:</strong> {row.nextAction}
+                  </p>
+                  <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {renderCta("dealer_mix", row.dealerOrgId, null, "ghost")}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p style={{ margin: 0, fontSize: 13, color: "#94a3b8" }}>No dealer opportunities ranked yet.</p>
+            )}
+          </div>
+        </div>
+
+        <div style={tiCard}>
+          <div style={tiSectionHead}>TOP 3 · CATEGORY OPPORTUNITIES</div>
+          <div style={{ display: "grid", gap: 10, marginTop: 10 }}>
+            {(intel.topCategoryOpportunities || []).map((lane, idx) => (
+              <div
+                key={lane.key}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 11,
+                  background: "#f8fafc",
+                  border: "1px solid rgba(226, 232, 240, 0.9)",
+                  borderLeft: idx === 0 ? "3px solid #ea580c" : "3px solid #94a3b8",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                  <span style={{ fontSize: 15, fontWeight: 900, color: "#0f172a" }}>{lane.categoryName}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#ea580c" }}>
+                    {lane.dealerCount} dealer{lane.dealerCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.45 }}>{lane.whySummary}</p>
+                <p style={{ margin: "6px 0 0", fontSize: 12, color: "#334155", lineHeight: 1.45 }}>
+                  <strong>Next:</strong> {lane.nextStep}
+                </p>
+                {lane.sampleDealerOrgId ? (
+                  <div style={{ marginTop: 10 }}>{renderCta(lane.ctaType, lane.sampleDealerOrgId, lane.spotlightCategoryId)}</div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={tiCard}>
+          <div style={tiSectionHead}>TOP 3 · COACHING PRIORITIES</div>
+          <p style={{ margin: "4px 0 10px", fontSize: 12, color: "#64748b" }}>BDM checklist — work top-down.</p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {(intel.topCoachingPriorities || []).map((item, idx) => (
+              <div
+                key={item.id}
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: idx === 0 ? "rgba(239, 246, 255, 0.9)" : "#f8fafc",
+                  border: "1px solid rgba(226, 232, 240, 0.9)",
+                }}
+              >
+                <div style={{ minWidth: 0, flex: "1 1 160px" }}>
+                  <span
+                    style={{
+                      fontSize: 9,
+                      fontWeight: 900,
+                      letterSpacing: "0.08em",
+                      color: "#1e3a8a",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {item.checklistLabel}
+                  </span>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a", marginTop: 2 }}>
+                    {item.dealerName}
+                  </div>
+                  <p style={{ margin: "2px 0 0", fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>{item.detail}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => runCta(item.ctaType, item.dealerOrgId, null)}
+                  style={{
+                    ...tiBtn,
+                    border: "1px solid #1e3a8a",
+                    background: "#fff",
+                    color: "#1e3a8a",
+                  }}
+                >
+                  {item.actionLabel}
+                </button>
+              </div>
+            ))}
+          </div>
+          {(intel.moreCoachingPriorities || []).length ? (
+            <details style={{ marginTop: 12 }}>
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  color: "#64748b",
+                }}
+              >
+                +{intel.moreCoachingPriorities.length} more priorities
+              </summary>
+              <ul style={{ margin: "8px 0 0", paddingLeft: 16, fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
+                {intel.moreCoachingPriorities.map((item) => (
+                  <li key={item.id}>
+                    <strong>{item.checklistLabel}</strong> · {item.dealerName}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </div>
+      </div>
+
+      <div style={{ ...tiCard, padding: "18px 20px" }}>
+        <div style={tiSectionHead}>DEALER MOMENTUM</div>
+        <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+          {(intel.dealerMomentum || []).slice(0, 3).map((row) => {
+            const badge = tiMomentumBadgeStyle(row.label);
+            return (
+              <div
+                key={row.dealerOrgId}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: 11,
+                  background: "#f8fafc",
+                  border: "1px solid rgba(226, 232, 240, 0.9)",
+                }}
+              >
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 15, fontWeight: 900, color: "#0f172a" }}>{row.dealerName}</span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 900,
+                      padding: "4px 9px",
+                      borderRadius: 999,
+                      background: badge.bg,
+                      color: badge.color,
+                      border: `1px solid ${badge.border}`,
+                    }}
+                  >
+                    {row.label}
+                  </span>
+                </div>
+                <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
+                  <strong>Why:</strong> {row.why}
+                </p>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#334155", lineHeight: 1.45 }}>
+                  <strong>Next:</strong> {row.nextAction}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        {(intel.dealerMomentum || []).length > 3 ? (
+          <details style={{ marginTop: 10 }}>
+            <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 800, color: "#64748b" }}>
+              All dealer momentum ({intel.dealerMomentum.length})
+            </summary>
+            <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+              {intel.dealerMomentum.slice(3).map((row) => (
+                <div key={row.dealerOrgId} style={{ fontSize: 12, color: "#475569" }}>
+                  <strong>{row.dealerName}</strong> — {row.label}
                 </div>
               ))}
             </div>
-          </div>
+          </details>
         ) : null}
       </div>
 
-      <div
-        style={{
-          borderRadius: 16,
-          padding: "18px 20px",
-          background: "#ffffff",
-          border: "1px solid rgba(226, 232, 240, 0.95)",
-          boxShadow: "0 8px 24px rgba(15, 23, 42, 0.05)",
-        }}
-      >
-        <div style={sectionTitle}>DEALER MOMENTUM</div>
-        <p style={{ margin: "0 0 12px", fontSize: 13, color: "#64748b", lineHeight: 1.45 }}>
-          Quote activity, category mix breadth, and follow-up signals—field-ready labels only.
-        </p>
-        <div style={{ display: "grid", gap: 8 }}>
-          {(intel.dealerMomentum || []).slice(0, 8).map((row) => (
-            <div
-              key={row.dealerOrgId}
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 10,
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                padding: "10px 12px",
-                borderRadius: 10,
-                background: "#f8fafc",
-                border: "1px solid rgba(226, 232, 240, 0.9)",
-              }}
-            >
-              <div style={{ minWidth: 0, flex: "1 1 200px" }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a" }}>{row.dealerName}</div>
-                <div style={{ marginTop: 4, fontSize: 12, color: "#475569", lineHeight: 1.45 }}>{row.detail}</div>
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 900,
-                    padding: "4px 9px",
-                    borderRadius: 999,
-                    background: "#eff6ff",
-                    color: "#1d4ed8",
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {row.label}
-                </span>
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    padding: "4px 9px",
-                    borderRadius: 999,
-                    background: "#f1f5f9",
-                    color: "#475569",
-                  }}
-                >
-                  {row.healthLabel}
-                </span>
-                {onFocusDealer ? (
-                  <button
-                    type="button"
-                    onClick={() => onFocusDealer(row.dealerOrgId)}
-                    style={{
-                      cursor: "pointer",
-                      fontSize: 11,
-                      fontWeight: 800,
-                      borderRadius: 8,
-                      padding: "5px 10px",
-                      border: "1px solid #cbd5e1",
-                      background: "#fff",
-                      color: "#334155",
-                    }}
-                  >
-                    View dealer
-                  </button>
+      {(intel.categoryLanes || []).length ? (
+        <div style={{ ...tiCard, padding: "18px 20px" }}>
+          <div style={tiSectionHead}>CATEGORY OPPORTUNITY HEATMAP</div>
+          <div
+            style={{
+              display: "grid",
+              gap: 14,
+              marginTop: 14,
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
+            }}
+          >
+            {(intel.categoryLanes || []).map((lane) => (
+              <div
+                key={lane.key}
+                style={{
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  background: "#f8fafc",
+                  border: "1px solid rgba(226, 232, 240, 0.95)",
+                  borderTop: "3px solid #ea580c",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>{lane.categoryName}</span>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "#ea580c" }}>
+                    {lane.dealerCount} dealer{lane.dealerCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <p style={{ margin: "8px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.45 }}>{lane.whySummary}</p>
+                <p style={{ margin: "6px 0 0", fontSize: 12, color: "#334155", lineHeight: 1.45 }}>
+                  <strong>Next:</strong> {lane.nextStep}
+                </p>
+                {(lane.topDealers || []).length ? (
+                  <ul style={{ margin: "10px 0 0", paddingLeft: 16, fontSize: 11, color: "#64748b" }}>
+                    {lane.topDealers.map((d) => (
+                      <li key={d.dealerOrgId}>{d.dealerName}</li>
+                    ))}
+                    {lane.moreDealerCount > 0 ? <li>+{lane.moreDealerCount} more</li> : null}
+                  </ul>
                 ) : null}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {heatmapSections.length ? (
-        <div
-          style={{
-            borderRadius: 16,
-            padding: "18px 20px",
-            background: "#ffffff",
-            border: "1px solid rgba(226, 232, 240, 0.95)",
-            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.05)",
-          }}
-        >
-          <div style={sectionTitle}>CATEGORY OPPORTUNITY HEATMAP</div>
-          <p style={{ margin: "0 0 14px", fontSize: 13, color: "#64748b", lineHeight: 1.45 }}>
-            Top accounts by category whitespace—each entry explains why and what to do next.
-          </p>
-          <div style={{ display: "grid", gap: 16 }}>
-            {heatmapSections.map((section) => (
-              <div key={section.title}>
-                <div style={{ fontSize: 13, fontWeight: 900, color: "#1e3a8a", marginBottom: 8 }}>
-                  {section.title}
-                </div>
-                <div
-                  style={{
-                    display: "grid",
-                    gap: 10,
-                    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))",
-                  }}
-                >
-                  {(section.items || []).map((item) => (
-                    <div key={`${section.title}-${item.dealerOrgId}`} style={cardShell}>
-                      <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a" }}>{item.dealerName}</div>
-                      <p style={{ margin: "8px 0 0", fontSize: 12, color: "#334155", lineHeight: 1.5 }}>
-                        <strong>Why:</strong> {item.why}
-                      </p>
-                      <p style={{ margin: "8px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
-                        <strong>Next:</strong> {item.next}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                {lane.topDealers?.[0] ? (
+                  <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {renderCta(lane.ctaType, lane.topDealers[0].dealerOrgId, lane.spotlightCategoryId)}
+                    {renderCta("dealer_mix", lane.topDealers[0].dealerOrgId, null, "ghost")}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
         </div>
       ) : null}
 
-      <div
-        style={{
-          display: "grid",
-          gap: 16,
-          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
-        }}
-      >
+      {(intel.dealersNeedingBusinessReviews || []).length ? (
         <div
           style={{
-            borderRadius: 16,
-            padding: "18px 20px",
-            background: "#ffffff",
-            border: "1px solid rgba(226, 232, 240, 0.95)",
-            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.05)",
+            ...tiCard,
+            padding: "14px 18px",
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: "linear-gradient(90deg, #eff6ff 0%, #fff7ed 100%)",
           }}
         >
-          <div style={sectionTitle}>TOP COACHING PRIORITIES</div>
-          {[
-            { key: "rideAlongs", title: "Ride-alongs suggested", rows: intel.coachingPriorities?.rideAlongs },
-            {
-              key: "narrowCategoryReps",
-              title: "Narrow category focus",
-              rows: intel.coachingPriorities?.narrowCategoryReps,
-            },
-            {
-              key: "kickoffTraining",
-              title: "Kickoff training",
-              rows: intel.coachingPriorities?.kickoffTraining,
-            },
-            {
-              key: "categoryReviews",
-              title: "Category reviews",
-              rows: intel.coachingPriorities?.categoryReviews,
-            },
-          ].map((block) =>
-            (block.rows || []).length ? (
-              <div key={block.key} style={{ marginTop: block.key === "rideAlongs" ? 0 : 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#334155", marginBottom: 6 }}>{block.title}</div>
-                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: "#475569", lineHeight: 1.5 }}>
-                  {block.rows.map((r) => (
-                    <li key={`${block.key}-${r.dealerOrgId}`}>
-                      <strong>{r.dealerName}</strong> — {r.detail}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null
-          )}
-          {!intel.coachingPriorities?.rideAlongs?.length &&
-          !intel.coachingPriorities?.narrowCategoryReps?.length &&
-          !intel.coachingPriorities?.kickoffTraining?.length &&
-          !intel.coachingPriorities?.categoryReviews?.length ? (
-            <p style={{ margin: 0, fontSize: 13, color: "#94a3b8" }}>No coaching flags in this snapshot.</p>
+          <div>
+            <div style={tiSectionHead}>DEALERS NEEDING BUSINESS REVIEWS</div>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#334155", fontWeight: 600 }}>
+              {(intel.dealersNeedingBusinessReviews || [])
+                .map((r) => r.dealerName)
+                .join(" · ")}
+            </p>
+          </div>
+          {intel.dealersNeedingBusinessReviews[0] && onPrepareBusinessReview ? (
+            <button
+              type="button"
+              onClick={() => onPrepareBusinessReview(intel.dealersNeedingBusinessReviews[0].dealerOrgId)}
+              style={{
+                ...tiBtn,
+                border: "1px solid #9a3412",
+                background: "linear-gradient(135deg, #1e3a8a 0%, #ea580c 100%)",
+                color: "#fff",
+                padding: "9px 16px",
+              }}
+            >
+              Prepare business review
+            </button>
           ) : null}
         </div>
-
-        <div
-          style={{
-            borderRadius: 16,
-            padding: "18px 20px",
-            background: "#ffffff",
-            border: "1px solid rgba(226, 232, 240, 0.95)",
-            boxShadow: "0 8px 24px rgba(15, 23, 42, 0.05)",
-          }}
-        >
-          <div style={sectionTitle}>DEALERS NEEDING BUSINESS REVIEWS</div>
-          <p style={{ margin: "0 0 10px", fontSize: 13, color: "#64748b", lineHeight: 1.45 }}>
-            Quote, category, and training signals that may support a structured dealer review.
-          </p>
-          {(intel.dealersNeedingBusinessReviews || []).length ? (
-            <ul style={{ margin: 0, paddingLeft: 0, listStyle: "none", display: "grid", gap: 8 }}>
-              {intel.dealersNeedingBusinessReviews.map((r) => (
-                <li
-                  key={r.dealerOrgId}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    background: "#f8fafc",
-                    border: "1px solid rgba(226, 232, 240, 0.9)",
-                  }}
-                >
-                  <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a" }}>{r.dealerName}</div>
-                  <p style={{ margin: "4px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.45 }}>{r.detail}</p>
-                  {onPrepareBusinessReview ? (
-                    <button
-                      type="button"
-                      onClick={() => onPrepareBusinessReview(r.dealerOrgId)}
-                      style={{
-                        marginTop: 8,
-                        cursor: "pointer",
-                        fontSize: 11,
-                        fontWeight: 900,
-                        borderRadius: 8,
-                        padding: "6px 12px",
-                        border: "1px solid #9a3412",
-                        background: "linear-gradient(135deg, #1e3a8a 0%, #ea580c 100%)",
-                        color: "#fff",
-                      }}
-                    >
-                      Prepare Business Review
-                    </button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p style={{ margin: 0, fontSize: 13, color: "#94a3b8" }}>No business review flags right now.</p>
-          )}
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -20198,6 +20329,21 @@ const handleFinishDealerEnrollment = async () => {
                 territoryInventoryModel: klAdminDashboardInventoryView,
               },
             });
+          }}
+          onOpenSalesEnablement={(dealerOrgId, spotlightCategoryId) => {
+            const oid = String(dealerOrgId || "").trim();
+            if (oid) setSalesEnablementDealerOrgId(oid);
+            setKlondikeAdminTab("sales_enablement");
+            if (spotlightCategoryId) {
+              setSalesEnablementSpotlightMode("category");
+              setSalesEnablementLibraryTab("category");
+              setSalesEnablementSelectedId(spotlightCategoryId);
+            }
+          }}
+          onPrepareTraining={(dealerOrgId) => {
+            const oid = String(dealerOrgId || "").trim();
+            if (oid) setSalesEnablementDealerOrgId(oid);
+            setKlondikeAdminTab("sales_enablement");
           }}
         />
       ) : null}
