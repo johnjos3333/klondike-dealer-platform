@@ -329,7 +329,7 @@ const KL_ADMIN_BDR_ACTION_KINDS = [
 const KL_ADMIN_ACTION_CENTER_MAX_SPOTLIGHTS = 2;
 const KL_ADMIN_BDR_EXTENSION_CAP = 12;
 
-/** Plain-language coaching copy for enablement alert signals (Phase 7A.3). */
+/** Plain-language coaching copy for enablement alert signals (Phase 7A.4). */
 const KL_ADMIN_ENABLEMENT_SIGNAL_COACHING = {
   weak_hydraulic_quote_mix: {
     happened: (al) =>
@@ -340,8 +340,8 @@ const KL_ADMIN_ENABLEMENT_SIGNAL_COACHING = {
   },
   weak_hydraulic_approved_mix: {
     happened: (al) =>
-      `${String(al.dealerName || "This dealer").trim()} is not stocking much hydraulic after customer yeses yet.`,
-    why: "When hydraulics lag on what customers approved, grease and filters usually lag on the same PM visit.",
+      `${String(al.dealerName || "This dealer").trim()} has hydraulic quote activity but light stocking on hydraulics.`,
+    why: "When quote activity is not tied to a clear stocking plan, grease and filters usually lag on the same PM visit.",
     next: (al) =>
       `Open Sales Enablement and walk the hydraulic story—verify ISO/VG on tags and current PDS.`,
   },
@@ -366,10 +366,10 @@ const KL_ADMIN_ENABLEMENT_SIGNAL_COACHING = {
   },
   weak_approved_capture: {
     happened: (al) =>
-      `${String(al.dealerName || "This dealer").trim()} may be ready for a broader program conversation after customer yeses.`,
-    why: "When yes lines do not make it to the counter story, stocking and the next PM visit stay guesswork.",
+      `${String(al.dealerName || "This dealer").trim()} has recent quote activity.`,
+    why: "Quote activity can point to stocking, training, or follow-up opportunities.",
     next: () =>
-      "Walk one live customer yes with the manager—show how it feeds the counter and the next follow-up.",
+      "Review the top quoted products with the manager and agree on the next step.",
   },
   proposal_engagement_gap: {
     happened: (al) =>
@@ -428,10 +428,17 @@ function humanizeKlAdminActionCenterItem(ac) {
       .replace(/\brollup\b/gi, "territory view")
       .replace(/\bconversion rate\b/gi, "close rate")
       .replace(/\bwin rate\b/gi, "close rate")
-      .replace(/\bapproved lines\b/gi, "customer yes lines")
-      .replace(/\bapproved demand\b/gi, "what customers said yes to")
-      .replace(/\bnot logging approved lines after customer yeses\b/gi, "may be ready for a broader program conversation after customer yeses")
-      .replace(/\blogging approved lines\b/gi, "capturing customer yes lines")
+      .replace(/\byesses\b/gi, "quote activity")
+      .replace(/\bcustomer yes lines\b/gi, "quoted products")
+      .replace(/\bcustomer yeses\b/gi, "recent quote activity")
+      .replace(/\bcustomer yes\b/gi, "customer interest")
+      .replace(/\byes lines\b/gi, "products the customer asked about")
+      .replace(/\bsaid yes\b/gi, "replied")
+      .replace(/\bapproved lines\b/gi, "quoted products")
+      .replace(/\bapproved demand\b/gi, "quoted products in proposals")
+      .replace(/\bwhat the customer approved\b/gi, "products under review")
+      .replace(/\bwhat was approved\b/gi, "what was quoted")
+      .replace(/\bnot logging approved lines\b/gi, "quote activity not tied to a follow-up plan")
       .replace(/\blogged\b/gi, "on file")
       .replace(/\blogging\b/gi, "recording")
       .replace(/\btracked activity\b/gi, "recent counter activity")
@@ -664,7 +671,7 @@ function buildKlAdminBdrActionCenterExtensions(ctx) {
       dedupeKey: "territory:synthetic_klu",
       issue: "Reps may need more practice on premium synthetic lines.",
       scope: "Territory",
-      whatChanged: `Synthetic products are about ${syntheticPct}% of customer yes lines in the current view—room to grow.`,
+      whatChanged: `Synthetic products are about ${syntheticPct}% of quoted products in the current view—room to grow.`,
       why: "Managers can assign a short online module so every rep uses the same upgrade language.",
       recommended:
         "Assign the synthetic module in Klondike University; check in live on tag-and-PDS talk—not price first.",

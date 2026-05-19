@@ -47,7 +47,7 @@ export const KL_ADMIN_TRAINING_MODULES = {
   quote_followup: {
     label: "Quote follow-up coaching",
     issue: (dealerName) => `Review quote follow-up with ${dealerName}.`,
-    why: "Busy quoting with few customer yeses usually means timing or the ask—not missing SKUs.",
+    why: "Busy quoting with few customer replies usually means timing or the ask—not missing SKUs.",
     next: "Role-play the close: who calls, when, and what decision you need from the customer.",
   },
   category_expansion: {
@@ -356,10 +356,11 @@ export function buildDealerPipelineCoachingCandidates(dealer) {
       dedupeKey: `${oid}:quote_followup`,
       issue: `Review quote follow-up with ${name}.`,
       scope: name,
-      whatChanged: `${q} quotes and ${p} proposals on file—customers have not said yes yet.`,
-      why: "Busy quoting with quiet replies usually means follow-up or the ask—not missing SKUs.",
-      recommended: KL_ADMIN_TRAINING_MODULES.quote_followup.next,
-      summary: `${name} has busy quoting but few customer yeses yet.`,
+      whatChanged: `${name} has recent quote activity (${q} quotes, ${p} proposals).`,
+      why: "Quote activity can point to stocking, training, or follow-up opportunities—replies are still quiet.",
+      recommended:
+        "Review the top quoted products with the manager and agree on the next step.",
+      summary: `${name} has busy quoting with few customer replies yet.`,
       dealerOrgId: oid,
       severityRank: 0,
       confidence: 94,
@@ -446,7 +447,7 @@ export function buildDealerBusinessReviewCandidates(dealer, { territoryProposalS
     if (quoteSpike) {
       whatChanged = `${name} has a burst of quote activity (${q} quotes)—good time to align on priorities.`;
     } else if (growthStall) {
-      whatChanged = `${name} is quoting but customers have not said yes on recent proposals yet.`;
+      whatChanged = `${name} has recent quote activity but quiet follow-up on open proposals.`;
     } else if (categoryOpportunity) {
       whatChanged = `${name} sells across ${mixBreadth} categories—room to align on growth targets.`;
     } else {
@@ -458,13 +459,13 @@ export function buildDealerBusinessReviewCandidates(dealer, { territoryProposalS
       kind: "business_review_reminder",
       intelligenceTheme: "business_review",
       dedupeKey: `${oid}:business_review`,
-      issue: `${name} may be ready for a quarterly business review.`,
+      issue: `${name} may be ready for a business review.`,
       scope: name,
       whatChanged,
-      why: "QBRs work when mix, open quotes, and category goals are on one agenda—not scattered emails.",
+      why: "A short review can turn quotes, product mix, and training needs into a simple growth plan.",
       recommended:
-        "Prepare Business Review: top 3 categories to grow, open proposals, and one training commitment.",
-      summary: "Product mix and activity suggest a planning visit.",
+        "Prepare a business review with the top categories, open quotes, and one training recommendation.",
+      summary: "Quote activity and mix suggest a planning visit.",
       dealerOrgId: oid,
       severityRank: quoteSpike || growthStall ? 1 : 2,
       confidence: quoteSpike || growthStall ? 88 : 72,

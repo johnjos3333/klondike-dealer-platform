@@ -1,6 +1,6 @@
 /**
  * Prioritized KL Admin dashboard actions from existing session intelligence only.
- * Phase 7A.1 — plain field-coaching language.
+ * Phase 7A.4 — plain field-coaching language (quote activity, not “customer yes”).
  */
 
 import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "../data/salesEnablement/spotlightSuggestionRules";
@@ -64,7 +64,7 @@ export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
       kind: "spotlight",
       issue: "Room to coach premium synthetic lines.",
       scope: "Category · Synthetic",
-      whatChanged: "Synthetic products are still a modest part of what customers are saying yes to.",
+      whatChanged: "Synthetic products are still a modest part of quoted products.",
       why: "Reps sell upgrades when they have simple tag-and-PDS language—not a price sheet first.",
       recommended: "Walk the synthetic spotlight with the manager before the next fleet pitch.",
       buttonLabel: "Open Sales Enablement",
@@ -140,7 +140,7 @@ function activationGapForDealer(dealer) {
       stepId: "proposal_sent",
       test: () => !a.firstProposalSent,
       whatChanged: "Quotes exist but no proposal has gone to a customer yet.",
-      why: "Customers cannot say yes until a proposal leaves the shop.",
+      why: "The buyer cannot move forward until a proposal leaves the shop.",
       recommended: "Send one proposal while you are on site and walk through it with the manager.",
     },
     {
@@ -162,16 +162,17 @@ function activationGapForDealer(dealer) {
     {
       stepId: "demand",
       test: () => Boolean(a.customerResponseReceived) && !a.approvedDemandGenerated,
-      whatChanged: "Customer said yes but stocking lines are not captured yet.",
-      why: "The counter needs those yes lines to plan stocking and the next PM conversation.",
-      recommended: "Walk the customer yes with the manager so stocking reflects what was approved.",
+      whatChanged: "Proposal responses are in but quoted products are not tied to a stocking plan yet.",
+      why: "When quote activity is not tied to a clear stocking or follow-up plan, the counter and next PM visit stay guesswork.",
+      recommended:
+        "Review quoted products with the manager and agree on stocking and the next follow-up.",
     },
     {
       stepId: "inventory",
       test: () => Boolean(a.approvedDemandGenerated) && !a.inventoryAlertsActive,
-      whatChanged: "Customer yes lines are not showing up for inventory follow-up yet.",
-      why: "The counter needs what the customer approved to plan stocking and reorders.",
-      recommended: "Confirm customer yes lines reach inventory alerts with the manager.",
+      whatChanged: "Quoted products are not feeding inventory follow-up yet.",
+      why: "The counter needs products under review to plan stocking and reorders.",
+      recommended: "Confirm quoted products tie to inventory alerts with the manager.",
     },
     {
       stepId: "ocr",
@@ -343,7 +344,7 @@ export function buildKlondikeActionCenterActions({
         issue: accel ? "Some SKUs are moving faster than usual." : "Check territory stocking signals.",
         scope: "Territory",
         whatChanged: accel
-          ? "Approved units are climbing quickly on one or more SKUs."
+          ? "Quoted products are moving quickly on one or more SKUs."
           : String(insightFirst).trim() || "Demand signals changed in the inventory view.",
         why: "Fast movers can stock out bays—or show where coaching is working.",
         recommended: "Open Inventory Intelligence with the manager: what to stock before the next rush.",
