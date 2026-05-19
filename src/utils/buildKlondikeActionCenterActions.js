@@ -1,12 +1,11 @@
 /**
- * Prioritized KL Admin dashboard actions from existing session intelligence only.
- * Phase 7A.4 — plain field-coaching language (quote activity, not “customer yes”).
+ * Prioritized KL Admin dashboard actions from deterministic territory signals (Phase 7A.5).
  */
 
 import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "../data/salesEnablement/spotlightSuggestionRules";
 import {
-  buildDealerMixGapCandidates,
-  buildDealerPipelineCoachingCandidates,
+  buildKlAdminIntelligenceCandidates,
+  deduplicateActionCenterQueue,
   pickDealersForCoachingIntelligence,
 } from "./klAdminActionCenterIntelligence";
 
@@ -225,37 +224,64 @@ export function buildKlondikeActionCenterActions({
 
   const dealers = Array.isArray(dealerNetworkPerformance) ? dealerNetworkPerformance : [];
 
-  pickDealersForCoachingIntelligence(dealers, 4).forEach((dealer) => {
-    const pipeline = buildDealerPipelineCoachingCandidates(dealer);
-    if (pipeline.length > 0) {
-      pipeline.slice(0, 1).forEach((row) => push(row));
-      return;
-    }
-    buildDealerMixGapCandidates(dealer)
-      .slice(0, 2)
-      .forEach((row) => push(row));
-  });
+  deduplicateActionCenterQueue(
+    buildKlAdminIntelligenceCandidates({
+      dealers,
+      enablementAlerts,
+      territoryProposalSignals,
+    })
+  ).forEach((row) => push(row));
 
-  for (const d of dealers) {
-    const gap = activationGapForDealer(d);
-    if (!gap) continue;
-    const oid = String(d.organization_id || "");
-    if (!oid) continue;
-    push({
-      id: `activation-${oid}-${gap.stepId}`,
-      kind: "dealer_activation",
-      issue: "This dealer still has setup steps to finish.",
-      scope: String(d.name || "Dealer").trim(),
-      whatChanged: gap.whatChanged,
-      why: gap.why,
-      recommended: gap.recommended,
-      buttonLabel: "Open Dealer Snapshot",
-      accent: "orange",
-      dealerOrgId: oid,
-      severityRank: 0,
-      confidence: 88,
+  if (actions.length < maxActions) {
+    pickDealersForCoachingIntelligence(dealers, 3).forEach((dealer) => {
+      if (actions.length >= maxActions) return;
+      const oid = String(dealer.organization_id || "");
+      if (actions.some((a) => String(a.dealerOrgId) === oid)) return;
+      const gap = activationGapForDealer(dealer);
+      if (!gap || !oid) return;
+      push({
+        id: `activation-${oid}-${gap.stepId}`,
+        kind: "dealer_activation",
+        issue: "This dealer still has setup steps to finish.",
+        scope: String(dealer.name || "Dealer").trim(),
+        whatChanged: gap.whatChanged,
+        why: gap.why,
+        recommended: gap.recommended,
+        buttonLabel: "Open Dealer Snapshot",
+        accent: "orange",
+        dealerOrgId: oid,
+        severityRank: 0,
+        confidence: 88,
+        signalKey: `setup:${gap.stepId}`,
+        dedupeKey: `${oid}:setup:${gap.stepId}`,
+      });
     });
-    break;
+  }
+
+  if (!actions.some((a) => a.kind === "dealer_activation")) {
+    for (const d of dealers) {
+      const gap = activationGapForDealer(d);
+      if (!gap) continue;
+      const oid = String(d.organization_id || "");
+      if (!oid) continue;
+      push({
+        id: `activation-${oid}-${gap.stepId}`,
+        kind: "dealer_activation",
+        issue: "This dealer still has setup steps to finish.",
+        scope: String(d.name || "Dealer").trim(),
+        whatChanged: gap.whatChanged,
+        why: gap.why,
+        recommended: gap.recommended,
+        buttonLabel: "Open Dealer Snapshot",
+        accent: "orange",
+        dealerOrgId: oid,
+        severityRank: 0,
+        confidence: 88,
+        signalKey: `setup:${gap.stepId}`,
+        dedupeKey: `${oid}:setup:${gap.stepId}`,
+      });
+      break;
+    }
   }
 
   const sig = territoryProposalSignals || {};
