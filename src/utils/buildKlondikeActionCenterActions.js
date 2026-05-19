@@ -32,10 +32,10 @@ export function buildKlAdminActionPlaybookMocks({ dealerOrgId = "" } = {}) {
     {
       id: "playbook-weak-grease-adoption",
       kind: "spotlight",
-      issue: "This territory may be under-selling grease on PM work.",
+      issue: "Grease may be under-quoted on PM work in this territory.",
       scope: "Category · Grease",
-      whatChanged: "Grease is not showing up as often as other fluid lines in quotes.",
-      why: "PM grease should ride with every chassis conversation—not only engine oil.",
+      whatChanged: "Grease is not showing up as often as other fluid lines in recent quote activity.",
+      why: "PM grease should ride with every chassis conversation when reps coach from equipment tags—not only engine oil quotes.",
       recommended: "Review the grease spotlight with a rep before the next fleet visit.",
       buttonLabel: "Open Sales Enablement",
       accent: "orange",
@@ -161,17 +161,17 @@ function activationGapForDealer(dealer) {
     {
       stepId: "demand",
       test: () => Boolean(a.customerResponseReceived) && !a.approvedDemandGenerated,
-      whatChanged: "Proposal responses are in but quoted products are not tied to a stocking plan yet.",
-      why: "When quote activity is not tied to a clear stocking or follow-up plan, the counter and next PM visit stay guesswork.",
+      whatChanged: "Proposal responses are in but follow-up on quoted products is not clear yet.",
+      why: "When quote activity is not tied to a clear next step, outside-sales coaching should reset the plan with the manager.",
       recommended:
-        "Review quoted products with the manager and agree on stocking and the next follow-up.",
+        "Review quoted products with the manager and agree on the next customer follow-up.",
     },
     {
       stepId: "inventory",
       test: () => Boolean(a.approvedDemandGenerated) && !a.inventoryAlertsActive,
-      whatChanged: "Quoted products are not feeding inventory follow-up yet.",
-      why: "The counter needs products under review to plan stocking and reorders.",
-      recommended: "Confirm quoted products tie to inventory alerts with the manager.",
+      whatChanged: "Quoted products from proposals are not linked to warehouse support review yet.",
+      why: "Projected demand from proposals may justify KLONDIKE warehouse inventory support—not dealer on-hand counts.",
+      recommended: "Open Inventory Intelligence and review warehouse support for products tied to active proposals.",
     },
     {
       stepId: "ocr",
@@ -365,16 +365,23 @@ export function buildKlondikeActionCenterActions({
       Array.isArray(inv.insights) && inv.insights.length > 0 ? inv.insights[0] : "";
     if (accel || insightFirst) {
       push({
-        id: "territory-inventory-review",
-        kind: "inventory_intel",
-        issue: accel ? "Some SKUs are moving faster than usual." : "Check territory stocking signals.",
+        id: "territory-warehouse-support",
+        kind: "warehouse_inventory_support",
+        recommendationType: "warehouse_inventory_support_review",
+        issue: "Review KLONDIKE warehouse inventory support for projected demand.",
         scope: "Territory",
         whatChanged: accel
-          ? "Quoted products are moving quickly on one or more SKUs."
-          : String(insightFirst).trim() || "Demand signals changed in the inventory view.",
-        why: "Fast movers can stock out bays—or show where coaching is working.",
-        recommended: "Open Inventory Intelligence with the manager: what to stock before the next rush.",
-        buttonLabel: "Review Inventory Demand",
+          ? "Recent proposal activity suggests growing interest in one or more product lines."
+          : String(insightFirst).trim() ||
+            "Proposal activity may point to products that need warehouse support review.",
+        why: "This reflects projected demand from quotes and proposals—not dealer counter sales, ERP data, or on-hand stocking.",
+        recommended:
+          "Open Inventory Intelligence and review KLONDIKE warehouse support for products tied to active proposals.",
+        buttonLabel: "Review Warehouse Support",
+        navigationIntent: "open_inventory_intelligence",
+        dedupeKey: "territory:warehouse_support",
+        severityRank: 2,
+        confidence: 78,
         accent: "green",
       });
     }

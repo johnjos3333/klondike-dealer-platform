@@ -1,6 +1,6 @@
 /**
- * KL Admin Action Center — deterministic signal engine + coaching actions (Phase 7A.5).
- * Uses dealer productMix, quotes, proposals, and enablement alerts from session data.
+ * KL Admin Action Center — projected opportunity + intentional enablement (Phase 7A.6).
+ * Uses outside-sales quotes, proposals, category mix, and enablement usage only—not dealer ERP/counter data.
  */
 
 import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "../data/salesEnablement/spotlightSuggestionRules";
@@ -33,11 +33,46 @@ const SPOTLIGHT_BY_MIX_KEY = {
 
 const RECENT_QUOTE_MS = 14 * 24 * 60 * 60 * 1000;
 
+/** Intentional enablement titles (never random library picks). */
+export const INTENTIONAL_SPOTLIGHT_LABELS = {
+  coolant: "Heavy Duty Coolant Category Spotlight",
+  grease: "Grease Category Spotlight",
+  gear: "Gear Oil Category Spotlight",
+  hydraulic: "Hydraulic Category Spotlight",
+  hd: "HD Engine Oil Category Spotlight",
+  transmission: "Transmission & Drivetrain Category Spotlight",
+};
+
+const INTENTIONAL_CUSTOMER_PROFILES = {
+  food_processing: "Food Processing Customer Profile",
+  construction: "Construction Customer Profile",
+  mining_aggregate: "Mining & Aggregate Customer Profile",
+  truck_dealers: "Truck Dealer Customer Profile",
+  shop_fleet_maintenance: "Shop & Fleet Maintenance Customer Profile",
+};
+
+const ENABLEMENT_ALERT_TO_PROFILE = {
+  weak_approved_capture: "food_processing",
+  low_grease_penetration: "construction",
+  weak_hydraulic_quote_mix: "mining_aggregate",
+  weak_hydraulic_approved_mix: "mining_aggregate",
+  heavy_duty_quote_concentration: "truck_dealers",
+  weak_synthetic_adoption: "shop_fleet_maintenance",
+  low_ocr_utilization: "shop_fleet_maintenance",
+};
+
+const ENABLEMENT_ALERT_TO_OEM = {
+  heavy_duty_quote_concentration: "international",
+  weak_hydraulic_quote_mix: "cat",
+  weak_hydraulic_approved_mix: "volvo_ce",
+  low_proposal_activity: "cat",
+};
+
 export const KL_ADMIN_TRAINING_MODULES = {
   hydraulic_fundamentals: {
     label: "Hydraulic Fundamentals",
     issue: (dealerName) => `${dealerName} may need hydraulic fundamentals training.`,
-    why: "ISO/VG and contamination stories close gaps when the counter only knows engine oil.",
+    why: "ISO/VG and contamination stories help reps coach from equipment tags—not assumed counter knowledge.",
     next: "Prepare Training on hydraulic tags, common failures, and PDS checks—15 minutes at the counter.",
   },
   grease_fundamentals: {
@@ -49,13 +84,13 @@ export const KL_ADMIN_TRAINING_MODULES = {
   coolant_technology: {
     label: "Coolant Technology",
     issue: (dealerName) => `${dealerName} may be ready for a coolant program conversation.`,
-    why: "HD bays often sell CK-4 but skip OAT/NOAT programs that lock in annual PM revenue.",
+    why: "HD quote activity without coolant lines may mean reps need a program story—not confirmed fleet stocking.",
     next: "Prepare Training on coolant colors, dilution, and fleet testing habits—pair with the next HD visit.",
   },
   oem_spec_conversations: {
     label: "OEM / Spec Conversations",
     issue: (dealerName) => `Coach ${dealerName} on OEM spec conversations (not approvals).`,
-    why: "Reps win when they read tags and PDS—never imply OEM endorsement.",
+    why: "Reps coach better from tags and PDS—never imply OEM endorsement.",
     next: "Prepare Training using the OEM opportunity profile; rehearse two discovery questions on equipment tags.",
   },
   food_grade_basics: {
@@ -79,7 +114,7 @@ export const KL_ADMIN_TRAINING_MODULES = {
   category_expansion: {
     label: "Category expansion coaching",
     issue: (dealerName) => `${dealerName} may benefit from category expansion coaching.`,
-    why: "Narrow counters leave PM revenue on the table when only one fluid line gets air time.",
+    why: "Narrow quote patterns often mean one line gets all the air time on outside-sales visits.",
     next: "Walk the PM ticket together—mark three lines due that are not on today's quote.",
   },
 };
@@ -280,6 +315,45 @@ export function computeDealerActionCenterSignals(dealer, ctx = {}) {
   };
 }
 
+function spotlightRecommendationRow({
+  oid,
+  name,
+  signalKey,
+  dedupeKey,
+  spotlightKey,
+  issue,
+  whatChanged,
+  why,
+  recommended,
+  severityRank = 2,
+  confidence = 85,
+  trainingModuleKey = null,
+}) {
+  const title = INTENTIONAL_SPOTLIGHT_LABELS[spotlightKey] || "Category Spotlight";
+  return {
+    id: `sig-spotlight-${signalKey}-${oid}`,
+    kind: "spotlight",
+    intelligenceTheme: "category_gap",
+    recommendationType: "spotlight_recommendation",
+    signalKey,
+    dedupeKey,
+    enablementTitle: title,
+    enablementRationale: why,
+    issue: issue || `Recommend ${title} for ${name}.`,
+    whatChanged,
+    why,
+    recommended:
+      recommended ||
+      `Open ${title} with the rep—review why it fits this dealer's quote pattern before any customer send.`,
+    trainingModuleKey,
+    spotlightKey,
+    severityRank,
+    confidence,
+    buttonLabel: "Open Sales Enablement",
+    navigationIntent: "open_sales_enablement",
+  };
+}
+
 function categoryLabels(keys) {
   const labels = {
     hd: "HD engine oil",
@@ -310,14 +384,16 @@ export function rankDealerSignalActions(signals) {
       id: `sig-new-dealer-${oid}`,
       kind: "training_recommendation",
       intelligenceTheme: "training",
+      recommendationType: "category_training_recommendation",
       signalKey: "newDealer",
       dedupeKey: `${oid}:training:kickoff`,
       issue: `Schedule an in-person kickoff training for ${name}.`,
-      whatChanged: `${name} is new—profile, first quote, and counter habits are still forming.`,
-      why: "A short kickoff visit sets quote, proposal, and follow-up habits before the territory gets busy.",
+      whatChanged: `Outside-sales activity is just starting for ${name}—few quotes or proposals on file yet.`,
+      why: "Early field visits shape how reps quote, send proposals, and follow up—before patterns harden.",
       recommended:
-        "Schedule in-person kickoff training: profile, first quote, proposal send, and follow-up on open quotes.",
-      trainingModuleKey: "category_expansion",
+        "Schedule in-person kickoff training: Hydraulic Fundamentals, Grease Fundamentals, first quote, proposal send, and follow-up habits.",
+      trainingModuleKey: "hydraulic_fundamentals",
+      enablementTitle: "Hydraulic Fundamentals · Grease Fundamentals · kickoff",
       severityRank: 0,
       confidence: 93,
     }));
@@ -332,7 +408,7 @@ export function rankDealerSignalActions(signals) {
       dedupeKey: `${oid}:quote_followup`,
       issue: `This rep may need help moving quotes forward at ${name}.`,
       whatChanged: `${name} has recent quote activity (${signals.quotesCreated} quotes, ${signals.proposalsSent} proposals).`,
-      why: "Quote activity can point to stocking, training, or follow-up opportunities—replies are still quiet.",
+      why: "Proposal activity may point to coaching or follow-up needs—customer replies are still quiet on the platform.",
       recommended: "Review the top quoted products with the manager and agree on the next step.",
       trainingModuleKey: "quote_followup",
       severityRank: 0,
@@ -356,60 +432,57 @@ export function rankDealerSignalActions(signals) {
   }
 
   if (signals.hdNoCoolant || (signals.noCoolant && hasMix(presence, "hd", 2))) {
-    add("hdNoCoolant", 1, 90, () => ({
-      id: `sig-hd-no-coolant-${oid}`,
-      kind: "service_bay_opportunity",
-      intelligenceTheme: "category_gap",
-      signalKey: "hdNoCoolant",
-      dedupeKey: `${oid}:category_gap:coolant`,
-      issue: `Coolant programs may be an opportunity for ${name}.`,
-      whatChanged: `${name} quotes HD engine oil—this dealer is not selling much coolant yet.`,
-      why: "Fleet PM visits should pair CK-4 with the right coolant program—not engine oil alone.",
-      recommended:
-        "Ask the service manager which fleets are due for coolant testing or top-up this quarter.",
-      trainingModuleKey: "coolant_technology",
-      spotlightKey: "coolant",
-      severityRank: 1,
-      confidence: 90,
-    }));
+    add("hdNoCoolant", 1, 90, () =>
+      spotlightRecommendationRow({
+        oid,
+        name,
+        signalKey: "hdNoCoolant",
+        dedupeKey: `${oid}:spotlight:coolant`,
+        spotlightKey: "coolant",
+        whatChanged: `Recent quote activity shows HD engine oil interest at ${name}; coolant lines are thin in quoted products.`,
+        why: "Proposal activity may point to a coolant program conversation—the platform does not see dealer counter sales or stocking.",
+        trainingModuleKey: "coolant_technology",
+        severityRank: 1,
+        confidence: 90,
+      })
+    );
   }
 
   if (signals.greaseLowHdHydStrong || (signals.noGrease && !signals.hdNoCoolant)) {
-    add("greaseLowHdHydStrong", 1, 88, () => ({
-      id: `sig-grease-spotlight-${oid}`,
-      kind: "category_growth_opportunity",
-      intelligenceTheme: "category_gap",
-      signalKey: "greaseLowHdHydStrong",
-      dedupeKey: `${oid}:category_gap:grease`,
-      issue: `Grease may be an opportunity for ${name}.`,
-      whatChanged: `${name} is strong on HD or hydraulic lines but grease is thin in the product mix.`,
-      why: "PM grease should ride with every chassis conversation when hydraulics or HD are already quoting.",
-      recommended: "Review the Grease Category Spotlight with the counter team.",
-      trainingModuleKey: "grease_fundamentals",
-      spotlightKey: "grease",
-      buttonLabel: "Open Sales Enablement",
-      navigationIntent: "open_sales_enablement",
-      severityRank: 1,
-      confidence: 88,
-    }));
+    add("greaseLowHdHydStrong", 1, 88, () =>
+      spotlightRecommendationRow({
+        oid,
+        name,
+        signalKey: "greaseLowHdHydStrong",
+        dedupeKey: `${oid}:spotlight:grease`,
+        spotlightKey: "grease",
+        whatChanged: `Recent quotes show HD or hydraulic interest at ${name}; grease is thin in quoted products.`,
+        why: "Customers may be asking about equipment fluids without grease on the quote—attach opportunity for the rep to coach.",
+        recommended: `Review the ${INTENTIONAL_SPOTLIGHT_LABELS.grease} with the counter team—agree why grease fits this quote pattern.`,
+        trainingModuleKey: "grease_fundamentals",
+        severityRank: 1,
+        confidence: 88,
+      })
+    );
   }
 
   if (signals.hydraulicNoGear) {
-    add("hydraulicNoGear", 2, 82, () => ({
-      id: `sig-hydraulic-no-gear-${oid}`,
-      kind: "category_growth_opportunity",
-      intelligenceTheme: "mix_expansion",
-      signalKey: "hydraulicNoGear",
-      dedupeKey: `${oid}:mix_expansion:gear`,
-      issue: `This dealer may have additional driveline opportunities.`,
-      whatChanged: `${name} quotes hydraulics—gear oil is not in the product mix yet.`,
-      why: "Mobile equipment often has both circuits—hydraulic wins open the door for final drives.",
-      recommended: "Review final-drive tags on one machine in the yard with the rep.",
-      trainingModuleKey: "hydraulic_fundamentals",
-      spotlightKey: "gear",
-      severityRank: 2,
-      confidence: 82,
-    }));
+    add("hydraulicNoGear", 2, 82, () =>
+      spotlightRecommendationRow({
+        oid,
+        name,
+        signalKey: "hydraulicNoGear",
+        dedupeKey: `${oid}:spotlight:gear`,
+        spotlightKey: "gear",
+        issue: `This dealer may have additional driveline opportunities.`,
+        whatChanged: `Hydraulic fluid shows up in quotes at ${name}; gear oil is not in the quoted mix yet.`,
+        why: "Equipment tags often show hydraulic and final-drive needs—proposal activity may support a gear oil conversation.",
+        recommended: `Open the ${INTENTIONAL_SPOTLIGHT_LABELS.gear} and review final-drive tags on one unit in the yard.`,
+        trainingModuleKey: "hydraulic_fundamentals",
+        severityRank: 2,
+        confidence: 82,
+      })
+    );
   }
 
   if (signals.categoryExpansionOpportunity && !signals.newDealer && !signals.narrowProductMix) {
@@ -420,8 +493,8 @@ export function rankDealerSignalActions(signals) {
       signalKey: "categoryExpansionOpportunity",
       dedupeKey: `${oid}:mix_expansion:categories`,
       issue: `${name} may have room to grow adjacent categories.`,
-      whatChanged: `Quoted mix is still thin across ${presence.activeCategories.length} categories—${categoryLabels(presence.activeCategories)}.`,
-      why: "Adjacent fluid lines on the same PM visit are often the fastest growth lever.",
+      whatChanged: `Quoted products are still thin across ${presence.activeCategories.length} categories—mostly ${categoryLabels(presence.activeCategories)}.`,
+      why: "Recent quote activity suggests growing interest in a few lines—adjacent categories may be the next coaching win.",
       recommended: "Map two equipment tags on site and add one category not quoted in the last 30 days.",
       trainingModuleKey: "category_expansion",
       severityRank: 2,
@@ -438,7 +511,7 @@ export function rankDealerSignalActions(signals) {
       dedupeKey: `${oid}:mix_expansion:narrow`,
       issue: `${name} may be ready for broader category training.`,
       whatChanged: `Quoted mix is narrow—mostly ${categoryLabels(presence.activeCategories)}.`,
-      why: "When only one or two lines get quoted, PM attach and margin walk away with the customer.",
+      why: "When only one or two lines appear on quotes, outside-sales coaching should widen the story on the next visit.",
       recommended:
         "Prepare broader category training: three PM lines due that are not on the counter story today.",
       trainingModuleKey: "category_expansion",
@@ -485,7 +558,11 @@ export function buildActionsFromDealerSignals(dealer, signals, opts = {}) {
     const trainingKey = row.trainingModuleKey || SIGNAL_TRAINING_MAP[row.signalKey];
     const training = trainingKey && trainingModules[trainingKey] ? trainingModules[trainingKey] : null;
     const spot = row.spotlightKey ? SPOTLIGHT_BY_MIX_KEY[row.spotlightKey] : null;
-    const useSpotlightCta = Boolean(spot && /spotlight/i.test(String(row.recommended || "")));
+    const isSpotlightRec =
+      row.kind === "spotlight" ||
+      row.recommendationType === "spotlight_recommendation" ||
+      Boolean(row.enablementTitle && spot);
+    const useSpotlightCta = isSpotlightRec || Boolean(spot && /spotlight/i.test(String(row.recommended || "")));
     return {
       ...row,
       scope: name,
@@ -502,9 +579,14 @@ export function buildActionsFromDealerSignals(dealer, signals, opts = {}) {
           ? "prepare_training"
           : row.navigationIntent || "open_dealer_snapshot",
       suggestedOwner: training ? "KL BDM" : row.suggestedOwner || "Dealer manager",
-      suggestedFormat: training ? "in-person training" : row.suggestedFormat || "dealer review",
+      suggestedFormat: useSpotlightCta
+        ? "spotlight"
+        : training
+          ? "in-person training"
+          : row.suggestedFormat || "dealer review",
       accent: (row.severityRank ?? 2) <= 1 ? "orange" : "green",
-      recommended: training && !useSpotlightCta ? training.next : row.recommended,
+      recommended:
+        useSpotlightCta || !training ? row.recommended : training.next,
       ...(spot ? { spotlightId: spot.id, spotlightType: spot.type } : {}),
     };
   };
@@ -656,11 +738,13 @@ export function actionCenterSortKey(ac) {
         ? 1
         : ac.kind === "business_review_reminder"
           ? 2
-          : ac.kind === "category_growth_opportunity" || ac.kind === "product_mix_audit"
+          : ac.kind === "warehouse_inventory_support"
             ? 3
-            : ac.kind === "spotlight"
-              ? 8
-              : 5;
+            : ac.kind === "category_growth_opportunity" || ac.kind === "product_mix_audit"
+              ? 4
+              : ac.kind === "spotlight"
+                ? 8
+                : 5;
   return sev * 1000 - conf + kindBoost;
 }
 
@@ -754,6 +838,110 @@ export function deduplicateActionCenterQueue(actions) {
   return merged.sort((a, b) => actionCenterSortKey(a) - actionCenterSortKey(b));
 }
 
+/**
+ * Intentional customer profile / OEM plays from enablement alert signals (not random library).
+ */
+export function buildIntentionalProfileAndOemActions(dealer, signals) {
+  const oid = signals.dealerOrgId;
+  const name = signals.dealerName;
+  const out = [];
+  const usedProfile = new Set();
+  const usedOem = new Set();
+
+  (signals.enablementAlertKinds || []).forEach((alertKind) => {
+    const profileId = ENABLEMENT_ALERT_TO_PROFILE[alertKind];
+    if (profileId && !usedProfile.has(profileId)) {
+      usedProfile.add(profileId);
+      const profileLabel =
+        INTENTIONAL_CUSTOMER_PROFILES[profileId] ||
+        profileId.replace(/_/g, " ");
+      out.push({
+        id: `sig-profile-${profileId}-${oid}`,
+        kind: "customer_profile_play",
+        intelligenceTheme: "profile_play",
+        recommendationType: "customer_profile_recommendation",
+        signalKey: `profile:${profileId}`,
+        dedupeKey: `${oid}:profile:${profileId}`,
+        enablementSignalKind: alertKind,
+        issue: `Recommend the ${profileLabel}.`,
+        whatChanged: `Quote and proposal activity at ${name} may fit the ${profileLabel} playbook.`,
+        why: "Profile-guided discovery keeps the conversation on equipment, tags, and PDS—not a generic product blast.",
+        recommended: `Open Sales Enablement · ${profileLabel} · rehearse discovery questions with the rep before any customer send.`,
+        customerProfileId: profileId,
+        enablementTitle: profileLabel,
+        dealerOrgId: oid,
+        severityRank: 2,
+        confidence: 84,
+        buttonLabel: "Open Sales Enablement",
+        navigationIntent: "open_sales_enablement",
+        suggestedOwner: "Field rep",
+        suggestedFormat: "in-person training",
+        accent: "blue",
+      });
+    }
+
+    const oemKey = ENABLEMENT_ALERT_TO_OEM[alertKind];
+    if (oemKey && !usedOem.has(oemKey)) {
+      usedOem.add(oemKey);
+      const oemLabel = oemKey.replace(/_/g, " ");
+      out.push({
+        id: `sig-oem-${oemKey}-${oid}`,
+        kind: "oem_profile_play",
+        intelligenceTheme: "oem_play",
+        recommendationType: "oem_profile_recommendation",
+        signalKey: `oem:${oemKey}`,
+        dedupeKey: `${oid}:oem:${oemKey}`,
+        enablementSignalKind: alertKind,
+        issue: `Walk the ${oemLabel} OEM opportunity profile with ${name}.`,
+        whatChanged: `Proposal activity at ${name} may benefit from an OEM spec conversation aid—not an endorsement.`,
+        why: "OEM profiles help reps read tags and ask better questions; they do not replace equipment manuals or PDS.",
+        recommended: `Open Sales Enablement · OEM opportunity profile · ${oemLabel}—align questions to equipment on the lot.`,
+        oemOpportunityProfileKey: oemKey,
+        enablementTitle: `${oemLabel} OEM opportunity profile`,
+        dealerOrgId: oid,
+        severityRank: 2,
+        confidence: 80,
+        buttonLabel: "Open Sales Enablement",
+        navigationIntent: "open_sales_enablement",
+        suggestedOwner: "KL BDM",
+        suggestedFormat: "in-person training",
+        accent: "blue",
+        trainingModuleKey: "oem_spec_conversations",
+      });
+    }
+  });
+
+  if (
+    signals.greaseLowHdHydStrong &&
+    !usedProfile.has("construction") &&
+    out.length < 2
+  ) {
+    const profileId = "construction";
+    const profileLabel = INTENTIONAL_CUSTOMER_PROFILES[profileId];
+    out.push({
+      id: `sig-profile-mix-${profileId}-${oid}`,
+      kind: "customer_profile_play",
+      recommendationType: "customer_profile_recommendation",
+      signalKey: `profile:${profileId}`,
+      dedupeKey: `${oid}:profile:${profileId}`,
+      issue: `Consider the ${profileLabel} for field visits.`,
+      whatChanged: `Mixed equipment quote patterns at ${name} may fit construction / mobile equipment accounts.`,
+      why: "A named profile gives the rep discovery structure instead of ad-hoc product lists.",
+      recommended: `Open Sales Enablement · ${profileLabel} before the next site visit.`,
+      customerProfileId: profileId,
+      enablementTitle: profileLabel,
+      dealerOrgId: oid,
+      severityRank: 3,
+      confidence: 72,
+      buttonLabel: "Open Sales Enablement",
+      navigationIntent: "open_sales_enablement",
+      accent: "blue",
+    });
+  }
+
+  return out;
+}
+
 export function buildKlAdminIntelligenceCandidates(ctx) {
   const { dealers = [], enablementAlerts = [], territoryProposalSignals = {} } = ctx || {};
   const signalCtx = { enablementAlerts, territoryProposalSignals };
@@ -764,6 +952,7 @@ export function buildKlAdminIntelligenceCandidates(ctx) {
     buildActionsFromDealerSignals(dealer, signals, { maxActions: 3 }).forEach((row) =>
       candidates.push(row)
     );
+    buildIntentionalProfileAndOemActions(dealer, signals).forEach((row) => candidates.push(row));
     buildDealerPipelineCoachingCandidates(dealer).forEach((row) => candidates.push(row));
     buildDealerBusinessReviewCandidates(dealer, signalCtx).forEach((row) => candidates.push(row));
   });

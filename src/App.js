@@ -325,51 +325,52 @@ const KL_ADMIN_BDR_ACTION_KINDS = [
   "pm_audit_opportunity",
   "oem_profile_play",
   "customer_profile_play",
+  "warehouse_inventory_support",
 ];
 const KL_ADMIN_ACTION_CENTER_MAX_SPOTLIGHTS = 2;
 const KL_ADMIN_BDR_EXTENSION_CAP = 12;
 
-/** Plain-language coaching copy for enablement alert signals (Phase 7A.4). */
+/** Projected-opportunity coaching copy for enablement alert signals (Phase 7A.6). */
 const KL_ADMIN_ENABLEMENT_SIGNAL_COACHING = {
   weak_hydraulic_quote_mix: {
     happened: (al) =>
-      `${String(al.dealerName || "This dealer").trim()} is not quoting much hydraulic fluid yet.`,
-    why: "Hydraulic is where downtime stories win—reps need a simple tag-and-PDS conversation before price talk.",
+      `${String(al.dealerName || "This dealer").trim()} has limited hydraulic lines in recent quote activity.`,
+    why: "Proposal activity may point to hydraulic coaching—reps need tag-and-PDS language before price talk.",
     next: (al) =>
-      `Review the “${al.spotlightTitle || "hydraulic"}” materials with the rep before the next shop visit.`,
+      `Open the Hydraulic Category Spotlight (“${al.spotlightTitle || "hydraulic"}”) with the rep and review why it fits.`,
   },
   weak_hydraulic_approved_mix: {
     happened: (al) =>
-      `${String(al.dealerName || "This dealer").trim()} has hydraulic quote activity but light stocking on hydraulics.`,
-    why: "When quote activity is not tied to a clear stocking plan, grease and filters usually lag on the same PM visit.",
+      `${String(al.dealerName || "This dealer").trim()} has hydraulic interest in quotes but thin related categories.`,
+    why: "When one line dominates quoted products, adjacent categories are often the next coaching opportunity.",
     next: (al) =>
       `Open Sales Enablement and walk the hydraulic story—verify ISO/VG on tags and current PDS.`,
   },
   low_grease_penetration: {
     happened: (al) =>
-      `${String(al.dealerName || "This dealer").trim()} is not selling much grease on quoted work yet.`,
-    why: "Grease is high-frequency PM revenue—if it is optional in talk tracks, bays miss easy attach.",
-    next: (al) =>
-      `Coach PM intervals and chassis packs; use the grease spotlight only after the counter story is clear.`,
+      `${String(al.dealerName || "This dealer").trim()} has thin grease lines in recent quote activity.`,
+    why: "Customers may be asking about equipment that needs grease—the rep may need a deliberate attach story.",
+    next: () =>
+      `Review the Grease Category Spotlight with the counter team—agree why grease fits this quote pattern.`,
   },
   weak_synthetic_adoption: {
-    happened: () => "Premium synthetic lines are still a small part of the product mix.",
-    why: "Reps need simple upgrade language tied to tags—not a price list before the customer visit.",
+    happened: () => "Premium synthetic lines are a small share of quoted products in the current view.",
+    why: "Proposal activity may support synthetic upgrade coaching—not confirmed counter movement.",
     next: () =>
-      "Prepare training on synthetic positioning; assign Klondike University if the manager wants online follow-up.",
+      "Prepare synthetic positioning training; assign Klondike University if the manager wants online follow-up.",
   },
   low_proposal_activity: {
     happened: (al) =>
       `${String(al.dealerName || "This dealer").trim()} has quotes but few proposals going out the door.`,
-    why: "Quotes without proposals stall the customer—coaching beats another product email.",
+    why: "Quotes without proposals stall the customer conversation—coaching beats another product email.",
     next: () => "Sit with the manager on proposal follow-up: who owns the next customer touch?",
   },
   weak_approved_capture: {
     happened: (al) =>
       `${String(al.dealerName || "This dealer").trim()} has recent quote activity.`,
-    why: "Quote activity can point to stocking, training, or follow-up opportunities.",
+    why: "Quote activity may point to training, follow-up, or a customer profile conversation.",
     next: () =>
-      "Review the top quoted products with the manager and agree on the next step.",
+      "Recommend the Food Processing Customer Profile when plant accounts are in play—or review top quoted products with the manager.",
   },
   proposal_engagement_gap: {
     happened: (al) =>
@@ -380,14 +381,15 @@ const KL_ADMIN_ENABLEMENT_SIGNAL_COACHING = {
   low_ocr_utilization: {
     happened: (al) =>
       `${String(al.dealerName || "This dealer").trim()} is not scanning competitive labels much yet.`,
-    why: "Label scans give counter staff something concrete to say on hydraulics and HD—without them, reps guess.",
-    next: () => "Run a short counter huddle on scanning competitor labels before the next bid.",
+    why: "Label scans give reps concrete spec talk on hydraulics and HD—without them, coaching stays generic.",
+    next: () => "Run a short huddle on scanning competitor labels before the next bid.",
   },
   heavy_duty_quote_concentration: {
     happened: (al) =>
       `${String(al.dealerName || "This dealer").trim()} is heavy on diesel engine oil quotes right now.`,
     why: "Fleet-heavy quoting is a chance to open grease, coolant, and trans fluid—not only CK-4.",
-    next: () => "Use the HD spotlight to anchor spec talk, then ask what else is due on the PM sheet.",
+    next: () =>
+      "Open the HD Engine Oil Category Spotlight, then pair with Heavy Duty Coolant Category Spotlight where coolant is thin.",
   },
 };
 
@@ -404,7 +406,9 @@ function coachingCopyForEnablementAlert(al) {
   const dealer = String(al?.dealerName || "This dealer").trim();
   return {
     whatChanged: `${dealer} flagged for a coaching follow-up.`,
-    why: String(al?.whyItMatters || "A simple pattern in quotes or stocking needs a manager conversation."),
+    why: String(
+      al?.whyItMatters || "A simple pattern in quotes or proposals may need a manager conversation."
+    ),
     recommended: `Open Sales Enablement and review “${al?.spotlightTitle || "library"}” with the rep before any customer send.`,
   };
 }
@@ -447,6 +451,14 @@ function humanizeKlAdminActionCenterItem(ac) {
       .replace(/\bweak win rate\b/gi, "quotes need more follow-up")
       .replace(/\bwin rate looks soft\b/gi, "this rep may need help moving quotes forward")
       .replace(/\babsent from the mix\b/gi, "not in the product mix yet")
+      .replace(/\bstock out\b/gi, "warehouse support pressure")
+      .replace(/\bstocking\b/gi, "warehouse support")
+      .replace(/\bstock outs\b/gi, "warehouse support gaps")
+      .replace(/\bmoving quickly\b/gi, "showing up often in proposals")
+      .replace(/\bconfirmed demand\b/gi, "projected demand from proposals")
+      .replace(/\bdealer sales\b/gi, "quote activity")
+      .replace(/\bselling much\b/gi, "quoting much")
+      .replace(/\bnot selling\b/gi, "not quoting")
       .replace(/Review Product Mix/g, "Review Dealer Mix");
   ["issue", "whatChanged", "why", "recommended", "scope", "buttonLabel", "summary"].forEach((k) => {
     if (next[k]) next[k] = labelSwap(next[k]);
@@ -884,7 +896,9 @@ function mergeKlAdminActionCenterQueue({
       humanizeKlAdminActionCenterItem({
         id,
         kind: "spotlight",
-        issue: `Review spotlight materials for ${String(al.dealerName || "this dealer").trim()}.`,
+        issue: String(al.enablementTitle || al.spotlightTitle || "").trim()
+          ? `Recommend ${String(al.enablementTitle || al.spotlightTitle).trim()} for ${String(al.dealerName || "this dealer").trim()}.`
+          : `Review spotlight materials for ${String(al.dealerName || "this dealer").trim()}.`,
         scope: String(al.dealerName || "Dealer").trim(),
         whatChanged: coach.whatChanged,
         why: coach.why,
@@ -19144,7 +19158,7 @@ const handleFinishDealerEnrollment = async () => {
               }}
             >
               <span style={{ color: "#f8fafc", fontWeight: 800 }}>
-                What happened, why it matters, and what to do next—like a regional manager on your shoulder.
+                Signal, interpretation, and recommendation—outside-sales coaching from quotes, proposals, and enablement usage only.
               </span>{" "}
               Work the list top-down (up to {KL_ADMIN_ACTION_CENTER_LIMIT} items). Deeper territory detail
               stays below.
@@ -19574,6 +19588,7 @@ const handleFinishDealerEnrollment = async () => {
                   summaryLine !== String(ac.whatChanged || "").trim();
                 const suggestedOwnerLine = String(ac.suggestedOwner || "").trim();
                 const suggestedFormatLine = String(ac.suggestedFormat || "").trim();
+                const enablementTitleLine = String(ac.enablementTitle || "").trim();
                 let whatChangedBlock;
                 let whyMattersBriefDisplay;
                 let supportingWhyTail = "";
@@ -19688,10 +19703,11 @@ const handleFinishDealerEnrollment = async () => {
                   followPrepared = "Setup checklist noted for this dealer.";
                   followClick = "Opens dealer setup with this org pre-selected.";
                   followAffects = dealerDisplayName || followAffects;
-                } else if (ac.kind === "inventory_intel") {
-                  followPrepared = "Territory stocking view ready to review.";
-                  followClick = "Opens Inventory Intelligence.";
-                  followAffects = "Territory inventory & demand signals";
+                } else if (ac.kind === "inventory_intel" || ac.kind === "warehouse_inventory_support") {
+                  followPrepared = "KLONDIKE warehouse support review ready.";
+                  followClick =
+                    "Opens Inventory Intelligence for projected demand from proposals—not dealer on-hand stock.";
+                  followAffects = "Territory · KLONDIKE warehouse support";
                 } else if (ac.kind === "dealers_tab") {
                   followPrepared = "Dealer review workspace ready.";
                   followClick = "Opens dealer review workspace (Dealers tab).";
@@ -19740,9 +19756,9 @@ const handleFinishDealerEnrollment = async () => {
                   followClick = "Opens dealer snapshot to coach follow-up on open quotes.";
                   followAffects = dealerDisplayName || followAffects;
                 } else if (ac.kind === "service_bay_opportunity") {
-                  followPrepared = "Service bay coaching topic noted.";
-                  followClick = "Prepare Training opens enablement for PM / bay talking points.";
-                  followAffects = "Service manager · PM ticket";
+                  followPrepared = "Category spotlight coaching noted.";
+                  followClick = "Opens Sales Enablement for the recommended category spotlight.";
+                  followAffects = "Field rep · category coaching";
                 } else if (ac.kind === "customer_profile_play") {
                   followPrepared = `Customer profile · ${String(ac.customerProfileId || "library")}`;
                   followClick = "Opens Sales Enablement guided builder on the industry playbook.";
@@ -19917,6 +19933,19 @@ const handleFinishDealerEnrollment = async () => {
                           {scopeLine}
                         </div>
                       ) : null}
+                      {enablementTitleLine ? (
+                        <div
+                          style={{
+                            marginTop: 4,
+                            fontSize: 11,
+                            fontWeight: 800,
+                            color: "#1d4ed8",
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          Enablement · {enablementTitleLine}
+                        </div>
+                      ) : null}
                       {suggestedOwnerLine || suggestedFormatLine ? (
                         <div
                           style={{
@@ -19967,7 +19996,7 @@ const handleFinishDealerEnrollment = async () => {
                             marginBottom: 4,
                           }}
                         >
-                          WHAT HAPPENED
+                          SIGNAL
                         </div>
                         <div
                           style={{
@@ -19990,7 +20019,7 @@ const handleFinishDealerEnrollment = async () => {
                             marginBottom: 4,
                           }}
                         >
-                          WHY IT MATTERS
+                          INTERPRETATION
                         </div>
                         <div
                           style={{
@@ -20021,7 +20050,7 @@ const handleFinishDealerEnrollment = async () => {
                             marginBottom: 6,
                           }}
                         >
-                          WHAT TO DO NEXT
+                          RECOMMENDATION
                         </div>
                         <div
                           style={{
@@ -20356,7 +20385,7 @@ const handleFinishDealerEnrollment = async () => {
                           markActionHandled();
                           return;
                         }
-                        if (ac.kind === "inventory_intel") {
+                        if (ac.kind === "inventory_intel" || ac.kind === "warehouse_inventory_support") {
                           setKlondikeAdminTab("inventory_intelligence");
                           markActionHandled();
                           return;
