@@ -43,7 +43,7 @@ export const INTENTIONAL_SPOTLIGHT_LABELS = {
   transmission: "Transmission & Drivetrain Category Spotlight",
 };
 
-const INTENTIONAL_CUSTOMER_PROFILES = {
+export const INTENTIONAL_CUSTOMER_PROFILES = {
   food_processing: "Food Processing Customer Profile",
   construction: "Construction Customer Profile",
   mining_aggregate: "Mining & Aggregate Customer Profile",
@@ -671,7 +671,7 @@ export function buildDealerBusinessReviewCandidates(dealer, ctx = {}) {
     if (signals.quoteSpike) {
       whatChanged = `${name} has a burst of quote activity (${q} quotes)—good time to align on priorities.`;
     } else if (signals.mixGrowing) {
-      whatChanged = `${name} sells across ${mixBreadth} categories—room to align on growth targets.`;
+      whatChanged = `${name} shows quote activity across ${mixBreadth} categories—room to align on growth targets.`;
     } else {
       whatChanged = `${name} has recent quote activity and multiple category opportunities.`;
     }
@@ -680,14 +680,15 @@ export function buildDealerBusinessReviewCandidates(dealer, ctx = {}) {
       id: `intel-qbr-${oid}`,
       kind: "business_review_reminder",
       intelligenceTheme: "business_review",
+      recommendationType: "business_review_recommendation",
       signalKey: "possibleBusinessReview",
       dedupeKey: `${oid}:business_review`,
       issue: `${name} may be ready for a business review.`,
       scope: name,
       whatChanged,
-      why: "A short review can turn quotes, product mix, and training needs into a simple growth plan.",
+      why: "A short review can turn quote activity, category interest, and training needs into a projected growth plan.",
       recommended:
-        "Prepare a business review with the top categories, open quotes, and one training recommendation.",
+        "Open the Business Review Plan preview—top quoted categories, growth opportunities, and coaching steps.",
       summary: "Quote activity and mix suggest a planning visit.",
       dealerOrgId: oid,
       severityRank: signals.quoteSpike ? 1 : 2,
@@ -707,13 +708,14 @@ export function buildDealerBusinessReviewCandidates(dealer, ctx = {}) {
       id: `intel-qbr-territory-stall-${oid}`,
       kind: "business_review_reminder",
       intelligenceTheme: "business_review",
+      recommendationType: "business_review_recommendation",
       signalKey: "territoryBusinessReview",
       dedupeKey: `${oid}:business_review`,
       issue: "It may be time for a dealer business review.",
       scope: name,
       whatChanged: `Territory has ${tProps} proposals out with quiet customer replies; ${name} is part of that motion.`,
       why: "A short review resets follow-up before more quotes pile up.",
-      recommended: "Prepare a business review with this dealer's open proposals and rep owners.",
+      recommended: "Open the Business Review Plan preview for open proposals, category interest, and next steps.",
       dealerOrgId: oid,
       severityRank: 1,
       confidence: 85,

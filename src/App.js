@@ -29,6 +29,10 @@ import {
   buildKlAdminIntelligenceCandidates,
   deduplicateActionCenterQueue,
 } from "./utils/klAdminActionCenterIntelligence";
+import {
+  buildDealerBusinessReviewPlan,
+  isBusinessReviewActionCenterItem,
+} from "./utils/buildDealerBusinessReviewPlan";
 import { computeTerritoryProposalSignals } from "./utils/territoryProposalSignals";
 import { buildSalesEnablementSpotlightEmailPayload } from "./utils/buildSalesEnablementSpotlightEmailPayload";
 import { CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY } from "./data/salesEnablement/spotlightSuggestionRules";
@@ -490,6 +494,220 @@ function humanizeKlAdminActionCenterItem(ac) {
     next.summary = String(next.whatChanged || next.issue || "").trim();
   }
   return next;
+}
+
+function KlAdminBusinessReviewPlanPanel({ preview, onClose }) {
+  const plan = preview?.plan;
+  if (!plan?.sections) return null;
+  const s = plan.sections;
+  const sectionShell = (title, children) => (
+    <div
+      style={{
+        marginTop: 16,
+        padding: "12px 14px",
+        borderRadius: 12,
+        background: "#f8fafc",
+        border: "1px solid rgba(226, 232, 240, 0.95)",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 900,
+          letterSpacing: "0.1em",
+          color: "#1e3a8a",
+          marginBottom: 8,
+          textTransform: "uppercase",
+        }}
+      >
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="kl-bdr-plan-title"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 12000,
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "24px 16px 32px",
+        background: "rgba(15, 23, 42, 0.55)",
+        overflowY: "auto",
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "min(720px, 100%)",
+          marginTop: 8,
+          borderRadius: 16,
+          background: "#ffffff",
+          border: "1px solid rgba(148, 163, 184, 0.45)",
+          boxShadow: "0 28px 64px rgba(15, 23, 42, 0.28)",
+          padding: "20px 22px 24px",
+          maxHeight: "calc(100vh - 48px)",
+          overflowY: "auto",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 900,
+                letterSpacing: "0.12em",
+                color: "#64748b",
+                textTransform: "uppercase",
+              }}
+            >
+              Business Review Plan · Preview
+            </div>
+            <h4
+              id="kl-bdr-plan-title"
+              style={{ margin: "6px 0 0", fontSize: 20, fontWeight: 900, color: "#0f172a", lineHeight: 1.25 }}
+            >
+              {plan.dealerName}
+            </h4>
+            <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b", lineHeight: 1.45 }}>
+              {plan.platformBoundaryNote}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              flex: "0 0 auto",
+              cursor: "pointer",
+              border: "1px solid rgba(148, 163, 184, 0.6)",
+              borderRadius: 8,
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 800,
+              background: "#f8fafc",
+              color: "#475569",
+            }}
+          >
+            Close
+          </button>
+        </div>
+
+        {sectionShell(
+          "1 · Dealer Snapshot",
+          <>
+            <p style={{ margin: 0, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+              <strong>Recent platform activity:</strong> {s.dealerSnapshot.recentActivity}
+            </p>
+            <p style={{ margin: "8px 0 0", fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+              <strong>Proposal activity:</strong> {s.dealerSnapshot.proposalActivitySummary}
+            </p>
+            {s.dealerSnapshot.topQuotedCategories?.length ? (
+              <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+                {s.dealerSnapshot.topQuotedCategories.map((c) => (
+                  <li key={c.label}>
+                    {c.label}
+                    {c.count ? ` (${c.count} quoted line signal${c.count === 1 ? "" : "s"})` : ""}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ margin: "8px 0 0", fontSize: 12, color: "#64748b" }}>
+                No category mix on file yet—use the review to set first quote habits.
+              </p>
+            )}
+          </>
+        )}
+
+        {sectionShell(
+          `2 · ${s.interpretation.title}`,
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+            {(s.interpretation.bullets || []).map((b) => (
+              <li key={b.id} style={{ marginBottom: 6 }}>
+                {b.text}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {sectionShell(
+          `3 · ${s.categoryGrowthOpportunities.title}`,
+          (s.categoryGrowthOpportunities.items || []).length ? (
+            <div style={{ display: "grid", gap: 10 }}>
+              {s.categoryGrowthOpportunities.items.map((row) => (
+                <div
+                  key={row.category}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    background: "#ffffff",
+                    border: "1px solid rgba(226, 232, 240, 0.9)",
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 900, color: "#0f172a" }}>{row.category}</div>
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "#475569", lineHeight: 1.45 }}>
+                    {row.whyItMatters}
+                  </p>
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "#1d4ed8", fontWeight: 700, lineHeight: 1.45 }}>
+                    {row.suggestedEnablement}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ margin: 0, fontSize: 12, color: "#64748b" }}>
+              No ranked category gaps yet—coaching can still start from quote follow-up.
+            </p>
+          )
+        )}
+
+        {sectionShell(
+          `4 · ${s.trainingCoachingPlan.title}`,
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+            {(s.trainingCoachingPlan.items || []).map((row) => (
+              <li key={`${row.type}-${row.label}`} style={{ marginBottom: 8 }}>
+                <strong>{row.label}</strong>
+                <span style={{ color: "#64748b" }}> — {row.rationale}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {sectionShell(
+          `5 · ${s.suggestedAgenda.title}`,
+          <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+            {(s.suggestedAgenda.steps || []).map((step, i) => (
+              <li key={i} style={{ marginBottom: 6 }}>
+                {step}
+              </li>
+            ))}
+          </ol>
+        )}
+
+        {sectionShell(
+          `6 · ${s.next30DayActionPlan.title}`,
+          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
+            {(s.next30DayActionPlan.actions || []).map((row) => (
+              <li key={row.action} style={{ marginBottom: 8 }}>
+                <strong>{row.action}</strong>
+                <span style={{ color: "#64748b" }}> — {row.detail}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <p style={{ margin: "16px 0 0", fontSize: 11, color: "#94a3b8", lineHeight: 1.45 }}>
+          Preview only · no export · no CRM write · session-local
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function computeKlAdminTerritoryProductMixRows(dealers) {
@@ -5874,6 +6092,8 @@ useEffect(() => {
   const [productStrategyWorkflowNotice, setProductStrategyWorkflowNotice] = useState(null);
   /** KL Admin Action Center per-card completion (session-local only — Phase 72B.9). */
   const [klAdminActionCenterCompletionById, setKlAdminActionCenterCompletionById] = useState({});
+  /** Phase 7B — Business Review Plan preview (session-local, no persistence). */
+  const [klAdminBusinessReviewPreview, setKlAdminBusinessReviewPreview] = useState(null);
   useEffect(() => {
     try {
       window.localStorage.setItem(KL_TERRITORY_CONTESTS_KEY, JSON.stringify(territoryContests));
@@ -19738,10 +19958,13 @@ const handleFinishDealerEnrollment = async () => {
                   followPrepared = "Ride-along hold staged (mock).";
                   followClick = "Schedule Ride-Along stores mock notice—calendar wiring later.";
                   followAffects = dealerDisplayName || followAffects;
-                } else if (ac.kind === "business_review_reminder") {
-                  followPrepared = "Business review agenda ready (mock).";
-                  followClick = "Prepare Business Review opens the dealer list for a planning visit (mock).";
-                  followAffects = "Territory · open proposals";
+                } else if (isBusinessReviewActionCenterItem(ac)) {
+                  followPrepared = "Business Review Plan preview ready.";
+                  followClick =
+                    "Prepare Business Review opens a structured plan from quote, proposal, and mix signals—no CRM write.";
+                  followAffects = dealerDisplayName
+                    ? `Business review · ${dealerDisplayName}`
+                    : "Territory · projected opportunity review";
                 } else if (
                   ac.kind === "product_mix_audit" ||
                   ac.kind === "category_penetration_opportunity" ||
@@ -20289,17 +20512,45 @@ const handleFinishDealerEnrollment = async () => {
                           markActionPrepared();
                           return;
                         }
-                        if (navIntent === "prepare_business_review") {
-                          setProductStrategyWorkflowNotice(
-                            formatKlAdminMessageComposerMockNotice({
-                              recipient: `Territory leadership · ${String(ac.scope || "Territory").trim()}`,
-                              subject: String(ac.issue || "Business review").trim(),
-                              purpose: String(ac.why || "QBR prep from Action Center signals.").trim(),
-                              nextSuggestedAction: String(ac.recommended || "").trim(),
-                              detail: "Prepare Business Review · mock agenda · no CRM write",
-                            })
-                          );
-                          setKlondikeAdminTab("dealers");
+                        if (
+                          navIntent === "prepare_business_review" ||
+                          isBusinessReviewActionCenterItem(ac)
+                        ) {
+                          const reviewOid = String(ac.dealerOrgId || oid || "").trim();
+                          const reviewDealers = Array.isArray(klAdminDashboardDealersForView)
+                            ? klAdminDashboardDealersForView
+                            : [];
+                          const reviewDealer =
+                            ac.dealerRow ||
+                            reviewDealers.find(
+                              (d) => String(d?.organization_id || "") === reviewOid
+                            ) ||
+                            (reviewOid
+                              ? {
+                                  organization_id: reviewOid,
+                                  name: String(ac.scope || dealerDisplayName || "Dealer").trim(),
+                                  quotesCreated: 0,
+                                  proposalsSent: 0,
+                                  customerResponses: 0,
+                                  productMix: [],
+                                }
+                              : null);
+                          if (reviewDealer) {
+                            const plan = buildDealerBusinessReviewPlan(reviewDealer, {
+                              enablementAlerts: klondikeDashboardEnablementAlertsKlDashboard,
+                              territoryProposalSignals: klAdminDashboardProposalSignalsView,
+                              territoryInventoryModel: klAdminDashboardInventoryView,
+                            });
+                            setKlAdminBusinessReviewPreview({
+                              plan,
+                              actionId: ac.id,
+                              dealerName: plan.dealerName,
+                            });
+                          } else {
+                            setProductStrategyWorkflowNotice(
+                              "Business Review Plan: select a dealer with quote activity to generate a preview."
+                            );
+                          }
                           markActionPrepared();
                           return;
                         }
@@ -20475,6 +20726,13 @@ const handleFinishDealerEnrollment = async () => {
           )}
         </div>
       )}
+
+      {klAdminBusinessReviewPreview ? (
+        <KlAdminBusinessReviewPlanPanel
+          preview={klAdminBusinessReviewPreview}
+          onClose={() => setKlAdminBusinessReviewPreview(null)}
+        />
+      ) : null}
 
       {klondikeAdminTab === "dashboard" && (
         <div style={{ marginBottom: 22 }}>
