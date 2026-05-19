@@ -543,46 +543,208 @@ function buildCoachingChecklist(dealerIntel) {
     .sort((a, b) => a.priority - b.priority);
 }
 
-function buildTerritoryFocusHero(dealerIntel, categoryLanes, coachingChecklist) {
-  const followUp = dealerIntel.filter((d) => d.followUpSignals?.length > 0);
-  const attention = dealerIntel.filter((d) => d.dealerHealthScore?.label === "Needs Attention");
-  const newDealers = dealerIntel.filter((d) => d.dealerHealthScore?.label === "New / Developing");
-  const reviewDealers = dealerIntel.filter((d) => d.businessReviewSignals?.length > 0);
+function spotlightCtaLabel(categoryName, spotlightCategoryId) {
+  if (spotlightCategoryId) {
+    return `Open ${String(categoryName || "Category").trim()} Spotlight`;
+  }
+  return "Open Sales Enablement";
+}
 
-  let focusThisWeek = "Territory activity is steady—pick one category lane to coach on the next visits.";
-  if (followUp.length) {
-    focusThisWeek = `${followUp.length} dealer(s) need quote follow-up while proposals are still open on the platform.`;
-  } else if (attention.length) {
-    focusThisWeek = `${attention.length} dealer(s) need attention—quotes or mix may need a coaching touch this week.`;
-  } else if (newDealers.length) {
-    focusThisWeek = `${newDealers.length} new dealer(s) on the platform—schedule kickoff training before habits set.`;
+function buildDealerAttentionCard(d) {
+  const base = {
+    dealerOrgId: d.dealerOrgId,
+    dealerName: d.dealerName,
+    spotlightCategoryId: null,
+  };
+
+  if (d.followUpSignals?.length) {
+    return {
+      ...base,
+      issue: "May need quote follow-up.",
+      why: "Proposals are open with quiet customer replies.",
+      nextStep: "Set owner and call date for each open quote.",
+      ctaType: "focus_dealer",
+      ctaLabel: "Review quotes",
+    };
+  }
+  if (d.businessReviewSignals?.length) {
+    return {
+      ...base,
+      issue: "May be ready for a business review.",
+      why: "Quote and category activity may support a structured review.",
+      nextStep: "Prepare business review with the dealer.",
+      ctaType: "business_review",
+      ctaLabel: "Prepare Review",
+    };
+  }
+  if (d.dealerHealthScore?.label === "New / Developing") {
+    return {
+      ...base,
+      issue: "May need kickoff training.",
+      why: "Outside-sales activity is still ramping on the platform.",
+      nextStep: "Schedule kickoff before quote habits set.",
+      ctaType: "prepare_training",
+      ctaLabel: "Schedule Training",
+    };
+  }
+  if (d.greaseOpportunity) {
+    return {
+      ...base,
+      issue: "May need grease training.",
+      why: "Grease is thin while HD or hydraulic leads quotes.",
+      nextStep: "Review grease on the next PM visit.",
+      ctaType: "prepare_training",
+      ctaLabel: "Schedule Training",
+    };
+  }
+  if (d.coolantOpportunity) {
+    return {
+      ...base,
+      issue: "May need a coolant review.",
+      why: "HD quotes without coolant may mean a program gap.",
+      nextStep: "Review coolant before the next fleet visit.",
+      ctaType: "sales_enablement",
+      ctaLabel: "Open Spotlight",
+      spotlightCategoryId: "cs-coolant-chemical-addon",
+    };
+  }
+  if (d.hydraulicOpportunity && d.gearOilOpportunity) {
+    return {
+      ...base,
+      issue: "Hydraulic activity may lead to gear oil opportunity.",
+      why: "Hydraulic lines show up without gear oil in quotes.",
+      nextStep: "Walk one final-drive tag with the rep.",
+      ctaType: "dealer_mix",
+      ctaLabel: "Review Dealer Mix",
+    };
+  }
+  if (d.hydraulicOpportunity) {
+    return {
+      ...base,
+      issue: "May need hydraulic coaching.",
+      why: "Hydraulic categories look thin in quoted products.",
+      nextStep: "Prepare hydraulics refresher before the next visit.",
+      ctaType: "prepare_training",
+      ctaLabel: "Schedule Training",
+    };
+  }
+  if (d.customerProfileSignals?.length) {
+    const profile = d.customerProfileSignals[0];
+    return {
+      ...base,
+      issue: "May fit a customer profile play.",
+      why: String(profile.why || "Profile-guided discovery may help the next visit.").slice(0, 120),
+      nextStep: "Open the profile and rehearse two discovery questions.",
+      ctaType: "sales_enablement",
+      ctaLabel: "Open Profile",
+    };
   }
 
-  const biggest = categoryLanes[0];
-  const biggestCategoryOpportunity = biggest
-    ? `${biggest.categoryName} · ${biggest.dealerCount} dealer${biggest.dealerCount === 1 ? "" : "s"}`
-    : "No major category lane flagged yet";
+  return {
+    ...base,
+    issue: "This dealer needs attention.",
+    why: momentumWhyForDisplay(d).slice(0, 120),
+    nextStep: dealerOpportunityNext(d),
+    ctaType: "dealer_mix",
+    ctaLabel: "View dealer",
+  };
+}
 
-  const dealersNeedingReview =
-    reviewDealers.length > 0
-      ? `${reviewDealers.length} dealer${reviewDealers.length === 1 ? "" : "s"}: ${reviewDealers
-          .slice(0, 3)
-          .map((d) => d.dealerName)
-          .join(", ")}${reviewDealers.length > 3 ? "…" : ""}`
-      : "None flagged for a business review right now";
+function buildDealersNeedingAttention(dealerIntel, limit = 3) {
+  return [...dealerIntel]
+    .sort((a, b) => dealerOpportunityScore(b) - dealerOpportunityScore(a))
+    .filter((d) => dealerOpportunityScore(d) > 0)
+    .slice(0, limit)
+    .map(buildDealerAttentionCard);
+}
 
-  const topCoach = coachingChecklist[0];
-  const recommendedFirstMove = topCoach
-    ? `${topCoach.actionLabel} — ${topCoach.dealerName}`
-    : biggest
-      ? biggest.nextStep
-      : "Work the Action Center list top-down for today's coaching queue.";
+function buildTopNextActions(coachingChecklist, categoryLanes) {
+  const actions = [];
+
+  categoryLanes.slice(0, 2).forEach((lane) => {
+    const dealer = lane.topDealers?.[0];
+    if (!dealer) return;
+    let text = `Review ${lane.categoryName} with ${dealer.dealerName}`;
+    if (lane.key === "coolant") {
+      text = `Prepare coolant review for ${dealer.dealerName}`;
+    } else if (lane.key === "grease") {
+      text = `Review grease category spotlight with ${dealer.dealerName}`;
+    } else if (lane.key === "hydraulic") {
+      text = `Assign hydraulics coaching for ${dealer.dealerName}`;
+    }
+    actions.push({
+      id: `next-cat-${lane.key}`,
+      text,
+      dealerOrgId: dealer.dealerOrgId,
+      ctaType: lane.ctaType,
+      ctaLabel: spotlightCtaLabel(lane.categoryName, lane.spotlightCategoryId),
+      spotlightCategoryId: lane.spotlightCategoryId,
+    });
+  });
+
+  coachingChecklist.forEach((item) => {
+    if (actions.length >= 6) return;
+    let text = `${item.actionLabel} for ${item.dealerName}`;
+    if (item.type === "kickoff_training") {
+      text = `Schedule kickoff training for ${item.dealerName}`;
+    } else if (item.type === "business_review") {
+      text = `Prepare business review for ${item.dealerName}`;
+    } else if (item.type === "ride_along") {
+      text = `Schedule ride-along with ${item.dealerName}`;
+    } else if (item.type === "quote_follow_up") {
+      text = `Review open quotes with ${item.dealerName}`;
+    }
+    actions.push({
+      id: `next-coach-${item.id}`,
+      text,
+      dealerOrgId: item.dealerOrgId,
+      ctaType: item.ctaType,
+      ctaLabel: item.actionLabel,
+      spotlightCategoryId: null,
+    });
+  });
+
+  return actions.slice(0, 3);
+}
+
+function buildFocusModeTerritoryFocus(categoryLanes, topDealer, topCoach) {
+  const lane = categoryLanes[0];
+  let categoryHeadline = "Keep coaching reps on quote and proposal habits.";
+  let categoryDetail = "Territory activity looks steady—pick one lane for the week.";
+  let primaryCta = null;
+
+  if (lane) {
+    categoryHeadline = `${lane.categoryName} is the biggest opportunity in the territory.`;
+    if (lane.key === "coolant") {
+      categoryDetail = "Several dealers are quoting HD oil but not coolant.";
+    } else if (lane.key === "grease") {
+      categoryDetail = "Several dealers quote HD or hydraulic but grease is thin.";
+    } else {
+      const short = String(lane.whySummary || "").split(".")[0];
+      categoryDetail = short ? `${short}.` : lane.whySummary;
+    }
+    const sample = lane.topDealers?.[0];
+    primaryCta = {
+      label: spotlightCtaLabel(lane.categoryName, lane.spotlightCategoryId),
+      ctaType: lane.ctaType,
+      dealerOrgId: sample?.dealerOrgId || null,
+      spotlightCategoryId: lane.spotlightCategoryId,
+    };
+  }
 
   return {
-    focusThisWeek,
-    biggestCategoryOpportunity,
-    dealersNeedingReview,
-    recommendedFirstMove,
+    categoryHeadline,
+    categoryDetail,
+    biggestDealerOpportunity: topDealer
+      ? { name: topDealer.dealerName, summary: topDealer.headline }
+      : null,
+    biggestCoachingNeed: topCoach
+      ? { summary: `${topCoach.checklistLabel} — ${topCoach.dealerName}` }
+      : null,
+    recommendedFirstMove:
+      primaryCta?.label ||
+      (topCoach ? `${topCoach.actionLabel} for ${topCoach.dealerName}` : "Start with a dealer card below."),
+    primaryCta,
   };
 }
 
@@ -658,7 +820,15 @@ export function buildTerritoryIntelligence(dealers, ctx = {}) {
   const topCoachingPriorities = coachingChecklist.slice(0, 3);
   const moreCoachingPriorities = coachingChecklist.slice(3, 8);
 
-  const territoryFocus = buildTerritoryFocusHero(dealerIntel, categoryLanes, coachingChecklist);
+  const focusMode = {
+    territoryFocus: buildFocusModeTerritoryFocus(
+      categoryLanes,
+      topDealerOpportunities[0] || null,
+      topCoachingPriorities[0] || null
+    ),
+    dealersNeedingAttention: buildDealersNeedingAttention(dealerIntel, 3),
+    topNextActions: buildTopNextActions(coachingChecklist, categoryLanes),
+  };
 
   const coachingPriorities = {
     rideAlongs: coachingChecklist.filter((c) => c.type === "ride_along"),
@@ -701,11 +871,11 @@ export function buildTerritoryIntelligence(dealers, ctx = {}) {
     });
 
   return {
-    version: 2,
+    version: 3,
     generatedAt: new Date().toISOString(),
     dealerCount: dealerIntel.length,
     dealerSnapshots: dealerIntel,
-    territoryFocus,
+    focusMode,
     topDealerOpportunities,
     topCategoryOpportunities,
     topCoachingPriorities,
