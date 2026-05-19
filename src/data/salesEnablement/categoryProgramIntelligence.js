@@ -796,6 +796,7 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Universal green coolant used in HD diesel radiators without NOAT verification.",
       "Confusing automotive OAT color habits with HD NOAT program requirements.",
       "Premix ratio and water quality errors in bulk blending.",
+      "Contamination from shared hoses, unlabeled bulk, and emergency top-offs across inhibitor families.",
     ],
     keySellingAngles: [
       "Gold OAT ELC: flagship nitrite-free / all-engines / mixed-fleet ELC where PDS supports—HD positioning, not light-duty dismissal.",
@@ -804,6 +805,7 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Green Universal: conventional/universal entry—verify before HD NOAT substitution.",
       "Extended-life = drain strategy tied to inhibitor depletion, not drum color.",
       "Mixed-fleet discipline: separate LD OAT bays from HD NOAT bulk.",
+      "Top-off discipline: document partial drains, test strips, and flush rules before changing inhibitor technology.",
     ],
     keyTechnologyThemes: [
       "OAT (organic acid technology) automotive and ELC",
@@ -818,10 +820,11 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Gold is nitrite-free mixed-fleet / all-engines flagship per PDS—never call it light-duty only.",
       "Match OAT, NOAT, nitrite-free, and universal language to PDS—not drum color.",
       "Document flush and compatibility when changing inhibitor families.",
+      "Post bulk-tank labels by inhibitor family—OAT, NOAT, nitrite-free Gold, universal—not color alone.",
     ],
     discoveryFocus: [
       "HD diesel vs automotive vs ag equipment mix",
-      "Bulk tank labels and top-off habits",
+      "Bulk tank labels, hose separation, and top-off habits after partial drains",
       "Current inhibitor family and drain interval targets",
       "Water quality and premix vs concentrate process",
     ],
@@ -954,6 +957,7 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "CK-4 synthetic blend engine oil for high-hour seasonal engine protection.",
       "Grease and coolant companions complete seasonal PM—not standalone upsells.",
       "Dealer PM programs and bulk standardization across reservoirs.",
+      "Dealer service-lane and counter bundles: trans-drive, engine, grease, and coolant on one seasonal PM visit.",
       "JD/CNH and OEM spec language only with PDS/OEM documentation.",
     ],
     keyTechnologyThemes: [
@@ -1362,7 +1366,7 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     flagshipPositioning:
       "Industrial specialty maps turbine, circulating, compressor, rock drill, and plant specialty fluids—Long Life Turbine and full synthetic circulating oils for R&O circuits, not AW substitutes.",
     categorySummary:
-      "Industrial specialty is plant equipment enablement: separate turbine/circulating, compressor, industrial gear, and niche applications from mobile AW habits.",
+      "Industrial specialty is plant equipment enablement: turbine, circulating, compressor, way lube, and heat-transfer fills are separate from mobile AW—match R&O and specialty chemistry on tags, never AW in a turbine or dry compressor sump.",
     customerProblemsSolved: [
       "AW hydraulic oil used in turbine and circulating reservoirs.",
       "Compressor varnish and moisture issues from wrong oil class.",

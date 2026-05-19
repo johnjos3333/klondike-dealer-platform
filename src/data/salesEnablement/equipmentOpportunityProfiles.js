@@ -422,7 +422,7 @@ const EQUIPMENT_OPPORTUNITY_PROFILE_LIST = [
       },
       {
         category: "HD coolant (Red Heavy Duty NOAT ELC, Gold OAT ELC, Commercial HD NOAT)",
-        role: "Inhibitor family matched to wet-sleeve diesel—never light-duty Gold shorthand for HD Gold",
+        role: "Match inhibitor family to wet-sleeve tag—Gold OAT ELC is nitrite-free mixed-fleet per PDS; Red NOAT ELC for classic HD NOAT diesel programs",
       },
       {
         category: "Transmission & driveline (ATF, Commercial Gear Lubricants)",
@@ -529,8 +529,10 @@ const EQUIPMENT_OPPORTUNITY_PROFILE_LIST = [
       "PTO hydraulic using wrong AW grade",
     ],
     recommendedRepTalkingPoints: [
-      "Position severe-duty CK-4 and HD coolant as a vocational system—not single-SKU price plays.",
-      "Verify Western Star fluid guidance on tags; no implied OEM partnership.",
+      "Start with worst vocational comeback—engine, coolant gel, trans, or PTO hoist—not brand-default fluid.",
+      "Position severe-duty CK-4 and HD coolant as a lane system with driveline and chassis grease—not single-SKU price plays.",
+      "Walk PTO and hoist circuits separately from engine bulk—ISO VG and AW category from tag and PDS.",
+      "Verify Western Star fluid guidance on tags and manuals; no implied OEM partnership or approval.",
     ],
     discoveryFocus: [
       "What vocational applications dominate—logging, dump, or long haul?",

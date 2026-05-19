@@ -5,6 +5,10 @@
  */
 
 import React from "react";
+import {
+  getCustomerProfileById,
+  mapCustomerProfileToSellSheetProps,
+} from "../data/salesEnablement/customerProfiles";
 
 export const CUSTOMER_PROFILE_SELL_SHEET_LAYOUT_ID = "customer-profile-sell-sheet-v6f12";
 export const OEM_OPPORTUNITY_PROFILE_VERSION = 1;
@@ -283,7 +287,7 @@ export const OEM_OPPORTUNITY_PROFILE_PRESETS = {
     label: "International Truck",
     profileTitle: "International Truck — Opportunity Profile",
     profileSubtitle: "CK-4 / FA-4, coolant programs, driveline, and service bay opportunities.",
-    profileSummary: `${OEM_PROFILE_DISCLAIMER} Highway and vocational International fleets need API category discipline, coolant program separation, and driveline conversations—service bay bundling drives share.`,
+    profileSummary: `${OEM_PROFILE_DISCLAIMER} Highway and vocational International fleets need CK-4/FA-4 discipline, HD coolant inhibitor families (NOAT vs nitrite-free Gold), and separate driveline/PTO conversations—service lane bundling verified on VIN tags and PDS.`,
     customerPainPoints: [
       { iconKey: "downtime", label: "Over-the-road uptime", sub: "Drain intervals and emissions hardware compatibility." },
       { iconKey: "contamination", label: "Coolant top-off chaos", sub: "Mixed OAT/NOAT habits in shared bays." },
@@ -467,10 +471,26 @@ function resolveCustomerProfileFields(props) {
   const oemKey = props.oemProfileKey || props.oemOpportunityProfileKey;
   const preset = getOemOpportunityProfile(oemKey);
   const isOem = Boolean(preset) || props.profileKind === "oem" || props.profileType === "oem";
-  const base = preset || {};
+
+  const customerProfileId =
+    props.customerProfileId || props.customerProfileKey || props.customerProfileRefId;
+  const customerRegistryRow =
+    !isOem && customerProfileId ? getCustomerProfileById(customerProfileId) : null;
+  const customerRegistryMapped = customerRegistryRow
+    ? mapCustomerProfileToSellSheetProps(customerRegistryRow, {
+        assemblyPackage: props.assemblyPackage,
+        industry: props.industryContext || props.industry,
+        focus: props.focusContext || props.focus,
+      })
+    : null;
+
+  const base = preset || customerRegistryMapped || {};
   const fallback = DEMO_DEFAULTS;
+  const useRegistryPrimary = Boolean(customerRegistryMapped) && !preset;
   const textPrimary = (propVal, baseVal, fbVal) =>
-    preset ? pickText(baseVal, pickText(propVal, fbVal)) : pickText(propVal, pickText(baseVal, fbVal));
+    preset || useRegistryPrimary
+      ? pickText(baseVal, pickText(propVal, fbVal))
+      : pickText(propVal, pickText(baseVal, fbVal));
   return {
     isOem,
     profileBadge: isOem ? OEM_SELL_SHEET_BADGE : "CUSTOMER PROFILE",

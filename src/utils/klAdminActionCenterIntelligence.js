@@ -23,6 +23,28 @@ const MIX_CATEGORY_ALIASES = {
 
 const MIX_KEYS = ["hd", "hydraulic", "grease", "gear", "coolant", "transmission", "automotive"];
 
+/** Deterministic priority when quote mix shows a clear next category spotlight. */
+const SPOTLIGHT_GAP_PRIORITY = ["coolant", "grease", "gear", "transmission", "hydraulic", "hd"];
+
+function pickSpotlightKeyForMixGaps(missingCategories, presence) {
+  const missing = new Set(missingCategories || []);
+  for (const key of SPOTLIGHT_GAP_PRIORITY) {
+    if (!missing.has(key)) continue;
+    if (key === "coolant" && (hasMix(presence, "hd", 1) || hasMix(presence, "hydraulic", 1))) return key;
+    if (key === "grease" && (hasMix(presence, "hd", 1) || hasMix(presence, "hydraulic", 1))) return key;
+    if (key === "gear" && hasMix(presence, "hydraulic", 2)) return key;
+    if (
+      key === "transmission" &&
+      (hasMix(presence, "hd", 1) || hasMix(presence, "grease", 1) || hasMix(presence, "hydraulic", 1))
+    ) {
+      return key;
+    }
+    if (key === "hydraulic" && hasMix(presence, "hd", 1)) return key;
+    if (key === "hd" && presence.total >= 2) return key;
+  }
+  return null;
+}
+
 const SPOTLIGHT_BY_MIX_KEY = {
   hd: { id: CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY["HD Engine Oils"], type: "category" },
   hydraulic: { id: CATEGORY_SPOTLIGHT_BY_MIX_CATEGORY["Hydraulic Fluids"], type: "category" },
@@ -261,11 +283,14 @@ export function computeDealerActionCenterSignals(dealer, ctx = {}) {
   const quoteSpike = q >= 5 && activity >= 8;
   const mixGrowing = activeCount >= 3 && presence.total >= 6 && p >= 2;
   const categoryExpansionOpportunity =
-    narrowProductMix ||
-    hdOilOnly ||
-    hydraulicOnly ||
-    missingCategories.length >= 4 ||
-    (presence.total >= 5 && activeCount <= 3);
+    (narrowProductMix ||
+      hdOilOnly ||
+      hydraulicOnly ||
+      missingCategories.length >= 4 ||
+      (presence.total >= 5 && activeCount <= 3)) &&
+    !hdNoCoolant &&
+    !greaseLowHdHydStrong &&
+    !hydraulicNoGear;
 
   const multipleOpportunities =
     [noCoolant, noGrease, greaseLowHdHydStrong, hydraulicNoGear, narrowProductMix].filter(Boolean)
@@ -348,7 +373,7 @@ function spotlightRecommendationRow({
     why,
     recommended:
       recommended ||
-      `Open ${title} with the rep—review why it fits this dealer's quote pattern before any customer send.`,
+      `Open ${title} with the rep—walk one equipment tag and align the next quote to that category gap.`,
     trainingModuleKey,
     spotlightKey,
     severityRank,
@@ -412,7 +437,7 @@ export function rankDealerSignalActions(signals) {
       dedupeKey: `${oid}:quote_followup`,
       issue: `This rep may need help moving quotes forward at ${name}.`,
       whatChanged: `${name} has recent quote activity (${signals.quotesCreated} quotes, ${signals.proposalsSent} proposals).`,
-      why: "Proposal activity may point to coaching or follow-up needs—customer replies are still quiet on the platform.",
+      why: "Quotes are moving but customer replies are quiet—coach decision timing and the ask, not more SKUs.",
       recommended: "Review the top quoted products with the manager and agree on the next step.",
       trainingModuleKey: "quote_followup",
       severityRank: 0,
@@ -443,9 +468,10 @@ export function rankDealerSignalActions(signals) {
         signalKey: "hdNoCoolant",
         dedupeKey: `${oid}:spotlight:coolant`,
         spotlightKey: "coolant",
-        whatChanged: `Recent quote activity shows HD engine oil interest at ${name}; coolant lines are thin in quoted products.`,
-        why: "Proposal activity may point to a coolant program conversation—the platform does not see dealer counter sales or stocking.",
-        trainingModuleKey: "coolant_technology",
+        issue: `Coach ${name} on HD coolant program discipline.`,
+        whatChanged: `Quotes at ${name} show HD engine oil; coolant is not in the quoted mix yet.`,
+        why: "HD diesel fleets need inhibitor-family discipline—OAT, NOAT, nitrite-free Gold, and top-off rules—not engine oil alone on the card.",
+        recommended: `Open ${INTENTIONAL_SPOTLIGHT_LABELS.coolant}—match bulk tanks and top-off habits to tags before the next HD proposal.`,
         severityRank: 1,
         confidence: 90,
       })
@@ -460,10 +486,10 @@ export function rankDealerSignalActions(signals) {
         signalKey: "greaseLowHdHydStrong",
         dedupeKey: `${oid}:spotlight:grease`,
         spotlightKey: "grease",
-        whatChanged: `Recent quotes show HD or hydraulic interest at ${name}; grease is thin in quoted products.`,
-        why: "Customers may be asking about equipment fluids without grease on the quote—attach opportunity for the rep to coach.",
-        recommended: `Review the ${INTENTIONAL_SPOTLIGHT_LABELS.grease} with the counter team—agree why grease fits this quote pattern.`,
-        trainingModuleKey: "grease_fundamentals",
+        issue: `Attach grease to ${name}'s equipment-fluid quotes.`,
+        whatChanged: `Quotes at ${name} show HD or hydraulic lines; grease is thin or missing in the mix.`,
+        why: "Mobile and HD accounts usually need chassis and pin PM on the same card—grease is often the gap when hydraulics lead.",
+        recommended: `Open ${INTENTIONAL_SPOTLIGHT_LABELS.grease}—map NLGI and joint severity on one PM sheet before the next quote.`,
         severityRank: 1,
         confidence: 88,
       })
@@ -478,32 +504,91 @@ export function rankDealerSignalActions(signals) {
         signalKey: "hydraulicNoGear",
         dedupeKey: `${oid}:spotlight:gear`,
         spotlightKey: "gear",
-        issue: `This dealer may have additional driveline opportunities.`,
-        whatChanged: `Hydraulic fluid shows up in quotes at ${name}; gear oil is not in the quoted mix yet.`,
-        why: "Equipment tags often show hydraulic and final-drive needs—proposal activity may support a gear oil conversation.",
-        recommended: `Open the ${INTENTIONAL_SPOTLIGHT_LABELS.gear} and review final-drive tags on one unit in the yard.`,
-        trainingModuleKey: "hydraulic_fundamentals",
+        issue: `Add driveline coverage to ${name}'s hydraulic quotes.`,
+        whatChanged: `Hydraulic fluid is in quotes at ${name}; gear oil is not in the quoted mix yet.`,
+        why: "Final drives and differentials are separate compartments—hydraulic AW does not replace GL-5 or industrial EP fills on tags.",
+        recommended: `Open ${INTENTIONAL_SPOTLIGHT_LABELS.gear}—verify one final-drive or axle tag on yard iron before the next proposal.`,
         severityRank: 2,
         confidence: 82,
       })
     );
   }
 
+  if (signals.hydraulicOnly && !signals.hydraulicNoGear) {
+    add("hydraulicOnly", 2, 80, () =>
+      spotlightRecommendationRow({
+        oid,
+        name,
+        signalKey: "hydraulicOnly",
+        dedupeKey: `${oid}:spotlight:hydraulic`,
+        spotlightKey: "hydraulic",
+        issue: `Widen ${name}'s quote story beyond hydraulics alone.`,
+        whatChanged: `Quoted mix at ${name} is narrow—mostly hydraulic with few companion categories.`,
+        why: "ISO VG discipline and pump tags are the entry point—engine, grease, gear, and coolant usually belong on the same fleet card.",
+        recommended: `Open ${INTENTIONAL_SPOTLIGHT_LABELS.hydraulic}—confirm ISO VG on bulk tanks and one pump tag before adding companion lines.`,
+        severityRank: 2,
+        confidence: 80,
+      })
+    );
+  }
+
+  if (signals.hdOilOnly && signals.noCoolant && !signals.hdNoCoolant) {
+    add("hdOilOnly", 2, 79, () =>
+      spotlightRecommendationRow({
+        oid,
+        name,
+        signalKey: "hdOilOnly",
+        dedupeKey: `${oid}:spotlight:coolant:hd-only`,
+        spotlightKey: "coolant",
+        issue: `Pair HD engine quotes at ${name} with a coolant program.`,
+        whatChanged: `Quotes are concentrated on HD engine oil with little category breadth.`,
+        why: "Engine-only quoting misses inhibitor-family and top-off discipline that HD fleets need on the same service card.",
+        recommended: `Open ${INTENTIONAL_SPOTLIGHT_LABELS.coolant}—separate NOAT, OAT, and nitrite-free Gold on the bulk chart with the rep.`,
+        severityRank: 2,
+        confidence: 79,
+      })
+    );
+  }
+
   if (signals.categoryExpansionOpportunity && !signals.newDealer && !signals.narrowProductMix) {
-    add("categoryExpansionOpportunity", 2, 77, () => ({
-      id: `sig-category-expand-${oid}`,
-      kind: "category_growth_opportunity",
-      intelligenceTheme: "mix_expansion",
-      signalKey: "categoryExpansionOpportunity",
-      dedupeKey: `${oid}:mix_expansion:categories`,
-      issue: `${name} may have room to grow adjacent categories.`,
-      whatChanged: `Quoted products are still thin across ${presence.activeCategories.length} categories—mostly ${categoryLabels(presence.activeCategories)}.`,
-      why: "Recent quote activity suggests growing interest in a few lines—adjacent categories may be the next coaching win.",
-      recommended: "Map two equipment tags on site and add one category not quoted in the last 30 days.",
-      trainingModuleKey: "category_expansion",
-      severityRank: 2,
-      confidence: 77,
-    }));
+    const expansionSpotlightKey = pickSpotlightKeyForMixGaps(signals.missingCategories, presence);
+    const expansionTitle =
+      expansionSpotlightKey && INTENTIONAL_SPOTLIGHT_LABELS[expansionSpotlightKey]
+        ? INTENTIONAL_SPOTLIGHT_LABELS[expansionSpotlightKey]
+        : null;
+
+    if (expansionSpotlightKey && expansionTitle) {
+      add("categoryExpansionOpportunity", 2, 77, () =>
+        spotlightRecommendationRow({
+          oid,
+          name,
+          signalKey: "categoryExpansionOpportunity",
+          dedupeKey: `${oid}:spotlight:${expansionSpotlightKey}:expand`,
+          spotlightKey: expansionSpotlightKey,
+          issue: `Add ${expansionTitle} to ${name}'s next coaching visit.`,
+          whatChanged: `Quotes lean on ${categoryLabels(presence.activeCategories)}; ${expansionSpotlightKey} is not in the mix yet.`,
+          why: `Outside-sales quotes show room to coach ${expansionSpotlightKey} alongside existing lines—match equipment tags, not random SKU adds.`,
+          recommended: `Open ${expansionTitle}—pick one compartment on yard iron that needs ${expansionSpotlightKey} on the next quote.`,
+          severityRank: 2,
+          confidence: 77,
+        })
+      );
+    } else {
+      add("categoryExpansionOpportunity", 2, 77, () => ({
+        id: `sig-category-expand-${oid}`,
+        kind: "category_growth_opportunity",
+        intelligenceTheme: "mix_expansion",
+        signalKey: "categoryExpansionOpportunity",
+        dedupeKey: `${oid}:mix_expansion:categories`,
+        issue: `Broaden category coaching at ${name}.`,
+        whatChanged: `Quoted products span ${presence.activeCategories.length} categories—mostly ${categoryLabels(presence.activeCategories)}.`,
+        why: "Thin mix on active quotes is a coaching moment—walk tags and add one documented category on the next visit.",
+        recommended: "Pick one equipment tag in the yard and add one category missing from recent quotes—verify on PDS before proposing.",
+        trainingModuleKey: "category_expansion",
+        severityRank: 2,
+        confidence: 77,
+      }));
+    }
   }
 
   if (signals.narrowProductMix && !signals.newDealer) {
@@ -525,21 +610,21 @@ export function rankDealerSignalActions(signals) {
   }
 
   if (signals.noTransmission && presence.total >= 4) {
-    add("noTransmission", 3, 72, () => ({
-      id: `sig-no-transmission-${oid}`,
-      kind: "training_recommendation",
-      intelligenceTheme: "training",
-      recommendationType: "category_training_recommendation",
-      signalKey: "noTransmission",
-      dedupeKey: `${oid}:training:transmission`,
-      issue: `${name} may need transmission / wet brake fundamentals.`,
-      whatChanged: "Transmission and wet-brake fluids are not showing in quoted lines yet.",
-      why: "Ag and construction bays confuse UTTO, hydraulic, and gear fills—training clears it up fast.",
-      recommended: KL_ADMIN_TRAINING_MODULES.transmission_wet_brake.next,
-      trainingModuleKey: "transmission_wet_brake",
-      severityRank: 3,
-      confidence: 72,
-    }));
+    add("noTransmission", 3, 72, () =>
+      spotlightRecommendationRow({
+        oid,
+        name,
+        signalKey: "noTransmission",
+        dedupeKey: `${oid}:spotlight:transmission`,
+        spotlightKey: "transmission",
+        issue: `Coach ${name} on transmission and wet-brake fluid discipline.`,
+        whatChanged: `Quotes at ${name} show equipment-fluid activity without transmission or UTTO lines.`,
+        why: "Ag and construction accounts confuse ATF, UTTO, wet brake, and hydraulic AW—compartment tags drive the correct fill.",
+        recommended: `Open ${INTENTIONAL_SPOTLIGHT_LABELS.transmission}—read reservoir labels on one tractor or vocational unit before the next quote.`,
+        severityRank: 3,
+        confidence: 72,
+      })
+    );
   }
 
   ranked.sort((a, b) => a.priority - b.priority || b.confidence - a.confidence);
@@ -918,9 +1003,9 @@ export function buildIntentionalProfileAndOemActions(dealer, signals) {
         dedupeKey: `${oid}:profile:${profileId}`,
         enablementSignalKind: alertKind,
         issue: `Recommend the ${profileLabel}.`,
-        whatChanged: `Quote and proposal activity at ${name} may fit the ${profileLabel} playbook.`,
-        why: "Profile-guided discovery keeps the conversation on equipment, tags, and PDS—not a generic product blast.",
-        recommended: `Open Sales Enablement · ${profileLabel} · rehearse discovery questions with the rep before any customer send.`,
+        whatChanged: `Quote patterns at ${name} align with the ${profileLabel}—equipment and category signals from recent activity.`,
+        why: "Profile playbooks keep discovery on compartments, tags, and PDS—not a SKU list.",
+        recommended: `Open Sales Enablement · ${profileLabel} · rehearse two discovery questions with the rep before the next visit.`,
         customerProfileId: profileId,
         enablementTitle: profileLabel,
         dealerOrgId: oid,
