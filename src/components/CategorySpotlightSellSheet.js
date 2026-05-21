@@ -10,6 +10,7 @@ import {
   getCategoryOemSpecCoaching,
   OEM_SPEC_VERIFY_LINE,
 } from "../data/salesEnablement/oemSpecMappings.js";
+import { KLONDIKE_GUARANTEE_LINES } from "../data/salesEnablement/categoryProgramIntelligence.js";
 
 export const CATEGORY_SPOTLIGHT_SELL_SHEET_LAYOUT_ID = "category-spotlight-sell-sheet-v6f11";
 
@@ -2446,11 +2447,22 @@ function buildCategoryIntelligencePlaybookFromRegistry(registry) {
     [],
     6
   );
+  const howKlondikeWins = mergeUniqueStrings(
+    registry.howKlondikeWins,
+    registry.competitorBeatAngles,
+    8
+  );
+  const guaranteeLines = coerceStringLines(
+    registry.klondikeGuarantee,
+    KLONDIKE_GUARANTEE_LINES,
+    3
+  );
   const oemCoaching = registry.oemSpecCoaching || getCategoryOemSpecCoaching(registry.key);
   const sectionDefs = [
-    { id: "solves", title: "What this category solves", items: registry.customerProblemsSolved },
-    { id: "dealersCare", title: "Why dealers care", items: registry.keySellingAngles },
-    { id: "whatToSay", title: "What the rep should say", items: whatToSay },
+    { id: "customersCare", title: "What customers care about", items: registry.customerProblemsSolved },
+    { id: "klondikeWins", title: "How KLONDIKE wins", items: howKlondikeWins },
+    { id: "dealersCare", title: "Why dealers should care", items: registry.keySellingAngles },
+    { id: "whatToSay", title: "What to say", items: whatToSay },
     { id: "crossSell", title: "What to cross-sell", items: registry.crossSellFocus },
     { id: "nextSteps", title: "What to do next", items: nextSteps },
   ];
@@ -2478,9 +2490,10 @@ function buildCategoryIntelligencePlaybookFromRegistry(registry) {
     .filter((section) => section.items.length);
 
   return {
-    playbookTitle: cleanCategoryDisplayText(`${registry.label} — dealer sales playbook`),
-    playbookIntro: cleanCategoryDisplayText(registry.categorySummary),
+    playbookTitle: cleanCategoryDisplayText(`${registry.label} — dealer winning playbook`),
+    playbookIntro: cleanCategoryDisplayText(registry.flagshipPositioning || registry.categorySummary),
     sections,
+    klondikeGuarantee: guaranteeLines.map(cleanCategoryDisplayText),
     oemSpecVerifyLine: oemCoaching ? OEM_SPEC_VERIFY_LINE : null,
     repStrategy: {
       customerPainPoint: coerceStringLines(registry.customerProblemsSolved, [], 6).map(cleanCategoryDisplayText),
@@ -3935,7 +3948,7 @@ function CategoryIntelligencePlaybookSection({ playbook }) {
             textTransform: "uppercase",
           }}
         >
-          Dealer sales playbook
+          Dealer winning playbook
         </p>
         <p
           style={{
@@ -3946,8 +3959,22 @@ function CategoryIntelligencePlaybookSection({ playbook }) {
             lineHeight: 1.12,
           }}
         >
-          {playbook.playbookTitle || "DEALER SALES PLAYBOOK"}
+          {playbook.playbookTitle || "DEALER WINNING PLAYBOOK"}
         </p>
+        {Array.isArray(playbook.klondikeGuarantee) && playbook.klondikeGuarantee.length ? (
+          <p
+            style={{
+              margin: "12px auto 0",
+              fontSize: 13,
+              fontWeight: 800,
+              color: BRAND.orange,
+              lineHeight: 1.4,
+              maxWidth: 640,
+            }}
+          >
+            {playbook.klondikeGuarantee[0]}
+          </p>
+        ) : null}
         {playbook.playbookIntro ? (
           <p
             style={{
@@ -3982,6 +4009,7 @@ function CategoryIntelligencePlaybookSection({ playbook }) {
               boxShadow: "0 8px 22px rgba(15, 23, 42, 0.06)",
               gridColumn:
                 section.id === "whatToSay" ||
+                section.id === "klondikeWins" ||
                 section.id === "oemWhatToAsk" ||
                 section.id === "oemSpecCallouts"
                   ? "1 / -1"

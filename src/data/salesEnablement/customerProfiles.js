@@ -1,3 +1,5 @@
+import { KLONDIKE_GUARANTEE_LINES } from "./categoryProgramIntelligence.js";
+
 /**
  * Phase 6I — Customer profile library for Sales Enablement (field playbooks).
  *
@@ -74,6 +76,10 @@ const CATEGORY_LABELS = Object.freeze({
  *   recommendedMessagingAngles: string[],
  *   relevantEquipmentTypes: string[],
  *   recommendedLfbbBlockIds: string[],
+ *   howKlondikeWins?: string[],
+ *   whyDealersCare?: string[],
+ *   accountGrowthPath?: string,
+ *   klondikeGuarantee?: string[],
  * }} SalesEnablementCustomerProfile
  */
 
@@ -174,6 +180,10 @@ export function mapCustomerProfileToSellSheetProps(profile, opts = {}) {
     crossSell: profile.crossSell || categoryCrossSell(profile.priorityProductCategories),
     cautions: profile.cautions || [CUSTOMER_PROFILE_DISCLAIMER],
     recommendedNextStep: profile.recommendedNextStep,
+    howKlondikeWins: profile.howKlondikeWins || [],
+    whyDealersCare: profile.whyDealersCare || profile.recommendedMessagingAngles || [],
+    accountGrowthPath: profile.accountGrowthPath || "",
+    klondikeGuarantee: profile.klondikeGuarantee || [...KLONDIKE_GUARANTEE_LINES],
   };
 }
 
@@ -202,7 +212,21 @@ export const SALES_ENABLEMENT_CUSTOMER_PROFILES = {
       profileTitle: "Mining & Aggregate — Field Playbook",
       profileSubtitle: "Pits, crushers, conveyors, and mobile load-out fleets",
       profileSummary:
-        "Severe-duty sites where shock load, abrasive dust, and wash-down discipline decide whether grease, hydraulics, and drivetrain fluids hold up. Lead with uptime and contamination control—not SKU swaps.",
+        "Customers care about uptime and unplanned stops. KLONDIKE wins when dealers lead with contamination control and shock-load programs — not SKU swaps.",
+      howKlondikeWins: [
+        "nano and severe-duty grease programs when washout and shock load are documented",
+        "Hydraulic ISO VG discipline before synthetic step-up — fewer pump comebacks",
+        "Gear and final-drive fills matched to tags — one compartment at a time",
+        "Backed by the KLONDIKE Guarantee — upgrade with confidence",
+      ],
+      whyDealersCare: [
+        "Mining accounts expand into grease, hydraulics, gear, engine, and coolant after first trust win",
+        "Shutdown windows are your best close — bundle before the line stops",
+        "Beat single-SKU competitors with depth reps can explain on site",
+      ],
+      accountGrowthPath:
+        "Once customers trust grease and hydraulics on the worst assets, they usually expand into gear oil, CK-4, coolant, and full PM bundles.",
+      klondikeGuarantee: [...KLONDIKE_GUARANTEE_LINES],
       customerPainPoints: [
         { iconKey: "washout", label: "Grease washout", sub: "Pins, bushings, and slow-speed bearings lose protection after water and fines exposure" },
         { iconKey: "shock", label: "Shock load", sub: "Crushers, conveyors, and loader pivots see impact before steady wear shows up" },
@@ -306,7 +330,21 @@ export const SALES_ENABLEMENT_CUSTOMER_PROFILES = {
       profileTitle: "Construction / Earthmoving — Field Playbook",
       profileSubtitle: "Mixed OEM iron, hydraulics, pins, and seasonal mobilization",
       profileSummary:
-        "Earthmoving and site contractors run mixed fleets, shared bulk, and emergency top-offs. Win on compartment discipline—hydraulics, pins, drivetrain, engines, and coolants mapped to tags, not drum color.",
+        "Construction customers care about uptime, leaks, PM simplification, and mixed fleets. KLONDIKE helps dealers win reliability conversations — then grow the full program.",
+      howKlondikeWins: [
+        "Professional through XVI hydraulic ladder — beat one-drum private-label habits",
+        "Complete grease program for washout, shock, and relube — not one EP-2 for every zerk",
+        "Compartment maps before SKUs — hydraulics, pins, gear, engine, coolant",
+        "Recommended where tags and PDS support — verify on equipment manuals",
+      ],
+      whyDealersCare: [
+        "Production-hour accounts reward dealers who simplify PM, not add confusion",
+        "Mixed OEM yards are expansion gold — hydraulic win pulls grease, gear, coolant",
+        "Seasonal mobilization is the close window — bundle before peak heat",
+      ],
+      accountGrowthPath:
+        "Once customers trust hydraulics and grease on excavators and loaders, they usually expand into gear oil, coolant, CK-4, and seasonal PM kits.",
+      klondikeGuarantee: [...KLONDIKE_GUARANTEE_LINES],
       customerPainPoints: [
         { iconKey: "hydraulic", label: "Hydraulic leaks & failures", sub: "Slow cycles, heat, and filter trips when ISO VG or AW category drifts" },
         { iconKey: "shock", label: "Pins & bushings", sub: "Grease wash-off and thickener mistakes after pressure washing" },
@@ -1099,7 +1137,21 @@ export const SALES_ENABLEMENT_CUSTOMER_PROFILES = {
       profileTitle: "Trucking & Fleet — Field Playbook",
       profileSubtitle: "Class 8, vocational, and terminal mixed fleets",
       profileSummary:
-        "Fleet operators need API category discipline, coolant separation, and analysis-backed drain intervals—not mileage myths. Position CK-4/FA-4, HD coolant, driveline, and chassis grease as a fleet card program verified on tags and PDS.",
+        "Fleet customers care about roadside reliability, bulk discipline, and fewer comebacks. KLONDIKE wins with CK-4/FA-4 clarity, Gold/NOAT coolant strategy, and driveline programs on one fleet card.",
+      howKlondikeWins: [
+        "CK-4 and FA-4 programs matched to VIN — not one 15W-40 for every diesel",
+        "Gold and HD NOAT coolant separation — beat one-green-drum fleets",
+        "Driveline and grease depth on the same business review",
+        "Backed by the KLONDIKE Guarantee on every fleet upgrade conversation",
+      ],
+      whyDealersCare: [
+        "Fleet cards grow when engine, coolant, grease, and transmission ship together",
+        "Terminal and vocational segments need a dealer who speaks API category fluently",
+        "Analysis-backed upgrades beat price-only bulk wars",
+      ],
+      accountGrowthPath:
+        "Once fleet managers trust CK-4 and coolant discipline, they usually expand into grease, transmission, and shop chemical programs.",
+      klondikeGuarantee: [...KLONDIKE_GUARANTEE_LINES],
       customerPainPoints: [
         { iconKey: "contamination", label: "Soot & fuel dilution", sub: "Intervals creep without sampling on vocational segments" },
         { iconKey: "bearing", label: "Aftertreatment sensitivity", sub: "SAPS or category mismatch at the bulk gun" },

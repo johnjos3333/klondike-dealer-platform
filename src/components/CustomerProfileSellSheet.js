@@ -11,6 +11,7 @@ import {
 } from "../data/salesEnablement/customerProfiles";
 import { getEquipmentOpportunityProfile } from "../data/salesEnablement/equipmentOpportunityProfiles.js";
 import { OEM_SPEC_VERIFY_LINE } from "../data/salesEnablement/oemSpecMappings.js";
+import { KLONDIKE_GUARANTEE_LINES } from "../data/salesEnablement/categoryProgramIntelligence.js";
 
 export const CUSTOMER_PROFILE_SELL_SHEET_LAYOUT_ID = "customer-profile-sell-sheet-v6f12";
 export const OEM_OPPORTUNITY_PROFILE_VERSION = 1;
@@ -487,6 +488,10 @@ function mapEquipmentRegistryToOemPreset(profile) {
     recommendedNextStep: profile.recommendedNextStep,
     likelySpecConversations: profile.likelySpecConversations || [],
     specWhatToAsk: profile.specWhatToAsk || [],
+    howKlondikeWins: profile.howKlondikeWins || [],
+    whyDealersCare: profile.whyDealersCare || [],
+    accountGrowthPath: profile.accountGrowthPath || "",
+    klondikeGuarantee: profile.klondikeGuarantee || [],
   };
 }
 
@@ -580,6 +585,14 @@ function resolveCustomerProfileFields(props) {
     recommendedNextStep: textPrimary(props.recommendedNextStep, base.recommendedNextStep, fallback.recommendedNextStep),
     likelySpecConversations: Array.isArray(base.likelySpecConversations) ? base.likelySpecConversations : [],
     specWhatToAsk: mergeProfileList(base.specWhatToAsk, props.specWhatToAsk, 6),
+    howKlondikeWins: mergeProfileList(base.howKlondikeWins, props.howKlondikeWins, 6),
+    whyDealersCare: mergeProfileList(base.whyDealersCare, props.whyDealersCare, 6),
+    accountGrowthPath: textPrimary(props.accountGrowthPath, base.accountGrowthPath, ""),
+    klondikeGuarantee: mergeProfileList(
+      base.klondikeGuarantee,
+      props.klondikeGuarantee || (preset || useRegistryPrimary ? KLONDIKE_GUARANTEE_LINES : []),
+      3
+    ),
     oemSpecVerifyLine: preset ? OEM_SPEC_VERIFY_LINE : null,
   };
 }
@@ -1289,6 +1302,99 @@ function RecommendedOpportunityCard({ item }) {
   );
 }
 
+function PlaybookBulletList({ items, max = 5 }) {
+  const list = (items || []).filter(Boolean).slice(0, max);
+  if (!list.length) return null;
+  return (
+    <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 8 }}>
+      {list.map((line, i) => (
+        <li
+          key={`pb-${i}`}
+          style={{
+            display: "flex",
+            gap: 8,
+            fontSize: 13,
+            lineHeight: 1.45,
+            color: "rgba(255,255,255,0.92)",
+            fontWeight: 600,
+          }}
+        >
+          <span style={{ color: BRAND.orangeLight, fontWeight: 900, flexShrink: 0 }} aria-hidden>
+            {"\u2713"}
+          </span>
+          <span>{line}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function DealerWinPlaybookPanel({ howKlondikeWins, whyDealersCare, accountGrowthPath, guaranteeLines }) {
+  const wins = (howKlondikeWins || []).filter(Boolean).slice(0, 5);
+  const dealer = (whyDealersCare || []).filter(Boolean).slice(0, 4);
+  const growth = String(accountGrowthPath || "").trim();
+  const guarantee = (guaranteeLines || []).filter(Boolean).slice(0, 2);
+  if (!wins.length && !dealer.length && !growth && !guarantee.length) return null;
+  return (
+    <section
+      data-dealer-win-playbook="true"
+      style={{
+        padding: "22px 24px",
+        borderRadius: 12,
+        background: `linear-gradient(135deg, ${BRAND.headerNavy} 0%, ${BRAND.navyMid} 100%)`,
+        color: BRAND.white,
+        display: "grid",
+        gap: 16,
+      }}
+    >
+      {guarantee.length ? (
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 900, color: BRAND.orangeLight, lineHeight: 1.4 }}>
+          {guarantee[0]}
+        </p>
+      ) : null}
+      {wins.length ? (
+        <div>
+          <p
+            style={{
+              margin: "0 0 8px",
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: BRAND.orangeMuted,
+            }}
+          >
+            How KLONDIKE wins
+          </p>
+          <PlaybookBulletList items={wins} max={5} />
+        </div>
+      ) : null}
+      {dealer.length ? (
+        <div>
+          <p
+            style={{
+              margin: "0 0 8px",
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: BRAND.orangeMuted,
+            }}
+          >
+            Why dealers should care
+          </p>
+          <PlaybookBulletList items={dealer} max={4} />
+        </div>
+      ) : null}
+      {growth ? (
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, lineHeight: 1.45, color: "rgba(255,255,255,0.92)" }}>
+          {growth}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function OemSpecConversationPanel({ rows, whatToAsk, verifyLine }) {
   const specRows = Array.isArray(rows) ? rows.slice(0, 5) : [];
   const askLines = Array.isArray(whatToAsk) ? whatToAsk.slice(0, 5) : [];
@@ -1510,6 +1616,10 @@ export default function CustomerProfileSellSheet(props) {
   const likelySpecConversations = profile.likelySpecConversations;
   const specWhatToAsk = profile.specWhatToAsk;
   const oemSpecVerifyLine = profile.oemSpecVerifyLine;
+  const howKlondikeWins = profile.howKlondikeWins;
+  const whyDealersCare = profile.whyDealersCare;
+  const accountGrowthPath = profile.accountGrowthPath;
+  const klondikeGuarantee = profile.klondikeGuarantee;
 
   const painCount = Math.min(Math.max(painTiles.length, 4), 6);
   const painGrid = painTiles.slice(0, painCount);
@@ -1677,6 +1787,12 @@ export default function CustomerProfileSellSheet(props) {
       ) : null}
 
       <section style={{ padding: "28px 44px 36px", display: "grid", gap: 22, background: BRAND.white }}>
+        <DealerWinPlaybookPanel
+          howKlondikeWins={howKlondikeWins}
+          whyDealersCare={whyDealersCare}
+          accountGrowthPath={accountGrowthPath}
+          guaranteeLines={klondikeGuarantee}
+        />
         {isOemProfile ? (
           <OemSpecConversationPanel
             rows={likelySpecConversations}

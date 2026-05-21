@@ -8,6 +8,13 @@ import { attachCategoryOemSpecCoaching } from "./oemSpecMappings.js";
 
 export const CATEGORY_PROGRAM_INTELLIGENCE_VERSION = 1;
 
+/** Short confidence lines for dealer playbooks (Phase 7F.3). */
+export const KLONDIKE_GUARANTEE_LINES = Object.freeze([
+  "Backed by the KLONDIKE Guarantee — sell with confidence.",
+  "Move beyond commodity private-label products with a lineup you can stand behind.",
+  "Give dealers confidence to upgrade customers without guessing at the counter.",
+]);
+
 /**
  * @typedef {"ladder" | "program"} CategoryProgramType
  */
@@ -68,6 +75,9 @@ export const CATEGORY_PROGRAM_INTELLIGENCE_VERSION = 1;
  *   flagshipProducts: FlagshipProductRef[],
  *   categoryFamilies: CategoryFamilyRef[],
  *   dealerNextSteps?: string[],
+ *   howKlondikeWins?: string[],
+ *   klondikeGuarantee?: string[],
+ *   competitorBeatAngles?: string[],
  * }} CategoryProgramIntelligence
  */
 
@@ -77,47 +87,56 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "hydraulic",
     label: "Hydraulic Fluids",
     categoryType: "ladder",
-    flagshipPositioning: "Keep equipment running — match ISO VG to tags, fix leaks and heat before swapping brands.",
+    flagshipPositioning:
+      "Win PM and uptime — Professional through XVI gives every fleet a real upgrade path, not one cheap AW drum for every pump.",
     categorySummary:
-      "Hydraulic reliability wins the counter conversation: leaks, heat, wet duty, and mixed equipment need the right ISO VG — not one AW drum for every pump.",
+      "Customers care about uptime, heat, and leaks. KLONDIKE gives dealers a full hydraulic ladder so you can beat private-label weak VI and one-size-fits-all bulk habits.",
     customerProblemsSolved: [
-      "Leaks and slow cycles when the wrong ISO VG or dirty fluid is in the tank",
-      "Heat and foam on first shift in cold or wet yards",
-      "Mixed equipment sharing bulk tanks without hose discipline",
-      "Repeat pump failures when analysis and filtration are skipped",
+      "Slow cycles and heat when cheap hydraulics lack VI and oxidation life",
+      "One AW bulk drum forced on every pump — wrong ISO VG, more wear",
+      "Leaks and foam on first shift — customers blame the dealer, not the tag",
+      "Lost PM trust when hydraulics fail between scheduled service visits",
+    ],
+    howKlondikeWins: [
+      "Professional → budget-conscious fleets that still need real AW protection",
+      "Advanced → stronger oxidation and wear protection for higher-hour pumps",
+      "MV → broader operating temperature range — fewer seasonal headaches",
+      "XVI → best-in-class all-season hydraulic performance when analysis supports synthetic",
+      "Cheap private-label hydraulics often hide weak VI — KLONDIKE is the credible upgrade path",
+    ],
+    competitorBeatAngles: [
+      "Most competitors stop at one or two bulk AW SKUs — you own the full ladder",
+      "Beat commodity drums with tag-matched ISO VG and a story reps can tell in 30 seconds",
     ],
     keySellingAngles: [
-      "Fewer comeback calls when ISO VG matches equipment tags",
-      "Bulk program margin on Professional through XVI synthetic ladder",
-      "Counter staff can coach tags — not guess viscosity from drum color",
-      "Hydraulic accounts pull grease, gear, and coolant on the same fleet card",
+      "Broader lineup = more PM opportunities and stronger counter credibility",
+      "Happier PM customers when hydraulics stop running hot and slow",
+      "All-season positioning with MV and XVI — not seasonal fire drills",
+      "Hydraulic wins pull Gear Oil, Grease, and Coolant on the same fleet card",
     ],
+    klondikeGuarantee: [...KLONDIKE_GUARANTEE_LINES],
     keyTechnologyThemes: [
-      "AW anti-wear hydraulic fluids (Professional, Advanced, Commercial Formula)",
-      "Multi-Viscosity AW for seasonal coverage",
-      "XVI synthetic hydraulic technology",
-      "Universal Red Tractor Fluid / wet-brake adjacent fills",
-      "R&O turbine and circulating oils",
-      "ENVIRO / BIO / EAL hydraulic companions on sensitive sites",
+      "Professional & Commercial Formula AW — fleet bulk baseline",
+      "Advanced Formula AW — oxidation and wear step-up",
+      "Multi-Viscosity AW — seasonal and wide-temp coverage",
+      "XVI Synthetic — premium all-season hydraulic performance",
     ],
     recommendedRepTalkingPoints: [
-      "What ISO VG is on the pump tag for the unit that failed last?",
-      "Where are you seeing leaks, heat, or slow response first thing in the morning?",
-      "What are you using in bulk today — and how do you top off in the field?",
-      "Are bulk tanks and hoses separated between AW, tractor fluid, and plant circuits?",
+      "What ISO VG is on the tag for the unit that ran hot or slow last?",
+      "Are you on one bulk AW for every circuit — or does each pump get what the tag says?",
+      "When hydraulics run hot, customers remember who sold them the fluid — let's fix that before the comeback.",
+      "We can start Professional for price-led bulk and step up to MV or XVI where the duty earns it — backed by the KLONDIKE Guarantee.",
     ],
     discoveryFocus: [
-      "Which circuits show heat, foam, or slow response first?",
-      "What ISO VG tags are on the worst asset this week?",
-      "Are bulk and packaged top-offs on the same program?",
+      "Which circuit failed last — and what does the pump tag say for ISO VG?",
+      "What bulk drum is on site today — private label or a program you can defend?",
     ],
-    crossSellFocus: ["Gear oil — final drives and reducers", "Grease — pins and chassis", "Coolant — fleet cooling on mixed yards"],
+    crossSellFocus: ["Gear Oil — final drives and reducers", "Grease — pins and chassis", "Coolant — mixed-fleet cooling"],
     dealerNextSteps: [
-      "Schedule a hydraulic category review with the dealer manager",
-      "Run a lunch-and-learn on ISO VG tags and bulk discipline",
-      "Review PM hydraulic SKUs on the seasonal bundle sheet",
-      "Send this hydraulic spotlight to the outside-sales rep",
-      "Assign hydraulic fundamentals training for new counter staff",
+      "Post ISO VG cheat sheet at the counter — tie tags to Professional / Advanced / MV / XVI",
+      "Review top 10 hydraulic PM accounts for one upgrade conversation each",
+      "Bundle hydraulic + grease on the next fleet business review",
+      "Send this spotlight to outside sales before peak season",
     ],
     cautions: [
       "Do not put AW hydraulic fluid in turbine, compressor R&O, or OEM-specified dry circuits without compatibility review.",
@@ -129,39 +148,39 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       tiers: [
         {
           tier: "good",
-          label: "GOOD",
-          positioning: "Commercial bulk and value AW coverage",
-          products: ["Professional Formula Hydraulic Fluids", "Advanced Formula Hydraulic Fluids"],
+          label: "PROFESSIONAL",
+          positioning: "Budget-conscious fleets — real AW coverage vs weak private-label VI",
+          products: ["Professional Formula Hydraulic Fluids", "Commercial Formula Hydraulic Fluids"],
         },
         {
           tier: "better",
-          label: "BETTER",
-          positioning: "Seasonal and multi-duty pump protection",
-          products: ["Multi-Viscosity AW Hydraulic Fluids", "Universal Red Tractor Fluid"],
+          label: "ADVANCED",
+          positioning: "Stronger oxidation and wear protection for higher-hour pumps",
+          products: ["Advanced Formula AW Hydraulic Fluids"],
         },
         {
           tier: "best",
-          label: "BEST",
-          positioning: "Premium synthetic and plant rotating equipment",
-          products: ["XVI Synthetic Hydraulic Fluids", "Long Life Turbine Oils"],
+          label: "MV",
+          positioning: "Broader operating temperature range — stronger all-season story",
+          products: ["Multi-Viscosity AW Hydraulic Fluids"],
         },
         {
           tier: "ultimate",
-          label: "ULTIMATE",
-          positioning: "Top synthetic plus environmentally acceptable options where PDS supports",
-          products: ["XVI Synthetic Hydraulic Fluids", "BIO-Synthetic EAL Hydraulic Oils"],
+          label: "XVI",
+          positioning: "Best-in-class all-season hydraulic performance when tags and analysis support synthetic",
+          products: ["XVI Synthetic Hydraulic Fluids"],
         },
       ],
     },
-    chemistryGuidance: ["Match AW vs R&O vs tractor fluid to the reservoir label and PDS — not habit."],
-    specificationGuidance: ["Lead with ISO VG on tags before quoting a tier move."],
+    chemistryGuidance: ["Match tier to tag and duty — not drum color or fleet habit."],
+    specificationGuidance: ["Lead with ISO VG on tags, then ladder tier."],
     applicationGuidance: [],
     flagshipProducts: [
       {
         id: "xvi-synthetic-hydraulic",
         name: "XVI Synthetic Hydraulic Fluids",
         role: "flagship_premium",
-        positioning: "Premium synthetic AW for severe-duty and high-value pump life programs.",
+        positioning: "Close with XVI when uptime and heat drive the conversation — best-in-class all-season AW.",
         hdVsLd: "mixed",
       },
       {
@@ -210,21 +229,33 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "grease",
     label: "Grease",
     categoryType: "ladder",
-    flagshipPositioning: "Stop pin and bushing comebacks — match grease tier to washout, shock load, and relube interval.",
+    flagshipPositioning:
+      "No matter the application, KLONDIKE has a grease program for it — washout, shock, heat, food-grade, and severe duty.",
     categorySummary:
-      "Grease wins when reps map joints first: washout, shock load, centralized systems, and relube intervals — then walk RED TAC through nano on the ladder.",
+      "Most competitors offer one or two greases and hope it works. KLONDIKE gives dealers a complete grease program so reps can match the joint, not force one EP-2 on every zerk.",
     customerProblemsSolved: [
-      "Grease washout on pins and bushings after rain or pressure washing",
-      "Shock load pounding out commodity EP-2 on loaders and implements",
-      "Wrong NLGI or thickener in centralized lube systems",
-      "Relube intervals stretched with the wrong grease family on the chart",
+      "Grease washout after rain, pressure wash, or wet shifts",
+      "Shock load pounding out cheap EP-2 on loaders and implements",
+      "Centralized systems starving or blocking on the wrong thickener",
+      "High-temp and food-grade zones treated like general chassis grease",
+    ],
+    howKlondikeWins: [
+      "Complete grease program — multipurpose, moly, synthetic, nano, food-grade, and specialty",
+      "Match NLGI and thickener to the joint — not one SKU for the whole fleet chart",
+      "Beat competitors who only stock one or two true grease solutions",
+      "RED TAC through nano — clear upgrade path reps can explain in one visit",
+    ],
+    competitorBeatAngles: [
+      "Commodity EP-2 is not a strategy — KLONDIKE is the full-program answer",
+      "Win the pin comeback conversation with the right tier, not a discount drum",
     ],
     keySellingAngles: [
-      "Fewer pin and bearing comebacks on seasonal PM routes",
-      "Ladder margin from RED TAC through moly and nano tiers",
-      "Counter can explain NLGI by joint severity — not one Poly Tac for every zerk",
-      "Grease pulls hydraulic and gear on the same equipment card",
+      "Dealers confidently quote grease by application — washout, shock, relube interval",
+      "More SKUs on the PM route without guessing at the counter",
+      "Grease depth protects hydraulic and gear accounts on the same card",
+      "Backed by the KLONDIKE Guarantee — sell upgrades with confidence",
     ],
+    klondikeGuarantee: [...KLONDIKE_GUARANTEE_LINES],
     keyTechnologyThemes: [
       "Lithium and lithium complex thickeners",
       "Moly-fortified EP (3% and 5% moly programs)",
@@ -242,12 +273,11 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Where is grease washing out or pounding out?",
       "What NLGI does the OEM chart show for your worst asset?",
     ],
-    crossSellFocus: ["Hydraulic fluids", "Gear oil", "Coolant"],
+    crossSellFocus: ["Hydraulic fluids", "Gear Oil", "Coolant"],
     dealerNextSteps: [
-      "Review PM grease SKUs on the fleet chart with the dealer manager",
-      "Run a lunch-and-learn on NLGI and the grease ladder",
-      "Send this grease spotlight to the outside-sales rep",
-      "Prepare a business review on grease depth vs one-SKU habits",
+      "Map top 5 grease comeback joints — assign a ladder tier to each",
+      "Run a 20-minute counter huddle: one grease SKU per application type",
+      "Add grease depth to the next mixed-fleet business review",
     ],
     cautions: [
       "Do not substitute nano or moly greases into central systems without compatibility review.",
@@ -738,21 +768,33 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     key: "coolant",
     label: "Coolants & Cooling System Chemistry",
     categoryType: "program",
-    flagshipPositioning: "Too many coolants create confusion — one simple inhibitor strategy per bulk tank.",
+    flagshipPositioning:
+      "Simplify mixed fleets — Gold is your flagship HD coolant story; PM consistency beats drum color guessing.",
     categorySummary:
-      "Mixed fleets usually need a simple coolant strategy: OAT, NOAT, nitrite-free Gold, or universal — with top-off and contamination discipline, not drum color.",
+      "Too many coolants confuse customers and counters. KLONDIKE helps dealers win with a clear OAT / NOAT / Gold strategy and fewer comeback calls from top-off mistakes.",
     customerProblemsSolved: [
-      "Top-off confusion after partial drains or roadside emergencies",
-      "Universal green in HD diesel radiators without NOAT verification",
-      "Mixed-chemistry hoses between automotive OAT and HD NOAT bulk",
-      "Premix ratio and water quality mistakes at the bulk blender",
+      "Top-off confusion after partial drains — wrong inhibitor family in the tank",
+      "Mixed fleets with five coolants and no bulk-tank discipline",
+      "Universal green in HD radiators without verifying NOAT or OAT requirements",
+      "Lost PM revenue when coolant is an afterthought to engine oil only",
+    ],
+    howKlondikeWins: [
+      "Gold OAT ELC — flagship nitrite-free positioning for mixed fleet / all-engines per PDS",
+      "Clear NOAT programs for classic HD diesel where tags require nitrite",
+      "Fewer tanks, clearer labels — dealers become the coolant expert, not the parts house",
+      "PM consistency: flush, test strips, and seasonal bundles customers actually buy",
+    ],
+    competitorBeatAngles: [
+      "Beat the 'one green drum' habit with inhibitor-family discipline",
+      "Win mixed-fleet accounts with Gold + HD NOAT separation — not more confusion",
     ],
     keySellingAngles: [
-      "Fewer gel and comeback calls when inhibitor families are separated",
-      "PM revenue on flush, test strips, and seasonal coolant bundles",
-      "Counter can explain OAT vs NOAT vs nitrite-free — not color",
-      "Coolant completes HD engine lane programs",
+      "Coolant completes HD engine oil lane programs — one dealer visit, full lane",
+      "Counter staff sell confidence, not color — OAT, NOAT, nitrite-free in plain language",
+      "Fewer gel and comeback calls = stronger dealer reputation",
+      "Backed by the KLONDIKE Guarantee on every spec conversation",
     ],
+    klondikeGuarantee: [...KLONDIKE_GUARANTEE_LINES],
     keyTechnologyThemes: [
       "OAT (organic acid technology) automotive and ELC",
       "NOAT (nitrite organic acid technology) heavy-duty diesel",
@@ -771,13 +813,11 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "Which bulk tanks serve HD vs light-duty?",
       "What caused the last coolant comeback?",
     ],
-    crossSellFocus: ["HD engine oil", "Grease", "Chemicals (brake, steering, flush)"],
+    crossSellFocus: ["HD Engine Oil", "Chemicals", "Grease"],
     dealerNextSteps: [
-      "Post bulk-tank labels by inhibitor family with the dealer manager",
-      "Run a lunch-and-learn on top-off and flush discipline",
-      "Review seasonal coolant PM SKUs",
-      "Send this coolant spotlight to the outside-sales rep",
-      "Prepare a business review on mixed-fleet coolant strategy",
+      "Label every bulk tank by inhibitor family — OAT, NOAT, Gold, universal",
+      "Pitch Gold on the next mixed-fleet PM review",
+      "Pair coolant flush SKUs with HD engine oil lane bundles",
     ],
     cautions: [
       "NEVER label Gold OAT ELC as light-duty only—PDS positions nitrite-free all-engines / mixed fleet.",
@@ -872,21 +912,32 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
     label: "AGRIMAX",
     categoryType: "program",
     flagshipPositioning:
-      "John Deere / Case IH equipment — same spec, same protection, save money where PDS supports (not OEM endorsement).",
+      "John Deere / Case IH equipment — same spec, same protection, save money. Dealers do not need to fight the OEM.",
     categorySummary:
-      "AGRIMAX helps ag dealers sell seasonal PM: wet brake discipline, trans-drive, and spec conversations only where tags and PDS support — not one red drum for every sump.",
+      "Emotional win for ag dealers: match the spec conversation customers already know, deliver value and confidence, and own seasonal PM — wet brake, trans-drive, grease, and coolant on one card.",
     customerProblemsSolved: [
-      "Wet brake chatter after the wrong fluid in a shared sump",
-      "One red tractor fluid quoted for every compartment",
-      "Seasonal PM kits missing trans-drive, grease, or coolant",
-      "Customers paying OEM premium without tag proof",
+      "Wet brake chatter — customers blame the dealer after the wrong fluid in a shared sump",
+      "OEM-branded fluid bills with no proof the tag required that SKU",
+      "Seasonal PM kits missing trans-drive, grease, or coolant — lost counter revenue",
+      "Counter staff afraid to quote alternatives — AGRIMAX gives them the words",
+    ],
+    howKlondikeWins: [
+      "Same spec conversation customers expect — recommended where J20C, J20D, and Hy-Tran style requirements apply (verify PDS)",
+      "AGRIMAX trans-drive and zinc-free programs for the compartments tags actually list",
+      "Dealers keep the relationship — KLONDIKE simplifies PM and protects margin",
+      "Not OEM endorsement — confidence through spec match and current PDS",
+    ],
+    competitorBeatAngles: [
+      "Stop losing seasonal PM to OEM single-SKU fear — lead with spec, close with value",
+      "Beat competitors who cannot explain wet brake vs trans-drive in one sentence",
     ],
     keySellingAngles: [
-      "Counter margin on full-line PM bundles vs single-SKU habits",
-      "Fewer wet-brake callbacks after service season",
-      "Staff can explain spec match — not imply OEM endorsement",
-      "Seasonal bulk revenue on planting and harvest windows",
+      "Seasonal service opportunities — planting, harvest, and winter PM bundles",
+      "Full-line ag depth on one counter — engine, trans-drive, grease, coolant",
+      "Reps sound like experts, not order-takers — backed by the KLONDIKE Guarantee",
+      "Grow the account after trust: gear, drip oil, grease, coolant cross-sell",
     ],
+    klondikeGuarantee: [...KLONDIKE_GUARANTEE_LINES],
     keyTechnologyThemes: [
       "AGRIMAX Trans Drive Hydraulic Fluid",
       "AGRIMAX Zinc Free Trans Drive Hydraulic Fluid",
@@ -907,17 +958,15 @@ const CATEGORY_PROGRAM_INTELLIGENCE_LIST = [
       "What is missing from spring or harvest PM kits?",
     ],
     crossSellFocus: [
-      "Gear oil — loaders and support iron",
-      "Bar & chain / drip oil — shop programs where PDS lists forestry duty",
+      "Gear Oil — loaders and support iron",
+      "Deep Well / Drip Oil — shop programs where PDS lists duty",
       "Grease — field and chassis PM",
       "Coolant — seasonal flush companions",
     ],
     dealerNextSteps: [
-      "Run a lunch-and-learn on reservoir maps for counter staff",
-      "Review seasonal PM SKU list with the dealer manager",
-      "Send this AGRIMAX spotlight to the outside-sales rep",
-      "Prepare a business review on ag line depth vs competitor single-SKU habits",
-      "Assign transmission & wet brake training before planting rush",
+      "Build the seasonal PM SKU list with trans-drive + grease + coolant",
+      "Role-play wet brake vs trans-drive with counter staff before planting rush",
+      "Target three OEM-fluid accounts for AGRIMAX spec conversations this month",
     ],
     cautions: [
       "Do not claim JD/CNH approval without exact PDS/OEM documentation.",

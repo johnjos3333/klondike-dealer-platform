@@ -1,4 +1,5 @@
 import { enrichEquipmentOpportunityProfile } from "./oemSpecMappings.js";
+import { KLONDIKE_GUARANTEE_LINES } from "./categoryProgramIntelligence.js";
 
 /**
  * Phase 6G — Equipment manufacturer opportunity profile foundation (data only).
@@ -47,6 +48,8 @@ export const EQUIPMENT_OPPORTUNITY_PROFILE_DISCLAIMER =
  *   cautions: string[],
  *   recommendedProductAnchors: RecommendedProductAnchor[],
  *   recommendedNextStep: string,
+ *   howKlondikeWins?: string[],
+ *   klondikeGuarantee?: string[],
  * }} EquipmentOpportunityProfile
  */
 
@@ -59,7 +62,22 @@ const EQUIPMENT_OPPORTUNITY_PROFILE_LIST = [
     profileSubtitle:
       "Production-hour spec conversations for excavators, loaders, haul trucks, and site support iron",
     opportunitySummary:
-      "Rep playbook for Caterpillar-badged earthmoving fleets: lead with lost production hours, compartment-by-compartment spec discipline, and KLONDIKE category depth where equipment tags, manuals, and the current PDS support the duty. This is a spec conversation guide—not a Caterpillar endorsement.",
+      "CAT dealers hear TO-4, TDTO, HYDO, and final-drive specs every day. KLONDIKE supports those conversations with multiple products per compartment — simplify PM, protect margin, and close with confidence. Recommended where requirements apply; verify using current PDS and equipment manuals. Not a Caterpillar endorsement.",
+    howKlondikeWins: [
+      "TO-4 / TDTO-4 — recommended where drive-train requirements apply (verify PDS)",
+      "SAE 10W / AW hydraulics — ISO VG discipline for heat and slow-cycle complaints",
+      "Final drives and gear — Commercial and Full Synthetic programs per tag",
+      "Dealers do not need one yellow-branded fluid for every compartment",
+      "Backed by the KLONDIKE Guarantee — sell upgrades without implying OEM approval",
+    ],
+    klondikeGuarantee: [...KLONDIKE_GUARANTEE_LINES],
+    whyDealersCare: [
+      "Multiple KLONDIKE SKUs per compartment — dealers become the spec expert, not the parts runner",
+      "Production-hour accounts close when you simplify PM and protect margin together",
+      "Hydraulic + grease + gear wins expand to engine and coolant on the same yard",
+    ],
+    accountGrowthPath:
+      "After the first hydraulic or grease win on yellow iron, expand final drives, CK-4, and HD coolant on the same fleet card.",
     commonLubricationConversations: [
       "Hydraulic circuits: heat, foam, and slow response when ISO VG drifts or bulk top-off crosses mobile AW tanks",
       "Undercarriage & implements: pin, bushing, and final-drive wear when grease thickener or regrease intervals slip on wet shifts",
@@ -232,7 +250,22 @@ const EQUIPMENT_OPPORTUNITY_PROFILE_LIST = [
     profileSubtitle:
       "Harvest-ready spec conversations: wet brake, trans-drive, engine, grease, and coolant",
     opportunitySummary:
-      "Rep playbook for John Deere ag customers: win on reservoir discipline, seasonal PM bundles, and AGRIMAX program depth—always as a spec conversation verified on equipment tags, operator manuals, and the current PDS. Not a Deere endorsement or approval sheet.",
+      "Same spec customers expect — J20C, J20D, wet brake, trans-drive — recommended where requirements apply. AGRIMAX helps dealers save money and simplify seasonal PM without fighting the OEM on every compartment. Verify using current PDS and equipment manuals. Not a Deere endorsement.",
+    howKlondikeWins: [
+      "J20C / J20D UTF conversations — AGRIMAX and Universal Tractor Fluid where PDS supports",
+      "Wet brake confidence — separate sump discipline before parts replacement narratives",
+      "Seasonal PM bundles: trans-drive, grease, CK-4, coolant on one counter visit",
+      "Dealers do not need OEM-branded fluid in every compartment to keep the customer",
+      "Backed by the KLONDIKE Guarantee — match spec, protect margin, close harvest windows",
+    ],
+    klondikeGuarantee: [...KLONDIKE_GUARANTEE_LINES],
+    whyDealersCare: [
+      "Seasonal PM bundles beat single-SKU OEM fear — trans-drive, grease, coolant on one counter visit",
+      "AGRIMAX gives counter staff words for J20C/J20D without implying Deere endorsement",
+      "Harvest windows close fast — dealers who spec-match win the relationship",
+    ],
+    accountGrowthPath:
+      "Once trans-drive and wet brake trust is earned, expand gear oil, grease, coolant, and CK-4 on the seasonal PM sheet.",
     commonLubricationConversations: [
       "Wet brake chatter: often fluid compatibility in the common sump—not brake hardware alone",
       "Trans-drive confusion: one green or red drum quoted for transmission, hydraulic, and wet-brake compartments",
