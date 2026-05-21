@@ -12,8 +12,11 @@ import {
 import { getEquipmentOpportunityProfile } from "../data/salesEnablement/equipmentOpportunityProfiles.js";
 import { OEM_SPEC_VERIFY_LINE } from "../data/salesEnablement/oemSpecMappings.js";
 import { KLONDIKE_GUARANTEE_LINES } from "../data/salesEnablement/categoryProgramIntelligence.js";
+import CustomerProfileEquipmentInfographic, {
+  resolveInfographicProfileKey,
+} from "./customerProfileVisuals/CustomerProfileEquipmentInfographic.js";
 
-export const CUSTOMER_PROFILE_SELL_SHEET_LAYOUT_ID = "customer-profile-sell-sheet-v6f12";
+export const CUSTOMER_PROFILE_SELL_SHEET_LAYOUT_ID = "customer-profile-sell-sheet-v7f14";
 export const OEM_OPPORTUNITY_PROFILE_VERSION = 1;
 
 const OEM_PROFILE_DISCLAIMER =
@@ -1591,6 +1594,8 @@ function IndustryHeroVisual({ industryImageUrl }) {
 
 export default function CustomerProfileSellSheet(props) {
   const profile = resolveCustomerProfileFields(props);
+  const customerProfileId =
+    props.customerProfileId || props.customerProfileKey || props.customerProfileRefId || "";
   const isOemProfile = profile.isOem;
   const profileTitle = profile.profileTitle;
   const profileSubtitle = profile.profileSubtitle;
@@ -1624,6 +1629,9 @@ export default function CustomerProfileSellSheet(props) {
   const painCount = Math.min(Math.max(painTiles.length, 4), 6);
   const painGrid = painTiles.slice(0, painCount);
   const painCols = painCount <= 4 ? 2 : 3;
+  const infographicKey = !isOemProfile
+    ? resolveInfographicProfileKey(customerProfileId, profileTitle)
+    : null;
 
   return (
     <article
@@ -1673,13 +1681,20 @@ export default function CustomerProfileSellSheet(props) {
       <section
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1.1fr) minmax(320px, 1fr)",
-          minHeight: 480,
+          gridTemplateColumns: infographicKey ? "1fr" : "minmax(0, 1.1fr) minmax(320px, 1fr)",
+          minHeight: infographicKey ? undefined : 480,
           background: `linear-gradient(125deg, ${BRAND.headerNavy} 0%, ${BRAND.navy} 42%, ${BRAND.navyMid} 100%)`,
-          borderBottom: "1px solid rgba(226,232,240,0.95)",
+          borderBottom: infographicKey ? "none" : "1px solid rgba(226,232,240,0.95)",
         }}
       >
-        <div style={{ padding: "44px 44px 48px", display: "grid", gap: 16, alignContent: "center" }}>
+        <div
+          style={{
+            padding: infographicKey ? "36px 44px 32px" : "44px 44px 48px",
+            display: "grid",
+            gap: 16,
+            alignContent: "center",
+          }}
+        >
           <span
             style={{
               justifySelf: "start",
@@ -1736,10 +1751,24 @@ export default function CustomerProfileSellSheet(props) {
           ) : null}
           {isOemProfile ? <OemHeroDisclaimer text={oemHeroDisclaimer} /> : null}
         </div>
-        <div style={{ padding: "36px 28px 40px 20px", display: "flex", alignItems: "center" }}>
-          <IndustryHeroVisual industryImageUrl={industryImageUrl} />
-        </div>
+        {!infographicKey ? (
+          <div style={{ padding: "36px 28px 40px 20px", display: "flex", alignItems: "center" }}>
+            <IndustryHeroVisual industryImageUrl={industryImageUrl} />
+          </div>
+        ) : null}
       </section>
+
+      {infographicKey ? (
+        <section
+          style={{
+            padding: "28px 44px 32px",
+            background: `linear-gradient(180deg, ${BRAND.headerNavy} 0%, #0f172a 100%)`,
+            borderBottom: "1px solid rgba(226,232,240,0.95)",
+          }}
+        >
+          <CustomerProfileEquipmentInfographic profileKey={infographicKey} />
+        </section>
+      ) : null}
 
       {painGrid.length ? (
         <section style={{ padding: "32px 44px 28px", background: "#f8fafc" }}>
